@@ -15,6 +15,10 @@
 - Install Node.js 22+.
 - Run `npm install` to install dependencies. This also generates `package-lock.json`, which is committed and used by CI.
 - Install the recommended VSCode extensions: Prettier, ESLint, and markdownlint.
+- **Claude Code**: the repo enables tools that load automatically once you trust the project. Some need a binary installed once per machine:
+    - `typescript-lsp` — TypeScript code intelligence. Needs the language server: `npm i -g typescript-language-server typescript` (global; reinstall after switching Node versions).
+    - `playwright` — browser automation. Needs a browser: `npx playwright install chromium`.
+    - `frontend-design` — frontend design guidance. No binary needed.
 
 ## Development
 

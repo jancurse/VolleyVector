@@ -29,6 +29,14 @@ All commands run from the project root. See @docs/development.md for the full li
 
 Use the diagnostics skill after code changes to ensure formatting, linting, and type checking all pass. Use the react-testing skill when writing or modifying tests. Do not disable warnings (`// eslint-disable`, `// @ts-ignore`, `// @ts-expect-error`, etc.) without user permission.
 
+## Tools
+
+The repo enables the following Claude Code tools (binaries to install are in @docs/development.md):
+
+- **`typescript-lsp`** — use the LSP tool for code intelligence (go-to-definition, find references, hover) instead of grepping for symbols.
+- **`playwright`** — drive the running dev server in a browser to verify the UI visually (screenshots, interaction); look and motion are core to this product, so check changes on screen, not just in tests.
+- **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
+
 ## Problem Solving
 
 - Follow instructions exactly as stated. Do not make assumptions.
