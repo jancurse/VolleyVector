@@ -1,0 +1,23 @@
+# Pre-commit hooks for Markdown formatting.
+#
+# Block-style: if a hook reformats a staged file, the pre-commit framework
+# aborts the commit and leaves the changes in the working tree. Review them,
+# `git add`, and commit again.
+#
+# Activate with `pre-commit install` after `git init`.
+repos:
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.22.1
+    hooks:
+      - id: markdownlint-cli2
+        args: ["--fix"]
+        exclude: ^CLAUDE\.md$
+
+  - repo: local
+    hooks:
+      - id: markdown-table-prettify
+        name: align markdown tables
+        entry: .claude/hooks/format-md-tables.sh
+        language: script
+        files: \.md$
+        exclude: ^CLAUDE\.md$

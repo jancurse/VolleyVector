@@ -1,0 +1,7 @@
+ul-indent:
+  indent: 4
+MD013: false # line-length - disable line length limits
+MD022: false # blanks-around-headings - disable this rule
+MD025: # single-title - ignore frontmatter title field
+  front_matter_title: ""
+MD032: false # lists-surrounded-by-blank-lines - allow flexible list spacing
