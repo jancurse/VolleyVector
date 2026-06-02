@@ -12,6 +12,7 @@ See @plans/project_overview.md for the scope, stack, architecture, and build pla
 
 - Always read the style guide before writing code: @docs/style_guide.md
 - We use Prettier, ESLint, and the TypeScript compiler with a 120-character line length. Do not break lines manually. Run Prettier instead. Settings live in @package.json (Prettier), @eslint.config.js (ESLint), and @tsconfig.json (TypeScript).
+- **Markdown: never hard-wrap a sentence to satisfy a character count.** A single sentence stays on one line and soft-wraps in the editor. You may break lines at sentence boundaries (or other clause/logical boundaries) for clarity — one sentence per line is fine — but do not split a sentence across lines just to hit a width limit. The 120-character limit is a code rule and does not apply to Markdown prose.
 - Code should be concise and readable:
     - Use comments very sparingly. Only write comments to explain a complicated block of code or an unusual line. Do not restate every single line.
     - Do not create more variables than needed. Use inline expressions rather than creating a variable for a one-time use (unless very complicated).
