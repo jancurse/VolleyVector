@@ -1,6 +1,17 @@
 import { describe, expect, test } from "vitest";
 
-import { clamp01, COURT_SPAN, FREE_ZONE, toSvg, toSvgPoint, VIEW_SIZE } from "../../src/court/geometry";
+import {
+  clamp01,
+  clampToCourt,
+  COURT_SPAN,
+  FREE_ZONE,
+  fromSvg,
+  fromSvgPoint,
+  MARKER_REACH,
+  toSvg,
+  toSvgPoint,
+  VIEW_SIZE,
+} from "../../src/court/geometry";
 
 describe("clamp01", () => {
   test.each([
@@ -27,6 +38,40 @@ describe("toSvg", () => {
 describe("toSvgPoint", () => {
   test("maps both axes through toSvg", () => {
     expect(toSvgPoint({ x: 0, y: 1 })).toEqual({ x: toSvg(0), y: toSvg(1) });
+  });
+});
+
+describe("clampToCourt", () => {
+  test.each([
+    [
+      { x: 0.5, y: 0.5 },
+      { x: 0.5, y: 0.5 },
+    ], // inside the court, untouched
+    [
+      { x: 0.8, y: -0.085 },
+      { x: 0.8, y: -0.085 },
+    ], // the ball above the net, within reach
+    [
+      { x: -1, y: 2 },
+      { x: -MARKER_REACH, y: 1 + MARKER_REACH },
+    ], // far outside, clamped to the reach
+  ])("clamps %o to %o", (input, expected) => {
+    expect(clampToCourt(input)).toEqual(expected);
+  });
+});
+
+describe("fromSvg", () => {
+  test.each([0, 0.25, 0.5, 1])("inverts toSvg for %p", (normalized) => {
+    expect(fromSvg(toSvg(normalized))).toBeCloseTo(normalized);
+  });
+});
+
+describe("fromSvgPoint", () => {
+  test("inverts toSvgPoint on both axes", () => {
+    const result = fromSvgPoint(toSvgPoint({ x: 0.3, y: 0.7 }));
+
+    expect(result.x).toBeCloseTo(0.3);
+    expect(result.y).toBeCloseTo(0.7);
   });
 });
 

@@ -75,3 +75,20 @@ Built and accepted: the static court and markers render in both themes and the v
 - **Locked**
     - Default court extent: one half-court (net plus the 3 m attack line), square 9×9.
     - White marker labels on a theme-stable role palette; theme defaults to system preference, falling back to dark.
+
+### Stage 2 — done
+
+Built and accepted across several review rounds: a coach can create, edit, view, and delete tactics entirely in the browser, persisted to localStorage, behind a polished view/edit flow.
+
+- **Shipped**
+    - **The tactic editor.** Add markers from a palette; drag them (pointer, with a lift) or nudge a selected one with the arrow keys; select with a calm accent halo; recolour by role; rename labels; and write a markdown description with a Write/Preview toggle.
+    - **Data model and persistence.** A `Tactic` (title, markdown description, court mode, markers, timestamps) with pure operations (`makeMarker` with label numbering and bench placement, `setMarker`, `removeMarker`, `createTactic`) and a `useTactics` store backed by localStorage — seeded with a "Base defence" sample, debounced saves, and a reseed on first run or corrupt data.
+    - **One court, two roles.** `Court` gained optional selection/drag props so the same component renders read-only or editable; `useMarkerDrag` maps pointer to normalized coordinates through the SVG screen matrix, clamped to the court plus a free-zone reach so the ball can sit over the net.
+    - **View-first flow.** Opening an item lands in a read-only `TacticView` (read-only court, the description rendered in a card, and an Edit button — the surface players and share-link visitors will get). Editing is a focused full-width mode with **Cancel** (discard) and **Done** (commit) over a working draft; a minimal tactics rail lists, creates, and selects; delete sits in the editor behind a confirm.
+    - **Court modes and colours.** A per-tactic **Positions / Basic** toggle by the board swaps the palette between volleyball roles and generic Coach/Player markers (numbered C1, P1…); in basic mode a curated colour picker recolours markers (e.g. two teams). New markers land on a "bench" row below the court and reuse freed slots.
+    - **Tests and tooling.** `react-markdown` renders descriptions; 68 unit tests cover the pure operations, storage, geometry, and the full App view/edit and editing behaviours; format, lint, type-check, and build are green.
+- **Locked**
+    - **View-first, commit-on-Done.** Open into the read-only view; coaches Edit into a draft, where Done commits and Cancel discards (no autosave mid-edit). Editing is full-width with the rail stepped aside; the layout is capped (~1320, court 560 + description ~728) and the description card is shared by both modes.
+    - **Per-tactic court mode**, defaulting to Positions; the mode only filters the palette and inspector and never rewrites existing markers.
+    - **Labelling (placeholder).** Outside/middle/coach/player auto-number; setter/opposite/libero stay bare until duplicated; the ball is unlabelled. Role drives colour, with an optional per-marker colour override in basic mode (a single player colour for now).
+    - Removed the now-superseded Stage-1 `Legend`; the palette documents the roles.

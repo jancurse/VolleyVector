@@ -1,7 +1,7 @@
-import type { JSX } from "react";
+import type { JSX, PointerEvent } from "react";
 
 import { toSvgPoint } from "./geometry";
-import { markerLabel, ROLES } from "./roles";
+import { MARKER_COLORS, markerLabel, ROLES } from "./roles";
 import type { Marker as MarkerData } from "./types";
 
 const PLAYER_RADIUS = 46;
@@ -25,19 +25,40 @@ type MarkerProps = {
   marker: MarkerData;
   /** Position in the entrance stagger; later markers settle in slightly after earlier ones. */
   index?: number;
+  selected?: boolean;
+  dragging?: boolean;
+  /** When provided, the marker is interactive: pressing it starts a select/drag. */
+  onPointerDown?: (id: string, event: PointerEvent) => void;
 };
 
-export function Marker({ marker, index = 0 }: MarkerProps): JSX.Element {
+export function Marker({
+  marker,
+  index = 0,
+  selected = false,
+  dragging = false,
+  onPointerDown,
+}: MarkerProps): JSX.Element {
   const { x, y } = toSvgPoint(marker.position);
-  const style = ROLES[marker.role];
+  const style = marker.color ? MARKER_COLORS[marker.color] : ROLES[marker.role];
   const isBall = marker.role === "ball";
   const label = markerLabel(marker.role, marker.label);
+  const radius = isBall ? BALL_RADIUS : PLAYER_RADIUS;
 
-  // Outer group carries the position (an SVG transform); the inner group owns the entrance
-  // animation, so the CSS transform never clobbers the marker's placement.
+  // Outer group carries the position (an SVG transform) and any interaction; the inner group owns
+  // the entrance/lift animations, so a CSS transform never clobbers the marker's placement.
   return (
-    <g transform={`translate(${x} ${y})`} role="img" aria-label={isBall ? "Ball" : accessibleName(marker.role, label)}>
-      <g className="vc-marker" style={{ animationDelay: `${0.35 + index * 0.06}s` }}>
+    <g
+      transform={`translate(${x} ${y})`}
+      role="img"
+      aria-label={isBall ? "Ball" : accessibleName(marker.role, label)}
+      className={onPointerDown ? "vc-marker-hit" : undefined}
+      onPointerDown={onPointerDown && ((event) => onPointerDown(marker.id, event))}
+    >
+      <circle className={`vc-halo${selected ? " vc-halo--on" : ""}`} r={radius + 9} />
+      <g
+        className={`vc-marker${dragging ? " vc-marker--dragging" : ""}`}
+        style={{ animationDelay: `${0.35 + index * 0.06}s` }}
+      >
         {isBall ? (
           <>
             <circle r={BALL_RADIUS} fill={style.fill} stroke={style.ring} strokeWidth={2.5} />

@@ -1,0 +1,64 @@
+import { useCallback, useState } from "react";
+import type { PointerEvent, RefObject } from "react";
+
+import { clampToCourt, fromSvgPoint } from "./geometry";
+import type { NormalizedPoint } from "./geometry";
+
+// Pointer dragging for markers. The court's <svg> captures the pointer on marker press, so a drag
+// keeps tracking even when it leaves the court; client coordinates are mapped back through the
+// SVG's screen matrix into the normalized space the rest of the app speaks.
+
+export type MarkerDrag = {
+  draggingId: string | null;
+  onMarkerPointerDown: (id: string, event: PointerEvent) => void;
+  onSurfacePointerDown: () => void;
+  onPointerMove: (event: PointerEvent) => void;
+  onPointerUp: () => void;
+};
+
+function clientToNormalized(svg: SVGSVGElement, clientX: number, clientY: number): NormalizedPoint | null {
+  const ctm = svg.getScreenCTM();
+
+  if (!ctm) return null;
+
+  const point = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+
+  return fromSvgPoint({ x: point.x, y: point.y });
+}
+
+export function useMarkerDrag(
+  svgRef: RefObject<SVGSVGElement | null>,
+  onSelect: (id: string | null) => void,
+  onMove: (id: string, position: NormalizedPoint) => void
+): MarkerDrag {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  const onMarkerPointerDown = useCallback(
+    (id: string, event: PointerEvent) => {
+      event.stopPropagation();
+      onSelect(id);
+      setDraggingId(id);
+      svgRef.current?.setPointerCapture(event.pointerId);
+    },
+    [onSelect, svgRef]
+  );
+
+  const onPointerMove = useCallback(
+    (event: PointerEvent) => {
+      if (draggingId === null || !svgRef.current) return;
+
+      const position = clientToNormalized(svgRef.current, event.clientX, event.clientY);
+
+      if (position) onMove(draggingId, clampToCourt(position));
+    },
+    [draggingId, onMove, svgRef]
+  );
+
+  return {
+    draggingId,
+    onMarkerPointerDown,
+    onSurfacePointerDown: useCallback(() => onSelect(null), [onSelect]),
+    onPointerMove,
+    onPointerUp: useCallback(() => setDraggingId(null), []),
+  };
+}

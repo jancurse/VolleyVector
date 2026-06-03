@@ -1,26 +1,40 @@
+import { useState } from "react";
 import type { JSX } from "react";
 
-import { Court } from "./court/Court";
-import { Legend } from "./court/Legend";
-import type { Marker } from "./court/types";
+import { TacticEditor } from "./editor/TacticEditor";
+import { TacticList } from "./editor/TacticList";
+import { TacticView } from "./editor/TacticView";
+import { createTactic } from "./tactics/operations";
+import type { Tactic } from "./tactics/types";
+import { useTactics } from "./tactics/useTactics";
 import { useTheme } from "./theme/useTheme";
 import { ThemeToggle } from "./ui/ThemeToggle";
 
-// A static perimeter defence against an outside attack, used to showcase the court's visual
-// language in Stage 1. The opposing outside hitter attacks from their position 4, which mirrors to
-// our right side of the net, so the ball sits high-x on their side, with the block formed beneath it.
-const FORMATION: Marker[] = [
-  { id: "opp", role: "opposite", label: "OPP", position: { x: 0.82, y: 0.08 } },
-  { id: "mb1", role: "middle", label: "MB1", position: { x: 0.64, y: 0.08 } },
-  { id: "oh1", role: "outside", label: "OH1", position: { x: 0.22, y: 0.27 } },
-  { id: "s", role: "setter", label: "S", position: { x: 0.84, y: 0.55 } },
-  { id: "l", role: "libero", label: "L", position: { x: 0.2, y: 0.7 } },
-  { id: "oh2", role: "outside", label: "OH2", position: { x: 0.5, y: 0.85 } },
-  { id: "ball", role: "ball", position: { x: 0.8, y: -0.085 } },
-];
-
 export function App(): JSX.Element {
   const [theme, toggleTheme] = useTheme();
+  const { tactics, addTactic, deleteTactic, updateTactic } = useTactics();
+  const [currentId, setCurrentId] = useState<string>(() => tactics[0]?.id ?? "");
+  // The tactic being edited (a draft committed on Done); null means we are viewing, not editing.
+  const [draft, setDraft] = useState<Tactic | null>(null);
+
+  const current = tactics.find((t) => t.id === currentId) ?? tactics[0] ?? null;
+  const isExisting = draft !== null && tactics.some((t) => t.id === draft.id);
+
+  const commit = (updated: Tactic) => {
+    if (tactics.some((t) => t.id === updated.id)) updateTactic(updated.id, () => updated);
+    else addTactic(updated);
+
+    setCurrentId(updated.id);
+    setDraft(null);
+  };
+
+  const remove = (id: string) => {
+    if (!window.confirm("Delete this tactic? This cannot be undone.")) return;
+
+    deleteTactic(id);
+    setCurrentId(tactics.find((t) => t.id !== id)?.id ?? "");
+    setDraft(null);
+  };
 
   return (
     <div className="vc-app">
@@ -36,23 +50,36 @@ export function App(): JSX.Element {
         <ThemeToggle theme={theme} onToggle={toggleTheme} />
       </header>
 
-      <main className="vc-main">
-        <section className="vc-stage">
-          <div className="vc-caption">
-            <p className="vc-eyebrow">Tactic</p>
-            <h1 className="vc-title">Base defence</h1>
-            <p className="vc-subtitle">Perimeter, against an outside attack</p>
-          </div>
-          <figure className="vc-court-frame">
-            <Court markers={FORMATION} label="Base defence: perimeter against an outside attack" />
-          </figure>
-        </section>
-
-        <aside className="vc-panel">
-          <h2 className="vc-panel-title">Roles</h2>
-          <Legend />
-        </aside>
-      </main>
+      {draft ? (
+        <main className="vc-stage">
+          <TacticEditor
+            key={draft.id}
+            tactic={draft}
+            onDone={commit}
+            onCancel={() => setDraft(null)}
+            onDelete={isExisting ? () => remove(draft.id) : undefined}
+          />
+        </main>
+      ) : (
+        <main className="vc-workspace">
+          <TacticList
+            tactics={tactics}
+            currentId={current?.id ?? ""}
+            onSelect={setCurrentId}
+            onCreate={() => setDraft(createTactic(Date.now()))}
+          />
+          {current ? (
+            <TacticView tactic={current} onEdit={() => setDraft(current)} />
+          ) : (
+            <div className="vc-empty">
+              <p>No tactics yet.</p>
+              <button type="button" className="vc-new" onClick={() => setDraft(createTactic(Date.now()))}>
+                + New tactic
+              </button>
+            </div>
+          )}
+        </main>
+      )}
     </div>
   );
 }

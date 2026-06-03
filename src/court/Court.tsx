@@ -1,12 +1,15 @@
+import { useRef } from "react";
 import type { JSX } from "react";
 
 import { ATTACK_LINE, COURT_SPAN, toSvg, VIEW_SIZE } from "./geometry";
+import type { NormalizedPoint } from "./geometry";
 import { Marker } from "./Marker";
 import type { Marker as MarkerData } from "./types";
+import { useMarkerDrag } from "./useMarkerDrag";
 
 // The single court component, shared by static tactics and individual drill steps. It draws the
-// playing surface, its lines, the net, and the given markers — and nothing about interaction or
-// animation lives here, so both modes render identically from the same inputs.
+// playing surface, its lines, the net, and the given markers. Passing both `onSelect` and `onMove`
+// turns it into an editable surface (select, drag); without them it renders as a static diagram.
 
 const NET_BAND = 54; // height of the net mesh above the top line, in SVG units
 const NET_STRANDS = 26;
@@ -16,15 +19,41 @@ const right = toSvg(1);
 const netLine = toSvg(0);
 const netTape = netLine - NET_BAND;
 
+const noSelect = (_id: string | null): void => {};
+const noMove = (_id: string, _position: NormalizedPoint): void => {};
+
 type CourtProps = {
   markers: readonly MarkerData[];
   /** Accessible name for the whole diagram. */
   label?: string;
+  selectedId?: string | null;
+  /** Provide both `onSelect` and `onMove` to make the court an editable surface. */
+  onSelect?: (id: string | null) => void;
+  onMove?: (id: string, position: NormalizedPoint) => void;
 };
 
-export function Court({ markers, label = "Volleyball half-court" }: CourtProps): JSX.Element {
+export function Court({
+  markers,
+  label = "Volleyball half-court",
+  selectedId = null,
+  onSelect,
+  onMove,
+}: CourtProps): JSX.Element {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const editable = Boolean(onSelect && onMove);
+  const drag = useMarkerDrag(svgRef, onSelect ?? noSelect, onMove ?? noMove);
+
   return (
-    <svg className="vc-court" viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`} aria-label={label}>
+    <svg
+      ref={svgRef}
+      className={`vc-court${editable ? " vc-court--editable" : ""}`}
+      viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
+      aria-label={label}
+      onPointerDown={editable ? drag.onSurfacePointerDown : undefined}
+      onPointerMove={editable ? drag.onPointerMove : undefined}
+      onPointerUp={editable ? drag.onPointerUp : undefined}
+      onPointerCancel={editable ? drag.onPointerUp : undefined}
+    >
       <rect className="vc-play" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
       <rect className="vc-zone" x={left} y={toSvg(0)} width={COURT_SPAN} height={ATTACK_LINE * COURT_SPAN} />
 
@@ -43,7 +72,14 @@ export function Court({ markers, label = "Volleyball half-court" }: CourtProps):
       </g>
 
       {markers.map((marker, i) => (
-        <Marker key={marker.id} marker={marker} index={i} />
+        <Marker
+          key={marker.id}
+          marker={marker}
+          index={i}
+          selected={marker.id === selectedId}
+          dragging={marker.id === drag.draggingId}
+          onPointerDown={editable ? drag.onMarkerPointerDown : undefined}
+        />
       ))}
     </svg>
   );
