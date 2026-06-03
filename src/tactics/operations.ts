@@ -65,5 +65,5 @@ export function removeMarker(markers: readonly Marker[], id: string): Marker[] {
 }
 
 export function createTactic(now: number, mode: CourtMode = "positions", title = "Untitled tactic"): Tactic {
-  return { id: newId(), title, description: "", mode, markers: [], createdAt: now, updatedAt: now };
+  return { id: newId(), title, description: "", mode, markers: [], tags: [], createdAt: now, updatedAt: now };
 }

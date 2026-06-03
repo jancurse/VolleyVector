@@ -14,6 +14,7 @@ export const SAMPLE_TACTIC: Tactic = {
     "- The **setter** releases off the net to chase the second ball.\n" +
     "- Back-row players hold the deep corners.",
   mode: "positions",
+  tags: ["Defence", "Outside attack"],
   markers: [
     { id: "opp", role: "opposite", label: "OPP", position: { x: 0.82, y: 0.08 } },
     { id: "mb1", role: "middle", label: "MB1", position: { x: 0.64, y: 0.08 } },
@@ -46,8 +47,8 @@ export function loadTactics(): Tactic[] | null {
 
     if (!Array.isArray(parsed) || !parsed.every(isTactic)) return null;
 
-    // Default the mode so tactics stored before it existed still load.
-    return parsed.map((tactic) => ({ ...tactic, mode: tactic.mode ?? "positions" }));
+    // Default the mode and tags so tactics stored before they existed still load.
+    return parsed.map((tactic) => ({ ...tactic, mode: tactic.mode ?? "positions", tags: tactic.tags ?? [] }));
   } catch {
     return null;
   }

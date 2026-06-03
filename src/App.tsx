@@ -1,73 +1,130 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
 import { createDrill } from "./drills/operations";
 import type { Drill } from "./drills/types";
 import { useDrills } from "./drills/useDrills";
 import { DrillEditor } from "./editor/DrillEditor";
-import { DrillList } from "./editor/DrillList";
 import { DrillView } from "./editor/DrillView";
 import { TacticEditor } from "./editor/TacticEditor";
-import { TacticList } from "./editor/TacticList";
 import { TacticView } from "./editor/TacticView";
+import { Library } from "./library/Library";
+import { allTags } from "./library/items";
+import type { LibraryKind } from "./library/items";
 import { createTactic } from "./tactics/operations";
 import type { Tactic } from "./tactics/types";
 import { useTactics } from "./tactics/useTactics";
 import { useTheme } from "./theme/useTheme";
-import { CollectionSwitch } from "./ui/CollectionSwitch";
-import type { Collection } from "./ui/CollectionSwitch";
 import { ThemeToggle } from "./ui/ThemeToggle";
+
+// The app moves between three surfaces: the library grid (home), a read-only view of one item, and
+// the editor for a working draft. A draft takes precedence over everything; otherwise an open item
+// shows its view; otherwise the library. Committing or deleting a draft returns to the right surface.
+type Open = { kind: LibraryKind; id: string } | null;
 
 export function App(): JSX.Element {
   const [theme, toggleTheme] = useTheme();
-  const [collection, setCollection] = useState<Collection>("tactics");
 
   const { tactics, addTactic, deleteTactic, updateTactic } = useTactics();
-  const [tacticId, setTacticId] = useState<string>(() => tactics[0]?.id ?? "");
-  const [tacticDraft, setTacticDraft] = useState<Tactic | null>(null);
-
   const { drills, addDrill, deleteDrill, updateDrill } = useDrills();
-  const [drillId, setDrillId] = useState<string>(() => drills[0]?.id ?? "");
+
+  const [open, setOpen] = useState<Open>(null);
+  const [tacticDraft, setTacticDraft] = useState<Tactic | null>(null);
   const [drillDraft, setDrillDraft] = useState<Drill | null>(null);
 
-  const currentTactic = tactics.find((t) => t.id === tacticId) ?? tactics[0] ?? null;
-  const currentDrill = drills.find((d) => d.id === drillId) ?? drills[0] ?? null;
+  const openTactic = open?.kind === "tactic" ? (tactics.find((t) => t.id === open.id) ?? null) : null;
+  const openDrill = open?.kind === "drill" ? (drills.find((d) => d.id === open.id) ?? null) : null;
 
   const commitTactic = (updated: Tactic) => {
     if (tactics.some((t) => t.id === updated.id)) updateTactic(updated.id, () => updated);
     else addTactic(updated);
 
-    setTacticId(updated.id);
     setTacticDraft(null);
+    setOpen({ kind: "tactic", id: updated.id });
   };
 
   const removeTactic = (id: string) => {
     if (!window.confirm("Delete this tactic? This cannot be undone.")) return;
 
     deleteTactic(id);
-    setTacticId(tactics.find((t) => t.id !== id)?.id ?? "");
     setTacticDraft(null);
+    setOpen(null);
   };
 
   const commitDrill = (updated: Drill) => {
     if (drills.some((d) => d.id === updated.id)) updateDrill(updated.id, () => updated);
     else addDrill(updated);
 
-    setDrillId(updated.id);
     setDrillDraft(null);
+    setOpen({ kind: "drill", id: updated.id });
   };
 
   const removeDrill = (id: string) => {
     if (!window.confirm("Delete this drill? This cannot be undone.")) return;
 
     deleteDrill(id);
-    setDrillId(drills.find((d) => d.id !== id)?.id ?? "");
     setDrillDraft(null);
+    setOpen(null);
   };
 
   const tacticExisting = tacticDraft !== null && tactics.some((t) => t.id === tacticDraft.id);
   const drillExisting = drillDraft !== null && drills.some((d) => d.id === drillDraft.id);
-  const editing = collection === "tactics" ? tacticDraft : drillDraft;
+
+  const tagSuggestions = useMemo(() => allTags(tactics, drills), [tactics, drills]);
+
+  let main: JSX.Element;
+
+  if (tacticDraft) {
+    main = (
+      <main className="vc-stage">
+        <TacticEditor
+          key={tacticDraft.id}
+          tactic={tacticDraft}
+          onDone={commitTactic}
+          onCancel={() => setTacticDraft(null)}
+          onDelete={tacticExisting ? () => removeTactic(tacticDraft.id) : undefined}
+          tagSuggestions={tagSuggestions}
+        />
+      </main>
+    );
+  } else if (drillDraft) {
+    main = (
+      <main className="vc-stage">
+        <DrillEditor
+          key={drillDraft.id}
+          drill={drillDraft}
+          onDone={commitDrill}
+          onCancel={() => setDrillDraft(null)}
+          onDelete={drillExisting ? () => removeDrill(drillDraft.id) : undefined}
+          tagSuggestions={tagSuggestions}
+        />
+      </main>
+    );
+  } else if (openTactic) {
+    main = (
+      <main className="vc-stage">
+        <TacticView tactic={openTactic} onEdit={() => setTacticDraft(openTactic)} onBack={() => setOpen(null)} />
+      </main>
+    );
+  } else if (openDrill) {
+    main = (
+      <main className="vc-stage">
+        <DrillView drill={openDrill} onEdit={() => setDrillDraft(openDrill)} onBack={() => setOpen(null)} />
+      </main>
+    );
+  } else {
+    main = (
+      <main className="vc-home">
+        <Library
+          tactics={tactics}
+          drills={drills}
+          onOpen={(kind, id) => setOpen({ kind, id })}
+          onNewTactic={() => setTacticDraft(createTactic(Date.now()))}
+          onNewDrill={() => setDrillDraft(createDrill(Date.now()))}
+        />
+      </main>
+    );
+  }
 
   return (
     <div className="vc-app">
@@ -83,72 +140,7 @@ export function App(): JSX.Element {
         <ThemeToggle theme={theme} onToggle={toggleTheme} />
       </header>
 
-      {editing ? (
-        <main className="vc-stage">
-          {collection === "tactics"
-            ? tacticDraft && (
-                <TacticEditor
-                  key={tacticDraft.id}
-                  tactic={tacticDraft}
-                  onDone={commitTactic}
-                  onCancel={() => setTacticDraft(null)}
-                  onDelete={tacticExisting ? () => removeTactic(tacticDraft.id) : undefined}
-                />
-              )
-            : drillDraft && (
-                <DrillEditor
-                  key={drillDraft.id}
-                  drill={drillDraft}
-                  onDone={commitDrill}
-                  onCancel={() => setDrillDraft(null)}
-                  onDelete={drillExisting ? () => removeDrill(drillDraft.id) : undefined}
-                />
-              )}
-        </main>
-      ) : (
-        <main className="vc-workspace">
-          <div className="vc-rail">
-            <CollectionSwitch value={collection} onChange={setCollection} />
-            {collection === "tactics" ? (
-              <TacticList
-                tactics={tactics}
-                currentId={currentTactic?.id ?? ""}
-                onSelect={setTacticId}
-                onCreate={() => setTacticDraft(createTactic(Date.now()))}
-              />
-            ) : (
-              <DrillList
-                drills={drills}
-                currentId={currentDrill?.id ?? ""}
-                onSelect={setDrillId}
-                onCreate={() => setDrillDraft(createDrill(Date.now()))}
-              />
-            )}
-          </div>
-
-          {collection === "tactics" ? (
-            currentTactic ? (
-              <TacticView tactic={currentTactic} onEdit={() => setTacticDraft(currentTactic)} />
-            ) : (
-              <div className="vc-empty">
-                <p>No tactics yet.</p>
-                <button type="button" className="vc-new" onClick={() => setTacticDraft(createTactic(Date.now()))}>
-                  + New tactic
-                </button>
-              </div>
-            )
-          ) : currentDrill ? (
-            <DrillView drill={currentDrill} onEdit={() => setDrillDraft(currentDrill)} />
-          ) : (
-            <div className="vc-empty">
-              <p>No drills yet.</p>
-              <button type="button" className="vc-new" onClick={() => setDrillDraft(createDrill(Date.now()))}>
-                + New drill
-              </button>
-            </div>
-          )}
-        </main>
-      )}
+      {main}
     </div>
   );
 }

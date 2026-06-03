@@ -10,11 +10,15 @@ import type { Tactic } from "../tactics/types";
 type TacticViewProps = {
   tactic: Tactic;
   onEdit: () => void;
+  onBack: () => void;
 };
 
-export function TacticView({ tactic, onEdit }: TacticViewProps): JSX.Element {
+export function TacticView({ tactic, onEdit, onBack }: TacticViewProps): JSX.Element {
   return (
     <div className="vc-view">
+      <button type="button" className="vc-back" onClick={onBack}>
+        ← Library
+      </button>
       <div className="vc-view-bar">
         <div className="vc-caption">
           <p className="vc-eyebrow">Tactic</p>

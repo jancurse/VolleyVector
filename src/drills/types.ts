@@ -27,6 +27,8 @@ export type Drill = {
   /** Shared marker identities; their positions live per-step. */
   markers: DrillMarker[];
   steps: DrillStep[];
+  /** Free-form organising tags the library filters by. */
+  tags: string[];
   createdAt: number;
   updatedAt: number;
 };

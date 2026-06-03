@@ -25,6 +25,7 @@ export function createDrill(now: number, mode: CourtMode = "positions", title = 
     mode,
     markers: [],
     steps: [makeStep()],
+    tags: [],
     createdAt: now,
     updatedAt: now,
   };

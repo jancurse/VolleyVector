@@ -22,6 +22,7 @@ import { DescriptionEditor } from "./DescriptionEditor";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
 import { StepStrip } from "./StepStrip";
+import { TagEditor } from "./TagEditor";
 
 const NUDGE = 0.01;
 const NUDGE_LARGE = 0.05;
@@ -43,9 +44,11 @@ type DrillEditorProps = {
   onCancel: () => void;
   /** Omitted for a brand-new drill that has nothing to delete yet. */
   onDelete?: () => void;
+  /** Existing tags across the library, for the tag editor's autocomplete. */
+  tagSuggestions?: readonly string[];
 };
 
-export function DrillEditor({ drill, onDone, onCancel, onDelete }: DrillEditorProps): JSX.Element {
+export function DrillEditor({ drill, onDone, onCancel, onDelete, tagSuggestions }: DrillEditorProps): JSX.Element {
   const [draft, setDraft] = useState(drill);
   const [activeStepId, setActiveStepId] = useState(drill.steps[0].id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -208,6 +211,11 @@ export function DrillEditor({ drill, onDone, onCancel, onDelete }: DrillEditorPr
             value={draft.description}
             onChange={(description) => setDraft((d) => ({ ...d, description }))}
             placeholder="Describe the drill in markdown…"
+          />
+          <TagEditor
+            tags={draft.tags}
+            suggestions={tagSuggestions}
+            onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
           />
           <DescriptionEditor
             key={activeStep.id}

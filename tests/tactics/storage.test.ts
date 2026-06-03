@@ -25,4 +25,11 @@ describe("tactics storage", () => {
     localStorage.setItem("volleycoach-tactics", raw);
     expect(loadTactics()).toBeNull();
   });
+
+  test("defaults tags for tactics stored before tags existed", () => {
+    const { tags: _tags, ...legacy } = SAMPLE_TACTIC;
+
+    localStorage.setItem("volleycoach-tactics", JSON.stringify([legacy]));
+    expect(loadTactics()?.[0].tags).toEqual([]);
+  });
 });

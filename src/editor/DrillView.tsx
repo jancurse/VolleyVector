@@ -55,9 +55,10 @@ const NEXT_ICON = (
 type DrillViewProps = {
   drill: Drill;
   onEdit: () => void;
+  onBack: () => void;
 };
 
-export function DrillView({ drill, onEdit }: DrillViewProps): JSX.Element {
+export function DrillView({ drill, onEdit, onBack }: DrillViewProps): JSX.Element {
   const playback = useDrillPlayback(drill.steps.length);
   const { step, playing, atEnd } = playback;
 
@@ -69,6 +70,9 @@ export function DrillView({ drill, onEdit }: DrillViewProps): JSX.Element {
   return (
     <MotionConfig reducedMotion="user">
       <div className="vc-view">
+        <button type="button" className="vc-back" onClick={onBack}>
+          ← Library
+        </button>
         <div className="vc-view-bar">
           <div className="vc-caption">
             <p className="vc-eyebrow">Drill</p>

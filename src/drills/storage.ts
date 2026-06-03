@@ -15,6 +15,7 @@ export const SAMPLE_DRILL: Drill = {
     "- The pass travels to target as the left side opens for the approach.\n" +
     "- The setter delivers, and **OH1** attacks down the line.",
   mode: "positions",
+  tags: ["Serve receive", "Outside attack"],
   markers: [
     { id: "s", role: "setter", label: "S" },
     { id: "mb1", role: "middle", label: "MB1" },
@@ -84,7 +85,7 @@ export function loadDrills(): Drill[] | null {
 
     if (!Array.isArray(parsed) || !parsed.every(isDrill)) return null;
 
-    return parsed.map((drill) => ({ ...drill, mode: drill.mode ?? "positions" }));
+    return parsed.map((drill) => ({ ...drill, mode: drill.mode ?? "positions", tags: drill.tags ?? [] }));
   } catch {
     return null;
   }

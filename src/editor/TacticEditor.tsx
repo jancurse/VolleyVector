@@ -10,6 +10,7 @@ import type { Tactic } from "../tactics/types";
 import { DescriptionEditor } from "./DescriptionEditor";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
+import { TagEditor } from "./TagEditor";
 
 const NUDGE = 0.01;
 const NUDGE_LARGE = 0.05;
@@ -29,9 +30,11 @@ type TacticEditorProps = {
   onCancel: () => void;
   /** Omitted for a brand-new tactic that has nothing to delete yet. */
   onDelete?: () => void;
+  /** Existing tags across the library, for the tag editor's autocomplete. */
+  tagSuggestions?: readonly string[];
 };
 
-export function TacticEditor({ tactic, onDone, onCancel, onDelete }: TacticEditorProps): JSX.Element {
+export function TacticEditor({ tactic, onDone, onCancel, onDelete, tagSuggestions }: TacticEditorProps): JSX.Element {
   const [draft, setDraft] = useState(tactic);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const frameRef = useRef<HTMLElement>(null);
@@ -158,6 +161,11 @@ export function TacticEditor({ tactic, onDone, onCancel, onDelete }: TacticEdito
           <DescriptionEditor
             value={draft.description}
             onChange={(description) => update((t) => ({ ...t, description }))}
+          />
+          <TagEditor
+            tags={draft.tags}
+            suggestions={tagSuggestions}
+            onChange={(tags) => update((t) => ({ ...t, tags }))}
           />
         </aside>
       </div>

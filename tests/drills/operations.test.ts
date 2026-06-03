@@ -29,6 +29,7 @@ const DRILL: Drill = {
     { id: "s1", instruction: "one", positions: { a: { x: 0.2, y: 0.2 }, b: { x: 0.5, y: 0.5 } } },
     { id: "s2", instruction: "two", positions: { a: { x: 0.2, y: 0.2 }, b: { x: 0.8, y: 0.5 } } },
   ],
+  tags: [],
   createdAt: 0,
   updatedAt: 0,
 };

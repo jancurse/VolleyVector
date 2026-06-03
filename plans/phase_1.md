@@ -119,3 +119,23 @@ Built across several review rounds and still open for sign-off: a coach can auth
     - **Small moves draw no arrow.** A move below ~0.14 normalized (e.g. the sample's MB1 at 0.05) clears the two 46-unit discs by less than an arrowhead's room, so the disc-clearance guard in `Arrows` skips it. The threshold is tunable if we later want tiny moves indicated.
     - **The ball is similar to Mikase v200w but not a copy**
     - **Showing arrows in the editor** was added in response to a question rather than an explicit request; kept for now, trivially revertible to playback-only.
+
+### Stage 4 — in review
+
+Built as an initial cut and handed over for review: a coach browses every tactic and drill together in one library, filters by content type and organising tags, and opens any item into its view, playback, or editor.
+
+- **Shipped**
+    - **Organising tags on the model.** `Tactic` and `Drill` each gained a free-form `tags: string[]`; `createTactic`/`createDrill` start empty, the localStorage loaders default older saved data to `[]`, and the two samples seed representative tags (the tactic `Defence` / `Outside attack`, the drill `Serve receive` / `Outside attack`).
+    - **The library home.** A new `Library` (`src/library/`) replaces the per-collection rail as the landing surface: a responsive grid of cards, each a static court thumbnail (the same `Court` component, drawn small — a drill shows its first step) above the title, type, count, and tag chips. `toLibraryItems` folds both collections into one list newest-first; `collectTags` feeds the filter and `allTags` the editors' autocomplete.
+    - **Filtering.** A type segmented control (All / Tactics / Drills) sits beside a row of tag chips; selecting tags narrows by intersection (an item must carry every selected tag), and an empty result shows a distinct "nothing matches" vs. "nothing yet" message.
+    - **Navigation.** The app moves library → read-only view → editor, with a precedence of draft over open-item over library; each view gained a **← Library** back button, and committing or deleting a draft returns to the right surface. Removed the now-superseded `CollectionSwitch`, `TacticList`, and `DrillList` and their rail CSS.
+    - **Tag editing with autocomplete.** A shared `TagEditor` in both editors lists removable chips and commits a new tag on Enter, comma, or blur; as you type it offers matching existing tags from across the whole library (a themed drop-down, navigable by ↑/↓ + Enter), so a near-duplicate is reused rather than retyped, while a brand-new name still commits as typed.
+    - **Tests and tooling.** 108 unit tests cover the library helpers, tag storage migration, and the App library/filter/tag/autocomplete flows (the App suite was rewritten for the new navigation); format, lint, type-check, and build are green.
+- **Locked**
+    - **One unified library, not two rails.** The library is the home screen; browsing, viewing, and editing are full-width surfaces reached from it, not a persistent sidebar.
+    - **Open into the existing view/editor.** Cards route into the unchanged `TacticView`/`DrillView` (and from there the editors), so playback and editing are inherited rather than rebuilt.
+    - **Thumbnails are static snapshots** (a drill's first step), with no playback or hover preview on the cards.
+    - **Tag-filter intersection (AND).** Selecting more tags narrows; an OR/union mode was considered and not built.
+- **Open / deferred**
+    - **Flat tags, not structured dimensions.** The plan names category / situation / session but records the taxonomy as deferred, coach-managed content, so tags are a single free-form list per item for now; making those distinct, separately-filterable dimensions is a deliberate later call.
+    - **Tag-row overflow is unaddressed.** The chip row could grow unwieldy as tags accumulate; left alone while the overall library layout is still under discussion.
