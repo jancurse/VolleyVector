@@ -18,6 +18,15 @@ See @plans/project_overview.md for the scope, stack, architecture, and build pla
     - Do not create more variables than needed. Use inline expressions rather than creating a variable for a one-time use (unless very complicated).
     - Do not rename variables if you modify them unless the old one is still needed.
 
+## Writing Markdown
+
+- **Every sentence must carry concrete content.** Cut any sentence whose only job is to assert importance, relevance, or consequence without conveying the substance that backs the claim.
+- **Use a real heading hierarchy.** Give a longer document `#` title, `##` section, `###` subsection, and deeper where the content earns it; nest as far as it helps.
+    - Do not leave a flat stack of `##` headings with nothing beneath them. If everything sits at one level, the structure is doing no work — push detail down into subsections.
+    - Avoid a pile of one- or two-line sections. A heading must earn its place; if several are tiny, merge them or demote them to bullets under a parent. (An occasional short section is fine — just not the default.)
+    - Match depth to length: a short note needs no nesting, while a long one usually wants several levels.
+- **Use bullets and sub-bullets heavily** to organise detail inside a section, instead of adding more headings or writing dense paragraphs.
+
 ## Running Code
 
 All commands run from the project root. See @docs/development.md for the full list.
@@ -48,8 +57,13 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - If you cannot find a perfect solution meeting all requirements, clearly state this. Do not present an alternative as the solution. Make clear where it falls short.
 - If you are unsure what to do or have low confidence in your solution, ask for clarification instead of proposing a poor solution.
 - Report results factually without positive spin. If errors or issues remain unresolved, state them clearly.
+- Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
 
 ## Package Management
 
 - Use `npm`. Install with `npm install <package>` (runtime) or `npm install -D <package>` (dev tooling).
 - Commit `package-lock.json`. CI runs `npm ci` against it.
+
+## Maintaining this file
+
+- Keep this file short and clear. Compliance degrades with length, so write each rule as short as possible while remaining unambiguous, and add a brief example only when a rule is complicated.
