@@ -3,7 +3,7 @@ import type { JSX } from "react";
 import ReactMarkdown from "react-markdown";
 
 // A markdown text card with a write/preview toggle, so a coach can author plain text and see it
-// rendered without leaving the editor. Used for both a tactic/drill description and a step instruction.
+// rendered without leaving the editor. Used for both a board's description and a step instruction.
 type DescriptionEditorProps = {
   value: string;
   onChange: (value: string) => void;
@@ -17,7 +17,7 @@ export function DescriptionEditor({
   value,
   onChange,
   title = "Description",
-  placeholder = "Describe the tactic in markdown…",
+  placeholder = "Describe this board in markdown…",
   compact = false,
 }: DescriptionEditorProps): JSX.Element {
   const [previewing, setPreviewing] = useState(false);

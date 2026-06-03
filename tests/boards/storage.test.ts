@@ -1,20 +1,20 @@
 import { afterEach, describe, expect, test } from "vitest";
 
-import { loadDrills, SAMPLE_DRILL, saveDrills } from "../../src/drills/storage";
+import { loadBoards, SAMPLE_BOARDS, saveBoards } from "../../src/boards/storage";
 
 afterEach(() => localStorage.clear());
 
-describe("drills storage", () => {
+describe("boards storage", () => {
   test("returns null before anything is saved", () => {
-    expect(loadDrills()).toBeNull();
+    expect(loadBoards()).toBeNull();
   });
 
   test.each([
-    ["a saved collection", [SAMPLE_DRILL]],
+    ["a saved collection", SAMPLE_BOARDS],
     ["an explicitly emptied collection", []],
-  ])("round-trips %s", (_label, drills) => {
-    saveDrills(drills);
-    expect(loadDrills()).toEqual(drills);
+  ])("round-trips %s", (_label, boards) => {
+    saveBoards(boards);
+    expect(loadBoards()).toEqual(boards);
   });
 
   test.each([
@@ -22,7 +22,7 @@ describe("drills storage", () => {
     ["a non-array", JSON.stringify({ not: "an array" })],
     ["items missing required fields", JSON.stringify([{ id: 1 }])],
   ])("returns null for %s", (_label, raw) => {
-    localStorage.setItem("volleycoach-drills", raw);
-    expect(loadDrills()).toBeNull();
+    localStorage.setItem("volleycoach-boards", raw);
+    expect(loadBoards()).toBeNull();
   });
 });

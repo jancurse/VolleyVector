@@ -1,12 +1,12 @@
 import type { JSX } from "react";
 
-import type { DrillStep } from "../drills/types";
+import type { BoardStep } from "../boards/types";
 
-// The row of step chips. Read-only in playback (click a chip to scrub); in the editor it also adds a
-// step after the current one, removes steps, and reorders the current one. Passing the editor handlers
-// turns on those affordances.
+// The row of step chips for a Sequence. Read-only in playback (click a chip to scrub); in the editor
+// it also adds a step after the current one, removes steps, and reorders the current one. Passing the
+// editor handlers turns on those affordances.
 type StepStripProps = {
-  steps: readonly DrillStep[];
+  steps: readonly BoardStep[];
   current: number;
   onSelect: (index: number) => void;
   onAdd?: () => void;
@@ -18,7 +18,7 @@ export function StepStrip({ steps, current, onSelect, onAdd, onRemove, onMove }:
   const editable = Boolean(onAdd && onRemove);
 
   return (
-    <div className="vc-steps" role="group" aria-label="Drill steps">
+    <div className="vc-steps" role="group" aria-label="Steps">
       {steps.map((step, i) => (
         <div key={step.id} className={`vc-step-chip${i === current ? " vc-step-chip--on" : ""}`}>
           <button

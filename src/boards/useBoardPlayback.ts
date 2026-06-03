@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { STEP_TRAVEL_S } from "../court/motion";
 
-// Drives stepping and continuous playback of a drill. Markers glide via Motion whenever the shown
+// Drives stepping and continuous playback of a sequence. Markers glide via Motion whenever the shown
 // step changes, so this hook only decides which step is shown and, while playing, advances on a
 // clock: each advance allows the glide (STEP_TRAVEL_S) plus a dwell to read the new step.
 
@@ -24,7 +24,7 @@ export type Playback = {
   prev: () => void;
 };
 
-export function useDrillPlayback(stepCount: number): Playback {
+export function useBoardPlayback(stepCount: number): Playback {
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
 

@@ -1,14 +1,14 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { useDrillPlayback } from "../../src/drills/useDrillPlayback";
+import { useBoardPlayback } from "../../src/boards/useBoardPlayback";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-describe("useDrillPlayback", () => {
+describe("useBoardPlayback", () => {
   test("steps forward and back, clamped to the ends", () => {
-    const { result } = renderHook(() => useDrillPlayback(3));
+    const { result } = renderHook(() => useBoardPlayback(3));
 
     expect(result.current.step).toBe(0);
     expect(result.current.atEnd).toBe(false);
@@ -32,7 +32,7 @@ describe("useDrillPlayback", () => {
   const ONE_ADVANCE = 2000;
 
   test("advances one step on the clock while playing", () => {
-    const { result } = renderHook(() => useDrillPlayback(3));
+    const { result } = renderHook(() => useBoardPlayback(3));
 
     act(() => result.current.play());
     act(() => vi.advanceTimersByTime(ONE_ADVANCE));
@@ -42,7 +42,7 @@ describe("useDrillPlayback", () => {
   });
 
   test("stops playing once it reaches the last step", () => {
-    const { result } = renderHook(() => useDrillPlayback(2));
+    const { result } = renderHook(() => useBoardPlayback(2));
 
     act(() => result.current.play());
     act(() => vi.advanceTimersByTime(ONE_ADVANCE));
@@ -52,7 +52,7 @@ describe("useDrillPlayback", () => {
   });
 
   test("playing from the end replays from the first step", () => {
-    const { result } = renderHook(() => useDrillPlayback(2));
+    const { result } = renderHook(() => useBoardPlayback(2));
 
     act(() => result.current.goTo(1));
     expect(result.current.atEnd).toBe(true);

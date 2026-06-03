@@ -1,35 +1,33 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
-import type { Drill } from "../drills/types";
-import type { Tactic } from "../tactics/types";
+import type { Board } from "../boards/types";
 import { collectTags, toLibraryItems } from "./items";
 import type { LibraryKind } from "./items";
 import { LibraryCard } from "./LibraryCard";
 
-// The library home: every tactic and drill as a grid of cards, narrowed by a type filter and the
-// organising tags. Selecting more tags narrows the grid further (an item must carry all of them).
+// The library home: every board as a grid of cards, narrowed by a type filter (All / Positions /
+// Sequences) and the organising tags. Selecting more tags narrows the grid further (an item must
+// carry all of them).
 type LibraryProps = {
-  tactics: readonly Tactic[];
-  drills: readonly Drill[];
-  onOpen: (kind: LibraryKind, id: string) => void;
-  onNewTactic: () => void;
-  onNewDrill: () => void;
+  boards: readonly Board[];
+  onOpen: (id: string) => void;
+  onNew: () => void;
 };
 
 type TypeFilter = "all" | LibraryKind;
 
 const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "tactic", label: "Tactics" },
-  { value: "drill", label: "Drills" },
+  { value: "position", label: "Positions" },
+  { value: "sequence", label: "Sequences" },
 ];
 
-export function Library({ tactics, drills, onOpen, onNewTactic, onNewDrill }: LibraryProps): JSX.Element {
+export function Library({ boards, onOpen, onNew }: LibraryProps): JSX.Element {
   const [type, setType] = useState<TypeFilter>("all");
   const [active, setActive] = useState<string[]>([]);
 
-  const items = useMemo(() => toLibraryItems(tactics, drills), [tactics, drills]);
+  const items = useMemo(() => toLibraryItems(boards), [boards]);
   const tags = useMemo(() => collectTags(items), [items]);
 
   const filtered = items.filter(
@@ -44,14 +42,11 @@ export function Library({ tactics, drills, onOpen, onNewTactic, onNewDrill }: Li
       <div className="vc-library-bar">
         <div className="vc-caption">
           <p className="vc-eyebrow">Library</p>
-          <h1 className="vc-view-title">Tactics &amp; drills</h1>
+          <h1 className="vc-view-title">Boards</h1>
         </div>
         <div className="vc-new-group">
-          <button type="button" className="vc-new" onClick={onNewTactic}>
-            + New tactic
-          </button>
-          <button type="button" className="vc-new" onClick={onNewDrill}>
-            + New drill
+          <button type="button" className="vc-new" onClick={onNew}>
+            + New board
           </button>
         </div>
       </div>
@@ -90,12 +85,12 @@ export function Library({ tactics, drills, onOpen, onNewTactic, onNewDrill }: Li
       {filtered.length > 0 ? (
         <div className="vc-grid">
           {filtered.map((item) => (
-            <LibraryCard key={`${item.kind}-${item.id}`} item={item} onOpen={() => onOpen(item.kind, item.id)} />
+            <LibraryCard key={item.id} item={item} onOpen={() => onOpen(item.id)} />
           ))}
         </div>
       ) : (
         <p className="vc-muted vc-library-empty">
-          {items.length === 0 ? "No tactics or drills yet." : "Nothing matches these filters."}
+          {items.length === 0 ? "No boards yet." : "Nothing matches these filters."}
         </p>
       )}
     </section>

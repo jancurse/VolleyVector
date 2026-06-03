@@ -8,8 +8,8 @@ import { App } from "../src/App";
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
 
-// App seeds the sample "Base defence" tactic and "Serve receive to outside" drill on first run, and
-// opens on the library grid, so every test starts from the cards.
+// App seeds the sample "Base defence" Position and "Serve receive to outside" Sequence on first run,
+// and opens on the library grid, so every test starts from the cards.
 function renderApp(): UserEvent {
   const user = userEvent.setup();
 
@@ -18,11 +18,11 @@ function renderApp(): UserEvent {
   return user;
 }
 
-function openTactic(user: UserEvent): Promise<void> {
+function openPosition(user: UserEvent): Promise<void> {
   return user.click(screen.getByRole("button", { name: /Base defence/ }));
 }
 
-function openDrill(user: UserEvent): Promise<void> {
+function openSequence(user: UserEvent): Promise<void> {
   return user.click(screen.getByRole("button", { name: /Serve receive to outside/ }));
 }
 
@@ -31,17 +31,17 @@ function openEditor(user: UserEvent): Promise<void> {
 }
 
 describe("library", () => {
-  test("lists both content types as cards", () => {
+  test("lists both kinds as cards", () => {
     renderApp();
 
     expect(screen.getByRole("button", { name: /Base defence/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Serve receive to outside/ })).toBeInTheDocument();
   });
 
-  test("filtering by type shows only that content type", async () => {
+  test("filtering by type shows only that kind", async () => {
     const user = renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Drills" }));
+    await user.click(screen.getByRole("button", { name: "Sequences" }));
 
     expect(screen.queryByRole("button", { name: /Base defence/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Serve receive to outside/ })).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe("library", () => {
   test("filtering by a tag narrows to items carrying it", async () => {
     const user = renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Serve receive" })); // only on the drill
+    await user.click(screen.getByRole("button", { name: "Serve receive" })); // only on the Sequence
 
     expect(screen.queryByRole("button", { name: /Base defence/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Serve receive to outside/ })).toBeInTheDocument();
@@ -58,10 +58,10 @@ describe("library", () => {
 });
 
 describe("viewing", () => {
-  test("opening a tactic shows the read-only view with rendered markdown and no editor controls", async () => {
+  test("opening a Position shows the read-only view with rendered markdown and no editor controls", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
 
     expect(screen.getByText("Perimeter defence")).toBeInTheDocument(); // markdown is rendered, not raw
     expect(screen.queryByRole("button", { name: "Add setter" })).not.toBeInTheDocument();
@@ -70,7 +70,7 @@ describe("viewing", () => {
   test("the back button returns from a view to the library grid", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await user.click(screen.getByRole("button", { name: /Library/ }));
 
     expect(screen.getByRole("button", { name: /Serve receive to outside/ })).toBeInTheDocument();
@@ -81,7 +81,7 @@ describe("editing markers", () => {
   test("selecting a marker opens the inspector and relabelling updates the court", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("img", { name: "Setter" }));
@@ -97,7 +97,7 @@ describe("editing markers", () => {
   test("adding a marker numbers it after its siblings", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("button", { name: "Add middle blocker" }));
@@ -108,7 +108,7 @@ describe("editing markers", () => {
   test("removing the selected marker takes it off the court", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("img", { name: "Setter" }));
@@ -120,7 +120,7 @@ describe("editing markers", () => {
   test("recolouring a marker changes its role", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("img", { name: "Outside hitter 1" }));
@@ -135,7 +135,7 @@ describe("court mode", () => {
   test("switching to basic mode swaps the palette to generic roles", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
     expect(screen.getByRole("button", { name: "Add setter" })).toBeInTheDocument();
 
@@ -148,7 +148,7 @@ describe("court mode", () => {
   test("recolours a marker in basic mode, but offers no colours in positions mode", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("img", { name: "Setter" }));
@@ -167,7 +167,7 @@ describe("description", () => {
   test("write/preview renders the markdown while editing", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("button", { name: "Preview" }));
@@ -180,7 +180,7 @@ describe("tags", () => {
   test("a tag added in the editor becomes a library filter", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
     await user.type(screen.getByLabelText("Add tag"), "Press{enter}");
@@ -193,7 +193,7 @@ describe("tags", () => {
   test("autocomplete offers an existing tag from elsewhere in the library", async () => {
     const user = renderApp();
 
-    await openDrill(user); // the drill has no "Defence" tag; the sample tactic does
+    await openSequence(user); // the Sequence has no "Defence" tag; the sample Position does
     await openEditor(user);
 
     await user.type(screen.getByLabelText("Add tag"), "Def");
@@ -205,7 +205,7 @@ describe("tags", () => {
   test("removing a tag in the editor drops it from the item", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("button", { name: "Remove Defence" }));
@@ -220,10 +220,10 @@ describe("the view/edit flow", () => {
   test("Done commits edits back to the view", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
-    const title = screen.getByLabelText("Tactic title");
+    const title = screen.getByLabelText("Board title");
 
     await user.clear(title);
     await user.type(title, "Press defence");
@@ -236,10 +236,10 @@ describe("the view/edit flow", () => {
   test("Cancel discards edits", async () => {
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
-    const title = screen.getByLabelText("Tactic title");
+    const title = screen.getByLabelText("Board title");
 
     await user.clear(title);
     await user.type(title, "Throwaway");
@@ -249,14 +249,15 @@ describe("the view/edit flow", () => {
     expect(screen.getByRole("heading", { name: "Base defence" })).toBeInTheDocument();
   });
 
-  test("creating a tactic opens a fresh editor and commits on Done", async () => {
+  test("creating a board opens a fresh single-step Position and commits on Done", async () => {
     const user = renderApp();
 
-    await user.click(screen.getByRole("button", { name: "+ New tactic" }));
-    const title = screen.getByLabelText("Tactic title");
+    await user.click(screen.getByRole("button", { name: "+ New board" }));
+    const title = screen.getByLabelText("Board title");
 
-    expect(title).toHaveValue("Untitled tactic");
+    expect(title).toHaveValue("Untitled board");
     expect(screen.queryByRole("img", { name: "Setter" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Step 1" })).not.toBeInTheDocument(); // a Position has no steps strip
 
     await user.clear(title);
     await user.type(title, "New press");
@@ -265,11 +266,11 @@ describe("the view/edit flow", () => {
     expect(screen.getByRole("heading", { name: "New press" })).toBeInTheDocument();
   });
 
-  test("deleting returns to the library without the tactic", async () => {
+  test("deleting returns to the library without the board", async () => {
     vi.stubGlobal("confirm", () => true);
     const user = renderApp();
 
-    await openTactic(user);
+    await openPosition(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
@@ -279,11 +280,27 @@ describe("the view/edit flow", () => {
   });
 });
 
-describe("drills", () => {
-  test("opens the sample drill in playback and steps through it", async () => {
+describe("positions and sequences", () => {
+  test("adding a step promotes a Position to a Sequence; removing back to one demotes it", async () => {
     const user = renderApp();
 
-    await openDrill(user);
+    await user.click(screen.getByRole("button", { name: "+ New board" }));
+    expect(screen.queryByRole("button", { name: "Step 1" })).not.toBeInTheDocument(); // a Position
+
+    await user.click(screen.getByRole("button", { name: "Add step" }));
+    expect(screen.getByRole("button", { name: "Step 1" })).toBeInTheDocument(); // promoted to a Sequence
+    expect(screen.getByRole("button", { name: "Step 2" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Remove step 2" }));
+    expect(screen.queryByRole("button", { name: "Step 2" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Step 1" })).not.toBeInTheDocument(); // demoted to a Position
+    expect(screen.getByRole("button", { name: "Add step" })).toBeInTheDocument();
+  });
+
+  test("opens the sample Sequence in playback and steps through it", async () => {
+    const user = renderApp();
+
+    await openSequence(user);
 
     expect(screen.getByRole("heading", { name: "Serve receive to outside" })).toBeInTheDocument();
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
@@ -295,26 +312,10 @@ describe("drills", () => {
     expect(screen.getByRole("button", { name: "Step 2" })).toHaveAttribute("aria-current", "true");
   });
 
-  test("creating a drill opens a fresh editor where steps can be added", async () => {
-    const user = renderApp();
-
-    await user.click(screen.getByRole("button", { name: "+ New drill" }));
-
-    const title = screen.getByLabelText("Drill title");
-
-    expect(title).toHaveValue("Untitled drill");
-    expect(screen.getByRole("button", { name: "Step 1" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Step 2" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Add step" }));
-
-    expect(screen.getByRole("button", { name: "Step 2" })).toBeInTheDocument();
-  });
-
   test("editing a step's marker identity carries across steps", async () => {
     const user = renderApp();
 
-    await openDrill(user);
+    await openSequence(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("img", { name: "Libero" }));

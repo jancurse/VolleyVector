@@ -3,9 +3,9 @@ import type { JSX } from "react";
 import { Court } from "../court/Court";
 import type { LibraryItem } from "./items";
 
-// One library card: a static court thumbnail above the title, type, count, and tags. The whole card
-// is the click target that opens the item. The thumbnail is hidden from assistive tech because the
-// title beside it already names the item.
+// One library card: a static court thumbnail above the title, kind, count, and tags. The whole card
+// is the click target that opens the board. The thumbnail is hidden from assistive tech because the
+// title beside it already names the board.
 type LibraryCardProps = {
   item: LibraryItem;
   onOpen: () => void;
@@ -18,7 +18,7 @@ export function LibraryCard({ item, onOpen }: LibraryCardProps): JSX.Element {
         <Court markers={item.markers} label={item.title} />
       </div>
       <div className="vc-card-body">
-        <p className="vc-eyebrow">{item.kind === "tactic" ? "Tactic" : "Drill"}</p>
+        <p className="vc-eyebrow">{item.kind === "sequence" ? "Sequence" : "Position"}</p>
         <h3 className="vc-card-title">{item.title}</h3>
         <div className="vc-card-foot">
           <span className="vc-card-meta">{item.meta}</span>

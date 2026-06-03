@@ -1,11 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { JSX, KeyboardEvent } from "react";
 
-import { Court } from "../court/Court";
-import { clampToCourt } from "../court/geometry";
-import type { NormalizedPoint } from "../court/geometry";
-import type { MarkerRole } from "../court/roles";
-import { arrowsForStep } from "../drills/arrows";
+import { arrowsForStep } from "../boards/arrows";
 import {
   addMarker,
   insertStep,
@@ -16,8 +12,13 @@ import {
   setStepInstruction,
   setStepPosition,
   stepMarkers,
-} from "../drills/operations";
-import type { Drill } from "../drills/types";
+} from "../boards/operations";
+import type { Board } from "../boards/types";
+import { isSequence } from "../boards/types";
+import { Court } from "../court/Court";
+import { clampToCourt } from "../court/geometry";
+import type { NormalizedPoint } from "../court/geometry";
+import type { MarkerRole } from "../court/roles";
 import { DescriptionEditor } from "./DescriptionEditor";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
@@ -33,24 +34,26 @@ const ARROW_DELTAS: Record<string, NormalizedPoint> = {
   ArrowDown: { x: 0, y: 1 },
 };
 
-// Edits a working draft of the drill, one step at a time. The active step is tracked by id so it
-// survives inserting, reordering, and removing steps. Position edits (drag, arrow keys) touch only the
-// active step; identity edits (role, label, colour, add, remove) span every step. The court shows the
-// arrows leaving the active step, so the derived movement is visible while authoring. Nothing leaves
-// the editor until "Done" commits the draft.
-type DrillEditorProps = {
-  drill: Drill;
-  onDone: (drill: Drill) => void;
+// Edits a working draft of one board, one step at a time. A single-step board is a Position — a
+// static court, with an Add step affordance that clones the current positions to promote it to a
+// Sequence; two or more steps is a Sequence, with the steps strip and a per-step instruction. The
+// active step is tracked by id so it survives inserting, reordering, and removing steps. Position
+// edits (drag, arrow keys) touch only the active step; identity edits (role, label, colour, add,
+// remove) span every step. The court shows the arrows leaving the active step, so the derived
+// movement is visible while authoring. Nothing leaves the editor until "Done" commits the draft.
+type BoardEditorProps = {
+  board: Board;
+  onDone: (board: Board) => void;
   onCancel: () => void;
-  /** Omitted for a brand-new drill that has nothing to delete yet. */
+  /** Omitted for a brand-new board that has nothing to delete yet. */
   onDelete?: () => void;
   /** Existing tags across the library, for the tag editor's autocomplete. */
   tagSuggestions?: readonly string[];
 };
 
-export function DrillEditor({ drill, onDone, onCancel, onDelete, tagSuggestions }: DrillEditorProps): JSX.Element {
-  const [draft, setDraft] = useState(drill);
-  const [activeStepId, setActiveStepId] = useState(drill.steps[0].id);
+export function BoardEditor({ board, onDone, onCancel, onDelete, tagSuggestions }: BoardEditorProps): JSX.Element {
+  const [draft, setDraft] = useState(board);
+  const [activeStepId, setActiveStepId] = useState(board.steps[0].id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const frameRef = useRef<HTMLElement>(null);
 
@@ -62,6 +65,7 @@ export function DrillEditor({ drill, onDone, onCancel, onDelete, tagSuggestions 
   const markers = stepMarkers(draft, stepIndex);
   const arrows = arrowsForStep(draft, stepIndex);
   const selected = markers.find((m) => m.id === selectedId) ?? null;
+  const sequence = isSequence(draft);
 
   const select = useCallback((id: string | null) => {
     setSelectedId(id);
@@ -75,7 +79,7 @@ export function DrillEditor({ drill, onDone, onCancel, onDelete, tagSuggestions 
 
   const add = useCallback(
     (role: MarkerRole) => {
-      const { drill: next, markerId } = addMarker(draft, role, stepIndex);
+      const { board: next, markerId } = addMarker(draft, role, stepIndex);
 
       setDraft(next);
       setSelectedId(markerId);
@@ -85,7 +89,7 @@ export function DrillEditor({ drill, onDone, onCancel, onDelete, tagSuggestions 
   );
 
   const appendStep = useCallback(() => {
-    const { drill: next, stepId } = insertStep(draft, stepIndex);
+    const { board: next, stepId } = insertStep(draft, stepIndex);
 
     setDraft(next);
     setActiveStepId(stepId);
@@ -132,8 +136,8 @@ export function DrillEditor({ drill, onDone, onCancel, onDelete, tagSuggestions 
         <input
           className="vc-title-input"
           value={draft.title}
-          placeholder="Untitled drill"
-          aria-label="Drill title"
+          placeholder="Untitled board"
+          aria-label="Board title"
           onChange={(event) => setDraft((d) => ({ ...d, title: event.target.value }))}
         />
         {onDelete && (
@@ -158,21 +162,29 @@ export function DrillEditor({ drill, onDone, onCancel, onDelete, tagSuggestions 
             <Court
               markers={markers}
               arrows={arrows}
-              label={draft.title || "Untitled drill"}
+              label={draft.title || "Untitled board"}
               selectedId={selectedId}
               onSelect={select}
               onMove={move}
             />
           </figure>
 
-          <StepStrip
-            steps={draft.steps}
-            current={stepIndex}
-            onSelect={(i) => setActiveStepId(draft.steps[i]?.id ?? draft.steps[0].id)}
-            onAdd={appendStep}
-            onRemove={deleteStep}
-            onMove={(from, to) => setDraft((d) => moveStep(d, from, to))}
-          />
+          {sequence ? (
+            <StepStrip
+              steps={draft.steps}
+              current={stepIndex}
+              onSelect={(i) => setActiveStepId(draft.steps[i]?.id ?? draft.steps[0].id)}
+              onAdd={appendStep}
+              onRemove={deleteStep}
+              onMove={(from, to) => setDraft((d) => moveStep(d, from, to))}
+            />
+          ) : (
+            <div className="vc-steps">
+              <button type="button" className="vc-step-add" onClick={appendStep} aria-label="Add step">
+                + Add step
+              </button>
+            </div>
+          )}
 
           <div className="vc-segmented" role="group" aria-label="Court mode">
             {(["positions", "basic"] as const).map((m) => (
@@ -210,21 +222,22 @@ export function DrillEditor({ drill, onDone, onCancel, onDelete, tagSuggestions 
           <DescriptionEditor
             value={draft.description}
             onChange={(description) => setDraft((d) => ({ ...d, description }))}
-            placeholder="Describe the drill in markdown…"
           />
           <TagEditor
             tags={draft.tags}
             suggestions={tagSuggestions}
             onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
           />
-          <DescriptionEditor
-            key={activeStep.id}
-            title={`Step ${stepIndex + 1} instruction`}
-            value={activeStep.instruction}
-            onChange={(value) => setDraft((d) => setStepInstruction(d, activeStepId, value))}
-            placeholder="What happens on this step? (markdown)"
-            compact
-          />
+          {sequence && (
+            <DescriptionEditor
+              key={activeStep.id}
+              title={`Step ${stepIndex + 1} instruction`}
+              value={activeStep.instruction}
+              onChange={(value) => setDraft((d) => setStepInstruction(d, activeStepId, value))}
+              placeholder="What happens on this step? (markdown)"
+              compact
+            />
+          )}
         </aside>
       </div>
     </div>

@@ -1,127 +1,74 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
-import { createDrill } from "./drills/operations";
-import type { Drill } from "./drills/types";
-import { useDrills } from "./drills/useDrills";
-import { DrillEditor } from "./editor/DrillEditor";
-import { DrillView } from "./editor/DrillView";
-import { TacticEditor } from "./editor/TacticEditor";
-import { TacticView } from "./editor/TacticView";
+import { createBoard } from "./boards/operations";
+import type { Board } from "./boards/types";
+import { useBoards } from "./boards/useBoards";
+import { BoardEditor } from "./editor/BoardEditor";
+import { BoardView } from "./editor/BoardView";
 import { Library } from "./library/Library";
 import { allTags } from "./library/items";
-import type { LibraryKind } from "./library/items";
-import { createTactic } from "./tactics/operations";
-import type { Tactic } from "./tactics/types";
-import { useTactics } from "./tactics/useTactics";
 import { useTheme } from "./theme/useTheme";
 import { ThemeToggle } from "./ui/ThemeToggle";
 
-// The app moves between three surfaces: the library grid (home), a read-only view of one item, and
-// the editor for a working draft. A draft takes precedence over everything; otherwise an open item
+// The app moves between three surfaces: the library grid (home), a read-only view of one board, and
+// the editor for a working draft. A draft takes precedence over everything; otherwise an open board
 // shows its view; otherwise the library. Committing or deleting a draft returns to the right surface.
-type Open = { kind: LibraryKind; id: string } | null;
 
 export function App(): JSX.Element {
   const [theme, toggleTheme] = useTheme();
 
-  const { tactics, addTactic, deleteTactic, updateTactic } = useTactics();
-  const { drills, addDrill, deleteDrill, updateDrill } = useDrills();
+  const { boards, addBoard, deleteBoard, updateBoard } = useBoards();
 
-  const [open, setOpen] = useState<Open>(null);
-  const [tacticDraft, setTacticDraft] = useState<Tactic | null>(null);
-  const [drillDraft, setDrillDraft] = useState<Drill | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Board | null>(null);
 
-  const openTactic = open?.kind === "tactic" ? (tactics.find((t) => t.id === open.id) ?? null) : null;
-  const openDrill = open?.kind === "drill" ? (drills.find((d) => d.id === open.id) ?? null) : null;
+  const openBoard = openId !== null ? (boards.find((b) => b.id === openId) ?? null) : null;
 
-  const commitTactic = (updated: Tactic) => {
-    if (tactics.some((t) => t.id === updated.id)) updateTactic(updated.id, () => updated);
-    else addTactic(updated);
+  const commit = (updated: Board) => {
+    if (boards.some((b) => b.id === updated.id)) updateBoard(updated.id, () => updated);
+    else addBoard(updated);
 
-    setTacticDraft(null);
-    setOpen({ kind: "tactic", id: updated.id });
+    setDraft(null);
+    setOpenId(updated.id);
   };
 
-  const removeTactic = (id: string) => {
-    if (!window.confirm("Delete this tactic? This cannot be undone.")) return;
+  const remove = (id: string) => {
+    if (!window.confirm("Delete this board? This cannot be undone.")) return;
 
-    deleteTactic(id);
-    setTacticDraft(null);
-    setOpen(null);
+    deleteBoard(id);
+    setDraft(null);
+    setOpenId(null);
   };
 
-  const commitDrill = (updated: Drill) => {
-    if (drills.some((d) => d.id === updated.id)) updateDrill(updated.id, () => updated);
-    else addDrill(updated);
-
-    setDrillDraft(null);
-    setOpen({ kind: "drill", id: updated.id });
-  };
-
-  const removeDrill = (id: string) => {
-    if (!window.confirm("Delete this drill? This cannot be undone.")) return;
-
-    deleteDrill(id);
-    setDrillDraft(null);
-    setOpen(null);
-  };
-
-  const tacticExisting = tacticDraft !== null && tactics.some((t) => t.id === tacticDraft.id);
-  const drillExisting = drillDraft !== null && drills.some((d) => d.id === drillDraft.id);
-
-  const tagSuggestions = useMemo(() => allTags(tactics, drills), [tactics, drills]);
+  const draftExisting = draft !== null && boards.some((b) => b.id === draft.id);
+  const tagSuggestions = useMemo(() => allTags(boards), [boards]);
 
   let main: JSX.Element;
 
-  if (tacticDraft) {
+  if (draft) {
     main = (
       <main className="vc-stage">
-        <TacticEditor
-          key={tacticDraft.id}
-          tactic={tacticDraft}
-          onDone={commitTactic}
-          onCancel={() => setTacticDraft(null)}
-          onDelete={tacticExisting ? () => removeTactic(tacticDraft.id) : undefined}
+        <BoardEditor
+          key={draft.id}
+          board={draft}
+          onDone={commit}
+          onCancel={() => setDraft(null)}
+          onDelete={draftExisting ? () => remove(draft.id) : undefined}
           tagSuggestions={tagSuggestions}
         />
       </main>
     );
-  } else if (drillDraft) {
+  } else if (openBoard) {
     main = (
       <main className="vc-stage">
-        <DrillEditor
-          key={drillDraft.id}
-          drill={drillDraft}
-          onDone={commitDrill}
-          onCancel={() => setDrillDraft(null)}
-          onDelete={drillExisting ? () => removeDrill(drillDraft.id) : undefined}
-          tagSuggestions={tagSuggestions}
-        />
-      </main>
-    );
-  } else if (openTactic) {
-    main = (
-      <main className="vc-stage">
-        <TacticView tactic={openTactic} onEdit={() => setTacticDraft(openTactic)} onBack={() => setOpen(null)} />
-      </main>
-    );
-  } else if (openDrill) {
-    main = (
-      <main className="vc-stage">
-        <DrillView drill={openDrill} onEdit={() => setDrillDraft(openDrill)} onBack={() => setOpen(null)} />
+        <BoardView board={openBoard} onEdit={() => setDraft(openBoard)} onBack={() => setOpenId(null)} />
       </main>
     );
   } else {
     main = (
       <main className="vc-home">
-        <Library
-          tactics={tactics}
-          drills={drills}
-          onOpen={(kind, id) => setOpen({ kind, id })}
-          onNewTactic={() => setTacticDraft(createTactic(Date.now()))}
-          onNewDrill={() => setDrillDraft(createDrill(Date.now()))}
-        />
+        <Library boards={boards} onOpen={setOpenId} onNew={() => setDraft(createBoard(Date.now()))} />
       </main>
     );
   }
