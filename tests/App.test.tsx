@@ -181,3 +181,58 @@ describe("the view/edit flow", () => {
     expect(screen.getByText("No tactics yet.")).toBeInTheDocument();
   });
 });
+
+describe("drills", () => {
+  function openDrills(user: UserEvent): Promise<void> {
+    return user.click(screen.getByRole("button", { name: "Drills" }));
+  }
+
+  test("opens the sample drill in playback and steps through it", async () => {
+    const user = renderApp();
+
+    await openDrills(user);
+
+    expect(screen.getByRole("heading", { name: "Serve receive to outside" })).toBeInTheDocument();
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+    expect(screen.getByText(/the setter releases to the net/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Next step" }));
+
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Step 2" })).toHaveAttribute("aria-current", "true");
+  });
+
+  test("creating a drill opens a fresh editor where steps can be added", async () => {
+    const user = renderApp();
+
+    await openDrills(user);
+    await user.click(screen.getByRole("button", { name: "+ New" }));
+
+    const title = screen.getByLabelText("Drill title");
+
+    expect(title).toHaveValue("Untitled drill");
+    expect(screen.getByRole("button", { name: "Step 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Step 2" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add step" }));
+
+    expect(screen.getByRole("button", { name: "Step 2" })).toBeInTheDocument();
+  });
+
+  test("editing a step's marker identity carries across steps", async () => {
+    const user = renderApp();
+
+    await openDrills(user);
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+
+    await user.click(screen.getByRole("img", { name: "Libero" }));
+    const label = screen.getByLabelText("Label");
+
+    await user.clear(label);
+    await user.type(label, "LB");
+
+    // The relabelled marker is the same identity on every step, so stepping keeps the new label.
+    await user.click(screen.getByRole("button", { name: "Step 2" }));
+    expect(screen.getByText("LB")).toBeInTheDocument();
+  });
+});

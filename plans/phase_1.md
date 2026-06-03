@@ -92,3 +92,30 @@ Built and accepted across several review rounds: a coach can create, edit, view,
     - **Per-tactic court mode**, defaulting to Positions; the mode only filters the palette and inspector and never rewrites existing markers.
     - **Labelling (placeholder).** Outside/middle/coach/player auto-number; setter/opposite/libero stay bare until duplicated; the ball is unlabelled. Role drives colour, with an optional per-marker colour override in basic mode (a single player colour for now).
     - Removed the now-superseded Stage-1 `Legend`; the palette documents the roles.
+
+### Stage 3 — in review
+
+Built across several review rounds and still open for sign-off: a coach can author a drill as ordered steps, step through it, and play it back with identity-based animation and auto-derived movement arrows, persisted to localStorage.
+
+- **Shipped**
+    - **Drill data model.** A `Drill` (title, markdown description, court mode, shared marker identities, ordered steps, timestamps) where identity (`id`/role/label/colour) is stored once and each `DrillStep` holds a markdown instruction plus a `markerId → normalized position` map — positions vary per step, identity does not. Pure ops in `drills/operations.ts` (`createDrill`, `stepMarkers`, `stepMoves`, `insertStep`, `moveStep`, `removeStep`, `setStepInstruction`, `setStepPosition`, and `addMarker`/`setMarker`/`removeMarker` spanning every step), behind a `useDrills` localStorage store under `volleycoach-drills`, seeded with a 3-step "Serve receive to outside" sample.
+    - **One court, now animated.** `Court` gained `animated` (markers glide between steps via Motion) and `arrows` (a derived-movement overlay) props; the editor/static path is unchanged (instant, drag-exact). `Arrows` draws straight inset arrows with a minimum-length guard so near-overlapping moves don't render degenerate arrows.
+    - **Auto-derived movement arrows.** `stepMoves` diffs consecutive steps by marker identity; `arrowsForStep` colours each (players by role/colour, the ball by a theme-adaptive neutral `--ball-arrow`). No arrow data is ever authored or stored.
+    - **Playback.** `useDrillPlayback` tracks the shown step and play/pause; play advances on a clock (≈0.7 s glide + ≈1.1 s dwell) and stops at the last step. `DrillView` is the read-only surface — animated court, transport (prev / play-pause / next + counter), a clickable step scrubber, and the current step's instruction as crossfading markdown. Reduced motion is honoured via `MotionConfig`.
+    - **Drill editor.** `DrillEditor` edits a draft one step at a time, tracking the active step by **id** so insert/reorder/remove never lose the place. Position edits (drag, arrow keys) touch only the active step; identity edits (role/label/colour/add/remove) span every step. The steps strip selects steps, **inserts a step after the current one** (cloning its positions), reorders the active step with `‹ ›`, and removes (keeping ≥ 1). Reuses the palette, inspector, marker drag, and description editor.
+    - **Markdown instructions and layout.** `DescriptionEditor` was generalised (title / placeholder / compact) and reused for both the drill description and each step's instruction. In the view the right column shows the short description on top with the current Step N instruction below it.
+    - **Ball.** Redesigned from the cream disc to a blue/yellow ball (no white) so it reads on both themes.
+    - **App.** A Tactics / Drills switch in the rail toggles parallel browse/view/edit worlds; the tactics flow is unchanged. Added `motion` as a dependency.
+    - **Tests and tooling.** 97 unit tests cover the pure drill operations, storage, the playback hook, and the App drills flow; format, lint, type-check, and build are green.
+- **Locked**
+    - **Separate Drill content type**, parallel to tactics behind a switch; the unified, tag-filtered library is Stage 4 and stays out of scope.
+    - **Identity shared across steps, positions per step** — the spine decision, encoded directly in the model.
+    - **Arrows are derived, never authored.** Shown in playback (the upcoming move while paused) and on the editor's active step; you shape them only by moving markers.
+    - **`+ Step` inserts after the current step** from its positions; **reorder is via `‹ ›` buttons** (not drag); the active step is tracked by id.
+    - **Step instructions are markdown**; the view stacks the short description above the current step's instruction.
+    - **Playback** glides ≈0.7 s with a ≈1.1 s dwell and stops at the last step (no loop).
+- **Open / deferred**
+    - **Arrows are not hand-editable** (create/edit/remove). The user wants to revisit this later; not built.
+    - **Small moves draw no arrow.** A move below ~0.14 normalized (e.g. the sample's MB1 at 0.05) clears the two 46-unit discs by less than an arrowhead's room, so the disc-clearance guard in `Arrows` skips it. The threshold is tunable if we later want tiny moves indicated.
+    - **The ball is similar to Mikase v200w but not a copy**
+    - **Showing arrows in the editor** was added in response to a question rather than an explicit request; kept for now, trivially revertible to playback-only.

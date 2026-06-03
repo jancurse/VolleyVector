@@ -1,10 +1,11 @@
 import { useRef } from "react";
 import type { JSX } from "react";
 
+import { Arrows } from "./Arrows";
 import { ATTACK_LINE, COURT_SPAN, toSvg, VIEW_SIZE } from "./geometry";
 import type { NormalizedPoint } from "./geometry";
 import { Marker } from "./Marker";
-import type { Marker as MarkerData } from "./types";
+import type { Arrow, Marker as MarkerData } from "./types";
 import { useMarkerDrag } from "./useMarkerDrag";
 
 // The single court component, shared by static tactics and individual drill steps. It draws the
@@ -27,6 +28,10 @@ type CourtProps = {
   /** Accessible name for the whole diagram. */
   label?: string;
   selectedId?: string | null;
+  /** When true, markers glide between positions (drill playback) instead of jumping. */
+  animated?: boolean;
+  /** Derived movement arrows to overlay (drill steps); drawn beneath the markers. */
+  arrows?: readonly Arrow[];
   /** Provide both `onSelect` and `onMove` to make the court an editable surface. */
   onSelect?: (id: string | null) => void;
   onMove?: (id: string, position: NormalizedPoint) => void;
@@ -36,6 +41,8 @@ export function Court({
   markers,
   label = "Volleyball half-court",
   selectedId = null,
+  animated = false,
+  arrows,
   onSelect,
   onMove,
 }: CourtProps): JSX.Element {
@@ -71,6 +78,8 @@ export function Court({
         <line className="vc-net-post" x1={right} y1={netTape - 14} x2={right} y2={netLine} />
       </g>
 
+      {arrows && arrows.length > 0 && <Arrows arrows={arrows} />}
+
       {markers.map((marker, i) => (
         <Marker
           key={marker.id}
@@ -78,6 +87,7 @@ export function Court({
           index={i}
           selected={marker.id === selectedId}
           dragging={marker.id === drag.draggingId}
+          animated={animated}
           onPointerDown={editable ? drag.onMarkerPointerDown : undefined}
         />
       ))}

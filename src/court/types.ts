@@ -13,3 +13,7 @@ export type Marker = {
   /** Optional colour override (basic mode); when absent the role's colour is used. */
   color?: ColorKey;
 };
+
+// A derived movement arrow between two normalized points, coloured to match the marker that moves.
+// Drills compute these from step-to-step deltas; the Court only draws them.
+export type Arrow = { from: NormalizedPoint; to: NormalizedPoint; color: string };

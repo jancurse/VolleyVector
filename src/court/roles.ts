@@ -28,7 +28,7 @@ export const ROLES: Record<MarkerRole, RoleStyle> = {
   middle: { code: "MB", name: "Middle blocker", fill: "#16A085", ring: "#0E7A64", text: "#FFFFFF" },
   opposite: { code: "OPP", name: "Opposite", fill: "#E0533B", ring: "#B23A26", text: "#FFFFFF" },
   libero: { code: "L", name: "Libero", fill: "#8B5CF6", ring: "#6B3FD0", text: "#FFFFFF" },
-  ball: { code: "", name: "Ball", fill: "#F4EFE6", ring: "#C9BFAE", text: "#2A2620" },
+  ball: { code: "", name: "Ball", fill: "#2150BE", ring: "#16357F", text: "#FFFFFF" },
   coach: { code: "C", name: "Coach", fill: "#566273", ring: "#3C4654", text: "#FFFFFF" },
   player: { code: "P", name: "Player", fill: "#3E6FD6", ring: "#294EA6", text: "#FFFFFF" },
 };
