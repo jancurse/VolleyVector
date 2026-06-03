@@ -2,6 +2,8 @@
 
 This file provides guidance to LLM agents when working with code in this repository.
 
+**Keep this file short.** Compliance degrades as it grows, so write each rule as short as possible while remaining unambiguous, and add an example only when a rule is complicated.
+
 ## Repository Overview
 
 VolleyCoach is a single-page web app for building, browsing, sharing, and animating volleyball tactics and drills. It is currently a React 19 + TypeScript + Vite project.
@@ -46,24 +48,29 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - **`playwright`** — drive the running dev server in a browser to verify the UI visually (screenshots, interaction); look and motion are core to this product, so check changes on screen, not just in tests.
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
 
-## Problem Solving
+## Working Practices
+
+### Behaviour
 
 - Follow instructions exactly as stated. Do not make assumptions.
 - Make minimal changes required to complete your task. Do not make any changes beyond the instructions.
-- Analyse the specific situation before giving advice. Do not give generic answers or troubleshooting steps.
 - **Stay on track**: answer the question that was asked. Do not jump to implementing or summarising instead. If you lose track of the task, say so and ask rather than flailing.
 - **Never silently substitute**: if you cannot complete a specific instruction (a file is missing, a tool fails), stop and say so. Do not quietly do something different and present it as the original request.
 - **Flag reversals explicitly**: when you change your mind about a recommendation, say so plainly and explain why, rather than sliding into a new direction as if it were a continuation.
+- Report results factually without positive spin. If errors or issues remain unresolved, state them clearly.
+
+### Problem Solving
+
+- Analyse the specific situation before giving advice. Do not give generic answers or troubleshooting steps.
 - If you cannot find a perfect solution meeting all requirements, clearly state this. Do not present an alternative as the solution. Make clear where it falls short.
 - If you are unsure what to do or have low confidence in your solution, ask for clarification instead of proposing a poor solution.
-- Report results factually without positive spin. If errors or issues remain unresolved, state them clearly.
+
+### Git and Shell
+
+- Do not run git write operations (commit, amend, push, rebase, reset, tag, branch changes) unless the user explicitly asks; otherwise leave changes in the working tree for review.
 - Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
 
 ## Package Management
 
 - Use `npm`. Install with `npm install <package>` (runtime) or `npm install -D <package>` (dev tooling).
 - Commit `package-lock.json`. CI runs `npm ci` against it.
-
-## Maintaining this file
-
-- Keep this file short and clear. Compliance degrades with length, so write each rule as short as possible while remaining unambiguous, and add a brief example only when a rule is complicated.

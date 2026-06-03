@@ -1,0 +1,358 @@
+/* ----------------------------------------------------------------------------------------------
+   VolleyCoach — global styles and the visual language Stage 1 locks in.
+   Themes are driven by [data-theme] on <html>; the role/marker palette lives in src/court/roles.ts.
+---------------------------------------------------------------------------------------------- */
+
+:root {
+  --font-display: "Bricolage Grotesque", "Hanken Grotesk", system-ui, sans-serif;
+  --font-ui: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0c0e13;
+  --bg-glow: rgba(78, 104, 158, 0.16);
+
+  --court-surface: #161a22;
+  --court-play: #1c212b;
+  --court-zone: #232a36;
+  --court-line: rgba(228, 233, 242, 0.82);
+  --net: rgba(228, 233, 242, 0.42);
+  --court-cast: rgba(0, 0, 0, 0.55);
+
+  --text: #eef1f6;
+  --text-dim: #97a0b1;
+  --panel: rgba(255, 255, 255, 0.035);
+  --border: rgba(255, 255, 255, 0.09);
+  --control: rgba(255, 255, 255, 0.05);
+  --control-hover: rgba(255, 255, 255, 0.1);
+  --marker-shadow: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f1eee6;
+  --bg-glow: rgba(255, 250, 236, 0.9);
+
+  --court-surface: #e7e3d8;
+  --court-play: #faf8f2;
+  --court-zone: #efeadd;
+  --court-line: #2c313c;
+  --net: rgba(44, 49, 60, 0.45);
+  --court-cast: rgba(46, 44, 62, 0.18);
+
+  --text: #1d2129;
+  --text-dim: #66707f;
+  --panel: rgba(255, 255, 255, 0.55);
+  --border: rgba(20, 24, 32, 0.1);
+  --control: rgba(20, 24, 32, 0.04);
+  --control-hover: rgba(20, 24, 32, 0.08);
+  --marker-shadow: rgba(34, 37, 46, 0.22);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-ui);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.vc-app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(135% 90% at 50% -10%, var(--bg-glow), transparent 55%), var(--bg);
+  transition: background-color 0.4s ease;
+}
+
+/* ---- Header ---------------------------------------------------------------------------------- */
+
+.vc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem clamp(1.1rem, 4vw, 2.75rem);
+}
+
+.vc-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.vc-logo {
+  color: var(--text);
+  opacity: 0.92;
+}
+
+.vc-theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--control);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s var(--ease-settle);
+}
+
+.vc-theme-toggle:hover {
+  background: var(--control-hover);
+}
+
+.vc-theme-toggle:active {
+  transform: scale(0.94);
+}
+
+/* ---- Main layout ----------------------------------------------------------------------------- */
+
+.vc-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(1.5rem, 5vw, 4rem);
+  padding: clamp(0.5rem, 2vh, 1.5rem) clamp(1.1rem, 4vw, 2.75rem) clamp(1.5rem, 4vh, 3rem);
+}
+
+.vc-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1rem, 3vh, 2rem);
+  min-width: 0;
+}
+
+.vc-caption {
+  text-align: center;
+  animation: vc-rise 0.6s var(--ease-settle) both;
+}
+
+.vc-eyebrow {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.vc-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.9rem, 4vw, 2.9rem);
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.vc-subtitle {
+  margin: 0.55rem 0 0;
+  color: var(--text-dim);
+  font-size: 1rem;
+}
+
+/* ---- The court ------------------------------------------------------------------------------- */
+
+.vc-court-frame {
+  margin: 0;
+  width: min(74vh, 560px);
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 22px;
+  background: var(--court-surface);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 34px 70px -30px var(--court-cast),
+    0 2px 0 rgba(255, 255, 255, 0.03) inset;
+  transition:
+    background-color 0.4s ease,
+    border-color 0.4s ease;
+  animation: vc-rise 0.7s var(--ease-settle) both;
+}
+
+.vc-court {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.vc-play {
+  fill: var(--court-play);
+  transition: fill 0.4s ease;
+}
+
+.vc-zone {
+  fill: var(--court-zone);
+  transition: fill 0.4s ease;
+}
+
+.vc-boundary {
+  fill: none;
+  stroke: var(--court-line);
+  stroke-width: 5;
+  stroke-linejoin: round;
+  transition: stroke 0.4s ease;
+}
+
+.vc-attack {
+  stroke: var(--court-line);
+  stroke-width: 4;
+  transition: stroke 0.4s ease;
+}
+
+.vc-net-tape {
+  stroke: var(--net);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke 0.4s ease;
+}
+
+.vc-net-strand {
+  stroke: var(--net);
+  stroke-width: 2;
+  opacity: 0.7;
+  transition: stroke 0.4s ease;
+}
+
+.vc-net-post {
+  stroke: var(--court-line);
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke 0.4s ease;
+}
+
+.vc-marker {
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 4px 5px var(--marker-shadow));
+  animation: vc-pop 0.5s var(--ease-settle) both;
+}
+
+/* ---- Side panel ------------------------------------------------------------------------------ */
+
+.vc-panel {
+  width: 230px;
+  padding: 1.5rem;
+  border-radius: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  animation: vc-rise 0.7s 0.08s var(--ease-settle) both;
+}
+
+.vc-panel-title {
+  margin: 0 0 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.vc-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.vc-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.vc-swatch {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.66rem;
+}
+
+.vc-legend-name {
+  font-size: 0.94rem;
+  font-weight: 500;
+}
+
+/* ---- Motion ---------------------------------------------------------------------------------- */
+
+@keyframes vc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes vc-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 820px) {
+  .vc-main {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+
+  .vc-panel {
+    width: min(100%, 560px);
+  }
+
+  .vc-legend {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vc-caption,
+  .vc-court-frame,
+  .vc-panel,
+  .vc-marker {
+    animation: none;
+  }
+}

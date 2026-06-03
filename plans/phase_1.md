@@ -60,3 +60,18 @@ Build in order. Each stage is shippable and reviewed before the next.
 ### Testing
 
 Cover the changed behaviour with unit tests as each stage lands — no more than the changes require. Use the react-testing skill for frontend tests, and the diagnostics skill to confirm formatting, linting, and type-checking pass.
+
+## Progress
+
+### Stage 1 — done
+
+Built and accepted: the static court and markers render in both themes and the visual language is locked.
+
+- **Shipped**
+    - One config-driven `Court` SVG component (surface, front zone, boundary, attack line, woven net) and a `Marker` component (role discs + a seamed ball), sharing the same inputs both modes will use.
+    - Normalized 0–1 coordinate system (`court/geometry.ts`), a fixed role palette and labels (`court/roles.ts`), and a documenting `Legend`.
+    - Light/dark themes (`theme/useTheme` + CSS variables), the Bricolage / Hanken / JetBrains Mono type system, and a single restrained CSS entrance animation.
+    - A showcase page rendering a perimeter defence against an outside attack, covered by unit tests (geometry, roles, court rendering).
+- **Locked**
+    - Default court extent: one half-court (net plus the 3 m attack line), square 9×9.
+    - White marker labels on a theme-stable role palette; theme defaults to system preference, falling back to dark.
