@@ -31,6 +31,10 @@ export type Board = {
   steps: BoardStep[];
   /** Free-form organising tags the library filters by. */
   tags: string[];
+  /** The board's home topic, or `null` when Unfiled. The one source of truth for topic membership. */
+  topicId: string | null;
+  /** Manual order among the boards sharing this home topic; ignored while Unfiled. */
+  topicOrder: number;
   createdAt: number;
   updatedAt: number;
 };

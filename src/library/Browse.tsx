@@ -1,0 +1,97 @@
+import { useState } from "react";
+import type { JSX } from "react";
+
+import { boardsInTopic } from "../boards/operations";
+import type { Board } from "../boards/types";
+import { TopicEditor } from "../topics/TopicEditor";
+import { TopicSidebar } from "../topics/TopicSidebar";
+import { TopicView } from "../topics/TopicView";
+import type { TopicsStore } from "../topics/useTopics";
+import { Library } from "./Library";
+import type { Selection } from "./selection";
+
+// The browse surface: a persistent left sidebar (the table of contents) beside a content pane that
+// shows All Boards or one topic's page. Editing a topic happens here too, in place, so the sidebar
+// stays put. Opening a board leaves this surface entirely (App swaps in the full-width board
+// view/editor), so nothing here touches the board view, editor, or playback.
+type BrowseProps = {
+  boards: readonly Board[];
+  topics: TopicsStore;
+  selection: Selection;
+  onSelect: (selection: Selection) => void;
+  onOpenBoard: (id: string) => void;
+  onNewBoard: () => void;
+  onCreateTopic: (parentId: string | null) => void;
+  onDeleteTopic: (id: string) => void;
+  onMoveBoardInTopic: (topicId: string, boardId: string, dir: -1 | 1) => void;
+  onRemoveBoardFromTopic: (boardId: string) => void;
+};
+
+export function Browse({
+  boards,
+  topics,
+  selection,
+  onSelect,
+  onOpenBoard,
+  onNewBoard,
+  onCreateTopic,
+  onDeleteTopic,
+  onMoveBoardInTopic,
+  onRemoveBoardFromTopic,
+}: BrowseProps): JSX.Element {
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const select = (next: Selection) => {
+    setEditingId(null);
+    onSelect(next);
+  };
+
+  const selected = selection.kind === "topic" ? topics.topics.find((t) => t.id === selection.id) : undefined;
+
+  let content: JSX.Element;
+
+  if (selected && editingId === selected.id) {
+    content = (
+      <TopicEditor
+        topic={selected}
+        topics={topics.topics}
+        onCancel={() => setEditingId(null)}
+        onDelete={() => onDeleteTopic(selected.id)}
+        onDone={(patch) => {
+          topics.updateTopic(selected.id, { title: patch.title, body: patch.body });
+          if (patch.parentId !== selected.parentId) topics.reparentTopic(selected.id, patch.parentId);
+          setEditingId(null);
+        }}
+      />
+    );
+  } else if (selected) {
+    content = (
+      <TopicView
+        topic={selected}
+        topics={topics.topics}
+        boards={boardsInTopic(boards, selected.id)}
+        onOpenBoard={onOpenBoard}
+        onSelectTopic={(id) => select({ kind: "topic", id })}
+        onEdit={() => setEditingId(selected.id)}
+        onAddSubtopic={() => onCreateTopic(selected.id)}
+        onMoveBoard={(boardId, dir) => onMoveBoardInTopic(selected.id, boardId, dir)}
+        onRemoveBoard={onRemoveBoardFromTopic}
+      />
+    );
+  } else {
+    content = <Library boards={boards} onOpen={onOpenBoard} onNew={onNewBoard} />;
+  }
+
+  return (
+    <div className="vc-browse">
+      <TopicSidebar
+        topics={topics.topics}
+        selection={selection}
+        onSelect={select}
+        onNewTopic={() => onCreateTopic(null)}
+        onReorder={topics.reorderTopic}
+      />
+      <div className="vc-browse-content">{content}</div>
+    </div>
+  );
+}

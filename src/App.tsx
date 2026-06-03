@@ -1,33 +1,44 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
-import { createBoard } from "./boards/operations";
+import { createBoard, nextTopicOrder } from "./boards/operations";
 import type { Board } from "./boards/types";
 import { useBoards } from "./boards/useBoards";
 import { BoardEditor } from "./editor/BoardEditor";
 import { BoardView } from "./editor/BoardView";
-import { Library } from "./library/Library";
+import { Browse } from "./library/Browse";
 import { allTags } from "./library/items";
+import type { Selection } from "./library/selection";
+import { subtreeIds } from "./topics/operations";
+import { useTopics } from "./topics/useTopics";
 import { useTheme } from "./theme/useTheme";
 import { ThemeToggle } from "./ui/ThemeToggle";
 
-// The app moves between three surfaces: the library grid (home), a read-only view of one board, and
-// the editor for a working draft. A draft takes precedence over everything; otherwise an open board
-// shows its view; otherwise the library. Committing or deleting a draft returns to the right surface.
+// The app moves between three surfaces: the browse surface (the topic sidebar beside the board grid),
+// a read-only view of one board, and the editor for a working draft. A draft takes precedence over
+// everything; otherwise an open board shows its view; otherwise the browse surface. The sidebar
+// belongs to the browse surface only — the board view and editor stay full-width.
 
 export function App(): JSX.Element {
   const [theme, toggleTheme] = useTheme();
 
-  const { boards, addBoard, deleteBoard, updateBoard } = useBoards();
+  const { boards, addBoard, deleteBoard, updateBoard, moveBoardInTopic, unfileBoards } = useBoards();
+  const topics = useTopics();
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Board | null>(null);
+  const [selection, setSelection] = useState<Selection>({ kind: "all" });
 
   const openBoard = openId !== null ? (boards.find((b) => b.id === openId) ?? null) : null;
 
   const commit = (updated: Board) => {
-    if (boards.some((b) => b.id === updated.id)) updateBoard(updated.id, () => updated);
-    else addBoard(updated);
+    // Filing a board into a different topic appends it after that topic's boards.
+    const prev = boards.find((b) => b.id === updated.id);
+    const refiled = (prev?.topicId ?? null) !== updated.topicId;
+    const final = refiled ? { ...updated, topicOrder: nextTopicOrder(boards, updated.topicId) } : updated;
+
+    if (prev) updateBoard(updated.id, () => final);
+    else addBoard(final);
 
     setDraft(null);
     setOpenId(updated.id);
@@ -39,6 +50,18 @@ export function App(): JSX.Element {
     deleteBoard(id);
     setDraft(null);
     setOpenId(null);
+  };
+
+  const createTopic = (parentId: string | null) => setSelection({ kind: "topic", id: topics.addTopic(parentId) });
+
+  const removeTopic = (id: string) => {
+    if (!window.confirm("Delete this topic and its subtopics? Its boards return to Unfiled.")) return;
+
+    const removed = subtreeIds(topics.topics, id);
+
+    unfileBoards(boards.filter((b) => b.topicId !== null && removed.includes(b.topicId)).map((b) => b.id));
+    topics.removeTopic(id);
+    if (selection.kind === "topic" && removed.includes(selection.id)) setSelection({ kind: "all" });
   };
 
   const draftExisting = draft !== null && boards.some((b) => b.id === draft.id);
@@ -56,6 +79,7 @@ export function App(): JSX.Element {
           onCancel={() => setDraft(null)}
           onDelete={draftExisting ? () => remove(draft.id) : undefined}
           tagSuggestions={tagSuggestions}
+          topics={topics.topics}
         />
       </main>
     );
@@ -68,7 +92,18 @@ export function App(): JSX.Element {
   } else {
     main = (
       <main className="vc-home">
-        <Library boards={boards} onOpen={setOpenId} onNew={() => setDraft(createBoard(Date.now()))} />
+        <Browse
+          boards={boards}
+          topics={topics}
+          selection={selection}
+          onSelect={setSelection}
+          onOpenBoard={setOpenId}
+          onNewBoard={() => setDraft(createBoard(Date.now()))}
+          onCreateTopic={createTopic}
+          onDeleteTopic={removeTopic}
+          onMoveBoardInTopic={moveBoardInTopic}
+          onRemoveBoardFromTopic={(boardId) => unfileBoards([boardId])}
+        />
       </main>
     );
   }

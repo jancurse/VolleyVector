@@ -25,23 +25,24 @@ function count(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+/** Fold one board into a library card. */
+export function boardToItem(board: Board): LibraryItem {
+  const sequence = isSequence(board);
+
+  return {
+    kind: sequence ? "sequence" : "position",
+    id: board.id,
+    title: board.title || "Untitled board",
+    tags: board.tags,
+    markers: stepMarkers(board, 0),
+    meta: sequence ? count(board.steps.length, "step") : count(board.markers.length, "marker"),
+    updatedAt: board.updatedAt,
+  };
+}
+
 /** Normalize the boards into one list of library cards, most recently edited first. */
 export function toLibraryItems(boards: readonly Board[]): LibraryItem[] {
-  return boards
-    .map((board): LibraryItem => {
-      const sequence = isSequence(board);
-
-      return {
-        kind: sequence ? "sequence" : "position",
-        id: board.id,
-        title: board.title || "Untitled board",
-        tags: board.tags,
-        markers: stepMarkers(board, 0),
-        meta: sequence ? count(board.steps.length, "step") : count(board.markers.length, "marker"),
-        updatedAt: board.updatedAt,
-      };
-    })
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+  return boards.map(boardToItem).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 /** Every distinct tag across the items, alphabetically — the set the filter offers. */

@@ -12,6 +12,8 @@ const position: Board = {
   markers: [{ id: "a", role: "setter", label: "S" }],
   steps: [{ id: "s1", instruction: "", positions: { a: { x: 0.5, y: 0.5 } } }],
   tags: ["Defence"],
+  topicId: null,
+  topicOrder: 0,
   createdAt: 0,
   updatedAt: 100,
 };
@@ -27,6 +29,8 @@ const sequence: Board = {
     { id: "s2", instruction: "", positions: { b: { x: 0.6, y: 0.3 } } },
   ],
   tags: ["Serve receive", "Defence"],
+  topicId: null,
+  topicOrder: 0,
   createdAt: 0,
   updatedAt: 200,
 };

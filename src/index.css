@@ -397,6 +397,287 @@ body {
   color: var(--text-dim);
 }
 
+/* ---- Browse: sidebar + content --------------------------------------------------------------- */
+
+/* The table of contents beside the content pane. The content keeps the library's own max-width, so a
+   topic page and the grid read at the same measure whether or not a sidebar is present. */
+.vc-browse {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(176px, 220px) minmax(0, 1fr);
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  align-items: start;
+}
+
+.vc-browse-content {
+  min-width: 0;
+}
+
+.vc-sidebar {
+  position: sticky;
+  top: clamp(0.5rem, 2vh, 1rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  animation: vc-rise 0.6s var(--ease-settle) both;
+}
+
+.vc-sidebar-heading {
+  margin: 1rem 0 0.35rem;
+  padding: 0 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* All Boards / Unfiled, the two flat entries that bracket the tree. */
+.vc-nav-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.4rem 0.55rem;
+  border-radius: 9px;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.vc-nav-item:hover {
+  background: var(--control);
+  color: var(--text);
+}
+
+.vc-nav-item--on {
+  background: var(--accent-weak);
+  color: var(--text);
+}
+
+.vc-sidebar-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.vc-sidebar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.05rem;
+  border-radius: 9px;
+  transition: background-color 0.16s ease;
+}
+
+.vc-sidebar-row:hover {
+  background: var(--control);
+}
+
+.vc-sidebar-row--on {
+  background: var(--accent-weak);
+}
+
+.vc-sidebar-caret,
+.vc-sidebar-caret-spacer {
+  flex: none;
+  width: 20px;
+}
+
+.vc-sidebar-caret {
+  display: grid;
+  place-items: center;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    transform 0.18s var(--ease-settle),
+    color 0.16s ease;
+}
+
+.vc-sidebar-caret--open {
+  transform: rotate(90deg);
+}
+
+.vc-sidebar-caret:hover {
+  color: var(--text);
+}
+
+.vc-sidebar-link {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.36rem 0.2rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.16s ease;
+}
+
+.vc-sidebar-row:hover .vc-sidebar-link,
+.vc-sidebar-row--on .vc-sidebar-link {
+  color: var(--text);
+}
+
+/* Reorder controls stay out of the way until the row is hovered or focused, keeping the tree quiet. */
+.vc-sidebar-controls {
+  display: flex;
+  gap: 1px;
+  padding-right: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.vc-sidebar-row:hover .vc-sidebar-controls,
+.vc-sidebar-row:focus-within .vc-sidebar-controls {
+  opacity: 1;
+}
+
+.vc-sidebar-ctrl {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease,
+    opacity 0.16s ease;
+}
+
+.vc-sidebar-ctrl:hover:not(:disabled) {
+  background: var(--control-hover);
+  color: var(--text);
+}
+
+.vc-sidebar-ctrl:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.vc-sidebar-add {
+  margin-top: 0.6rem;
+  text-align: left;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 0.6rem;
+  border-radius: 9px;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.vc-sidebar-add:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+/* ---- Topic page ------------------------------------------------------------------------------ */
+
+/* The explanation reads as prose under the title, not as a fixed-height card like the editor's. */
+.vc-topic-body {
+  flex: none;
+  min-height: 0;
+}
+
+.vc-topic-subs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.vc-topic-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 720px;
+}
+
+/* A board card paired with its topic-page curation controls. */
+.vc-card-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.vc-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.vc-card-ctrl {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  background: var(--control);
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.vc-card-ctrl:hover:not(:disabled) {
+  background: var(--control-hover);
+}
+
+.vc-card-ctrl:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.vc-card-remove {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.vc-card-remove:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
 /* ---- Tags ------------------------------------------------------------------------------------ */
 
 .vc-tag {
@@ -654,7 +935,8 @@ body {
 
 .vc-inspector,
 .vc-desc,
-.vc-tag-edit {
+.vc-tag-edit,
+.vc-picker-card {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -662,6 +944,13 @@ body {
   border-radius: 16px;
   background: var(--panel);
   border: 1px solid var(--border);
+}
+
+/* A native select dressed as one of our inputs, used by the topic pickers. */
+.vc-select {
+  appearance: none;
+  font-family: var(--font-ui);
+  cursor: pointer;
 }
 
 /* The inspector stays compact; the description fills the rest of the wide side column. */
@@ -1306,6 +1595,17 @@ body {
   .vc-inspector {
     width: 100%;
     max-width: 440px;
+  }
+}
+
+@media (max-width: 860px) {
+  /* Stack the sidebar above the content so the table of contents stays reachable on a phone. */
+  .vc-browse {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vc-sidebar {
+    position: static;
   }
 }
 

@@ -25,4 +25,13 @@ describe("boards storage", () => {
     localStorage.setItem("volleycoach-boards", raw);
     expect(loadBoards()).toBeNull();
   });
+
+  test("defaults a board saved before Topics to Unfiled", () => {
+    const { topicId: _id, topicOrder: _order, ...legacy } = SAMPLE_BOARDS[0];
+
+    localStorage.setItem("volleycoach-boards", JSON.stringify([legacy]));
+    const loaded = loadBoards();
+
+    expect(loaded?.[0]).toMatchObject({ topicId: null, topicOrder: 0 });
+  });
 });

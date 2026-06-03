@@ -19,6 +19,8 @@ import { Court } from "../court/Court";
 import { clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
 import type { MarkerRole } from "../court/roles";
+import { TopicPicker } from "../topics/TopicPicker";
+import type { Topic } from "../topics/types";
 import { DescriptionEditor } from "./DescriptionEditor";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
@@ -49,9 +51,18 @@ type BoardEditorProps = {
   onDelete?: () => void;
   /** Existing tags across the library, for the tag editor's autocomplete. */
   tagSuggestions?: readonly string[];
+  /** The topic tree, for the home-topic picker. */
+  topics?: readonly Topic[];
 };
 
-export function BoardEditor({ board, onDone, onCancel, onDelete, tagSuggestions }: BoardEditorProps): JSX.Element {
+export function BoardEditor({
+  board,
+  onDone,
+  onCancel,
+  onDelete,
+  tagSuggestions,
+  topics = [],
+}: BoardEditorProps): JSX.Element {
   const [draft, setDraft] = useState(board);
   const [activeStepId, setActiveStepId] = useState(board.steps[0].id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -227,6 +238,13 @@ export function BoardEditor({ board, onDone, onCancel, onDelete, tagSuggestions 
             tags={draft.tags}
             suggestions={tagSuggestions}
             onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
+          />
+          <TopicPicker
+            topics={topics}
+            value={draft.topicId}
+            onChange={(topicId) => setDraft((d) => ({ ...d, topicId }))}
+            label="Topic"
+            noneLabel="Unfiled"
           />
           {sequence && (
             <DescriptionEditor

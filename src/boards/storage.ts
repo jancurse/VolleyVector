@@ -18,6 +18,8 @@ const SAMPLE_POSITION: Board = {
     "- Back-row players hold the deep corners.",
   mode: "positions",
   tags: ["Defence", "Outside attack"],
+  topicId: "topic-defense",
+  topicOrder: 0,
   markers: [
     { id: "opp", role: "opposite", label: "OPP" },
     { id: "mb1", role: "middle", label: "MB1" },
@@ -56,6 +58,8 @@ const SAMPLE_SEQUENCE: Board = {
     "- The setter delivers, and **OH1** attacks down the line.",
   mode: "positions",
   tags: ["Serve receive", "Outside attack"],
+  topicId: "topic-drills",
+  topicOrder: 0,
   markers: [
     { id: "s", role: "setter", label: "S" },
     { id: "mb1", role: "middle", label: "MB1" },
@@ -125,7 +129,10 @@ export function loadBoards(): Board[] | null {
   try {
     const parsed: unknown = JSON.parse(raw);
 
-    return Array.isArray(parsed) && parsed.every(isBoard) ? parsed : null;
+    if (!Array.isArray(parsed) || !parsed.every(isBoard)) return null;
+
+    // Boards saved before Topics carry no home topic; default them to Unfiled so the field is honest.
+    return parsed.map((b) => ({ ...b, topicId: b.topicId ?? null, topicOrder: b.topicOrder ?? 0 }));
   } catch {
     return null;
   }
