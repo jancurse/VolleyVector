@@ -6,9 +6,22 @@ This file provides guidance to LLM agents when working with code in this reposit
 
 ## Repository Overview
 
-VolleyCoach is a single-page web app for building, browsing, sharing, and animating volleyball tactics and drills. It is currently a React 19 + TypeScript + Vite project.
+VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills. All state lives in the browser's `localStorage`; there is no backend, auth, or sharing yet (those are Phase 2–3 work).
 
-See @plans/project_overview.md for the scope, stack, architecture, and build plan. Read it before non-trivial work, and honour the architectural decisions it records rather than relitigating them.
+- **Content model.** One `Board` type backs everything: an ordered, non-empty list of steps over a shared set of marker identities. A one-step board is a **Position** (static); two or more steps make a **Sequence** (animated). Boards are organised into a nestable tree of **Topics** and cut across by free-form **tags**.
+- **Spine decisions to respect** (do not relitigate): normalized 0–1 marker coordinates, never pixels; stable marker identity across all steps, so playback interpolates by identity and movement arrows derive from step-to-step deltas; one `Court` component for both static and animated modes; SVG, not canvas.
+
+### Module map
+
+- `src/boards/` — the `Board` model, pure operations, the `localStorage` store, the playback hook, and derived arrows.
+- `src/court/` — the SVG `Court`, `Marker`, and `Arrows`, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
+- `src/editor/` — the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, inspector, step strip, and description/tag editors.
+- `src/library/` — the browse surface, board grid, cards, and type/tag filtering.
+- `src/topics/` — the topic-tree model, operations, store, sidebar, and topic view/editor.
+- `src/theme/` and `src/ui/` — the light/dark theme hook, theme toggle, and dev-only debug menu.
+- `src/App.tsx` — the top-level shell that owns navigation and wires the stores together.
+
+See @docs/architecture.md for how these fit together and the detail behind each.
 
 ## Writing Code
 
