@@ -5,7 +5,7 @@ import { collectTags } from "./items";
 import type { LibraryItem, LibraryKind } from "./items";
 import { LibraryCard } from "./LibraryCard";
 
-// The filtering grid shared by every browse surface (All Boards, Unfiled, a topic). It owns the type
+// The filtering grid shared by every browse surface (All Boards and a topic page). It owns the type
 // and tag filters and renders the cards in the order it is given — callers decide that order (newest
 // first for All Boards, manual order within a topic). A topic page also passes per-card curation
 // controls, which render beside each card without nesting inside its button.

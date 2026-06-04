@@ -234,6 +234,16 @@ export function BoardEditor({
             value={draft.description}
             onChange={(description) => setDraft((d) => ({ ...d, description }))}
           />
+          {sequence && (
+            <DescriptionEditor
+              key={activeStep.id}
+              title={`Step ${stepIndex + 1} instruction`}
+              value={activeStep.instruction}
+              onChange={(value) => setDraft((d) => setStepInstruction(d, activeStepId, value))}
+              placeholder="What happens on this step? (markdown)"
+              compact
+            />
+          )}
           <TagEditor
             tags={draft.tags}
             suggestions={tagSuggestions}
@@ -246,16 +256,6 @@ export function BoardEditor({
             label="Topic"
             noneLabel="Unfiled"
           />
-          {sequence && (
-            <DescriptionEditor
-              key={activeStep.id}
-              title={`Step ${stepIndex + 1} instruction`}
-              value={activeStep.instruction}
-              onChange={(value) => setDraft((d) => setStepInstruction(d, activeStepId, value))}
-              placeholder="What happens on this step? (markdown)"
-              compact
-            />
-          )}
         </aside>
       </div>
     </div>

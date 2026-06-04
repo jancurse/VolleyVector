@@ -435,7 +435,7 @@ body {
   color: var(--text-dim);
 }
 
-/* All Boards / Unfiled, the two flat entries that bracket the tree. */
+/* All Boards, the flat entry sitting above the topic tree. */
 .vc-nav-item {
   width: 100%;
   text-align: left;

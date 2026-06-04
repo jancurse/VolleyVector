@@ -8,8 +8,8 @@ import { App } from "../src/App";
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
 
-// App seeds the sample "Base defence" Position and "Serve receive to outside" Sequence on first run,
-// and opens on the library grid, so every test starts from the cards.
+// App seeds the sample "Sample Position (Base Defence)" Position and "Sample Drill (Serve Receive &
+// Sideout)" Sequence on first run, and opens on the library grid, so every test starts from the cards.
 function renderApp(): UserEvent {
   const user = userEvent.setup();
 
@@ -19,11 +19,11 @@ function renderApp(): UserEvent {
 }
 
 function openPosition(user: UserEvent): Promise<void> {
-  return user.click(screen.getByRole("button", { name: /Base defence/ }));
+  return user.click(screen.getByRole("button", { name: /Sample Position/ }));
 }
 
 function openSequence(user: UserEvent): Promise<void> {
-  return user.click(screen.getByRole("button", { name: /Serve receive to outside/ }));
+  return user.click(screen.getByRole("button", { name: /Sample Drill/ }));
 }
 
 function openEditor(user: UserEvent): Promise<void> {
@@ -34,8 +34,8 @@ describe("library", () => {
   test("lists both kinds as cards", () => {
     renderApp();
 
-    expect(screen.getByRole("button", { name: /Base defence/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Serve receive to outside/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sample Position/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sample Drill/ })).toBeInTheDocument();
   });
 
   test("filtering by type shows only that kind", async () => {
@@ -43,17 +43,17 @@ describe("library", () => {
 
     await user.click(screen.getByRole("button", { name: "Sequences" }));
 
-    expect(screen.queryByRole("button", { name: /Base defence/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Serve receive to outside/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Sample Position/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sample Drill/ })).toBeInTheDocument();
   });
 
   test("filtering by a tag narrows to items carrying it", async () => {
     const user = renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Serve receive" })); // only on the Sequence
+    await user.click(screen.getByRole("button", { name: "reception" })); // only on the Sequence
 
-    expect(screen.queryByRole("button", { name: /Base defence/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Serve receive to outside/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Sample Position/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sample Drill/ })).toBeInTheDocument();
   });
 });
 
@@ -73,7 +73,7 @@ describe("viewing", () => {
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: /Library/ }));
 
-    expect(screen.getByRole("button", { name: /Serve receive to outside/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sample Drill/ })).toBeInTheDocument();
   });
 });
 
@@ -193,13 +193,13 @@ describe("tags", () => {
   test("autocomplete offers an existing tag from elsewhere in the library", async () => {
     const user = renderApp();
 
-    await openSequence(user); // the Sequence has no "Defence" tag; the sample Position does
+    await openSequence(user); // the Sequence has no "defense" tag; the sample Position does
     await openEditor(user);
 
     await user.type(screen.getByLabelText("Add tag"), "Def");
-    await user.click(await screen.findByRole("option", { name: "Defence" }));
+    await user.click(await screen.findByRole("option", { name: "defense" }));
 
-    expect(screen.getByRole("button", { name: "Remove Defence" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove defense" })).toBeInTheDocument();
   });
 
   test("removing a tag in the editor drops it from the item", async () => {
@@ -208,11 +208,11 @@ describe("tags", () => {
     await openPosition(user);
     await openEditor(user);
 
-    await user.click(screen.getByRole("button", { name: "Remove Defence" }));
+    await user.click(screen.getByRole("button", { name: "Remove defense" }));
     await user.click(screen.getByRole("button", { name: "Done" }));
     await user.click(screen.getByRole("button", { name: /Library/ }));
 
-    expect(screen.queryByRole("button", { name: "Defence" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "defense" })).not.toBeInTheDocument();
   });
 });
 
@@ -246,7 +246,7 @@ describe("the view/edit flow", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByText("Throwaway")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Base defence" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)" })).toBeInTheDocument();
   });
 
   test("creating a board opens a fresh single-step Position and commits on Done", async () => {
@@ -275,8 +275,8 @@ describe("the view/edit flow", () => {
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
-    expect(screen.queryByRole("button", { name: /Base defence/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Serve receive to outside/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Sample Position/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sample Drill/ })).toBeInTheDocument();
   });
 });
 
@@ -302,13 +302,13 @@ describe("positions and sequences", () => {
 
     await openSequence(user);
 
-    expect(screen.getByRole("heading", { name: "Serve receive to outside" })).toBeInTheDocument();
-    expect(screen.getByText("1 / 3")).toBeInTheDocument();
-    expect(screen.getByText(/the setter releases to the net/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sample Drill (Serve Receive & Sideout)" })).toBeInTheDocument();
+    expect(screen.getByText("1 / 4")).toBeInTheDocument();
+    expect(screen.getByText(/each cover 40% of the court/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next step" }));
 
-    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    expect(screen.getByText("2 / 4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Step 2" })).toHaveAttribute("aria-current", "true");
   });
 
@@ -330,29 +330,28 @@ describe("positions and sequences", () => {
   });
 });
 
-// The flat seed files "Base defence" under Defense and "Serve receive to outside" under Drills, so
-// the sidebar opens populated. A board card's title is an h3, queried by heading role to stay
+// The flat seed files "Sample Position (Base Defence)" under Defense and "Sample Drill (Serve Receive
+// & Sideout)" under Drills, so the sidebar opens populated. A board card's title is an h3, queried by heading role to stay
 // distinct from the topic-page curation controls.
 describe("topics", () => {
-  test("the sidebar navigates All Boards, a topic, and Unfiled", async () => {
+  test("the sidebar navigates All Boards and a topic", async () => {
     const user = renderApp();
 
     expect(screen.getByRole("button", { name: "All Boards" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Base defence", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
     expect(screen.getByText(/who digs cross-court/i)).toBeInTheDocument(); // the topic's markdown explanation
-    expect(screen.getByRole("heading", { name: "Base defence", level: 3 })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Serve receive to outside", level: 3 })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Unfiled" }));
-    expect(screen.getByText("No unfiled boards.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Sample Drill (Serve Receive & Sideout)", level: 3 })
+    ).not.toBeInTheDocument();
   });
 
   test("nesting a topic, the parent page still lists only its directly-filed boards", async () => {
     const user = renderApp();
 
-    // Nest Drills under Defense; "Serve receive to outside" stays filed in Drills, now a descendant.
+    // Nest Drills under Defense; "Sample Drill (Serve Receive & Sideout)" stays filed in Drills, now a descendant.
     await user.click(screen.getByRole("button", { name: "Drills" }));
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.selectOptions(
@@ -362,11 +361,11 @@ describe("topics", () => {
     await user.click(screen.getByRole("button", { name: "Done" }));
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
-    expect(screen.getByRole("heading", { name: "Base defence", level: 3 })).toBeInTheDocument(); // filed here
-    expect(screen.queryByRole("heading", { name: "Serve receive to outside" })).not.toBeInTheDocument(); // descendant
+    expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument(); // filed here
+    expect(screen.queryByRole("heading", { name: "Sample Drill (Serve Receive & Sideout)" })).not.toBeInTheDocument(); // descendant
   });
 
-  test("a new board is Unfiled until filed", async () => {
+  test("a new board is unfiled: listed in All Boards but under no topic", async () => {
     const user = renderApp();
 
     await user.click(screen.getByRole("button", { name: "+ New board" }));
@@ -375,8 +374,10 @@ describe("topics", () => {
     await user.click(screen.getByRole("button", { name: "Done" }));
     await user.click(screen.getByRole("button", { name: /Library/ }));
 
-    await user.click(screen.getByRole("button", { name: "Unfiled" }));
-    expect(screen.getByRole("heading", { name: "Loose ball", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Loose ball", level: 3 })).toBeInTheDocument(); // in All Boards
+
+    await user.click(screen.getByRole("button", { name: "Defense" }));
+    expect(screen.queryByRole("heading", { name: "Loose ball" })).not.toBeInTheDocument(); // filed under no topic
   });
 
   test("filing a board under a topic from the editor moves it there", async () => {
@@ -393,19 +394,21 @@ describe("topics", () => {
     await user.click(screen.getByRole("button", { name: /Library/ }));
 
     await user.click(screen.getByRole("button", { name: "Rotations" }));
-    expect(screen.getByRole("heading", { name: "Serve receive to outside", level: 3 })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Sample Drill (Serve Receive & Sideout)", level: 3 })
+    ).toBeInTheDocument();
   });
 
-  test("removing a board from a topic returns it to Unfiled", async () => {
+  test("removing a board from a topic unfiles it, keeping it in All Boards", async () => {
     const user = renderApp();
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
-    await user.click(screen.getByRole("button", { name: "Remove Base defence from topic" }));
+    await user.click(screen.getByRole("button", { name: "Remove Sample Position (Base Defence) from topic" }));
 
-    expect(screen.queryByRole("heading", { name: "Base defence" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sample Position (Base Defence)" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Unfiled" }));
-    expect(screen.getByRole("heading", { name: "Base defence", level: 3 })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "All Boards" }));
+    expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument();
   });
 
   test("a coach creates and explains a topic", async () => {
@@ -425,7 +428,7 @@ describe("topics", () => {
     expect(screen.getByText("Out of system play.")).toBeInTheDocument();
   });
 
-  test("deleting a topic returns its boards to Unfiled and drops it from the sidebar", async () => {
+  test("deleting a topic unfiles its boards and drops it from the sidebar", async () => {
     vi.stubGlobal("confirm", () => true);
     const user = renderApp();
 
@@ -433,9 +436,8 @@ describe("topics", () => {
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
+    // Deleting the topic returns to All Boards; its board survives there, just no longer filed.
     expect(screen.queryByRole("button", { name: "Defense" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Unfiled" }));
-    expect(screen.getByRole("heading", { name: "Base defence", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument();
   });
 });

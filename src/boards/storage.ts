@@ -3,21 +3,23 @@ import type { Board } from "./types";
 const STORAGE_KEY = "volleycoach-boards";
 
 // The first-run seeds, one of each kind, so the library opens with something to explore rather than
-// empty. "Base defence" is a Position (one step) — a perimeter defence against an outside attack, the
-// block formed beneath the high ball. "Serve receive to outside" is a Sequence (three steps): the
-// pass travels to the setter, the left side opens, and OH1 finishes; marker ids stay stable across
-// the steps so playback glides each one by identity and the movement arrows derive from the deltas.
+// empty. "Sample Position (Base Defence)" is a Position (one step) — a perimeter defence against an
+// outside attack. "Sample Drill (Serve Receive & Sideout)" is a Sequence (four steps): serve,
+// receive, set, hit, finishing to OH1 at the antenna; marker ids stay stable across the steps so
+// playback glides each one by identity and the movement arrows derive from the deltas.
 
 const SAMPLE_POSITION: Board = {
   id: "sample-perimeter-defence",
-  title: "Base defence",
+  title: "Sample Position (Base Defence)",
   description:
     "**Perimeter defence** against an outside attack.\n\n" +
-    "- The block takes the line; the **libero** digs cross-court.\n" +
-    "- The **setter** releases off the net to chase the second ball.\n" +
-    "- Back-row players hold the deep corners.",
+    "- Cross Block\n" +
+    "- **Setter:** Foot on side-line. Main target is hard line hit. Ready for tips.\n" +
+    "- **OH2:** Deep inside the block. Main target: Everything high off the block and long line shots\n" +
+    "- **Lib:** Just outside the block shadow. Main target is the cross power hit.\n" +
+    "- **OH1:** Defending sharp hits and/or tips to middle of court",
   mode: "positions",
-  tags: ["Defence", "Outside attack"],
+  tags: ["sample", "defense"],
   topicId: "topic-defense",
   topicOrder: 0,
   markers: [
@@ -34,13 +36,13 @@ const SAMPLE_POSITION: Board = {
       id: "step-1",
       instruction: "",
       positions: {
-        opp: { x: 0.82, y: 0.08 },
-        mb1: { x: 0.64, y: 0.08 },
-        oh1: { x: 0.22, y: 0.27 },
-        s: { x: 0.84, y: 0.55 },
-        l: { x: 0.2, y: 0.7 },
-        oh2: { x: 0.5, y: 0.85 },
-        ball: { x: 0.8, y: -0.085 },
+        opp: { x: 0.89, y: 0.05 },
+        mb1: { x: 0.82, y: 0.05 },
+        oh1: { x: 0.14, y: 0.31 },
+        s: { x: 0.95, y: 0.6 },
+        l: { x: 0.18, y: 0.72 },
+        oh2: { x: 0.72, y: 0.92 },
+        ball: { x: 0.95, y: -0.09 },
       },
     },
   ],
@@ -50,14 +52,10 @@ const SAMPLE_POSITION: Board = {
 
 const SAMPLE_SEQUENCE: Board = {
   id: "sample-outside-attack",
-  title: "Serve receive to outside",
-  description:
-    "A first-ball **side-out** off serve receive.\n\n" +
-    "- The libero and outsides pass; the **setter** releases to the net.\n" +
-    "- The pass travels to target as the left side opens for the approach.\n" +
-    "- The setter delivers, and **OH1** attacks down the line.",
+  title: "Sample Drill (Serve Receive & Sideout)",
+  description: "### Serve Reception & Sideout",
   mode: "positions",
-  tags: ["Serve receive", "Outside attack"],
+  tags: ["sample", "reception"],
   topicId: "topic-drills",
   topicOrder: 0,
   markers: [
@@ -71,38 +69,50 @@ const SAMPLE_SEQUENCE: Board = {
   steps: [
     {
       id: "step-1",
-      instruction: "Serve receive — the libero and outsides pass; the setter releases to the net.",
+      instruction: "- Serve receive\n- L and OH2 each cover 40% of the court\n- OH1 covers the remaining 20%",
       positions: {
-        s: { x: 0.7, y: 0.2 },
-        mb1: { x: 0.45, y: 0.12 },
-        oh1: { x: 0.18, y: 0.62 },
-        oh2: { x: 0.8, y: 0.6 },
-        l: { x: 0.5, y: 0.7 },
-        ball: { x: 0.42, y: -0.06 },
+        s: { x: 0.72, y: 0.18 },
+        mb1: { x: 0.4, y: 0.15 },
+        oh1: { x: 0.1, y: 0.66 },
+        oh2: { x: 0.8, y: 0.72 },
+        l: { x: 0.4, y: 0.72 },
+        ball: { x: 0.6, y: -0.09 },
       },
     },
     {
       id: "step-2",
-      instruction: "The pass travels to the setter as the left side opens up for the approach.",
+      instruction: "- Pass to the middle, close to the net\n- OH1 kicks out wide for the approach",
       positions: {
-        s: { x: 0.66, y: 0.16 },
-        mb1: { x: 0.45, y: 0.12 },
-        oh1: { x: 0.14, y: 0.42 },
-        oh2: { x: 0.8, y: 0.58 },
-        l: { x: 0.5, y: 0.66 },
-        ball: { x: 0.62, y: 0.18 },
+        s: { x: 0.52, y: 0.13 },
+        mb1: { x: 0.42, y: 0.15 },
+        oh1: { x: 0.0, y: 0.48 },
+        oh2: { x: 0.78, y: 0.62 },
+        l: { x: 0.58, y: 0.72 },
+        ball: { x: 0.6, y: 0.72 },
       },
     },
     {
       id: "step-3",
-      instruction: "Set to the outside — OH1 finishes the approach and attacks down the line.",
+      instruction: "- Set to the antenna\n- MB1 jumps with the set",
       positions: {
-        s: { x: 0.64, y: 0.15 },
-        mb1: { x: 0.4, y: 0.12 },
-        oh1: { x: 0.17, y: 0.16 },
-        oh2: { x: 0.72, y: 0.5 },
-        l: { x: 0.46, y: 0.6 },
-        ball: { x: 0.17, y: 0.06 },
+        s: { x: 0.5, y: 0.11 },
+        mb1: { x: 0.38, y: 0.06 },
+        oh1: { x: -0.1, y: 0.3 },
+        oh2: { x: 0.5, y: 0.6 },
+        l: { x: 0.35, y: 0.52 },
+        ball: { x: 0.5, y: 0.13 },
+      },
+    },
+    {
+      id: "step-4",
+      instruction: "- OH1 attacks\n- Everyone covers: libero, MB1 and setter tight, OH2 deep in the middle",
+      positions: {
+        s: { x: 0.45, y: 0.15 },
+        mb1: { x: 0.25, y: 0.12 },
+        oh1: { x: 0.06, y: 0.13 },
+        oh2: { x: 0.45, y: 0.55 },
+        l: { x: 0.1, y: 0.3 },
+        ball: { x: 0.06, y: 0.05 },
       },
     },
   ],

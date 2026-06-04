@@ -6,7 +6,7 @@ import { BoardGrid } from "./BoardGrid";
 import { toLibraryItems } from "./items";
 
 // The All Boards surface: every board as a grid of cards, newest first, narrowed by the type and tag
-// filters. The grid and its filters live in BoardGrid, shared with the Unfiled and topic surfaces.
+// filters. The grid and its filters live in BoardGrid, shared with the topic surfaces.
 type LibraryProps = {
   boards: readonly Board[];
   onOpen: (id: string) => void;
