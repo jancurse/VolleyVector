@@ -62,3 +62,8 @@ export function loadTopics(): Topic[] | null {
 export function saveTopics(topics: readonly Topic[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(topics));
 }
+
+/** Drop the saved topics so the next load reseeds `SAMPLE_TOPICS`. */
+export function clearTopics(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}

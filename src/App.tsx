@@ -12,6 +12,7 @@ import type { Selection } from "./library/selection";
 import { subtreeIds } from "./topics/operations";
 import { useTopics } from "./topics/useTopics";
 import { useTheme } from "./theme/useTheme";
+import { DebugMenu } from "./ui/DebugMenu";
 import { ThemeToggle } from "./ui/ThemeToggle";
 
 // The app moves between three surfaces: the browse surface (the topic sidebar beside the board grid),
@@ -119,7 +120,10 @@ export function App(): JSX.Element {
           </svg>
           <span>VolleyCoach</span>
         </div>
-        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        <div className="vc-header-actions">
+          {import.meta.env.DEV && <DebugMenu />}
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        </div>
       </header>
 
       {main}

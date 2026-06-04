@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, MotionConfig } from "motion/react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import ReactMarkdown from "react-markdown";
 
@@ -70,6 +70,25 @@ export function BoardView({ board, onEdit, onBack }: BoardViewProps): JSX.Elemen
   const arrows = useMemo(() => (playing ? [] : arrowsForStep(board, step)), [board, step, playing]);
   const instruction = board.steps[step]?.instruction ?? "";
 
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+
+    const id = window.setTimeout(() => setCopied(false), 1500);
+
+    return () => window.clearTimeout(id);
+  }, [copied]);
+
+  const copyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(board, null, 2));
+      setCopied(true);
+    } catch {
+      // The clipboard call can reject (no permission or an insecure context); keep the view intact.
+    }
+  };
+
   return (
     <MotionConfig reducedMotion="user">
       <div className="vc-view">
@@ -81,9 +100,14 @@ export function BoardView({ board, onEdit, onBack }: BoardViewProps): JSX.Elemen
             <p className="vc-eyebrow">{sequence ? "Sequence" : "Position"}</p>
             <h1 className="vc-view-title">{board.title || "Untitled board"}</h1>
           </div>
-          <button type="button" className="vc-primary" onClick={onEdit}>
-            Edit
-          </button>
+          <div className="vc-view-actions">
+            <button type="button" className="vc-new" onClick={copyJson}>
+              {copied ? "Copied" : "Copy JSON"}
+            </button>
+            <button type="button" className="vc-primary" onClick={onEdit}>
+              Edit
+            </button>
+          </div>
         </div>
 
         {sequence ? (

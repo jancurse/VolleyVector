@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 
-import { loadTopics, SAMPLE_TOPICS, saveTopics } from "../../src/topics/storage";
+import { clearTopics, loadTopics, SAMPLE_TOPICS, saveTopics } from "../../src/topics/storage";
 
 afterEach(() => localStorage.clear());
 
@@ -28,6 +28,13 @@ describe("topics storage", () => {
     ["items missing required fields", JSON.stringify([{ id: "x" }])],
   ])("returns null for %s", (_label, raw) => {
     localStorage.setItem("volleycoach-topics", raw);
+    expect(loadTopics()).toBeNull();
+  });
+
+  test("clearTopics drops the saved topics so the next load reseeds", () => {
+    saveTopics(SAMPLE_TOPICS);
+    clearTopics();
+
     expect(loadTopics()).toBeNull();
   });
 });

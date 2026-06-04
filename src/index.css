@@ -116,7 +116,14 @@ body {
   opacity: 0.92;
 }
 
-.vc-theme-toggle {
+.vc-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vc-theme-toggle,
+.vc-debug-toggle {
   display: grid;
   place-items: center;
   width: 38px;
@@ -131,12 +138,54 @@ body {
     transform 0.2s var(--ease-settle);
 }
 
-.vc-theme-toggle:hover {
+.vc-theme-toggle:hover,
+.vc-debug-toggle:hover {
   background: var(--control-hover);
 }
 
-.vc-theme-toggle:active {
+.vc-theme-toggle:active,
+.vc-debug-toggle:active {
   transform: scale(0.94);
+}
+
+/* The dev-only debug menu: an icon button that drops a small panel of storage-clearing actions. */
+.vc-debug {
+  position: relative;
+}
+
+.vc-debug-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 184px;
+  padding: 0.3rem;
+  background: var(--court-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px -22px var(--court-cast);
+}
+
+.vc-debug-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.14s ease;
+}
+
+.vc-debug-item:hover {
+  background: var(--control-hover);
 }
 
 /* ---- Workspace layout ------------------------------------------------------------------------ */
@@ -205,6 +254,13 @@ body {
 .vc-view-desc .vc-markdown {
   flex: none;
   min-height: 0;
+}
+
+.vc-view-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .vc-primary {

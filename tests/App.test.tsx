@@ -330,6 +330,42 @@ describe("positions and sequences", () => {
   });
 });
 
+// Reached from any board's read-only view bar (Positions and Sequences alike). The clipboard is a
+// browser API, so it is mocked; opening either sample board and clicking copies that board's JSON.
+describe("board JSON export", () => {
+  test.each([
+    ["a Position", openPosition, "Sample Position (Base Defence)"],
+    ["a Sequence", openSequence, "Sample Drill (Serve Receive & Sideout)"],
+  ])("copies %s board's JSON to the clipboard and confirms", async (_label, open, title) => {
+    const user = renderApp();
+    // Define the mock after setup, since userEvent.setup installs its own clipboard stub on navigator.
+    const writeText = vi.fn().mockResolvedValue(undefined);
+
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    await open(user);
+    await user.click(screen.getByRole("button", { name: "Copy JSON" }));
+
+    expect(JSON.parse(writeText.mock.calls[0][0])).toMatchObject({ title });
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+  });
+});
+
+// Dev-only (import.meta.env.DEV is true under Vitest). The actions clear storage then reload, so the
+// reload and the production-build gate are environment APIs left to the build step; this only checks
+// the menu gates open to its three actions.
+describe("debug menu", () => {
+  test("opens to offer the storage-clearing actions", async () => {
+    const user = renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Debug menu" }));
+
+    expect(screen.getByRole("button", { name: "Clear all boards" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear all topics" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear all local storage" })).toBeInTheDocument();
+  });
+});
+
 // The flat seed files "Sample Position (Base Defence)" under Defense and "Sample Drill (Serve Receive
 // & Sideout)" under Drills, so the sidebar opens populated. A board card's title is an h3, queried by heading role to stay
 // distinct from the topic-page curation controls.

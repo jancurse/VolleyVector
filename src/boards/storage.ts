@@ -151,3 +151,8 @@ export function loadBoards(): Board[] | null {
 export function saveBoards(boards: readonly Board[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(boards));
 }
+
+/** Drop the saved boards so the next load reseeds `SAMPLE_BOARDS`. */
+export function clearBoards(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 
-import { loadBoards, SAMPLE_BOARDS, saveBoards } from "../../src/boards/storage";
+import { clearBoards, loadBoards, SAMPLE_BOARDS, saveBoards } from "../../src/boards/storage";
 
 afterEach(() => localStorage.clear());
 
@@ -23,6 +23,13 @@ describe("boards storage", () => {
     ["items missing required fields", JSON.stringify([{ id: 1 }])],
   ])("returns null for %s", (_label, raw) => {
     localStorage.setItem("volleycoach-boards", raw);
+    expect(loadBoards()).toBeNull();
+  });
+
+  test("clearBoards drops the saved boards so the next load reseeds", () => {
+    saveBoards(SAMPLE_BOARDS);
+    clearBoards();
+
     expect(loadBoards()).toBeNull();
   });
 
