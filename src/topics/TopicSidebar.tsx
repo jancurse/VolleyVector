@@ -3,21 +3,24 @@ import type { JSX } from "react";
 import type { Selection } from "../library/selection";
 import { Button } from "../ui/Button";
 import { Collapsible, CollapsibleCaret, CollapsiblePanel } from "../ui/Collapsible";
-import { IconButton } from "../ui/IconButton";
 import { cx } from "../ui/styles";
 import { childrenOf } from "./operations";
+import { TopicRowMenu } from "./TopicRowMenu";
 import type { Topic } from "./types";
 
 // The persistent table of contents for the browse surface: All Boards on top, then the topic tree
-// with disclosure controls, plus a quiet affordance to add a root topic. Reorder controls sit on each
-// row but stay hidden until the row is hovered or focused, so the sidebar reads as quiet and
-// typographic rather than as app chrome.
+// with disclosure controls, plus a quiet affordance to add a root topic. Each row carries a quiet
+// organise menu (reorder and nesting) that stays hidden until the row is hovered or focused, so the
+// sidebar reads as quiet and typographic rather than as app chrome. Nesting lives here, not in the
+// topic editor.
 type TopicSidebarProps = {
   topics: readonly Topic[];
   selection: Selection;
   onSelect: (selection: Selection) => void;
   onNewTopic: () => void;
   onReorder: (id: string, dir: -1 | 1) => void;
+  /** Re-parent a topic — nesting and un-nesting live here, not in the topic editor. */
+  onNest: (id: string, parentId: string | null) => void;
 };
 
 const NAV_ITEM =
@@ -27,9 +30,16 @@ const ROW =
 const LINK =
   "flex-1 min-w-0 cursor-pointer truncate border-0 bg-transparent px-[0.2rem] py-[0.36rem] text-left font-ui text-base font-semibold text-text-dim transition-colors group-hover:text-text";
 const CONTROLS =
-  "flex gap-px pr-[0.2rem] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100";
+  "flex pr-[0.2rem] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100";
 
-export function TopicSidebar({ topics, selection, onSelect, onNewTopic, onReorder }: TopicSidebarProps): JSX.Element {
+export function TopicSidebar({
+  topics,
+  selection,
+  onSelect,
+  onNewTopic,
+  onReorder,
+  onNest,
+}: TopicSidebarProps): JSX.Element {
   const renderRow = (topic: Topic, depth: number, hasChildren: boolean): JSX.Element => {
     const on = selection.kind === "topic" && selection.id === topic.id;
     const siblings = childrenOf(topics, topic.parentId);
@@ -51,24 +61,16 @@ export function TopicSidebar({ topics, selection, onSelect, onNewTopic, onReorde
           {topic.title}
         </button>
         <span className={CONTROLS}>
-          <IconButton
-            variant="plain"
-            size="xs"
-            aria-label={`Move ${topic.title} up`}
-            disabled={index <= 0}
-            onClick={() => onReorder(topic.id, -1)}
-          >
-            ↑
-          </IconButton>
-          <IconButton
-            variant="plain"
-            size="xs"
-            aria-label={`Move ${topic.title} down`}
-            disabled={index >= siblings.length - 1}
-            onClick={() => onReorder(topic.id, 1)}
-          >
-            ↓
-          </IconButton>
+          <TopicRowMenu
+            title={topic.title}
+            canMoveUp={index > 0}
+            canMoveDown={index < siblings.length - 1}
+            nestUnder={index > 0 ? siblings[index - 1].title : null}
+            isNested={topic.parentId !== null}
+            onMove={(dir) => onReorder(topic.id, dir)}
+            onNest={() => onNest(topic.id, siblings[index - 1].id)}
+            onMoveToTop={() => onNest(topic.id, null)}
+          />
         </span>
       </div>
     );

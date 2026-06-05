@@ -6,10 +6,8 @@ import {
   createBoard,
   insertStep,
   makeMarker,
-  moveBoardWithinTopic,
   moveStep,
   nextLabel,
-  nextTopicOrder,
   removeMarker,
   removeStep,
   setMarker,
@@ -44,13 +42,12 @@ const SEQUENCE: Board = {
   ],
   tags: [],
   topicId: null,
-  topicOrder: 0,
   createdAt: 0,
   updatedAt: 0,
 };
 
-// Three Positions filed under one topic in a deliberate manual order, plus one Unfiled.
-function filed(id: string, topicId: string | null, topicOrder: number): Board {
+// Three Positions filed under one topic, edited at distinct times, plus one Unfiled.
+function filed(id: string, topicId: string | null, updatedAt: number): Board {
   return {
     id,
     title: id,
@@ -60,9 +57,8 @@ function filed(id: string, topicId: string | null, topicOrder: number): Board {
     steps: [{ id: "s1", instruction: "", positions: {} }],
     tags: [],
     topicId,
-    topicOrder,
     createdAt: 0,
-    updatedAt: 0,
+    updatedAt,
   };
 }
 
@@ -113,7 +109,7 @@ describe("createBoard", () => {
     const board = createBoard(1234, "basic", "Press");
 
     expect(board).toMatchObject({ title: "Press", mode: "basic", markers: [], createdAt: 1234, updatedAt: 1234 });
-    expect(board).toMatchObject({ topicId: null, topicOrder: 0 }); // a fresh board is Unfiled
+    expect(board).toMatchObject({ topicId: null }); // a fresh board is Unfiled
     expect(board.steps).toHaveLength(1);
     expect(board.steps[0]).toMatchObject({ instruction: "", positions: {} });
     expect(isSequence(board)).toBe(false);
@@ -246,29 +242,8 @@ describe("removeMarker", () => {
 });
 
 describe("boardsInTopic", () => {
-  test("returns a topic's boards in manual order, ignoring the rest", () => {
-    expect(boardsInTopic(FILED, "t1").map((b) => b.id)).toEqual(["a", "b", "c"]);
+  test("returns a topic's boards newest-edited first, ignoring the rest", () => {
+    expect(boardsInTopic(FILED, "t1").map((b) => b.id)).toEqual(["c", "b", "a"]); // updatedAt 2, 1, 0
     expect(boardsInTopic(FILED, "missing")).toEqual([]);
-  });
-});
-
-describe("nextTopicOrder", () => {
-  test("appends after a topic's existing boards, and is 0 for Unfiled", () => {
-    expect(nextTopicOrder(FILED, "t1")).toBe(3);
-    expect(nextTopicOrder(FILED, "empty")).toBe(0);
-    expect(nextTopicOrder(FILED, null)).toBe(0);
-  });
-});
-
-describe("moveBoardWithinTopic", () => {
-  test("swaps a board one place within its topic, persisting the new order", () => {
-    const moved = moveBoardWithinTopic(FILED, "t1", "a", 1); // a (0) and b (1) swap orders
-
-    expect(boardsInTopic(moved, "t1").map((b) => b.id)).toEqual(["b", "a", "c"]);
-  });
-
-  test("is a no-op past either end", () => {
-    expect(moveBoardWithinTopic(FILED, "t1", "a", -1)).toBe(FILED);
-    expect(moveBoardWithinTopic(FILED, "t1", "c", 1)).toBe(FILED);
   });
 });

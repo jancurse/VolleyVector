@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
-import { createBoard, nextTopicOrder } from "./boards/operations";
+import { createBoard } from "./boards/operations";
 import type { Board } from "./boards/types";
 import { useBoards } from "./boards/useBoards";
 import { BoardEditor } from "./editor/BoardEditor";
@@ -30,7 +30,7 @@ const STAGE =
 export function App(): JSX.Element {
   const [theme, toggleTheme] = useTheme();
 
-  const { boards, addBoard, deleteBoard, updateBoard, moveBoardInTopic, unfileBoards } = useBoards();
+  const { boards, addBoard, deleteBoard, updateBoard, unfileBoards } = useBoards();
   const topics = useTopics();
   const { confirm, dialog } = useConfirm();
 
@@ -41,13 +41,8 @@ export function App(): JSX.Element {
   const openBoard = openId !== null ? (boards.find((b) => b.id === openId) ?? null) : null;
 
   const commit = (updated: Board) => {
-    // Filing a board into a different topic appends it after that topic's boards.
-    const prev = boards.find((b) => b.id === updated.id);
-    const refiled = (prev?.topicId ?? null) !== updated.topicId;
-    const final = refiled ? { ...updated, topicOrder: nextTopicOrder(boards, updated.topicId) } : updated;
-
-    if (prev) updateBoard(updated.id, () => final);
-    else addBoard(final);
+    if (boards.some((b) => b.id === updated.id)) updateBoard(updated.id, () => updated);
+    else addBoard(updated);
 
     setDraft(null);
     setOpenId(updated.id);
@@ -124,8 +119,7 @@ export function App(): JSX.Element {
           onNewBoard={() => setDraft(createBoard(Date.now()))}
           onCreateTopic={createTopic}
           onDeleteTopic={removeTopic}
-          onMoveBoardInTopic={moveBoardInTopic}
-          onRemoveBoardFromTopic={(boardId) => unfileBoards([boardId])}
+          onUnfileBoard={(boardId) => unfileBoards([boardId])}
         />
       </main>
     );

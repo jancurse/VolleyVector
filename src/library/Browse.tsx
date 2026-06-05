@@ -23,8 +23,8 @@ type BrowseProps = {
   onNewBoard: () => void;
   onCreateTopic: (parentId: string | null) => void;
   onDeleteTopic: (id: string) => void;
-  onMoveBoardInTopic: (topicId: string, boardId: string, dir: -1 | 1) => void;
-  onRemoveBoardFromTopic: (boardId: string) => void;
+  /** Return one board to Unfiled — the topic editor's per-member unfile action. */
+  onUnfileBoard: (boardId: string) => void;
 };
 
 export function Browse({
@@ -36,8 +36,7 @@ export function Browse({
   onNewBoard,
   onCreateTopic,
   onDeleteTopic,
-  onMoveBoardInTopic,
-  onRemoveBoardFromTopic,
+  onUnfileBoard,
 }: BrowseProps): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -54,12 +53,12 @@ export function Browse({
     content = (
       <TopicEditor
         topic={selected}
-        topics={topics.topics}
+        boards={boards}
         onCancel={() => setEditingId(null)}
         onDelete={() => onDeleteTopic(selected.id)}
+        onUnfileBoard={onUnfileBoard}
         onDone={(patch) => {
-          topics.updateTopic(selected.id, { title: patch.title, body: patch.body });
-          if (patch.parentId !== selected.parentId) topics.reparentTopic(selected.id, patch.parentId);
+          topics.updateTopic(selected.id, { title: patch.title, blocks: patch.blocks });
           setEditingId(null);
         }}
       />
@@ -74,8 +73,6 @@ export function Browse({
         onSelectTopic={(id) => select({ kind: "topic", id })}
         onEdit={() => setEditingId(selected.id)}
         onAddSubtopic={() => onCreateTopic(selected.id)}
-        onMoveBoard={(boardId, dir) => onMoveBoardInTopic(selected.id, boardId, dir)}
-        onRemoveBoard={onRemoveBoardFromTopic}
       />
     );
   } else {
@@ -90,6 +87,7 @@ export function Browse({
         onSelect={select}
         onNewTopic={() => onCreateTopic(null)}
         onReorder={topics.reorderTopic}
+        onNest={topics.reparentTopic}
       />
       <div className="min-w-0">{content}</div>
     </div>

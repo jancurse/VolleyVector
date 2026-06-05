@@ -3,21 +3,18 @@ import type { JSX } from "react";
 
 import { ToggleGroup } from "../ui/ToggleGroup";
 import { MUTED, cx } from "../ui/styles";
+import { CardGrid } from "./CardGrid";
 import { collectTags } from "./items";
 import type { LibraryItem, LibraryKind } from "./items";
-import { LibraryCard } from "./LibraryCard";
 
-// The filtering grid shared by every browse surface (All Boards and a topic page). It owns the type
-// and tag filters and renders the cards in the order it is given — callers decide that order (newest
-// first for All Boards, manual order within a topic). A topic page also passes per-card curation
-// controls, which render beside each card without nesting inside its button.
+// The All Boards surface's grid: the type and tag filters above a plain CardGrid of the matches. The
+// filters live here alone, so the topic surfaces — which render through CardGrid directly — carry
+// none. Callers decide the card order (newest first for All Boards).
 type BoardGridProps = {
   items: readonly LibraryItem[];
   onOpen: (id: string) => void;
-  /** Shown when there are no items at all (an empty topic, an empty library). */
+  /** Shown when there are no items at all (an empty library). */
   emptyLabel?: string;
-  /** Optional per-card controls (a topic page's reorder/remove). */
-  cardControls?: (item: LibraryItem) => JSX.Element;
 };
 
 type TypeFilter = "all" | LibraryKind;
@@ -28,7 +25,7 @@ const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
   { value: "sequence", label: "Sequences" },
 ];
 
-export function BoardGrid({ items, onOpen, emptyLabel, cardControls }: BoardGridProps): JSX.Element {
+export function BoardGrid({ items, onOpen, emptyLabel }: BoardGridProps): JSX.Element {
   const [type, setType] = useState<TypeFilter>("all");
   const [active, setActive] = useState<string[]>([]);
 
@@ -59,18 +56,7 @@ export function BoardGrid({ items, onOpen, emptyLabel, cardControls }: BoardGrid
       </div>
 
       {filtered.length > 0 ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(228px,1fr))] gap-[clamp(0.9rem,2vw,1.4rem)]">
-          {filtered.map((item) =>
-            cardControls ? (
-              <div key={item.id} className="flex flex-col gap-[0.45rem]">
-                <LibraryCard item={item} onOpen={() => onOpen(item.id)} />
-                <div className="flex items-center gap-[0.3rem]">{cardControls(item)}</div>
-              </div>
-            ) : (
-              <LibraryCard key={item.id} item={item} onOpen={() => onOpen(item.id)} />
-            )
-          )}
-        </div>
+        <CardGrid items={filtered} onOpen={onOpen} />
       ) : (
         <p className={cx(MUTED, "px-4 py-12 text-center")}>
           {items.length === 0 ? (emptyLabel ?? "Nothing here yet.") : "Nothing matches these filters."}

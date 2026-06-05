@@ -39,7 +39,6 @@ type Board = {
   steps: BoardStep[]; // ordered, always >= 1
   tags: string[];
   topicId: string | null; // home topic, or Unfiled
-  topicOrder: number; // manual order within that topic
   createdAt: number;
   updatedAt: number;
 };
@@ -149,16 +148,32 @@ Boards are organised two independent ways: a single home topic that places a boa
 
 ### Topics
 
-- A `Topic` is a tree node: an id, a title, an optional markdown `body`, a nullable `parentId`, and an `order` among its siblings. Nesting is arbitrary depth.
-- A board has **at most one** home topic. Its `topicId` is the single source of truth for membership and its `topicOrder` is the manual order within that topic. A board with no topic is **Unfiled**. A topic never lists its own boards, so membership is never duplicated.
-- Topic operations (`topics/operations.ts`) create, rename, delete, nest, and reorder topics. Deleting a topic cascades to its whole subtree but never deletes boards: the app returns any boards under the removed topics to Unfiled. Nesting is guarded against cycles, so a topic can never become its own ancestor.
-- A topic page shows the topic's markdown explanation above the boards filed **directly** in it (not its descendants'), in their manual order, and offers per-board reorder and a remove that returns a board to Unfiled.
-- One `TopicPicker`, a depth-indented dropdown over the flattened tree, serves both filing a board (with a None → Unfiled option) and nesting a topic (with a None → top-level option, excluding the topic and its descendants to bar cycles).
+A topic plays two roles, kept deliberately separate. It is a **document** a coach reads, and a **node** in the organising tree. Its content lives in its blocks. Its place in the tree lives in `parentId`, and is edited only from the sidebar.
+
+- A `Topic` is a tree node carrying a document: an id, a title, an ordered `blocks` list, a nullable `parentId`, and an `order` among its siblings. Nesting is arbitrary depth.
+
+```ts
+type TopicBlock =
+  | { id: string; kind: "markdown"; text: string }
+  | { id: string; kind: "boards"; boardIds: string[] }; // placement hints, not membership
+
+type Topic = {
+  id: string;
+  title: string;
+  blocks: TopicBlock[]; // the document: prose and board-group blocks in order
+  parentId: string | null;
+  order: number;
+};
+```
+
+- A board has **at most one** home topic, and its `topicId` is the single source of truth for membership. A board with no topic is **Unfiled**. A `boards` block's ids are only placement hints, intersected with the topic's real members where they render, so a stale id drops and a board never shows twice. Members carry no manual order: they default to newest-edited first, like the library.
+- Topic operations (`topics/operations.ts`) create, rename, nest, reorder, and delete topics, and edit a topic's blocks. Deleting cascades to the whole subtree but never deletes boards: any board under a removed topic returns to Unfiled. Nesting is guarded against cycles.
+- A topic page (`TopicView`) reads as a document: a subtopic-link row, the blocks in order (prose, and board groups as card grids of their members), then a trailing grid of any unplaced members, so a filed board never disappears. The editor (`TopicEditor`) commits a draft of the same blocks, picking boards from the topic's members and editing prose in place. It holds neither membership nor tree position: filing is the board editor's job, nesting the sidebar's.
 
 ### Tags and the browse surface
 
-- The `library/` module is the browse home. A persistent `TopicSidebar` table of contents sits beside a content pane that shows All Boards, Unfiled, or one topic's page. The sidebar holds All Boards at the top, the topic tree with disclosure controls and hover-revealed reorder, and a new-topic action.
-- `BoardGrid` carries the filtering and the card grid for all three surfaces. A type control filters All / Positions / Sequences, and selecting tags narrows by intersection: a board must carry every selected tag. Distinct empty states tell "nothing matches these filters" apart from "nothing here yet".
+- The `library/` module is the browse home. A persistent `TopicSidebar` table of contents sits beside a content pane showing All Boards, Unfiled, or one topic's page. The sidebar lists All Boards, the topic tree with disclosure controls, and a new-topic action. Each row's quiet hover-revealed menu (`TopicRowMenu`) reorders the topic among its siblings or re-nests it, so nesting lives here, not in the editor.
+- The card grid splits in two. `CardGrid` is the plain grid of `LibraryCard`s, used by a topic page's board groups and trailing grid. `BoardGrid` wraps it with the type and tag filters and serves the All Boards surface (`Library`) alone: a type control filters All / Positions / Sequences, and selecting tags narrows by intersection. Topic pages render through `CardGrid`, so they carry no filters by construction.
 - Each `LibraryCard` is a button showing a small static court thumbnail (a Sequence shows its first step), the board's kind, title, a count (markers for a Position, steps for a Sequence), and its tag chips. `toLibraryItems` folds the boards into these cards newest-first.
 - Opening a card leaves the browse surface entirely for the full-width view. The browse selection is held above the surface, so closing a board returns to the same place.
 
@@ -168,7 +183,7 @@ Boards are organised two independent ways: a single home topic that places a boa
 
 - `useBoards` and `useTopics` hold the board list and the topic tree in React state and expose the mutations the UI calls. Both load their data on first mount and persist it back to `localStorage` after edits settle, batching a burst of edits into one write.
 - Each store seeds itself from samples when nothing is stored yet, so the app opens with a Position, a Sequence, and a small starter topic tree to explore rather than an empty screen.
-- The stores keep the two concerns honest. Filing or editing a board refreshes its `updatedAt`, while purely structural reordering within a topic deliberately does not, so curation never churns the newest-first order of the library.
+- The stores keep membership and curation honest. Filing or editing a board refreshes its `updatedAt`, so it leads its topic's newest-first order. Structural topic moves, such as reordering siblings or nesting from the sidebar, only touch the topic tree and never a board. So curation never churns the library's order.
 
 ### Navigation and the app shell
 

@@ -71,38 +71,14 @@ export function createBoard(now: number, mode: CourtMode = "positions", title = 
     steps: [makeStep()],
     tags: [],
     topicId: null,
-    topicOrder: 0,
     createdAt: now,
     updatedAt: now,
   };
 }
 
-/** Boards filed directly under `topicId`, in their manual order. */
+/** Boards filed directly under `topicId`, newest-edited first (matching the library order). */
 export function boardsInTopic(boards: readonly Board[], topicId: string): Board[] {
-  return boards.filter((b) => b.topicId === topicId).sort((a, b) => a.topicOrder - b.topicOrder);
-}
-
-/** The order to give a board newly filed under `topicId` — after its siblings, or 0 when Unfiled. */
-export function nextTopicOrder(boards: readonly Board[], topicId: string | null): number {
-  if (topicId === null) return 0;
-
-  return boards.filter((b) => b.topicId === topicId).reduce((max, b) => Math.max(max, b.topicOrder), -1) + 1;
-}
-
-/** Reorder a board among its topic's boards by one place (`dir` -1 earlier, +1 later), swapping orders. */
-export function moveBoardWithinTopic(boards: Board[], topicId: string, boardId: string, dir: -1 | 1): Board[] {
-  const ordered = boardsInTopic(boards, topicId);
-  const index = ordered.findIndex((b) => b.id === boardId);
-  const swap = ordered[index + dir];
-
-  if (!swap) return boards;
-
-  return boards.map((b) => {
-    if (b.id === boardId) return { ...b, topicOrder: swap.topicOrder };
-    if (b.id === swap.id) return { ...b, topicOrder: ordered[index].topicOrder };
-
-    return b;
-  });
+  return boards.filter((b) => b.topicId === topicId).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 /** Step `index`'s markers as full `Marker`s (identity plus that step's position), ready for the Court. */

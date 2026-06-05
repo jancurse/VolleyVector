@@ -10,7 +10,7 @@ export type TopicsStore = {
   topics: Topic[];
   /** Add a topic under `parentId` (`null` for a root) and return its id, so the caller can select it. */
   addTopic: (parentId: string | null) => string;
-  updateTopic: (id: string, patch: Partial<Pick<Topic, "title" | "body">>) => void;
+  updateTopic: (id: string, patch: Partial<Pick<Topic, "title" | "blocks">>) => void;
   /** Remove a topic and its whole subtree. Unfiling its boards is the caller's job. */
   removeTopic: (id: string) => void;
   /** Re-parent a topic (`null` for a root). */
@@ -43,7 +43,7 @@ export function useTopics(): TopicsStore {
   }, []);
 
   const updateTopic = useCallback(
-    (id: string, patch: Partial<Pick<Topic, "title" | "body">>) => setTopics((prev) => setTopic(prev, id, patch)),
+    (id: string, patch: Partial<Pick<Topic, "title" | "blocks">>) => setTopics((prev) => setTopic(prev, id, patch)),
     []
   );
 

@@ -449,12 +449,9 @@ describe("topics", () => {
   test("nesting a topic, the parent page still lists only its directly-filed boards", async () => {
     const user = renderApp();
 
-    // Nest Drills under Defense; "Sample Drill (Serve Receive & Sideout)" stays filed in Drills, now a descendant.
-    await user.click(screen.getByRole("button", { name: "Drills" }));
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("combobox", { name: "Parent topic" }));
-    await user.click(screen.getByRole("option", { name: "Defense" }));
-    await user.click(screen.getByRole("button", { name: "Done" }));
+    // Nest Drills under Defense from the sidebar menu; "Sample Drill" stays filed in Drills, now a descendant.
+    await user.click(screen.getByRole("button", { name: "Organize Drills" }));
+    await user.click(screen.getByRole("menuitem", { name: "Nest under Defense" }));
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
     expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument(); // filed here
@@ -493,19 +490,24 @@ describe("topics", () => {
     ).toBeInTheDocument();
   });
 
-  test("removing a board from a topic unfiles it, keeping it in All Boards", async () => {
+  test("unfiling a board from the topic editor returns it to All Boards", async () => {
     const user = renderApp();
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
-    await user.click(screen.getByRole("button", { name: "Remove Sample Position (Base Defence) from topic" }));
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "+ Board group" }));
+    await user.click(screen.getByRole("button", { name: "Add Sample Position (Base Defence)" }));
+    await user.click(screen.getByRole("button", { name: "Unfile Sample Position (Base Defence)" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
 
+    // The unfiled board has left the Defense page entirely...
     expect(screen.queryByRole("heading", { name: "Sample Position (Base Defence)" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "All Boards" }));
     expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument();
   });
 
-  test("a coach creates and explains a topic", async () => {
+  test("a coach creates a topic and explains it in a text block", async () => {
     const user = renderApp();
 
     await user.click(screen.getByRole("button", { name: "+ New topic" }));
@@ -515,7 +517,8 @@ describe("topics", () => {
 
     await user.clear(title);
     await user.type(title, "Transition");
-    await user.type(screen.getByLabelText("Explanation text"), "Out of system play.");
+    await user.click(screen.getByRole("button", { name: "+ Text block" }));
+    await user.type(screen.getByPlaceholderText("Write in markdown…"), "Out of system play.");
     await user.click(screen.getByRole("button", { name: "Done" }));
 
     expect(screen.getByRole("heading", { name: "Transition", level: 1 })).toBeInTheDocument();

@@ -1,30 +1,28 @@
 import type { JSX } from "react";
 
-import { BoardGrid } from "../library/BoardGrid";
-import { boardToItem } from "../library/items";
 import type { Board } from "../boards/types";
+import { CardGrid } from "../library/CardGrid";
+import { boardToItem } from "../library/items";
 import { Button } from "../ui/Button";
-import { IconButton } from "../ui/IconButton";
 import { Markdown } from "../ui/Markdown";
-import { EYEBROW, MUTED, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
+import { EYEBROW, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
 import { childrenOf } from "./operations";
 import type { Topic } from "./types";
 
-// A topic's read-only page, mirroring BoardView's view-first shape: the topic's markdown explanation
-// at the top, its subtopics as links, then the grid of boards filed directly in it (never its
-// descendants'). A coach reorders or removes those boards from each card, and reaches Edit, add a
-// subtopic, from the bar. Subtopics are reached through their links and the sidebar, not folded in.
+// A topic's read-only page, read as a document. A persistent subtopic-link row sits under the title,
+// then the topic's blocks render in order: markdown as prose, a board group as a card grid. Board
+// groups carry only placement, so each is intersected with the topic's real members (the boards prop)
+// and a board already shown by an earlier group is dropped. Any member no block placed trails in a
+// final grid, so a filed board can never disappear. Opening a card opens the board.
 type TopicViewProps = {
   topic: Topic;
   topics: readonly Topic[];
-  /** Boards filed directly in this topic, in manual order. */
+  /** Boards filed directly in this topic, newest first. */
   boards: readonly Board[];
   onOpenBoard: (id: string) => void;
   onSelectTopic: (id: string) => void;
   onEdit: () => void;
   onAddSubtopic: () => void;
-  onMoveBoard: (boardId: string, dir: -1 | 1) => void;
-  onRemoveBoard: (boardId: string) => void;
 };
 
 const SUBTOPIC =
@@ -38,13 +36,34 @@ export function TopicView({
   onSelectTopic,
   onEdit,
   onAddSubtopic,
-  onMoveBoard,
-  onRemoveBoard,
 }: TopicViewProps): JSX.Element {
   const subtopics = childrenOf(topics, topic.id);
-  const items = boards.map(boardToItem);
-  const firstId = boards[0]?.id;
-  const lastId = boards[boards.length - 1]?.id;
+  const byId = new Map(boards.map((b) => [b.id, b]));
+
+  // Walk the blocks once, tracking which boards each group has already shown so none renders twice.
+  const shown = new Set<string>();
+  const rendered = topic.blocks.map((block) => {
+    if (block.kind === "markdown") {
+      return block.text.trim() ? <Markdown key={block.id}>{block.text}</Markdown> : null;
+    }
+
+    const group: Board[] = [];
+
+    for (const id of block.boardIds) {
+      const board = byId.get(id);
+
+      if (board && !shown.has(id)) {
+        shown.add(id);
+        group.push(board);
+      }
+    }
+
+    if (group.length === 0) return null;
+
+    return <CardGrid key={block.id} items={group.map(boardToItem)} onOpen={onOpenBoard} />;
+  });
+
+  const unplaced = boards.filter((b) => !shown.has(b.id));
 
   return (
     <section className={PAGE}>
@@ -63,8 +82,6 @@ export function TopicView({
         </div>
       </div>
 
-      {topic.body.trim() ? <Markdown>{topic.body}</Markdown> : <p className={MUTED}>No explanation yet.</p>}
-
       {subtopics.length > 0 && (
         <nav className="flex flex-wrap gap-[0.4rem]" aria-label="Subtopics">
           {subtopics.map((sub) => (
@@ -75,42 +92,9 @@ export function TopicView({
         </nav>
       )}
 
-      <BoardGrid
-        items={items}
-        onOpen={onOpenBoard}
-        emptyLabel="No boards in this topic yet."
-        cardControls={(item) => (
-          <>
-            <IconButton
-              variant="control"
-              size="sm"
-              aria-label={`Move ${item.title} up`}
-              disabled={item.id === firstId}
-              onClick={() => onMoveBoard(item.id, -1)}
-            >
-              ↑
-            </IconButton>
-            <IconButton
-              variant="control"
-              size="sm"
-              aria-label={`Move ${item.title} down`}
-              disabled={item.id === lastId}
-              onClick={() => onMoveBoard(item.id, 1)}
-            >
-              ↓
-            </IconButton>
-            <Button
-              variant="danger"
-              size="sm"
-              className="ml-auto"
-              onClick={() => onRemoveBoard(item.id)}
-              aria-label={`Remove ${item.title} from topic`}
-            >
-              Remove
-            </Button>
-          </>
-        )}
-      />
+      {rendered}
+
+      {unplaced.length > 0 && <CardGrid items={unplaced.map(boardToItem)} onOpen={onOpenBoard} />}
     </section>
   );
 }

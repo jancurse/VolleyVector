@@ -1,24 +1,31 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  appendBlock,
   childrenOf,
   createTopic,
   deleteTopic,
   flattenTopics,
+  makeBoardsBlock,
+  makeMarkdownBlock,
+  moveBlock,
   moveTopic,
   nestTopic,
+  removeBlock,
+  setBlockBoards,
+  setBlockText,
   setTopic,
   subtreeIds,
 } from "../../src/topics/operations";
-import type { Topic } from "../../src/topics/types";
+import type { Topic, TopicBlock } from "../../src/topics/types";
 
 // A small tree: two roots (A before B); A has children A1, A2; A1 has a grandchild A1a.
 const TREE: Topic[] = [
-  { id: "A", title: "A", body: "", parentId: null, order: 0 },
-  { id: "B", title: "B", body: "", parentId: null, order: 1 },
-  { id: "A1", title: "A1", body: "", parentId: "A", order: 0 },
-  { id: "A2", title: "A2", body: "", parentId: "A", order: 1 },
-  { id: "A1a", title: "A1a", body: "", parentId: "A1", order: 0 },
+  { id: "A", title: "A", blocks: [], parentId: null, order: 0 },
+  { id: "B", title: "B", blocks: [], parentId: null, order: 1 },
+  { id: "A1", title: "A1", blocks: [], parentId: "A", order: 0 },
+  { id: "A2", title: "A2", blocks: [], parentId: "A", order: 1 },
+  { id: "A1a", title: "A1a", blocks: [], parentId: "A1", order: 0 },
 ];
 
 describe("childrenOf", () => {
@@ -52,16 +59,58 @@ describe("createTopic", () => {
     const { topics, id } = createTopic(TREE, "A", "A3");
     const created = topics.find((t) => t.id === id);
 
-    expect(created).toMatchObject({ title: "A3", parentId: "A", body: "" });
+    expect(created).toMatchObject({ title: "A3", parentId: "A", blocks: [] });
     expect(childrenOf(topics, "A").map((t) => t.id)).toEqual(["A1", "A2", id]); // last among A's children
   });
 });
 
 describe("setTopic", () => {
-  test("patches a topic's title and body, leaving the rest", () => {
-    const result = setTopic(TREE, "A1", { title: "Renamed", body: "# Hi" });
+  test("patches a topic's title and blocks, leaving the rest", () => {
+    const blocks = [makeMarkdownBlock("# Hi")];
+    const result = setTopic(TREE, "A1", { title: "Renamed", blocks });
 
-    expect(result.find((t) => t.id === "A1")).toMatchObject({ title: "Renamed", body: "# Hi", parentId: "A" });
+    expect(result.find((t) => t.id === "A1")).toMatchObject({ title: "Renamed", blocks, parentId: "A" });
+  });
+});
+
+// A topic document: a markdown intro, then a board group holding two boards.
+const md: TopicBlock = { id: "m", kind: "markdown", text: "intro" };
+const grp: TopicBlock = { id: "g", kind: "boards", boardIds: ["b1", "b2"] };
+const BLOCKS: TopicBlock[] = [md, grp];
+
+describe("block helpers", () => {
+  test("makeMarkdownBlock and makeBoardsBlock build the two block kinds", () => {
+    expect(makeMarkdownBlock("hi")).toMatchObject({ kind: "markdown", text: "hi" });
+    expect(makeBoardsBlock(["x"])).toMatchObject({ kind: "boards", boardIds: ["x"] });
+    expect(makeMarkdownBlock()).toMatchObject({ text: "" });
+    expect(makeBoardsBlock()).toMatchObject({ boardIds: [] });
+  });
+
+  test("appendBlock adds to the end without mutating the input", () => {
+    const added = makeMarkdownBlock("more");
+
+    expect(appendBlock(BLOCKS, added).map((b) => b.id)).toEqual(["m", "g", added.id]);
+    expect(BLOCKS).toHaveLength(2);
+  });
+
+  test("setBlockText patches a markdown block, ignoring a board group of the same id", () => {
+    expect(setBlockText(BLOCKS, "m", "edited").find((b) => b.id === "m")).toMatchObject({ text: "edited" });
+    expect(setBlockText(BLOCKS, "g", "edited").find((b) => b.id === "g")).toEqual(grp); // unchanged
+  });
+
+  test("setBlockBoards patches a board group, ignoring a markdown block of the same id", () => {
+    expect(setBlockBoards(BLOCKS, "g", ["b3"]).find((b) => b.id === "g")).toMatchObject({ boardIds: ["b3"] });
+    expect(setBlockBoards(BLOCKS, "m", ["b3"]).find((b) => b.id === "m")).toEqual(md); // unchanged
+  });
+
+  test("moveBlock swaps a block with its neighbour, and is a no-op past either end", () => {
+    expect(moveBlock(BLOCKS, "m", 1).map((b) => b.id)).toEqual(["g", "m"]);
+    expect(moveBlock(BLOCKS, "m", -1).map((b) => b.id)).toEqual(["m", "g"]);
+    expect(moveBlock(BLOCKS, "g", 1).map((b) => b.id)).toEqual(["m", "g"]);
+  });
+
+  test("removeBlock drops the named block", () => {
+    expect(removeBlock(BLOCKS, "m").map((b) => b.id)).toEqual(["g"]);
   });
 });
 

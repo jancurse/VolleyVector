@@ -1,30 +1,52 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { JSX } from "react";
 
-import { DescriptionEditor } from "../editor/DescriptionEditor";
+import { boardsInTopic } from "../boards/operations";
+import type { Board } from "../boards/types";
 import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
-import { subtreeIds } from "./operations";
-import { TopicPicker } from "./TopicPicker";
-import type { Topic } from "./types";
+import { BoardGroupBlock } from "./BoardGroupBlock";
+import {
+  appendBlock,
+  makeBoardsBlock,
+  makeMarkdownBlock,
+  moveBlock,
+  removeBlock,
+  setBlockBoards,
+  setBlockText,
+} from "./operations";
+import { TextBlockEditor } from "./TextBlockEditor";
+import type { Topic, TopicBlock } from "./types";
 
-// Editing a topic, mirroring BoardView → BoardEditor: a working draft of the title, the markdown
-// explanation, and the parent (to nest it), committed on Done. Structural moves among siblings live
-// in the sidebar; deletion lives here, beside Done, as a board's does in its editor.
+// Editing a topic, mirroring BoardView → BoardEditor: a working draft of the title and the document's
+// blocks, committed on Done. The block list interleaves markdown prose (edited in place) with board
+// groups, each reorderable and removable. Members come from the live boards prop, never copied into
+// the draft, so an immediate unfile drops a board from every picker at once. An unfile commits straight
+// to the board store, so Cancel does not revert it — it only discards the blocks/title draft. Where a
+// topic sits in the tree (its parent) is a structural concern handled in the sidebar, not here.
 type TopicEditorProps = {
   topic: Topic;
-  topics: readonly Topic[];
-  onDone: (patch: { title: string; body: string; parentId: string | null }) => void;
+  /** Every board, so the editor derives this topic's members live (never copying them into the draft). */
+  boards: readonly Board[];
+  onDone: (patch: { title: string; blocks: TopicBlock[] }) => void;
   onCancel: () => void;
   onDelete: () => void;
+  onUnfileBoard: (boardId: string) => void;
 };
 
-export function TopicEditor({ topic, topics, onDone, onCancel, onDelete }: TopicEditorProps): JSX.Element {
+export function TopicEditor({
+  topic,
+  boards,
+  onDone,
+  onCancel,
+  onDelete,
+  onUnfileBoard,
+}: TopicEditorProps): JSX.Element {
   const [title, setTitle] = useState(topic.title);
-  const [body, setBody] = useState(topic.body);
-  const [parentId, setParentId] = useState(topic.parentId);
+  const [blocks, setBlocks] = useState<TopicBlock[]>(topic.blocks);
 
-  const exclude = useMemo(() => new Set(subtreeIds(topics, topic.id)), [topics, topic.id]);
+  const members = boardsInTopic(boards, topic.id);
 
   return (
     <section className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-rise motion-reduce:animate-none">
@@ -42,26 +64,77 @@ export function TopicEditor({ topic, topics, onDone, onCancel, onDelete }: Topic
         <Button variant="danger" onClick={onDelete}>
           Delete
         </Button>
-        <Button variant="primary" onClick={() => onDone({ title, body, parentId })}>
+        <Button variant="primary" onClick={() => onDone({ title, blocks })}>
           Done
         </Button>
       </div>
 
-      <div className="flex max-w-[720px] flex-col gap-4">
-        <DescriptionEditor
-          title="Explanation"
-          value={body}
-          onChange={setBody}
-          placeholder="Explain this topic in markdown…"
-        />
-        <TopicPicker
-          topics={topics}
-          value={parentId}
-          onChange={setParentId}
-          label="Parent topic"
-          noneLabel="Top level"
-          exclude={exclude}
-        />
+      <div className="flex w-full max-w-[860px] flex-col gap-4">
+        <div className="flex flex-col gap-4">
+          {blocks.map((block, index) => (
+            <div key={block.id} className="flex flex-col gap-3 rounded-xl border border-border bg-panel p-4">
+              <div className="flex items-center gap-1">
+                <IconButton
+                  variant="control"
+                  size="sm"
+                  aria-label={`Move block ${index + 1} up`}
+                  disabled={index === 0}
+                  onClick={() => setBlocks((prev) => moveBlock(prev, block.id, -1))}
+                >
+                  ↑
+                </IconButton>
+                <IconButton
+                  variant="control"
+                  size="sm"
+                  aria-label={`Move block ${index + 1} down`}
+                  disabled={index === blocks.length - 1}
+                  onClick={() => setBlocks((prev) => moveBlock(prev, block.id, 1))}
+                >
+                  ↓
+                </IconButton>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  className="ml-auto"
+                  aria-label={`Remove block ${index + 1}`}
+                  onClick={() => setBlocks((prev) => removeBlock(prev, block.id))}
+                >
+                  Remove
+                </Button>
+              </div>
+
+              {block.kind === "markdown" ? (
+                <TextBlockEditor
+                  value={block.text}
+                  onChange={(text) => setBlocks((prev) => setBlockText(prev, block.id, text))}
+                />
+              ) : (
+                <BoardGroupBlock
+                  boardIds={block.boardIds}
+                  members={members}
+                  reserved={
+                    new Set(blocks.flatMap((b) => (b.kind === "boards" && b.id !== block.id ? b.boardIds : [])))
+                  }
+                  onChange={(boardIds) => setBlocks((prev) => setBlockBoards(prev, block.id, boardIds))}
+                  onUnfile={onUnfileBoard}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant="dashed"
+            size="sm"
+            onClick={() => setBlocks((prev) => appendBlock(prev, makeMarkdownBlock()))}
+          >
+            + Text block
+          </Button>
+          <Button variant="dashed" size="sm" onClick={() => setBlocks((prev) => appendBlock(prev, makeBoardsBlock()))}>
+            + Board group
+          </Button>
+        </div>
       </div>
     </section>
   );

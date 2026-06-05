@@ -87,6 +87,14 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - Do not run git write operations (commit, amend, push, rebase, reset, tag, branch changes) unless the user explicitly asks; otherwise leave changes in the working tree for review.
 - Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
 
+### Workspaces and worktrees
+
+- All work lives on a **feature branch**, never on `main`. The feature branch has one primary workspace, and may spawn **worktrees**: sub-branches checked out in their own directories for parallel work.
+- **Stay in your workspace.** You belong to exactly one workspace, either the feature branch's primary checkout or a worktree. Edit only its files. Never edit, move, copy into, or delete files in another workspace or branch, and never reach around a guard that blocks this (with Bash file ops, by disabling the guard, or otherwise).
+- **Read your own workspace first.** Reach into the feature branch or another worktree only when you genuinely need context missing from yours, and then only to read.
+- **Integrate with git, not by copying.** A worktree reaches the feature branch through a git merge. Never copy files between workspaces to share results.
+- **Wrong place? Stop and ask.** If your workspace looks misconfigured, for example branched off `main` instead of the feature branch, stop and tell the user. Do not work around it.
+
 ## Package Management
 
 - Use `npm`. Install with `npm install <package>` (runtime) or `npm install -D <package>` (dev tooling).
