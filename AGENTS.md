@@ -6,20 +6,20 @@ This file provides guidance to LLM agents when working with code in this reposit
 
 ## Repository Overview
 
-VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills. All state lives in the browser's `localStorage`; there is no backend, auth, or sharing yet (those are Phase 2–3 work).
+VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills. All state lives in the browser's `localStorage`. There is no backend, auth, or sharing yet.
 
-- **Content model.** One `Board` type backs everything: an ordered, non-empty list of steps over a shared set of marker identities. A one-step board is a **Position** (static); two or more steps make a **Sequence** (animated). Boards are organised into a nestable tree of **Topics** and cut across by free-form **tags**.
-- **Spine decisions to respect** (do not relitigate): normalized 0–1 marker coordinates, never pixels; stable marker identity across all steps, so playback interpolates by identity and movement arrows derive from step-to-step deltas; one `Court` component for both static and animated modes; SVG, not canvas.
+- **Content model.** One `Board` type backs everything: an ordered, non-empty list of steps over a shared set of marker identities. A one-step board is a **Position** (static). Two or more steps make a **Sequence** (animated). Boards are organised into a nestable tree of **Topics** and cut across by free-form **tags**.
+- **Spine decisions to respect** (do not relitigate). Marker coordinates are normalized 0–1, never pixels. Marker identity is stable across all steps, so playback interpolates by identity and movement arrows derive from step-to-step deltas. One `Court` component serves both static and animated modes. The court renders as SVG, not canvas.
 
 ### Module map
 
-- `src/boards/` — the `Board` model, pure operations, the `localStorage` store, the playback hook, and derived arrows.
-- `src/court/` — the SVG `Court`, `Marker`, and `Arrows`, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
-- `src/editor/` — the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, inspector, step strip, and description/tag editors.
-- `src/library/` — the browse surface, board grid, cards, and type/tag filtering.
-- `src/topics/` — the topic-tree model, operations, store, sidebar, and topic view/editor.
-- `src/theme/` and `src/ui/` — the light/dark theme hook, theme toggle, and dev-only debug menu.
-- `src/App.tsx` — the top-level shell that owns navigation and wires the stores together.
+- `src/boards/`: the `Board` model, pure operations, the `localStorage` store, the playback hook, and derived arrows.
+- `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
+- `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, inspector, step strip, and description/tag editors.
+- `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
+- `src/topics/`: the topic-tree model, operations, store, sidebar, and topic view/editor.
+- `src/theme/` and `src/ui/`: the light/dark theme hook, theme toggle, and dev-only debug menu.
+- `src/App.tsx`: the top-level shell that owns navigation and wires the stores together.
 
 See @docs/architecture.md for how these fit together and the detail behind each.
 
@@ -36,11 +36,15 @@ See @docs/architecture.md for how these fit together and the detail behind each.
 ## Writing Markdown
 
 - **Every sentence must carry concrete content.** Cut any sentence whose only job is to assert importance, relevance, or consequence without conveying the substance that backs the claim.
+- **Write direct, plainly-structured prose. Do not pile clauses onto one sentence.** Prefer simple subject-verb-object sentences, and split a compound thought into separate sentences.
+    - Use punctuation for the job each mark does: a colon to introduce what follows, a period to end a thought. Do not reach for an em dash where a colon or full stop is what you mean.
+    - Heavy use of em dashes, semicolons, and stacked commas is the main tell of fragmented "AI" prose. If a sentence leans on several of them, rewrite it as two or three plain ones.
 - **Use a real heading hierarchy.** Give a longer document `#` title, `##` section, `###` subsection, and deeper where the content earns it; nest as far as it helps.
     - Do not leave a flat stack of `##` headings with nothing beneath them. If everything sits at one level, the structure is doing no work — push detail down into subsections.
     - Avoid a pile of one- or two-line sections. A heading must earn its place; if several are tiny, merge them or demote them to bullets under a parent. (An occasional short section is fine — just not the default.)
     - Match depth to length: a short note needs no nesting, while a long one usually wants several levels.
 - **Use bullets and sub-bullets heavily** to organise detail inside a section, instead of adding more headings or writing dense paragraphs.
+- **Don't run markdownlint by hand.** A hook auto-formats Markdown after you write or edit a `.md` file: it runs `markdownlint-cli2 --fix` and aligns tables.
 
 ## Running Code
 
