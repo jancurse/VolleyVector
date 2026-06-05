@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:stop": "pkill -f 'node.*\\.bin/vite' || true",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "format": "prettier --write \"{src,tests}/**/*.{ts,tsx,json,css}\"",
