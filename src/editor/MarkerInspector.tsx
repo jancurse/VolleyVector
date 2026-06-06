@@ -3,6 +3,11 @@ import type { JSX } from "react";
 import type { ColorKey, CourtMode, MarkerRole } from "../court/roles";
 import { COLOR_KEYS, MARKER_COLORS, MODE_ROLES, ROLES } from "../court/roles";
 import type { Marker } from "../court/types";
+import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
+import { Input } from "../ui/Input";
+import { SwatchGroup } from "../ui/SwatchGroup";
+import { FIELD_LABEL, PANEL, PANEL_TITLE, cx } from "../ui/styles";
 
 // Edits the one selected marker: pick its role (within the active mode's family), recolour it (basic
 // mode), rename its label, or remove it. Position is edited on the court (drag or arrow keys).
@@ -24,74 +29,64 @@ export function MarkerInspector({
   onDelete,
 }: MarkerInspectorProps): JSX.Element {
   const fill = marker.color ? MARKER_COLORS[marker.color].fill : ROLES[marker.role].fill;
+  const colorKey = COLOR_KEYS.find((key) => MARKER_COLORS[key].fill === fill) ?? "";
 
   return (
-    <section className="vc-inspector" aria-label="Selected marker">
-      <div className="vc-inspector-head">
-        <span className="vc-panel-title">Marker</span>
-        <button type="button" className="vc-text-button" onClick={onDelete}>
+    <section
+      className={cx(PANEL, "w-[360px] max-w-full self-start max-[1040px]:w-full max-[1040px]:max-w-[440px]")}
+      aria-label="Selected marker"
+    >
+      <div className="flex items-center justify-between">
+        <span className={PANEL_TITLE}>Marker</span>
+        <Button variant="text" size="sm" onClick={onDelete}>
           Remove
-        </button>
+        </Button>
       </div>
 
-      <div className="vc-field">
-        <span className="vc-field-label">Role</span>
-        <div className="vc-role-picker" role="group" aria-label="Role">
-          {MODE_ROLES[mode].map((role) => {
-            const style = ROLES[role];
-
-            return (
-              <button
-                key={role}
-                type="button"
-                className={`vc-swatch vc-role-swatch${role === marker.role ? " vc-role-swatch--on" : ""}`}
-                style={{ background: style.fill, borderColor: style.ring, color: style.text }}
-                aria-label={style.name}
-                aria-pressed={role === marker.role}
-                onClick={() => onChangeRole(role)}
-              >
-                {style.code}
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex flex-col gap-2">
+        <span className={FIELD_LABEL}>Role</span>
+        <SwatchGroup
+          ariaLabel="Role"
+          value={marker.role}
+          onValueChange={(role) => onChangeRole(role as MarkerRole)}
+          items={MODE_ROLES[mode].map((role) => ({
+            value: role,
+            label: ROLES[role].name,
+            fill: ROLES[role].fill,
+            ring: ROLES[role].ring,
+            text: ROLES[role].text,
+            code: ROLES[role].code,
+          }))}
+        />
       </div>
 
       {mode === "basic" && marker.role !== "ball" && (
-        <div className="vc-field">
-          <span className="vc-field-label">Colour</span>
-          <div className="vc-role-picker" role="group" aria-label="Colour">
-            {COLOR_KEYS.map((key) => {
-              const color = MARKER_COLORS[key];
-
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={`vc-swatch vc-role-swatch${color.fill === fill ? " vc-role-swatch--on" : ""}`}
-                  style={{ background: color.fill, borderColor: color.ring }}
-                  aria-label={color.name}
-                  aria-pressed={color.fill === fill}
-                  onClick={() => onChangeColor(key)}
-                />
-              );
-            })}
-          </div>
+        <div className="flex flex-col gap-2">
+          <span className={FIELD_LABEL}>Colour</span>
+          <SwatchGroup
+            ariaLabel="Colour"
+            value={colorKey}
+            onValueChange={(key) => onChangeColor(key as ColorKey)}
+            items={COLOR_KEYS.map((key) => ({
+              value: key,
+              label: MARKER_COLORS[key].name,
+              fill: MARKER_COLORS[key].fill,
+              ring: MARKER_COLORS[key].ring,
+            }))}
+          />
         </div>
       )}
 
       {marker.role !== "ball" && (
-        <label className="vc-field">
-          <span className="vc-field-label">Label</span>
-          <input
-            className="vc-input"
+        <Field label="Label">
+          <Input
             type="text"
             value={marker.label ?? ""}
             placeholder={ROLES[marker.role].code}
             maxLength={4}
             onChange={(event) => onChangeLabel(event.target.value)}
           />
-        </label>
+        </Field>
       )}
     </section>
   );

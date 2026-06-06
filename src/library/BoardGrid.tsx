@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
+import { ToggleGroup } from "../ui/ToggleGroup";
+import { MUTED, cx } from "../ui/styles";
 import { collectTags } from "./items";
 import type { LibraryItem, LibraryKind } from "./items";
 import { LibraryCard } from "./LibraryCard";
@@ -35,49 +37,34 @@ export function BoardGrid({ items, onOpen, emptyLabel, cardControls }: BoardGrid
     (item) => (type === "all" || item.kind === type) && active.every((tag) => item.tags.includes(tag))
   );
 
-  const toggleTag = (tag: string) =>
-    setActive((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
-
   return (
     <>
-      <div className="vc-filters">
-        <div className="vc-segmented" role="group" aria-label="Filter by type">
-          {TYPE_FILTERS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`vc-seg${type === option.value ? " vc-seg--on" : ""}`}
-              aria-pressed={type === option.value}
-              onClick={() => setType(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center gap-[0.8rem]">
+        <ToggleGroup
+          ariaLabel="Filter by type"
+          items={TYPE_FILTERS}
+          value={type}
+          onValueChange={(value) => setType(value as TypeFilter)}
+        />
         {tags.length > 0 && (
-          <div className="vc-tag-filter" role="group" aria-label="Filter by tag">
-            {tags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className={`vc-tag-toggle${active.includes(tag) ? " vc-tag-toggle--on" : ""}`}
-                aria-pressed={active.includes(tag)}
-                onClick={() => toggleTag(tag)}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
+          <ToggleGroup
+            multiple
+            variant="pills"
+            ariaLabel="Filter by tag"
+            items={tags.map((tag) => ({ value: tag, label: tag }))}
+            value={active}
+            onValueChange={setActive}
+          />
         )}
       </div>
 
       {filtered.length > 0 ? (
-        <div className="vc-grid">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(228px,1fr))] gap-[clamp(0.9rem,2vw,1.4rem)]">
           {filtered.map((item) =>
             cardControls ? (
-              <div key={item.id} className="vc-card-wrap">
+              <div key={item.id} className="flex flex-col gap-[0.45rem]">
                 <LibraryCard item={item} onOpen={() => onOpen(item.id)} />
-                <div className="vc-card-controls">{cardControls(item)}</div>
+                <div className="flex items-center gap-[0.3rem]">{cardControls(item)}</div>
               </div>
             ) : (
               <LibraryCard key={item.id} item={item} onOpen={() => onOpen(item.id)} />
@@ -85,7 +72,7 @@ export function BoardGrid({ items, onOpen, emptyLabel, cardControls }: BoardGrid
           )}
         </div>
       ) : (
-        <p className="vc-muted vc-library-empty">
+        <p className={cx(MUTED, "px-4 py-12 text-center")}>
           {items.length === 0 ? (emptyLabel ?? "Nothing here yet.") : "Nothing matches these filters."}
         </p>
       )}

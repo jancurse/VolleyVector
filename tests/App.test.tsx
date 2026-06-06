@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -124,7 +124,7 @@ describe("editing markers", () => {
     await openEditor(user);
 
     await user.click(screen.getByRole("img", { name: "Outside hitter 1" }));
-    await user.click(screen.getByRole("button", { name: "Libero" }));
+    await user.click(screen.getByRole("radio", { name: "Libero" }));
 
     expect(screen.getByRole("img", { name: "Libero 1" })).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: "Outside hitter 1" })).not.toBeInTheDocument();
@@ -152,14 +152,14 @@ describe("court mode", () => {
     await openEditor(user);
 
     await user.click(screen.getByRole("img", { name: "Setter" }));
-    expect(screen.queryByRole("group", { name: "Colour" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Colour" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Basic" }));
     await user.click(screen.getByRole("button", { name: "Add player" }));
-    expect(screen.getByRole("button", { name: "Blue", pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Blue", checked: true })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Red" }));
-    expect(screen.getByRole("button", { name: "Red", pressed: true })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Red" }));
+    expect(screen.getByRole("radio", { name: "Red", checked: true })).toBeInTheDocument();
   });
 });
 
@@ -170,7 +170,7 @@ describe("description", () => {
     await openPosition(user);
     await openEditor(user);
 
-    await user.click(screen.getByRole("button", { name: "Preview" }));
+    await user.click(screen.getByRole("tab", { name: "Preview" }));
 
     expect(screen.getByText("Perimeter defence")).toBeInTheDocument();
   });
@@ -266,17 +266,35 @@ describe("the view/edit flow", () => {
     expect(screen.getByRole("heading", { name: "New press" })).toBeInTheDocument();
   });
 
-  test("deleting returns to the library without the board", async () => {
-    vi.stubGlobal("confirm", () => true);
+  test("deleting goes through the confirm dialog and returns to the library", async () => {
     const user = renderApp();
 
     await openPosition(user);
     await openEditor(user);
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("alertdialog", { name: /Delete this board/ });
+
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     expect(screen.queryByRole("button", { name: /Sample Position/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Sample Drill/ })).toBeInTheDocument();
+  });
+
+  test("cancelling the delete dialog keeps the board", async () => {
+    const user = renderApp();
+
+    await openPosition(user);
+    await openEditor(user);
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("alertdialog", { name: /Delete this board/ });
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" })); // leave the editor
+    await user.click(screen.getByRole("button", { name: /Library/ }));
+
+    expect(screen.getByRole("button", { name: /Sample Position/ })).toBeInTheDocument();
   });
 });
 
@@ -310,6 +328,36 @@ describe("positions and sequences", () => {
 
     expect(screen.getByText("2 / 4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Step 2" })).toHaveAttribute("aria-current", "true");
+  });
+
+  test("clicking a step in playback scrubs straight to it", async () => {
+    const user = renderApp();
+
+    await openSequence(user);
+    await user.click(screen.getByRole("button", { name: "Step 3" }));
+
+    expect(screen.getByText("3 / 4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Step 3" })).toHaveAttribute("aria-current", "true");
+  });
+
+  test("reordering the active step with the keyboard moves it and keeps every step", async () => {
+    const user = renderApp();
+
+    await openSequence(user);
+    await openEditor(user);
+
+    const step1 = screen.getByRole("button", { name: "Step 1" });
+
+    expect(step1).toHaveAttribute("aria-current", "true"); // the first step is active on open
+
+    step1.focus();
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}"); // move it one place later
+
+    expect(screen.getByRole("button", { name: "Step 2" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: "Step 1" })).not.toHaveAttribute("aria-current", "true");
+    for (const n of [1, 2, 3, 4]) {
+      expect(screen.getByRole("button", { name: `Step ${n}` })).toBeInTheDocument();
+    }
   });
 
   test("editing a step's marker identity carries across steps", async () => {
@@ -360,9 +408,23 @@ describe("debug menu", () => {
 
     await user.click(screen.getByRole("button", { name: "Debug menu" }));
 
-    expect(screen.getByRole("button", { name: "Clear all boards" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Clear all topics" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Clear all local storage" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Clear all boards" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Clear all topics" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Clear all local storage" })).toBeInTheDocument();
+  });
+
+  test("is keyboard-navigable and dismisses on escape", async () => {
+    const user = renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Debug menu" }));
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("menuitem", { name: "Clear all boards" })).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("menuitem", { name: "Clear all boards" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Debug menu" })).toHaveFocus();
   });
 });
 
@@ -390,10 +452,8 @@ describe("topics", () => {
     // Nest Drills under Defense; "Sample Drill (Serve Receive & Sideout)" stays filed in Drills, now a descendant.
     await user.click(screen.getByRole("button", { name: "Drills" }));
     await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Parent topic" }),
-      screen.getByRole("option", { name: "Defense" })
-    );
+    await user.click(screen.getByRole("combobox", { name: "Parent topic" }));
+    await user.click(screen.getByRole("option", { name: "Defense" }));
     await user.click(screen.getByRole("button", { name: "Done" }));
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
@@ -422,10 +482,8 @@ describe("topics", () => {
     await openSequence(user);
     await openEditor(user);
 
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Topic" }),
-      screen.getByRole("option", { name: "Rotations" })
-    );
+    await user.click(screen.getByRole("combobox", { name: "Topic" }));
+    await user.click(screen.getByRole("option", { name: "Rotations" }));
     await user.click(screen.getByRole("button", { name: "Done" }));
     await user.click(screen.getByRole("button", { name: /Library/ }));
 
@@ -465,12 +523,14 @@ describe("topics", () => {
   });
 
   test("deleting a topic unfiles its boards and drops it from the sidebar", async () => {
-    vi.stubGlobal("confirm", () => true);
     const user = renderApp();
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("alertdialog", { name: /Delete this topic/ });
+
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
     // Deleting the topic returns to All Boards; its board survives there, just no longer filed.
     expect(screen.queryByRole("button", { name: "Defense" })).not.toBeInTheDocument();

@@ -24,6 +24,7 @@ VolleyCoach is a single-page web app for building, browsing, organising, and ani
 ## Stack
 
 - **React 19 + TypeScript + Vite** drive the single-page app.
+- **[Base UI](https://base-ui.com)** primitives styled with **[Tailwind CSS](https://tailwindcss.com) v4** build the accessible controls and overlays from one token theme.
 - **SVG** renders the court, markers, and arrows as React components.
 - **[Motion](https://motion.dev)** animates marker movement during playback.
 - **[react-markdown](https://github.com/remarkjs/react-markdown)** renders descriptions and instructions.

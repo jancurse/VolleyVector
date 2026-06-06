@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import type { JSX } from "react";
 
 import { DescriptionEditor } from "../editor/DescriptionEditor";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
 import { subtreeIds } from "./operations";
 import { TopicPicker } from "./TopicPicker";
 import type { Topic } from "./types";
@@ -25,27 +27,27 @@ export function TopicEditor({ topic, topics, onDone, onCancel, onDelete }: Topic
   const exclude = useMemo(() => new Set(subtreeIds(topics, topic.id)), [topics, topic.id]);
 
   return (
-    <section className="vc-editor vc-topic-editor">
-      <div className="vc-editor-bar">
-        <button type="button" className="vc-text-button" onClick={onCancel}>
+    <section className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-rise motion-reduce:animate-none">
+      <div className="flex items-center gap-4">
+        <Button variant="text" onClick={onCancel}>
           Cancel
-        </button>
-        <input
-          className="vc-title-input"
+        </Button>
+        <Input
+          variant="title"
           value={title}
           placeholder="Untitled topic"
           aria-label="Topic title"
           onChange={(event) => setTitle(event.target.value)}
         />
-        <button type="button" className="vc-text-button vc-text-button--danger" onClick={onDelete}>
+        <Button variant="danger" onClick={onDelete}>
           Delete
-        </button>
-        <button type="button" className="vc-primary" onClick={() => onDone({ title, body, parentId })}>
+        </Button>
+        <Button variant="primary" onClick={() => onDone({ title, body, parentId })}>
           Done
-        </button>
+        </Button>
       </div>
 
-      <div className="vc-topic-editor-body">
+      <div className="flex max-w-[720px] flex-col gap-4">
         <DescriptionEditor
           title="Explanation"
           value={body}

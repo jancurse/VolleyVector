@@ -11,19 +11,30 @@ type LibraryCardProps = {
   onOpen: () => void;
 };
 
+const CARD =
+  "flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-panel text-left text-text transition-[transform,border-color,box-shadow] duration-[180ms] ease-settle hover:-translate-y-[3px] hover:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] hover:shadow-overlay focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent animate-[rise_0.5s_var(--ease-settle)_both] motion-reduce:animate-none";
+
 export function LibraryCard({ item, onOpen }: LibraryCardProps): JSX.Element {
   return (
-    <button type="button" className="vc-card" onClick={onOpen}>
-      <div className="vc-card-court" aria-hidden="true">
+    <button type="button" className={CARD} onClick={onOpen}>
+      <div
+        className="aspect-square w-full border-b border-border bg-court-surface transition-[background-color] duration-[400ms]"
+        aria-hidden="true"
+      >
         <Court markers={item.markers} label={item.title} />
       </div>
-      <div className="vc-card-body">
-        <p className="vc-eyebrow">{item.kind === "sequence" ? "Sequence" : "Position"}</p>
-        <h3 className="vc-card-title">{item.title}</h3>
-        <div className="vc-card-foot">
-          <span className="vc-card-meta">{item.meta}</span>
+      <div className="flex flex-col gap-[0.35rem] px-[0.95rem] pt-[0.8rem] pb-4">
+        <p className="m-0 font-mono text-2xs font-medium uppercase tracking-[0.28em] text-text-dim">
+          {item.kind === "sequence" ? "Sequence" : "Position"}
+        </p>
+        <h3 className="m-0 font-display text-display-sm font-bold tracking-[-0.015em]">{item.title}</h3>
+        <div className="mt-[0.1rem] flex flex-wrap items-center gap-[0.4rem]">
+          <span className="font-mono text-2xs text-text-dim">{item.meta}</span>
           {item.tags.map((tag) => (
-            <span key={tag} className="vc-tag vc-tag--sm">
+            <span
+              key={tag}
+              className="inline-flex items-center rounded-pill border border-border bg-control px-[0.46rem] py-[0.12rem] text-2xs font-semibold text-text-dim"
+            >
               {tag}
             </span>
           ))}

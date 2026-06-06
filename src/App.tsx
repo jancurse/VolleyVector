@@ -14,6 +14,13 @@ import { useTopics } from "./topics/useTopics";
 import { useTheme } from "./theme/useTheme";
 import { DebugMenu } from "./ui/DebugMenu";
 import { ThemeToggle } from "./ui/ThemeToggle";
+import { TooltipProvider } from "./ui/Tooltip";
+import { useConfirm } from "./ui/useConfirm";
+
+// The page shell: a radial-glow background over the theme's base colour, with the workspace surfaces
+// stacked under the header.
+const STAGE =
+  "flex min-h-0 flex-1 flex-col items-center px-[clamp(1.1rem,4vw,2.75rem)] pt-[clamp(0.25rem,1.5vh,1rem)] pb-[clamp(1.5rem,4vh,2.5rem)]";
 
 // The app moves between three surfaces: the browse surface (the topic sidebar beside the board grid),
 // a read-only view of one board, and the editor for a working draft. A draft takes precedence over
@@ -25,6 +32,7 @@ export function App(): JSX.Element {
 
   const { boards, addBoard, deleteBoard, updateBoard, moveBoardInTopic, unfileBoards } = useBoards();
   const topics = useTopics();
+  const { confirm, dialog } = useConfirm();
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Board | null>(null);
@@ -45,8 +53,15 @@ export function App(): JSX.Element {
     setOpenId(updated.id);
   };
 
-  const remove = (id: string) => {
-    if (!window.confirm("Delete this board? This cannot be undone.")) return;
+  const remove = async (id: string) => {
+    const ok = await confirm({
+      title: "Delete this board?",
+      description: "This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+
+    if (!ok) return;
 
     deleteBoard(id);
     setDraft(null);
@@ -55,8 +70,15 @@ export function App(): JSX.Element {
 
   const createTopic = (parentId: string | null) => setSelection({ kind: "topic", id: topics.addTopic(parentId) });
 
-  const removeTopic = (id: string) => {
-    if (!window.confirm("Delete this topic and its subtopics? Its boards return to Unfiled.")) return;
+  const removeTopic = async (id: string) => {
+    const ok = await confirm({
+      title: "Delete this topic and its subtopics?",
+      description: "Its boards return to Unfiled.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+
+    if (!ok) return;
 
     const removed = subtreeIds(topics.topics, id);
 
@@ -72,7 +94,7 @@ export function App(): JSX.Element {
 
   if (draft) {
     main = (
-      <main className="vc-stage">
+      <main className={STAGE}>
         <BoardEditor
           key={draft.id}
           board={draft}
@@ -86,13 +108,13 @@ export function App(): JSX.Element {
     );
   } else if (openBoard) {
     main = (
-      <main className="vc-stage">
+      <main className={STAGE}>
         <BoardView board={openBoard} onEdit={() => setDraft(openBoard)} onBack={() => setOpenId(null)} />
       </main>
     );
   } else {
     main = (
-      <main className="vc-home">
+      <main className={STAGE}>
         <Browse
           boards={boards}
           topics={topics}
@@ -110,23 +132,26 @@ export function App(): JSX.Element {
   }
 
   return (
-    <div className="vc-app">
-      <header className="vc-header">
-        <div className="vc-brand">
-          <svg className="vc-logo" viewBox="0 0 24 24" width={22} height={22} aria-hidden="true">
-            <rect x="3" y="3" width="18" height="18" rx="4.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.6" />
-            <circle cx="12" cy="15" r="2.1" fill="currentColor" />
-          </svg>
-          <span>VolleyCoach</span>
-        </div>
-        <div className="vc-header-actions">
-          {import.meta.env.DEV && <DebugMenu />}
-          <ThemeToggle theme={theme} onToggle={toggleTheme} />
-        </div>
-      </header>
+    <TooltipProvider>
+      <div className="flex min-h-[100dvh] flex-col [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)] transition-[background-color] duration-[400ms]">
+        <header className="flex items-center justify-between px-[clamp(1.1rem,4vw,2.75rem)] py-[1.1rem]">
+          <div className="flex items-center gap-[0.6rem] font-display text-display-md font-bold tracking-[-0.02em]">
+            <svg className="text-text opacity-90" viewBox="0 0 24 24" width={22} height={22} aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="4.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+              <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.6" />
+              <circle cx="12" cy="15" r="2.1" fill="currentColor" />
+            </svg>
+            <span>VolleyCoach</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {import.meta.env.DEV && <DebugMenu />}
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          </div>
+        </header>
 
-      {main}
-    </div>
+        {main}
+        {dialog}
+      </div>
+    </TooltipProvider>
   );
 }

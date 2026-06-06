@@ -180,3 +180,9 @@ Boards are organised two independent ways: a single home topic that places a boa
 
 - `useTheme` drives a light or dark theme, defaulting to the system preference and persisting the choice. It sets a `data-theme` attribute on the document, and the whole interface is themed through CSS variables keyed off it.
 - The type system pairs a display family for headings, a humanist sans for the UI, and a monospace for marker labels, and motion is kept restrained throughout with a single shared settle easing.
+
+### UI components and styling
+
+- The app chrome is built on Base UI primitives styled with Tailwind v4. `src/ui/` holds one thin wrapper per control (`Button`, `Input`, `Select`, `Combobox`, `Menu`, `Tabs`, `AlertDialog`, `Toolbar`, and the rest), and every surface renders through them, so each control has a single definition. Base UI gives the overlays correct keyboard, focus, dismissal, and screen-reader behaviour by construction. The shared class strings live in `src/ui/styles.ts`, and no surface styles a control ad hoc.
+- Design tokens live in a Tailwind `@theme` layer in `src/index.css`: the fonts, the radius, shadow, and type scales, and the light and dark colours. The theme-swapping colours map onto runtime CSS variables, so a utility like `bg-panel` follows the theme switch with no `dark:` variants.
+- The court keeps its own scoped raw CSS in `src/court/court.css`, the only non-Tailwind styling left.

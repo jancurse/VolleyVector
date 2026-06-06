@@ -36,16 +36,16 @@ function segment(arrow: Arrow): Segment | null {
 
 export function Arrows({ arrows }: { arrows: readonly Arrow[] }): JSX.Element {
   return (
-    <g className="vc-arrows" aria-hidden="true">
+    <g className="court-arrows" aria-hidden="true">
       {arrows.map((arrow, i) => {
         const seg = segment(arrow);
 
         if (!seg) return null;
 
         return (
-          <g key={i} className="vc-arrow" style={{ color: arrow.color }}>
-            <line className="vc-arrow-line" x1={seg.line.x1} y1={seg.line.y1} x2={seg.line.x2} y2={seg.line.y2} />
-            <path className="vc-arrow-head" d={seg.head} />
+          <g key={i} className="court-arrow" style={{ color: arrow.color }}>
+            <line className="court-arrow-line" x1={seg.line.x1} y1={seg.line.y1} x2={seg.line.x2} y2={seg.line.y2} />
+            <path className="court-arrow-head" d={seg.head} />
           </g>
         );
       })}

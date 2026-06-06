@@ -61,14 +61,14 @@ export function Marker({
   const isBall = marker.role === "ball";
   const label = markerLabel(marker.role, marker.label);
   const radius = isBall ? BALL_RADIUS : PLAYER_RADIUS;
-  const clipId = `vc-ball-${marker.id}`;
+  const clipId = `court-ball-${marker.id}`;
 
   // The inner group owns the entrance/lift animations, so a CSS transform never clobbers placement.
   const body = (
     <>
-      <circle className={`vc-halo${selected ? " vc-halo--on" : ""}`} r={radius + 9} />
+      <circle className={`court-halo${selected ? " court-halo--on" : ""}`} r={radius + 9} />
       <g
-        className={`vc-marker${dragging ? " vc-marker--dragging" : ""}`}
+        className={`court-marker${dragging ? " court-marker--dragging" : ""}`}
         style={{ animationDelay: `${0.35 + index * 0.06}s` }}
       >
         {isBall ? (
@@ -146,7 +146,7 @@ export function Marker({
       transform={`translate(${x} ${y})`}
       role="img"
       aria-label={name}
-      className={onPointerDown ? "vc-marker-hit" : undefined}
+      className={onPointerDown ? "court-marker-hit" : undefined}
       onPointerDown={onPointerDown && ((event) => onPointerDown(marker.id, event))}
     >
       {body}

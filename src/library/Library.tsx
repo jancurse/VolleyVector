@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import type { JSX } from "react";
 
 import type { Board } from "../boards/types";
+import { Button } from "../ui/Button";
+import { EYEBROW, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
 import { BoardGrid } from "./BoardGrid";
 import { toLibraryItems } from "./items";
 
@@ -17,17 +19,15 @@ export function Library({ boards, onOpen, onNew }: LibraryProps): JSX.Element {
   const items = useMemo(() => toLibraryItems(boards), [boards]);
 
   return (
-    <section className="vc-library-page">
-      <div className="vc-library-bar">
-        <div className="vc-caption">
-          <p className="vc-eyebrow">Library</p>
-          <h1 className="vc-view-title">Boards</h1>
+    <section className={PAGE}>
+      <div className={PAGE_BAR}>
+        <div>
+          <p className={EYEBROW}>Library</p>
+          <h1 className={TITLE}>Boards</h1>
         </div>
-        <div className="vc-new-group">
-          <button type="button" className="vc-new" onClick={onNew}>
-            + New board
-          </button>
-        </div>
+        <Button variant="ghost" onClick={onNew}>
+          + New board
+        </Button>
       </div>
 
       <BoardGrid items={items} onOpen={onOpen} emptyLabel="No boards yet." />

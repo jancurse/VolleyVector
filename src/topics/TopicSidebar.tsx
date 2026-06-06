@@ -1,7 +1,10 @@
-import { useState } from "react";
 import type { JSX } from "react";
 
 import type { Selection } from "../library/selection";
+import { Button } from "../ui/Button";
+import { Collapsible, CollapsibleCaret, CollapsiblePanel } from "../ui/Collapsible";
+import { IconButton } from "../ui/IconButton";
+import { cx } from "../ui/styles";
 import { childrenOf } from "./operations";
 import type { Topic } from "./types";
 
@@ -17,102 +20,97 @@ type TopicSidebarProps = {
   onReorder: (id: string, dir: -1 | 1) => void;
 };
 
-const CARET = (
-  <svg viewBox="0 0 24 24" width={12} height={12} aria-hidden="true">
-    <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" />
-  </svg>
-);
+const NAV_ITEM =
+  "w-full cursor-pointer rounded-md border-0 bg-transparent px-[0.55rem] py-[0.4rem] text-left font-ui text-base font-semibold text-text-dim transition-colors duration-150 ease-settle hover:bg-control hover:text-text";
+const ROW =
+  "group flex items-center gap-[0.05rem] rounded-md transition-colors duration-150 ease-settle hover:bg-control";
+const LINK =
+  "flex-1 min-w-0 cursor-pointer truncate border-0 bg-transparent px-[0.2rem] py-[0.36rem] text-left font-ui text-base font-semibold text-text-dim transition-colors group-hover:text-text";
+const CONTROLS =
+  "flex gap-px pr-[0.2rem] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100";
 
 export function TopicSidebar({ topics, selection, onSelect, onNewTopic, onReorder }: TopicSidebarProps): JSX.Element {
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-
-  const toggle = (id: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-
-      return next;
-    });
-
-  const renderTopic = (topic: Topic, depth: number): JSX.Element => {
-    const children = childrenOf(topics, topic.id);
-    const open = !collapsed.has(topic.id);
+  const renderRow = (topic: Topic, depth: number, hasChildren: boolean): JSX.Element => {
     const on = selection.kind === "topic" && selection.id === topic.id;
     const siblings = childrenOf(topics, topic.parentId);
     const index = siblings.findIndex((s) => s.id === topic.id);
 
     return (
-      <div key={topic.id}>
-        <div
-          className={`vc-sidebar-row${on ? " vc-sidebar-row--on" : ""}`}
-          style={{ paddingLeft: `${depth * 0.9}rem` }}
+      <div className={cx(ROW, on && "bg-accent-weak")} style={{ paddingLeft: `${depth * 0.9}rem` }}>
+        {hasChildren ? (
+          <CollapsibleCaret label={`Toggle ${topic.title} subtopics`} />
+        ) : (
+          <span className="w-5 flex-none" />
+        )}
+        <button
+          type="button"
+          className={cx(LINK, on && "text-text")}
+          aria-current={on}
+          onClick={() => onSelect({ kind: "topic", id: topic.id })}
         >
-          {children.length > 0 ? (
-            <button
-              type="button"
-              className={`vc-sidebar-caret${open ? " vc-sidebar-caret--open" : ""}`}
-              aria-label={`${open ? "Collapse" : "Expand"} ${topic.title}`}
-              aria-expanded={open}
-              onClick={() => toggle(topic.id)}
-            >
-              {CARET}
-            </button>
-          ) : (
-            <span className="vc-sidebar-caret-spacer" />
-          )}
-          <button
-            type="button"
-            className="vc-sidebar-link"
-            aria-current={on}
-            onClick={() => onSelect({ kind: "topic", id: topic.id })}
+          {topic.title}
+        </button>
+        <span className={CONTROLS}>
+          <IconButton
+            variant="plain"
+            size="xs"
+            aria-label={`Move ${topic.title} up`}
+            disabled={index <= 0}
+            onClick={() => onReorder(topic.id, -1)}
           >
-            {topic.title}
-          </button>
-          <span className="vc-sidebar-controls">
-            <button
-              type="button"
-              className="vc-sidebar-ctrl"
-              aria-label={`Move ${topic.title} up`}
-              disabled={index <= 0}
-              onClick={() => onReorder(topic.id, -1)}
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              className="vc-sidebar-ctrl"
-              aria-label={`Move ${topic.title} down`}
-              disabled={index >= siblings.length - 1}
-              onClick={() => onReorder(topic.id, 1)}
-            >
-              ↓
-            </button>
-          </span>
-        </div>
-        {open && children.map((child) => renderTopic(child, depth + 1))}
+            ↑
+          </IconButton>
+          <IconButton
+            variant="plain"
+            size="xs"
+            aria-label={`Move ${topic.title} down`}
+            disabled={index >= siblings.length - 1}
+            onClick={() => onReorder(topic.id, 1)}
+          >
+            ↓
+          </IconButton>
+        </span>
       </div>
     );
   };
 
+  const renderTopic = (topic: Topic, depth: number): JSX.Element => {
+    const children = childrenOf(topics, topic.id);
+
+    if (children.length === 0) return <div key={topic.id}>{renderRow(topic, depth, false)}</div>;
+
+    return (
+      <Collapsible key={topic.id} defaultOpen>
+        {renderRow(topic, depth, true)}
+        <CollapsiblePanel>{children.map((child) => renderTopic(child, depth + 1))}</CollapsiblePanel>
+      </Collapsible>
+    );
+  };
+
   return (
-    <nav className="vc-sidebar" aria-label="Topics">
+    <nav
+      className="sticky top-[clamp(0.5rem,2vh,1rem)] flex flex-col gap-[0.1rem] animate-rise motion-reduce:animate-none max-[860px]:static"
+      aria-label="Topics"
+    >
       <button
         type="button"
-        className={`vc-nav-item${selection.kind === "all" ? " vc-nav-item--on" : ""}`}
+        className={cx(NAV_ITEM, selection.kind === "all" && "bg-accent-weak text-text")}
         aria-current={selection.kind === "all"}
         onClick={() => onSelect({ kind: "all" })}
       >
         All Boards
       </button>
 
-      <p className="vc-sidebar-heading">Topics</p>
-      <div className="vc-sidebar-tree">{childrenOf(topics, null).map((topic) => renderTopic(topic, 0))}</div>
+      <p className="mt-4 mb-[0.35rem] px-[0.55rem] font-mono text-2xs font-medium uppercase tracking-[0.22em] text-text-dim">
+        Topics
+      </p>
+      <div className="flex flex-col gap-[0.05rem]">
+        {childrenOf(topics, null).map((topic) => renderTopic(topic, 0))}
+      </div>
 
-      <button type="button" className="vc-sidebar-add" onClick={onNewTopic}>
+      <Button variant="dashed" size="sm" className="mt-[0.6rem] justify-start text-left" onClick={onNewTopic}>
         + New topic
-      </button>
+      </Button>
     </nav>
   );
 }

@@ -1,0 +1,152 @@
+/* ----------------------------------------------------------------------------------------------
+   Court-scoped styles: the artful SVG internals that stay hand-authored rather than utility-styled.
+   Everything here is rendered by the court/ module (Court, Marker, Arrows). It reads the theme tokens
+   (var(--court-*), var(--accent), …) defined in src/index.css, so it swaps with [data-theme] too.
+
+   Classes are scoped with a `court-` prefix (block name `court`), the module's own convention.
+---------------------------------------------------------------------------------------------- */
+
+.court {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.court--editable {
+  touch-action: none;
+}
+
+.court-play {
+  fill: var(--court-play);
+  transition: fill 0.4s ease;
+}
+
+.court-zone {
+  fill: var(--court-zone);
+  transition: fill 0.4s ease;
+}
+
+.court-boundary {
+  fill: none;
+  stroke: var(--court-line);
+  stroke-width: 5;
+  stroke-linejoin: round;
+  transition: stroke 0.4s ease;
+}
+
+.court-attack {
+  stroke: var(--court-line);
+  stroke-width: 4;
+  transition: stroke 0.4s ease;
+}
+
+.court-net-tape {
+  stroke: var(--net);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke 0.4s ease;
+}
+
+.court-net-strand {
+  stroke: var(--net);
+  stroke-width: 2;
+  opacity: 0.7;
+  transition: stroke 0.4s ease;
+}
+
+.court-net-post {
+  stroke: var(--court-line);
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke 0.4s ease;
+}
+
+.court-marker {
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 4px 5px var(--marker-shadow));
+  animation: court-pop 0.5s var(--ease-settle) both;
+  transition:
+    transform 0.18s var(--ease-settle),
+    filter 0.2s ease;
+}
+
+.court-marker--dragging {
+  transform: scale(1.09);
+  filter: drop-shadow(0 10px 14px var(--marker-shadow));
+}
+
+.court-marker-hit {
+  cursor: grab;
+}
+
+.court-marker-hit:active {
+  cursor: grabbing;
+}
+
+.court-halo {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.82);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s var(--ease-settle);
+}
+
+.court-halo--on {
+  opacity: 0.95;
+  transform: scale(1);
+  filter: drop-shadow(0 0 4px var(--accent));
+}
+
+/* Derived movement arrows. currentColor is set per arrow to the moving marker's colour. */
+.court-arrows {
+  pointer-events: none;
+}
+
+.court-arrow {
+  animation: court-fade 0.3s var(--ease-settle) both;
+}
+
+.court-arrow-line {
+  stroke: currentColor;
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.82;
+}
+
+.court-arrow-head {
+  fill: currentColor;
+  opacity: 0.82;
+}
+
+@keyframes court-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes court-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .court-marker,
+  .court-arrow {
+    animation: none;
+  }
+}

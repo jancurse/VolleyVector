@@ -1,9 +1,12 @@
 import type { JSX } from "react";
-import ReactMarkdown from "react-markdown";
 
 import { BoardGrid } from "../library/BoardGrid";
 import { boardToItem } from "../library/items";
 import type { Board } from "../boards/types";
+import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
+import { Markdown } from "../ui/Markdown";
+import { EYEBROW, MUTED, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
 import { childrenOf } from "./operations";
 import type { Topic } from "./types";
 
@@ -24,6 +27,9 @@ type TopicViewProps = {
   onRemoveBoard: (boardId: string) => void;
 };
 
+const SUBTOPIC =
+  "cursor-pointer rounded-pill border border-border bg-control px-[0.66rem] py-[0.28rem] font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:bg-control-hover hover:text-text";
+
 export function TopicView({
   topic,
   topics,
@@ -41,34 +47,28 @@ export function TopicView({
   const lastId = boards[boards.length - 1]?.id;
 
   return (
-    <section className="vc-library-page vc-topic-page">
-      <div className="vc-library-bar">
-        <div className="vc-caption">
-          <p className="vc-eyebrow">Topic</p>
-          <h1 className="vc-view-title">{topic.title}</h1>
+    <section className={PAGE}>
+      <div className={PAGE_BAR}>
+        <div>
+          <p className={EYEBROW}>Topic</p>
+          <h1 className={TITLE}>{topic.title}</h1>
         </div>
-        <div className="vc-new-group">
-          <button type="button" className="vc-new" onClick={onAddSubtopic}>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onAddSubtopic}>
             + Subtopic
-          </button>
-          <button type="button" className="vc-primary" onClick={onEdit}>
+          </Button>
+          <Button variant="primary" onClick={onEdit}>
             Edit
-          </button>
+          </Button>
         </div>
       </div>
 
-      {topic.body.trim() ? (
-        <div className="vc-markdown vc-topic-body">
-          <ReactMarkdown>{topic.body}</ReactMarkdown>
-        </div>
-      ) : (
-        <p className="vc-muted">No explanation yet.</p>
-      )}
+      {topic.body.trim() ? <Markdown>{topic.body}</Markdown> : <p className={MUTED}>No explanation yet.</p>}
 
       {subtopics.length > 0 && (
-        <nav className="vc-topic-subs" aria-label="Subtopics">
+        <nav className="flex flex-wrap gap-[0.4rem]" aria-label="Subtopics">
           {subtopics.map((sub) => (
-            <button key={sub.id} type="button" className="vc-tag-toggle" onClick={() => onSelectTopic(sub.id)}>
+            <button key={sub.id} type="button" className={SUBTOPIC} onClick={() => onSelectTopic(sub.id)}>
               {sub.title}
             </button>
           ))}
@@ -81,32 +81,33 @@ export function TopicView({
         emptyLabel="No boards in this topic yet."
         cardControls={(item) => (
           <>
-            <button
-              type="button"
-              className="vc-card-ctrl"
+            <IconButton
+              variant="control"
+              size="sm"
               aria-label={`Move ${item.title} up`}
               disabled={item.id === firstId}
               onClick={() => onMoveBoard(item.id, -1)}
             >
               ↑
-            </button>
-            <button
-              type="button"
-              className="vc-card-ctrl"
+            </IconButton>
+            <IconButton
+              variant="control"
+              size="sm"
               aria-label={`Move ${item.title} down`}
               disabled={item.id === lastId}
               onClick={() => onMoveBoard(item.id, 1)}
             >
               ↓
-            </button>
-            <button
-              type="button"
-              className="vc-card-remove"
-              aria-label={`Remove ${item.title} from topic`}
+            </IconButton>
+            <Button
+              variant="danger"
+              size="sm"
+              className="ml-auto"
               onClick={() => onRemoveBoard(item.id)}
+              aria-label={`Remove ${item.title} from topic`}
             >
               Remove
-            </button>
+            </Button>
           </>
         )}
       />

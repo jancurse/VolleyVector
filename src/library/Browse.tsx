@@ -83,7 +83,7 @@ export function Browse({
   }
 
   return (
-    <div className="vc-browse">
+    <div className="mx-auto grid w-full max-w-[1320px] grid-cols-[minmax(176px,220px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-[860px]:grid-cols-[minmax(0,1fr)]">
       <TopicSidebar
         topics={topics.topics}
         selection={selection}
@@ -91,7 +91,7 @@ export function Browse({
         onNewTopic={() => onCreateTopic(null)}
         onReorder={topics.reorderTopic}
       />
-      <div className="vc-browse-content">{content}</div>
+      <div className="min-w-0">{content}</div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 
 import type { Theme } from "../theme/useTheme";
+import { IconButton } from "./IconButton";
 
 type ThemeToggleProps = {
   theme: Theme;
@@ -11,12 +12,7 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps): JSX.Element 
   const isDark = theme === "dark";
 
   return (
-    <button
-      type="button"
-      className="vc-theme-toggle"
-      onClick={onToggle}
-      aria-label={`Switch to ${isDark ? "light" : "dark"} theme`}
-    >
+    <IconButton aria-label={`Switch to ${isDark ? "light" : "dark"} theme`} onClick={onToggle}>
       {isDark ? (
         <svg
           viewBox="0 0 24 24"
@@ -46,6 +42,6 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps): JSX.Element 
           <path strokeLinecap="round" strokeLinejoin="round" d="M20 13.5A7.5 7.5 0 1 1 10.5 4a6 6 0 0 0 9.5 9.5Z" />
         </svg>
       )}
-    </button>
+    </IconButton>
   );
 }

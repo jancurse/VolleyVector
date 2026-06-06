@@ -18,7 +18,7 @@ VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, brow
 - `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, inspector, step strip, and description/tag editors.
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
 - `src/topics/`: the topic-tree model, operations, store, sidebar, and topic view/editor.
-- `src/theme/` and `src/ui/`: the light/dark theme hook, theme toggle, and dev-only debug menu.
+- `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle and dev-only debug menu.
 - `src/App.tsx`: the top-level shell that owns navigation and wires the stores together.
 
 See @docs/architecture.md for how these fit together and the detail behind each.

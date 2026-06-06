@@ -18,9 +18,13 @@ import { isSequence } from "../boards/types";
 import { Court } from "../court/Court";
 import { clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
-import type { MarkerRole } from "../court/roles";
+import type { CourtMode, MarkerRole } from "../court/roles";
 import { TopicPicker } from "../topics/TopicPicker";
 import type { Topic } from "../topics/types";
+import { Button } from "../ui/Button";
+import { CourtFrame } from "../ui/CourtFrame";
+import { Input } from "../ui/Input";
+import { ToggleGroup } from "../ui/ToggleGroup";
 import { DescriptionEditor } from "./DescriptionEditor";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
@@ -35,6 +39,11 @@ const ARROW_DELTAS: Record<string, NormalizedPoint> = {
   ArrowUp: { x: 0, y: -1 },
   ArrowDown: { x: 0, y: 1 },
 };
+
+const MODE_ITEMS = [
+  { value: "positions", label: "Positions" },
+  { value: "basic", label: "Basic" },
+];
 
 // Edits a working draft of one board, one step at a time. A single-step board is a Position — a
 // static court, with an Add step affordance that clones the current positions to promote it to a
@@ -139,37 +148,31 @@ export function BoardEditor({
   );
 
   return (
-    <div className="vc-editor">
-      <div className="vc-editor-bar">
-        <button type="button" className="vc-text-button" onClick={onCancel}>
+    <div className="mx-auto flex w-full min-w-0 max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-[rise_0.6s_0.05s_var(--ease-settle)_both] motion-reduce:animate-none">
+      <div className="flex items-center gap-4">
+        <Button variant="text" onClick={onCancel}>
           Cancel
-        </button>
-        <input
-          className="vc-title-input"
+        </Button>
+        <Input
+          variant="title"
           value={draft.title}
           placeholder="Untitled board"
           aria-label="Board title"
           onChange={(event) => setDraft((d) => ({ ...d, title: event.target.value }))}
         />
         {onDelete && (
-          <button type="button" className="vc-text-button vc-text-button--danger" onClick={onDelete}>
+          <Button variant="danger" onClick={onDelete}>
             Delete
-          </button>
+          </Button>
         )}
-        <button type="button" className="vc-primary" onClick={() => onDone(draft)}>
+        <Button variant="primary" onClick={() => onDone(draft)}>
           Done
-        </button>
+        </Button>
       </div>
 
-      <div className="vc-editor-grid">
-        <div className="vc-editor-canvas">
-          <figure
-            className="vc-court-frame"
-            ref={frameRef}
-            tabIndex={0}
-            aria-label="Court editor"
-            onKeyDown={onKeyDown}
-          >
+      <div className="grid grid-cols-[min(74vh,560px)_minmax(0,1fr)] items-stretch gap-[clamp(1rem,3vw,2rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
+          <CourtFrame ref={frameRef} tabIndex={0} aria-label="Court editor" onKeyDown={onKeyDown}>
             <Court
               markers={markers}
               arrows={arrows}
@@ -178,7 +181,7 @@ export function BoardEditor({
               onSelect={select}
               onMove={move}
             />
-          </figure>
+          </CourtFrame>
 
           {sequence ? (
             <StepStrip
@@ -190,31 +193,24 @@ export function BoardEditor({
               onMove={(from, to) => setDraft((d) => moveStep(d, from, to))}
             />
           ) : (
-            <div className="vc-steps">
-              <button type="button" className="vc-step-add" onClick={appendStep} aria-label="Add step">
+            <div className="flex flex-wrap items-center justify-center gap-[0.4rem]">
+              <Button variant="dashed" onClick={appendStep} aria-label="Add step">
                 + Add step
-              </button>
+              </Button>
             </div>
           )}
 
-          <div className="vc-segmented" role="group" aria-label="Court mode">
-            {(["positions", "basic"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                className={`vc-seg${draft.mode === m ? " vc-seg--on" : ""}`}
-                aria-pressed={draft.mode === m}
-                onClick={() => setDraft((d) => ({ ...d, mode: m }))}
-              >
-                {m === "positions" ? "Positions" : "Basic"}
-              </button>
-            ))}
-          </div>
+          <ToggleGroup
+            ariaLabel="Court mode"
+            items={MODE_ITEMS}
+            value={draft.mode}
+            onValueChange={(mode) => setDraft((d) => ({ ...d, mode: mode as CourtMode }))}
+          />
 
           <MarkerPalette mode={draft.mode} onAdd={add} />
         </div>
 
-        <aside className="vc-editor-side">
+        <aside className="flex min-w-0 flex-col gap-4 max-[1040px]:w-full">
           {selected && (
             <MarkerInspector
               marker={selected}

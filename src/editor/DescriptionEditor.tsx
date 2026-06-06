@@ -1,6 +1,10 @@
 import { useState } from "react";
 import type { JSX } from "react";
-import ReactMarkdown from "react-markdown";
+
+import { Markdown } from "../ui/Markdown";
+import { MUTED, PANEL, PANEL_TITLE, cx } from "../ui/styles";
+import { Tab, TabList, TabPanel, Tabs } from "../ui/Tabs";
+import { Textarea } from "../ui/Textarea";
 
 // A markdown text card with a write/preview toggle, so a coach can author plain text and see it
 // rendered without leaving the editor. Used for both a board's description and a step instruction.
@@ -20,45 +24,35 @@ export function DescriptionEditor({
   placeholder = "Describe this board in markdown…",
   compact = false,
 }: DescriptionEditorProps): JSX.Element {
-  const [previewing, setPreviewing] = useState(false);
+  const [mode, setMode] = useState("write");
+  const preview = compact ? "min-h-[96px]" : "min-h-[190px] flex-1";
 
   return (
-    <section className={`vc-desc${compact ? " vc-desc--compact" : ""}`} aria-label={title}>
-      <div className="vc-desc-head">
-        <span className="vc-panel-title">{title}</span>
-        <div className="vc-segmented" role="group" aria-label={`${title} mode`}>
-          <button
-            type="button"
-            className={`vc-seg${previewing ? "" : " vc-seg--on"}`}
-            aria-pressed={!previewing}
-            onClick={() => setPreviewing(false)}
-          >
-            Write
-          </button>
-          <button
-            type="button"
-            className={`vc-seg${previewing ? " vc-seg--on" : ""}`}
-            aria-pressed={previewing}
-            onClick={() => setPreviewing(true)}
-          >
-            Preview
-          </button>
-        </div>
+    <Tabs value={mode} onValueChange={setMode} className={cx(PANEL, !compact && "min-h-0 flex-1")}>
+      <div className="flex items-center justify-between">
+        <span className={PANEL_TITLE}>{title}</span>
+        <TabList ariaLabel={`${title} mode`}>
+          <Tab value="write">Write</Tab>
+          <Tab value="preview">Preview</Tab>
+        </TabList>
       </div>
 
-      {previewing ? (
-        <div className="vc-markdown">
-          {value.trim() ? <ReactMarkdown>{value}</ReactMarkdown> : <p className="vc-muted">Nothing to preview yet.</p>}
-        </div>
-      ) : (
-        <textarea
-          className="vc-textarea"
+      <TabPanel value="write" className={cx("flex", !compact && "flex-1")}>
+        <Textarea
           value={value}
           placeholder={placeholder}
           aria-label={`${title} text`}
+          compact={compact}
           onChange={(event) => onChange(event.target.value)}
         />
-      )}
-    </section>
+      </TabPanel>
+      <TabPanel value="preview" className={preview}>
+        {value.trim() ? (
+          <Markdown className={preview}>{value}</Markdown>
+        ) : (
+          <p className={MUTED}>Nothing to preview yet.</p>
+        )}
+      </TabPanel>
+    </Tabs>
   );
 }

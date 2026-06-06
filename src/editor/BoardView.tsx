@@ -1,7 +1,6 @@
-import { AnimatePresence, motion, MotionConfig } from "motion/react";
+import { MotionConfig } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
-import ReactMarkdown from "react-markdown";
 
 import { arrowsForStep } from "../boards/arrows";
 import { stepMarkers } from "../boards/operations";
@@ -9,6 +8,11 @@ import type { Board } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { useBoardPlayback } from "../boards/useBoardPlayback";
 import { Court } from "../court/Court";
+import { Button } from "../ui/Button";
+import { CourtFrame } from "../ui/CourtFrame";
+import { Markdown } from "../ui/Markdown";
+import { Toolbar, ToolbarButton } from "../ui/Toolbar";
+import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TITLE, cx } from "../ui/styles";
 import { StepStrip } from "./StepStrip";
 
 const PLAY_ICON = (
@@ -50,6 +54,18 @@ const NEXT_ICON = (
   </svg>
 );
 
+const VIEW_BODY =
+  "grid grid-cols-[min(74vh,560px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]";
+
+function DescriptionPanel({ markdown }: { markdown: string }): JSX.Element {
+  return (
+    <section className={cx(PANEL, "min-w-0")} aria-label="Description">
+      <span className={PANEL_TITLE}>Description</span>
+      {markdown.trim() ? <Markdown>{markdown}</Markdown> : <p className={MUTED}>No description yet.</p>}
+    </section>
+  );
+}
+
 // The read-only surface for one board, what players and share-link visitors get. A Position renders a
 // single static court and its description; a Sequence renders the animated court with a transport and
 // a step scrubber, plus the current step's instruction (markdown) below the description. A coach lands
@@ -69,6 +85,17 @@ export function BoardView({ board, onEdit, onBack }: BoardViewProps): JSX.Elemen
   // Arrows preview the upcoming move while paused; during play the motion itself shows the path.
   const arrows = useMemo(() => (playing ? [] : arrowsForStep(board, step)), [board, step, playing]);
   const instruction = board.steps[step]?.instruction ?? "";
+
+  // The instruction changing reads as a move between two notes: the incoming one slides in from the
+  // direction of travel. Track the previously shown step in state and adjust the direction during the
+  // render where it changes, so no ref is read during render.
+  const [prevStep, setPrevStep] = useState(step);
+  const [stepDirection, setStepDirection] = useState("animate-step-fwd");
+
+  if (prevStep !== step) {
+    setPrevStep(step);
+    setStepDirection(step < prevStep ? "animate-step-back" : "animate-step-fwd");
+  }
 
   const [copied, setCopied] = useState(false);
 
@@ -91,124 +118,90 @@ export function BoardView({ board, onEdit, onBack }: BoardViewProps): JSX.Elemen
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="vc-view">
-        <button type="button" className="vc-back" onClick={onBack}>
+      <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(1rem,3vh,1.75rem)] animate-rise motion-reduce:animate-none">
+        <Button variant="text" size="sm" className="self-start pl-0" onClick={onBack}>
           ← Library
-        </button>
-        <div className="vc-view-bar">
-          <div className="vc-caption">
-            <p className="vc-eyebrow">{sequence ? "Sequence" : "Position"}</p>
-            <h1 className="vc-view-title">{board.title || "Untitled board"}</h1>
+        </Button>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className={EYEBROW}>{sequence ? "Sequence" : "Position"}</p>
+            <h1 className={TITLE}>{board.title || "Untitled board"}</h1>
           </div>
-          <div className="vc-view-actions">
-            <button type="button" className="vc-new" onClick={copyJson}>
+          <div className="flex flex-none items-center gap-2">
+            <Button variant="ghost" onClick={copyJson}>
               {copied ? "Copied" : "Copy JSON"}
-            </button>
-            <button type="button" className="vc-primary" onClick={onEdit}>
+            </Button>
+            <Button variant="primary" onClick={onEdit}>
               Edit
-            </button>
+            </Button>
           </div>
         </div>
 
         {sequence ? (
-          <div className="vc-view-body">
-            <div className="vc-drill-stage">
-              <figure className="vc-court-frame">
+          <div className={VIEW_BODY}>
+            <div className="flex min-w-0 flex-col items-center gap-[clamp(0.7rem,2vh,1.15rem)]">
+              <CourtFrame className="max-[1040px]:justify-self-center">
                 <Court animated markers={markers} arrows={arrows} label={board.title || "Untitled board"} />
-              </figure>
+              </CourtFrame>
 
-              <div className="vc-transport">
-                <button
-                  type="button"
-                  className="vc-transport-btn"
+              <Toolbar ariaLabel="Playback" className="gap-[0.55rem]">
+                <ToolbarButton
+                  icon={{ variant: "control", size: "md" }}
+                  aria-label="Previous step"
+                  tooltip="Previous step"
                   onClick={playback.prev}
                   disabled={step === 0}
-                  aria-label="Previous step"
                 >
                   {PREV_ICON}
-                </button>
-                <button
-                  type="button"
-                  className="vc-transport-btn vc-transport-play"
-                  onClick={playback.toggle}
+                </ToolbarButton>
+                <ToolbarButton
+                  icon={{ variant: "accent", size: "lg" }}
                   aria-label={playing ? "Pause" : "Play"}
+                  tooltip={playing ? "Pause" : "Play"}
+                  onClick={playback.toggle}
                 >
                   {playing ? PAUSE_ICON : PLAY_ICON}
-                </button>
-                <button
-                  type="button"
-                  className="vc-transport-btn"
+                </ToolbarButton>
+                <ToolbarButton
+                  icon={{ variant: "control", size: "md" }}
+                  aria-label="Next step"
+                  tooltip="Next step"
                   onClick={playback.next}
                   disabled={atEnd}
-                  aria-label="Next step"
                 >
                   {NEXT_ICON}
-                </button>
-                <span className="vc-transport-count">
+                </ToolbarButton>
+                <span className="ml-[0.35rem] min-w-[3ch] font-mono text-sm text-text-dim">
                   {step + 1} / {board.steps.length}
                 </span>
-              </div>
+              </Toolbar>
 
               <StepStrip steps={board.steps} current={step} onSelect={playback.goTo} />
             </div>
 
-            <div className="vc-drill-side">
-              <section className="vc-desc vc-view-desc" aria-label="Description">
-                <div className="vc-desc-head">
-                  <span className="vc-panel-title">Description</span>
-                </div>
-                {board.description.trim() ? (
-                  <div className="vc-markdown">
-                    <ReactMarkdown>{board.description}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="vc-muted">No description yet.</p>
-                )}
-              </section>
+            <div className="flex min-w-0 flex-col gap-4">
+              <DescriptionPanel markdown={board.description} />
 
-              <section className="vc-desc vc-step-note" aria-label="Step instruction">
-                <div className="vc-desc-head">
-                  <span className="vc-panel-title">Step {step + 1}</span>
-                </div>
-                <div className="vc-step-note-body" aria-live="polite">
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.div
-                      key={step}
-                      className="vc-markdown"
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.22 }}
-                    >
-                      {instruction.trim() ? (
-                        <ReactMarkdown>{instruction}</ReactMarkdown>
-                      ) : (
-                        <p className="vc-muted">No instruction for this step.</p>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
+              <section className={cx(PANEL, "min-w-0")} aria-label="Step instruction">
+                <span className={PANEL_TITLE}>Step {step + 1}</span>
+                <div className="min-h-[3.25rem]" aria-live="polite">
+                  <div key={step} className={cx(stepDirection, "motion-reduce:animate-none")}>
+                    {instruction.trim() ? (
+                      <Markdown>{instruction}</Markdown>
+                    ) : (
+                      <p className={MUTED}>No instruction for this step.</p>
+                    )}
+                  </div>
                 </div>
               </section>
             </div>
           </div>
         ) : (
-          <div className="vc-view-body">
-            <figure className="vc-court-frame">
+          <div className={VIEW_BODY}>
+            <CourtFrame className="max-[1040px]:justify-self-center">
               <Court markers={markers} label={board.title || "Untitled board"} />
-            </figure>
-
-            <section className="vc-desc vc-view-desc" aria-label="Description">
-              <div className="vc-desc-head">
-                <span className="vc-panel-title">Description</span>
-              </div>
-              {board.description.trim() ? (
-                <div className="vc-markdown">
-                  <ReactMarkdown>{board.description}</ReactMarkdown>
-                </div>
-              ) : (
-                <p className="vc-muted">No description yet.</p>
-              )}
-            </section>
+            </CourtFrame>
+            <DescriptionPanel markdown={board.description} />
           </div>
         )}
       </div>

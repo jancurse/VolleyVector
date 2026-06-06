@@ -53,7 +53,7 @@ export function Court({
   return (
     <svg
       ref={svgRef}
-      className={`vc-court${editable ? " vc-court--editable" : ""}`}
+      className={`court${editable ? " court--editable" : ""}`}
       viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
       aria-label={label}
       onPointerDown={editable ? drag.onSurfacePointerDown : undefined}
@@ -61,21 +61,21 @@ export function Court({
       onPointerUp={editable ? drag.onPointerUp : undefined}
       onPointerCancel={editable ? drag.onPointerUp : undefined}
     >
-      <rect className="vc-play" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
-      <rect className="vc-zone" x={left} y={toSvg(0)} width={COURT_SPAN} height={ATTACK_LINE * COURT_SPAN} />
+      <rect className="court-play" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
+      <rect className="court-zone" x={left} y={toSvg(0)} width={COURT_SPAN} height={ATTACK_LINE * COURT_SPAN} />
 
-      <rect className="vc-boundary" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
-      <line className="vc-attack" x1={left} y1={toSvg(ATTACK_LINE)} x2={right} y2={toSvg(ATTACK_LINE)} />
+      <rect className="court-boundary" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
+      <line className="court-attack" x1={left} y1={toSvg(ATTACK_LINE)} x2={right} y2={toSvg(ATTACK_LINE)} />
 
-      <g className="vc-net" aria-hidden="true">
-        <line className="vc-net-tape" x1={left} y1={netTape} x2={right} y2={netTape} />
+      <g className="court-net" aria-hidden="true">
+        <line className="court-net-tape" x1={left} y1={netTape} x2={right} y2={netTape} />
         {Array.from({ length: NET_STRANDS + 1 }, (_, i) => {
           const x = toSvg(i / NET_STRANDS);
 
-          return <line key={i} className="vc-net-strand" x1={x} y1={netTape} x2={x} y2={netLine} />;
+          return <line key={i} className="court-net-strand" x1={x} y1={netTape} x2={x} y2={netLine} />;
         })}
-        <line className="vc-net-post" x1={left} y1={netTape - 14} x2={left} y2={netLine} />
-        <line className="vc-net-post" x1={right} y1={netTape - 14} x2={right} y2={netLine} />
+        <line className="court-net-post" x1={left} y1={netTape - 14} x2={left} y2={netLine} />
+        <line className="court-net-post" x1={right} y1={netTape - 14} x2={right} y2={netLine} />
       </g>
 
       {arrows && arrows.length > 0 && <Arrows arrows={arrows} />}
