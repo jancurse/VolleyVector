@@ -26,6 +26,9 @@ pnpm-debug.log*
 # Playwright MCP scratch output
 .playwright-mcp/
 
+# Claude Code nested git worktrees (separate checkouts, never committed here)
+.claude/worktrees/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
