@@ -1,6 +1,6 @@
 # VolleyCoach — Product & Build Plan
 
-VolleyCoach is a private, single-team web app for building, browsing, sharing, and animating volleyball tactics and drills. Coaches author diagrams on a volleyball court; players view and play them back; anyone with a share link can open one specific item, read-only. It is a single-page app, and diagram positions are stored resolution-independently so the same diagram stays crisp on a phone and a laptop.
+VolleyCoach is a private, invite-only web app for building, browsing, sharing, and animating volleyball tactics and drills. Accounts are organised into teams, each with its own shared library, and every user also has a private personal workspace. Coaches author diagrams on a volleyball court; players view and play them back; anyone with a share link can open one specific item, read-only. It is a single-page app, and diagram positions are stored resolution-independently so the same diagram stays crisp on a phone and a laptop.
 
 ## The product
 
@@ -16,7 +16,7 @@ Both carry:
 - a title and a **markdown** description,
 - organising tags (see [Library](#library)),
 - a set of markers (see [The court and markers](#the-court-and-markers)),
-- an author, a timestamp, and a published flag,
+- an author, a timestamp, and a home space (team or personal),
 - a share token (see [Sharing](#sharing)).
 
 They differ only in their markers:
@@ -32,18 +32,27 @@ They differ only in their markers:
     - A marker's **role** drives its colour and a default label.
     - The exact roles, the labelling convention (e.g. MB1/MB2), and the court extent and aspect ratio are build-time details, decided once we can see the product on screen.
 
-### People and access
+### People, teams, and spaces
 
-Access has three tiers:
+Accounts are organised into **teams**, and content lives in one of two **spaces**:
 
-- **Coaches** — accounts. Create, edit, and organise all content.
-- **Players** — accounts. Full view and playback of the whole library; strictly read-only.
+- **Team space** — a team's shared library, visible to its members and curated by its coaches.
+- **Personal space** — a user's private workspace, visible only to them until they share an item.
+
+Access has these tiers:
+
+- **Global admin** — an app-level flag on a normal account. Creates teams, invites anyone into any team, manages all memberships, and has full read/write access across every team. Can grant admin to others. The first admin is bootstrapped by hand; everything after is self-serve in the app.
+- **Coach** — a per-team role. Creates, edits, and organises their own team's library, and invites people into that team.
+- **Player** — a per-team role. Full view and playback of their team's library; strictly read-only.
 - **Share-link visitors** — no account. Can open the single item a link points to, read-only. They never get the library or the browse view.
+
+A user may belong to several teams with a different role in each, and the admin flag is orthogonal to team membership.
 
 #### Accounts and roles
 
-- **Invite-only.** There is no public signup — a coach adds people. This keeps the private team tool private even though the auth system technically lets anyone attempt to register.
-- **A coach assigns each account's role** (coach or player).
+- **Invite-only.** There is no public signup. An admin invites into any team; a coach invites into their own team. An invite always targets a team with a role.
+- **Per-team roles.** Each membership is a `(user, team, role)` link, role being coach or player. A coach (own team) or an admin assigns roles.
+- **Author lock.** A coach can lock a team board they authored so only they and admins can edit or delete it.
 
 ### Sharing
 
@@ -106,8 +115,9 @@ Build the whole interactive app client-side, with local/in-memory state and no b
 
 Once the dev app is solid, give it persistence and access control:
 
-- The Supabase project and schema (items with owner, share token, and published flag; markers and steps stored as JSON), wired to the editor for save and load.
-- **Auth and row-level security**: invite-only accounts, coach-assigned roles, ownership, token-based read, and server-side read-only enforcement.
+- The Supabase project and schema (boards and topics with owner, scope, team, and share token; markers and steps stored as JSON), wired to the editor for save and load.
+- **Auth and row-level security**: invite-only accounts organised into teams, a global admin plus per-team coach/player roles, ownership, team isolation, token-based read, and server-side read-only enforcement.
+- The two spaces: a coach-curated library per team and a private personal workspace per user, with sharing and coach promotion between them.
 - The share-token route and its read-only viewer.
 - The keep-alive GitHub Action.
 
