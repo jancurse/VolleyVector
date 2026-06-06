@@ -9,7 +9,7 @@ on:
 
 jobs:
   check:
-    name: Format, Lint, Type-check & Test
+    name: Format, Lint, Test & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -31,8 +31,8 @@ jobs:
       - name: Lint with ESLint
         run: npm run lint
 
-      - name: Type check with TypeScript
-        run: npm run typecheck
-
       - name: Run tests
         run: npm run test
+
+      - name: Build
+        run: npm run build
