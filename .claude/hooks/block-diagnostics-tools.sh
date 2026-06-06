@@ -13,7 +13,9 @@ REMINDER="Please use the diagnostics skill for diagnostics. Run only the command
 cmd=$(jq -r '.tool_input.command // ""')
 pattern=$(IFS='|'; echo "${BLOCKED[*]}")
 
-if printf '%s' "$cmd" | grep -qE "(^|[^[:alnum:]_-])(${pattern})([^[:alnum:]_-]|$)"; then
+# The trailing class requires the token to be at a command position (followed by whitespace, a shell
+# separator, or end) so a real invocation matches but a filename like `eslint.config.js` does not.
+if printf '%s' "$cmd" | grep -qE "(^|[^[:alnum:]_-])(${pattern})([[:space:]<>;&|)]|$)"; then
   jq -n --arg reason "$REMINDER" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:stop": "f(){ if [ -n \"$1\" ]; then lsof -ti tcp:\"$1\" | xargs -r kill; else pkill -f 'node.*\\.bin/vite' || true; fi; }; f",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "format": "prettier --write \"{src,tests}/**/*.{ts,tsx,json,css}\"",
@@ -19,12 +20,16 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@base-ui/react": "^1.5.0",
+    "motion": "^12.40.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@stylistic/eslint-plugin": "^5.5.0",
+    "@tailwindcss/vite": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -43,6 +48,7 @@
     "globals": "^16.5.0",
     "happy-dom": "^20.0.10",
     "prettier": "^3.6.2",
+    "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.11",
     "vitest": "^4.0.10"

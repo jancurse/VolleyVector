@@ -1,69 +1,127 @@
-# Volleyball Tactics & Drills — Stack & Scope
+# VolleyCoach — Product & Build Plan
 
-## Bottom line
+VolleyCoach is a private, single-team web app for building, browsing, sharing, and animating volleyball tactics and drills. Coaches author diagrams on a volleyball court; players view and play them back; anyone with a share link can open one specific item, read-only. It is a single-page app, and diagram positions are stored resolution-independently so the same diagram stays crisp on a phone and a laptop.
 
-Build it as a single-page web app: **React + TypeScript + Vite** on the front end, the court and markers drawn in **SVG** (not canvas), animation between drill steps via **Motion**, and **Supabase** (Postgres + Auth) as the backend. Static front end on Cloudflare Pages or Vercel; Supabase managed free tier.
+## The product
 
-| Layer                    | Pick                              |
-|--------------------------|-----------------------------------|
-| Framework                | React + TS + Vite                 |
-| Court / markers / arrows | SVG, rendered as React components |
-| Drill animation          | Motion                            |
-| Backend + DB + auth      | Supabase                          |
-| Static hosting           | Cloudflare Pages / Vercel         |
+### Content types
 
-## Backend choice
+There are two content types that share almost all of their code, rendering, and storage. The only real difference is static vs. animated:
 
-A low-stakes call — for one team's tool with document-shaped data and simple permissions, any mainstream BaaS does this, and the SVG editor plus the step animation is most of the real work regardless. Supabase covers every requirement, the SQL permission model is no obstacle, and its large ecosystem means the "authenticated users plus anonymous read-only by token" pattern is well-trodden. If the library data is ever worth querying (most-run drills, tag overlap), Postgres is the right home for it.
+- **Tactic — a static position.** A single arrangement of markers on the court, e.g. base defence against an outside attack. (The name is provisional.)
+- **Drill — a multi-step sequence.** An ordered list of steps that plays back as an animation.
 
-Worth knowing, not decisive: **Appwrite** (per-document deny-by-default permissions map the public/private split a touch more directly), **PocketBase** (only if self-hosting everything on one box appeals).
+Both carry:
 
-## Architectural decisions to honour
+- a title and a **markdown** description,
+- organising tags (see [Library](#library)),
+- a set of markers (see [The court and markers](#the-court-and-markers)),
+- an author, a timestamp, and a published flag,
+- a share token (see [Sharing](#sharing)).
 
-These are the choices the implementing agent should not relitigate, because they're the spine of the app and easy to get wrong:
+They differ only in their markers:
 
-- **Normalized 0–1 coordinate space**, never pixels. The same diagram then renders correctly on a phone and a laptop, and drag positions are resolution-independent.
-- **Every marker keeps a stable identity across all steps of a drill.** This is what makes playback nearly free: the animation interpolates each marker's position from one step to the next, matched by identity. Movement arrows fall out as the delta between consecutive steps.
-- **One court component renders both modes** — a static tactic and an animated drill step.
-- **SVG, not canvas/Konva.** This is ~12 markers on a rectangle that must stay crisp on phones and animate smoothly between steps; SVG wins on both. Konva would only earn its place if the editor later grew into a heavy multi-object scene with resize/snap.
+- A **tactic** has one set of markers.
+- A **drill** has an ordered list of steps, each with its own instruction and the marker positions for that step. Marker identity is stable across steps, so playback interpolates each marker from one step to the next by identity, and **movement arrows are derived from the deltas between steps** — there is no separate arrow data to author.
 
-## What the system stores
+### The court and markers
 
-Conceptual shape only — schema and storage are the implementing agent's call:
+- **One court component renders both modes** — a static tactic and a single drill step are the same view with different inputs.
+- **Coordinates are normalized 0–1, never pixels**, so positions are resolution-independent.
+- **Markers** cover the players and the ball (and similar objects as defences need them).
+    - A marker's **role** drives its colour and a default label.
+    - The exact roles, the labelling convention (e.g. MB1/MB2), and the court extent and aspect ratio are build-time details, decided once we can see the product on screen.
 
-- A **tactic**: title, category, situation tag, a short note, a set of markers (each with identity, normalized position, label, and role), a share token, a published flag, author, timestamp.
-- A **drill**: title, category, session, and an ordered list of steps — each step carrying a text instruction and the marker positions for that step (arrows optional, derivable from step deltas) — plus a share token, published flag, author, timestamp.
+### People and access
 
-Role drives marker colour and default label (S, MB, OH, OPP, L).
+Access has three tiers:
 
-## Roles, auth, and sharing
+- **Coaches** — accounts. Create, edit, and organise all content.
+- **Players** — accounts. Full view and playback of the whole library; strictly read-only.
+- **Share-link visitors** — no account. Can open the single item a link points to, read-only. They never get the library or the browse view.
 
-Auth is required. Three tiers of access:
+#### Accounts and roles
 
-- **Coaches** — account; create, edit, and organise all content.
-- **Players** — account; full view and playback of the library; read-only, no editing.
-- **Anyone with a share link** — no account; can open the single tactic or drill that link points to, read-only. They do not get the full library or full view — that is reserved to signed-in players and coaches.
+- **Invite-only.** There is no public signup — a coach adds people. This keeps the private team tool private even though the auth system technically lets anyone attempt to register.
+- **A coach assigns each account's role** (coach or player).
 
-Each tactic and drill has an unguessable share token and its own URL (e.g. `/t/:token`, `/d/:token`). The no-account link resolves through a **server-side lookup keyed on the token**, so it returns only that one item and the collection can't be enumerated. Read-only is enforced server-side for both players and link viewers — not just hidden in the UI.
+### Sharing
 
-Concurrent editing by multiple coaches works through shared auth. Live simultaneous co-editing of the same item is not required; if it ever became one, that is the single place a reactive backend (Convex) would beat Supabase.
+- Every tactic and drill has its own shareable link, backed by an **unguessable token** that resolves to exactly that one item — the collection cannot be enumerated from a link.
+- **Read-only is enforced server-side** for both players and link visitors, not merely hidden in the UI.
 
-## Build phases
+### Library
 
-Each phase is shippable and de-risks the next:
+- Coaches and players browse the full library and **filter by organising tags** — category, situation (for tactics), and session (for drills).
+- The exact tag values are coach-managed content, not fixed here.
 
-1. Static court + markers — locks the coordinate system.
-2. Tactic editor (place, drag, edit, save) — content type #1, end to end.
-3. Library — browse and search/filter by category / situation / session.
-4. Share + read-only viewer (token route), verified on a phone.
-5. Drill model — steps, per-step instruction, step-through.
-6. Playback animation + auto-derived arrows.
-7. Auth and access-rule lockdown.
+### Playback and animation
 
-## Hosting
+- A drill can be **stepped through** one step at a time, and **played back** as a smooth animation.
+- Animation interpolates marker positions between steps by identity (via Motion); **movement arrows are derived automatically** from step-to-step deltas.
 
-Static front end on Cloudflare Pages or Vercel (free, deploy from GitHub); Supabase managed free tier; self-host later if wanted, since the stack is open-source.
+## Architecture and stack
 
-## Rough effort
+| Layer                    | Choice                             |
+|--------------------------|------------------------------------|
+| Framework                | React + TypeScript + Vite          |
+| Court / markers / arrows | SVG, as React components           |
+| Animation                | Motion                             |
+| Backend (DB + auth)      | Supabase                           |
+| Hosting                  | Cloudflare Pages / Vercel (static) |
 
-A focused weekend covers phases 1–4 (tactics, library, sharing) as a usable tool. Drills with step-through and playback (5–6) are another solid weekend. Auth and access lockdown (7) is a few hours. Playback is the easy part once the coordinate-and-stable-identity foundation is right — which is why that foundation comes first.
+### Why this shape
+
+The real work is the SVG editor and the step animation; the backend is a low-stakes "BaaS with auth" choice. Supabase gives a free tier, built-in auth, and a well-trodden "signed-in users plus anonymous read-only by token" pattern.
+
+### Spine decisions (do not relitigate)
+
+These are easy to get wrong and expensive to change, so they are fixed:
+
+- **Normalized 0–1 coordinates, never pixels.**
+- **Stable marker identity across all steps** — the single decision that makes playback and derived arrows nearly free.
+- **One court component for both modes.**
+- **SVG, not canvas/Konva** — ~12 markers on a rectangle that must stay crisp on phones and animate smoothly. Konva would only pay off if the editor grew into a heavy multi-object scene with resize/snap.
+
+### Hosting and operations
+
+- The static front end deploys from GitHub to Cloudflare Pages or Vercel (free).
+- Supabase runs on the managed free tier.
+- **Keep-alive:** the free tier pauses a project after 7 days without database activity, and recovering needs a manual dashboard restore (it does not auto-wake on a visit). A scheduled **GitHub Action** pings the database a few times a week so the project never pauses.
+
+## Building it
+
+A few big phases, each of which gets its own detailed sub-plan when we reach it. The backend stays out of the picture until the app already works well in dev — the real work is the editor and the animation, and there is no reason to take on Supabase, auth, and hosting before that is solid.
+
+### Phase 1 — The product, working in dev
+
+Build the whole interactive app client-side, with local/in-memory state and no backend, until it genuinely feels good on screen:
+
+- The court and the normalized coordinate system (rendered first, so the coordinate foundation is locked before anything depends on it).
+- The tactic editor: place, drag, label, and recolour markers, and edit the markdown description.
+- Drills: author ordered steps, step through them, and play them back as animation (Motion) with auto-derived movement arrows.
+- The library: browse and filter by organising tags.
+
+### Phase 2 — Backend, auth, and sharing (Supabase)
+
+Once the dev app is solid, give it persistence and access control:
+
+- The Supabase project and schema (items with owner, share token, and published flag; markers and steps stored as JSON), wired to the editor for save and load.
+- **Auth and row-level security**: invite-only accounts, coach-assigned roles, ownership, token-based read, and server-side read-only enforcement.
+- The share-token route and its read-only viewer.
+- The keep-alive GitHub Action.
+
+### Phase 3 — Deploy and operate
+
+- Deploy the static front end from GitHub to Cloudflare Pages or Vercel.
+- Verify the full flow on a real phone, including opening a share link.
+- A final pass auditing RLS so read-only access and per-item sharing hold server-side.
+
+## Deferred decisions
+
+Recorded here so they are made deliberately at build time rather than by accident:
+
+- Court extent and aspect ratio (full court, or one half with net and attack line).
+- The exact marker roles and labelling convention.
+- Whether the editor is fully usable on phones or desktop-first.
+- The category / situation / session tag values.

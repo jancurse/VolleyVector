@@ -1,0 +1,185 @@
+/* ----------------------------------------------------------------------------------------------
+   VolleyCoach — Tailwind v4 entry and the token theme.
+
+   - The static design tokens (fonts, easing, radius, shadow, animation) live in @theme, so Tailwind
+     utilities resolve to them (rounded-lg, shadow-overlay, font-display, ease-settle, animate-rise).
+   - The colour tokens swap with the theme: @theme inline maps each colour utility onto a runtime CSS
+     variable (var(--bg), var(--accent), …) whose value is redefined per [data-theme]. So a single
+     utility like bg-panel follows the light/dark switch with no dark: variant.
+   - The role/marker palette is theme-independent and lives in src/court/roles.ts.
+---------------------------------------------------------------------------------------------- */
+
+@import "tailwindcss";
+@import "./court/court.css";
+
+@theme {
+  --font-display: "Bricolage Grotesque", "Hanken Grotesk", system-ui, sans-serif;
+  --font-ui: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* UI type scale: the named steps controls reference, replacing the scattered text-[…] literals.
+     A gentle ramp from micro mono captions up to the largest control glyph. The fluid display title
+     and the font-display headings keep their own sizes; this ladder is for control and body text. */
+  --text-2xs: 0.69rem;
+  --text-2xs--line-height: 1.4;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.81rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 0.88rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.35;
+  --text-xl: 1.13rem;
+  --text-xl--line-height: 1.3;
+
+  /* Display heading scale: a named ramp for the fixed font-display headings (card/dialog titles,
+     Markdown headings, the app brand), replacing their one-off text-[…rem] literals. Coarser than the
+     UI scale, so several headings share a step. The fluid display title keeps its own clamp(). */
+  --text-display-xs: 1rem;
+  --text-display-xs--line-height: 1.3;
+  --text-display-sm: 1.125rem;
+  --text-display-sm--line-height: 1.25;
+  --text-display-md: 1.27rem;
+  --text-display-md--line-height: 1.2;
+
+  /* Radius scale, replacing the scattered 6–22px and pill values with named steps. */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 18px;
+  --radius-3xl: 22px;
+  --radius-pill: 999px;
+
+  /* Shadow scale: the recurring overlay/card cast and the deeper court cast, named once. */
+  --shadow-overlay: 0 18px 40px -22px var(--court-cast);
+  --shadow-court: 0 34px 70px -30px var(--court-cast), 0 2px 0 rgba(255, 255, 255, 0.03) inset;
+
+  --animate-rise: rise 0.6s var(--ease-settle) both;
+  /* The step instruction changing reads as a move between two notes: the incoming one slides in from
+     the direction of travel as the wording settles. Forward when advancing, back when stepping back. */
+  --animate-step-fwd: step-fwd 0.26s var(--ease-settle) both;
+  --animate-step-back: step-back 0.26s var(--ease-settle) both;
+}
+
+/* Colour utilities resolve to runtime variables that swap with [data-theme] (see blocks below). */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-court-surface: var(--court-surface);
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-panel: var(--panel);
+  --color-border: var(--border);
+  --color-control: var(--control);
+  --color-control-hover: var(--control-hover);
+  --color-accent: var(--accent);
+  --color-accent-weak: var(--accent-weak);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+}
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0c0e13;
+  --bg-glow: rgba(78, 104, 158, 0.16);
+
+  --court-surface: #161a22;
+  --court-play: #1c212b;
+  --court-zone: #232a36;
+  --court-line: rgba(228, 233, 242, 0.82);
+  --net: rgba(228, 233, 242, 0.42);
+  --court-cast: rgba(0, 0, 0, 0.55);
+  --ball-arrow: #d7dcea;
+
+  --text: #eef1f6;
+  --text-dim: #97a0b1;
+  --panel: rgba(255, 255, 255, 0.035);
+  --border: rgba(255, 255, 255, 0.09);
+  --control: rgba(255, 255, 255, 0.05);
+  --control-hover: rgba(255, 255, 255, 0.1);
+  --marker-shadow: rgba(0, 0, 0, 0.5);
+
+  --accent: #7aa2ff;
+  --accent-weak: rgba(122, 162, 255, 0.16);
+  --on-accent: #0b1020;
+  --danger: #ef6a52;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f1eee6;
+  --bg-glow: rgba(255, 250, 236, 0.9);
+
+  --court-surface: #e7e3d8;
+  --court-play: #faf8f2;
+  --court-zone: #efeadd;
+  --court-line: #2c313c;
+  --net: rgba(44, 49, 60, 0.45);
+  --court-cast: rgba(46, 44, 62, 0.18);
+  --ball-arrow: #2c313c;
+
+  --text: #1d2129;
+  --text-dim: #66707f;
+  --panel: rgba(255, 255, 255, 0.55);
+  --border: rgba(20, 24, 32, 0.1);
+  --control: rgba(20, 24, 32, 0.04);
+  --control-hover: rgba(20, 24, 32, 0.08);
+  --marker-shadow: rgba(34, 37, 46, 0.22);
+
+  --accent: #2f6fe0;
+  --accent-weak: rgba(47, 111, 224, 0.12);
+  --on-accent: #ffffff;
+  --danger: #d6442b;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes step-fwd {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes step-back {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
