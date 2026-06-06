@@ -23,6 +23,8 @@ type TopicViewProps = {
   onSelectTopic: (id: string) => void;
   onEdit: () => void;
   onAddSubtopic: () => void;
+  /** Whether to offer the edit and subtopic actions (a coach of this team, or an admin). */
+  canEdit: boolean;
 };
 
 const SUBTOPIC =
@@ -36,6 +38,7 @@ export function TopicView({
   onSelectTopic,
   onEdit,
   onAddSubtopic,
+  canEdit,
 }: TopicViewProps): JSX.Element {
   const subtopics = childrenOf(topics, topic.id);
   const byId = new Map(boards.map((b) => [b.id, b]));
@@ -72,14 +75,16 @@ export function TopicView({
           <p className={EYEBROW}>Topic</p>
           <h1 className={TITLE}>{topic.title}</h1>
         </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={onAddSubtopic}>
-            + Subtopic
-          </Button>
-          <Button variant="primary" onClick={onEdit}>
-            Edit
-          </Button>
-        </div>
+        {canEdit && (
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onAddSubtopic}>
+              + Subtopic
+            </Button>
+            <Button variant="primary" onClick={onEdit}>
+              Edit
+            </Button>
+          </div>
+        )}
       </div>
 
       {subtopics.length > 0 && (

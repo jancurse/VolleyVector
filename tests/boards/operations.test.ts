@@ -42,6 +42,8 @@ const SEQUENCE: Board = {
   ],
   tags: [],
   topicId: null,
+  owner: "",
+  authorLocked: false,
   createdAt: 0,
   updatedAt: 0,
 };
@@ -57,6 +59,8 @@ function filed(id: string, topicId: string | null, updatedAt: number): Board {
     steps: [{ id: "s1", instruction: "", positions: {} }],
     tags: [],
     topicId,
+    owner: "",
+    authorLocked: false,
     createdAt: 0,
     updatedAt,
   };

@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { loadBoards, SAMPLE_BOARDS, saveBoards } from "./storage";
+import { useAuth } from "../auth/useAuth";
+import { supabase } from "../supabase/client";
+import type { BoardRow } from "../supabase/rows";
+import { boardFromRow, boardToInsert, boardToUpdate } from "../supabase/rows";
 import type { Board } from "./types";
-
-const SAVE_DEBOUNCE_MS = 300;
 
 export type BoardsStore = {
   boards: Board[];
+  /** True until the active team's boards have loaded. */
+  loading: boolean;
+  /** The last load or write error, or null. */
+  error: string | null;
   /** Commit a finished board to the front of the list (a new board from the editor). */
   addBoard: (board: Board) => void;
   deleteBoard: (id: string) => void;
@@ -14,36 +19,157 @@ export type BoardsStore = {
   updateBoard: (id: string, update: (board: Board) => Board) => void;
   /** Return the given boards to Unfiled (e.g. removed from a topic, or their topic was deleted). */
   unfileBoards: (boardIds: readonly string[]) => void;
+  /** Set or clear a team board's author lock. Only its author or an admin may do this (RLS-enforced). */
+  setBoardLock: (id: string, locked: boolean) => void;
 };
 
-/** The board collection, seeded on first run and persisted to localStorage after edits settle. */
-export function useBoards(): BoardsStore {
-  const [boards, setBoards] = useState<Board[]>(() => loadBoards() ?? SAMPLE_BOARDS);
+/** The active team's boards, loaded from Supabase and written through on each edit. Writes apply
+ *  optimistically so the UI stays responsive; a failed write surfaces an error and refetches to
+ *  reconcile. Access (who may read or write) is enforced by row-level security, never here. */
+export function useBoards(teamId: string | null): BoardsStore {
+  const { user } = useAuth();
 
-  // Persist once edits settle, so a burst of changes writes once, not per keystroke.
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Read the latest boards outside a state updater, so a write can look up its target without a stale
+  // closure and without a side effect inside setState.
+  const boardsRef = useRef(boards);
+
   useEffect(() => {
-    const handle = setTimeout(() => saveBoards(boards), SAVE_DEBOUNCE_MS);
-
-    return () => clearTimeout(handle);
+    boardsRef.current = boards;
   }, [boards]);
 
-  const addBoard = useCallback((board: Board) => {
-    setBoards((prev) => [board, ...prev]);
-  }, []);
+  const refetch = useCallback(async () => {
+    if (!teamId) return;
 
-  const deleteBoard = useCallback((id: string) => {
-    setBoards((prev) => prev.filter((b) => b.id !== id));
-  }, []);
+    const { data, error: queryError } = await supabase
+      .from("boards")
+      .select("*")
+      .eq("scope", "team")
+      .eq("team_id", teamId);
 
-  const updateBoard = useCallback((id: string, fn: (board: Board) => Board) => {
-    setBoards((prev) => prev.map((b) => (b.id === id ? { ...fn(b), id: b.id, updatedAt: Date.now() } : b)));
-  }, []);
+    if (!queryError && data)
+      setBoards((data as BoardRow[]).map(boardFromRow).sort((a, b) => b.updatedAt - a.updatedAt));
+  }, [teamId]);
 
-  const unfileBoards = useCallback((boardIds: readonly string[]) => {
-    const ids = new Set(boardIds);
+  useEffect(() => {
+    let active = true;
 
-    setBoards((prev) => prev.map((b) => (ids.has(b.id) ? { ...b, topicId: null } : b)));
-  }, []);
+    void (async () => {
+      if (!teamId) {
+        setBoards([]);
+        setLoading(false);
 
-  return { boards, addBoard, deleteBoard, updateBoard, unfileBoards };
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      const { data, error: queryError } = await supabase
+        .from("boards")
+        .select("*")
+        .eq("scope", "team")
+        .eq("team_id", teamId);
+
+      if (!active) return;
+
+      if (queryError) {
+        setError(queryError.message);
+        setLoading(false);
+
+        return;
+      }
+
+      setBoards((data as BoardRow[]).map(boardFromRow).sort((a, b) => b.updatedAt - a.updatedAt));
+      setLoading(false);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [teamId]);
+
+  const fail = useCallback(
+    (message: string) => {
+      setError(message);
+      void refetch();
+    },
+    [refetch]
+  );
+
+  const addBoard = useCallback(
+    (board: Board) => {
+      if (!teamId || !user) return;
+
+      setBoards((prev) => [board, ...prev]);
+      void supabase
+        .from("boards")
+        .insert(boardToInsert(board, user.id, teamId))
+        .then(({ error: writeError }) => writeError && fail(writeError.message));
+    },
+    [teamId, user, fail]
+  );
+
+  const updateBoard = useCallback(
+    (id: string, update: (board: Board) => Board) => {
+      const target = boardsRef.current.find((b) => b.id === id);
+
+      if (!target) return;
+
+      const updated = { ...update(target), id: target.id, updatedAt: Date.now() };
+
+      setBoards((prev) => prev.map((b) => (b.id === id ? updated : b)));
+      void supabase
+        .from("boards")
+        .update(boardToUpdate(updated))
+        .eq("id", id)
+        .then(({ error: writeError }) => writeError && fail(writeError.message));
+    },
+    [fail]
+  );
+
+  const deleteBoard = useCallback(
+    (id: string) => {
+      setBoards((prev) => prev.filter((b) => b.id !== id));
+      void supabase
+        .from("boards")
+        .delete()
+        .eq("id", id)
+        .then(({ error: writeError }) => writeError && fail(writeError.message));
+    },
+    [fail]
+  );
+
+  const unfileBoards = useCallback(
+    (boardIds: readonly string[]) => {
+      if (boardIds.length === 0) return;
+
+      const ids = new Set(boardIds);
+
+      setBoards((prev) => prev.map((b) => (ids.has(b.id) ? { ...b, topicId: null } : b)));
+      void supabase
+        .from("boards")
+        .update({ topic_id: null })
+        .in("id", [...boardIds])
+        .then(({ error: writeError }) => writeError && fail(writeError.message));
+    },
+    [fail]
+  );
+
+  const setBoardLock = useCallback(
+    (id: string, locked: boolean) => {
+      setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, authorLocked: locked } : b)));
+      void supabase
+        .from("boards")
+        .update({ author_locked: locked })
+        .eq("id", id)
+        .then(({ error: writeError }) => writeError && fail(writeError.message));
+    },
+    [fail]
+  );
+
+  return { boards, loading, error, addBoard, deleteBoard, updateBoard, unfileBoards, setBoardLock };
 }

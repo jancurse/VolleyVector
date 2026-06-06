@@ -1,19 +1,13 @@
 import type { JSX } from "react";
 
-import { clearBoards } from "../boards/storage";
-import { clearTopics } from "../topics/storage";
 import { IconButton } from "./IconButton";
 import { Menu, MenuItem } from "./Menu";
 
-// A dev-only control for wiping persisted state during development. Each action clears its storage and
-// reloads, so the app reseeds from its samples (and resets the theme) on the next load. App renders it
-// only under import.meta.env.DEV, so it never ships in a production build.
+// A dev-only control for resetting the browser's local state during development: it clears localStorage
+// (the Supabase session and the saved theme) and reloads, dropping back to the login screen. Boards and
+// topics now live in Supabase, so there is nothing local to clear for them. App renders this only under
+// import.meta.env.DEV, so it never ships in a production build.
 export function DebugMenu(): JSX.Element {
-  const run = (clear: () => void) => {
-    clear();
-    window.location.reload();
-  };
-
   return (
     <Menu
       tooltip="Debug menu"
@@ -36,9 +30,14 @@ export function DebugMenu(): JSX.Element {
         </IconButton>
       }
     >
-      <MenuItem onClick={() => run(clearBoards)}>Clear all boards</MenuItem>
-      <MenuItem onClick={() => run(clearTopics)}>Clear all topics</MenuItem>
-      <MenuItem onClick={() => run(() => localStorage.clear())}>Clear all local storage</MenuItem>
+      <MenuItem
+        onClick={() => {
+          localStorage.clear();
+          window.location.reload();
+        }}
+      >
+        Reset local state
+      </MenuItem>
     </Menu>
   );
 }

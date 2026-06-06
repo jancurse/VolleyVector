@@ -71,6 +71,8 @@ export function createBoard(now: number, mode: CourtMode = "positions", title = 
     steps: [makeStep()],
     tags: [],
     topicId: null,
+    owner: "",
+    authorLocked: false,
     createdAt: now,
     updatedAt: now,
   };

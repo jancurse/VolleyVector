@@ -33,6 +33,10 @@ export type Board = {
   tags: string[];
   /** The board's home topic, or `null` when Unfiled. The one source of truth for topic membership. */
   topicId: string | null;
+  /** The account that created the board (its author). Set server-side; the source of truth for the lock. */
+  owner: string;
+  /** When set on a team board, only the author and admins may edit, delete, or clear the lock. */
+  authorLocked: boolean;
   createdAt: number;
   updatedAt: number;
 };

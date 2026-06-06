@@ -25,6 +25,8 @@ type BrowseProps = {
   onDeleteTopic: (id: string) => void;
   /** Return one board to Unfiled — the topic editor's per-member unfile action. */
   onUnfileBoard: (boardId: string) => void;
+  /** Whether the user may curate this team's library (a coach of it, or an admin). */
+  canEdit: boolean;
 };
 
 export function Browse({
@@ -37,6 +39,7 @@ export function Browse({
   onCreateTopic,
   onDeleteTopic,
   onUnfileBoard,
+  canEdit,
 }: BrowseProps): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -73,10 +76,11 @@ export function Browse({
         onSelectTopic={(id) => select({ kind: "topic", id })}
         onEdit={() => setEditingId(selected.id)}
         onAddSubtopic={() => onCreateTopic(selected.id)}
+        canEdit={canEdit}
       />
     );
   } else {
-    content = <Library boards={boards} onOpen={onOpenBoard} onNew={onNewBoard} />;
+    content = <Library boards={boards} onOpen={onOpenBoard} onNew={onNewBoard} canEdit={canEdit} />;
   }
 
   return (
@@ -88,6 +92,7 @@ export function Browse({
         onNewTopic={() => onCreateTopic(null)}
         onReorder={topics.reorderTopic}
         onNest={topics.reparentTopic}
+        canEdit={canEdit}
       />
       <div className="min-w-0">{content}</div>
     </div>

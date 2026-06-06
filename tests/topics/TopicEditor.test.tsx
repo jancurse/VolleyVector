@@ -16,6 +16,8 @@ function board(id: string, title: string): Board {
     steps: [{ id: "s", instruction: "", positions: {} }],
     tags: [],
     topicId: "t",
+    owner: "",
+    authorLocked: false,
     createdAt: 0,
     updatedAt: 0,
   };

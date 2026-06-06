@@ -72,11 +72,16 @@ function DescriptionPanel({ markdown }: { markdown: string }): JSX.Element {
 // here before choosing to edit.
 type BoardViewProps = {
   board: Board;
+  /** Whether the current user may edit this board (a coach of its team or an admin, lock permitting). */
+  canEdit: boolean;
+  /** Whether the current user may set or clear the author lock (the board's author, or an admin). */
+  canSetLock: boolean;
+  onToggleLock: () => void;
   onEdit: () => void;
   onBack: () => void;
 };
 
-export function BoardView({ board, onEdit, onBack }: BoardViewProps): JSX.Element {
+export function BoardView({ board, canEdit, canSetLock, onToggleLock, onEdit, onBack }: BoardViewProps): JSX.Element {
   const sequence = isSequence(board);
   const playback = useBoardPlayback(board.steps.length);
   const { step, playing, atEnd } = playback;
@@ -131,9 +136,16 @@ export function BoardView({ board, onEdit, onBack }: BoardViewProps): JSX.Elemen
             <Button variant="ghost" onClick={copyJson}>
               {copied ? "Copied" : "Copy JSON"}
             </Button>
-            <Button variant="primary" onClick={onEdit}>
-              Edit
-            </Button>
+            {canSetLock && (
+              <Button variant="ghost" onClick={onToggleLock}>
+                {board.authorLocked ? "Unlock editing" : "Lock editing"}
+              </Button>
+            )}
+            {canEdit && (
+              <Button variant="primary" onClick={onEdit}>
+                Edit
+              </Button>
+            )}
           </div>
         </div>
 
