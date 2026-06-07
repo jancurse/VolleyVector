@@ -33,7 +33,8 @@ export function Select({ value, onValueChange, options, ariaLabel }: SelectProps
         </BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
-        <BaseSelect.Positioner sideOffset={6} alignItemWithTrigger={false} className="z-30 outline-none">
+        {/* z-50 so the popup clears the z-40 modal layer when the Select is used inside a Dialog. */}
+        <BaseSelect.Positioner sideOffset={6} alignItemWithTrigger={false} className="z-50 outline-none">
           <BaseSelect.Popup
             className={cx(
               OVERLAY,

@@ -207,8 +207,67 @@ Add or update unit tests to cover the changed behaviour — no more than the cha
 
 ## Follow-ups
 
-- [ ] Collaborative co-editing of a single board by multiple invited users, including the version-history/revision layer that concurrent edits require (tracked separately; out of scope for Phase 2).
+- [ ] Add collaborative co-editing: let multiple invited users edit the same board together, with the version-history/revision layer that concurrent edits require. (Out of scope for Phase 2.)
+- [ ] Split the management UI into two surfaces: team management, where a coach manages one team's members, invites, and roles; and admin management, where a global admin manages teams, accounts, and cross-team concerns.
+- [ ] Add the ability to delete and archive accounts and teams.
+    - An admin can delete or archive an account, and delete or archive a team. Archiving a team hides it from the main view but keeps it, restorable.
+    - Deleting archives the affected data so it stays recoverable, instead of erasing it.
+    - Team content belongs to the team, not to individuals: deleting an account keeps its team content, which is removed only when the team itself is deleted. (Requires changing the Stage 1 schema, where `boards.owner` / `topics.owner` currently cascade-delete.)
+- [ ] Redesign the top-right header controls (team switcher, Manage, email, theme toggle, sign out): the current layout is rough. Use the frontend-design skill.
 
 ## Implementation Notes
 
+### Status at a glance
+
+- **Stage 0 (Supabase setup):** done by the user.
+- **Stage 1 (persisted, authenticated, team-scoped library):** complete. Green on tests/build; RLS proven against the database (`supabase/tests/rls_policies_test.sql` passes); live checks verified by the user (login, persistence across reload and a second browser, invite round-trip, role select + re-roling, team creation + switcher, author lock, player read-only).
+- **Stage 2 (personal space, sharing, share links, keep-alive):** not started.
+- Work lives in the git worktree `.claude/worktrees/4-phase2` (branch `worktree-4-phase2`), committed through `64487ed`, except `supabase/tests/rls_policies_test.sql` left uncommitted per the user's instruction. Not merged to `4-backend`.
+
+### Working agreement with the user
+
+- The user performs all Supabase actions themselves (dashboard SQL, bootstrapping, Edge Function deploy). The agent must not log in to Supabase, install deploy tooling, or run deploys/migrations. Hand over exact steps and wait.
+- Keep instructions plain and non-technical; do not paste code blobs into chat for the user to copy. Point to the file instead.
+
+### Environment / facts
+
+- Supabase project ref `xobsdirytehneeofjmrq` (eu-west-2). `.env.local` holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (new key format `sb_publishable_...`).
+- Admin account: `jan.corsten92@gmail.com`, `is_admin = true`. Seed team "My Team" id `11111111-1111-1111-1111-111111111111`.
+- DB verified earlier: 5 tables, RLS enabled on all, 18 policies, 9 functions, 6 triggers, admin flag set, seed present (My Team + coach membership + 3 topics + 2 boards).
+- Dev server runs from the worktree on `http://localhost:5173` (started for the user's manual testing).
+
+### What was built (Stage 1)
+
+- **Auth (Increment 1):** `@supabase/supabase-js`; `src/supabase/client.ts`; `src/auth/useAuth.tsx` (`AuthProvider` + `useAuth`: session/user/loading/signIn/signOut); `src/auth/Login.tsx`; gate in `src/App.tsx`; `src/main.tsx` wraps `AuthProvider`. Live-verified: bad credentials are rejected by the real project.
+- **Async data layer (Increment 2):** `src/supabase/rows.ts` (Board/Topic ↔ DB row mappers); `src/workspace/useWorkspace.ts` (profile `is_admin`, memberships, `activeTeamId`, `activeRole`, `createTeam`); `src/boards/useBoards.ts` and `src/topics/useTopics.ts` rewritten async + scoped to the active team, optimistic writes with refetch-on-error; `App` gates on load/error.
+- **Permissions (Increment 3):** `Board` gained `owner: string` and `authorLocked: boolean`. `canEditTeam = admin || coach`; `canEditBoard = admin || (coach && (!authorLocked || owner === me))`. `canEdit` threaded through `Browse` → `Library`/`TopicView`/`TopicSidebar`; `BoardView` got a "Lock editing" toggle (author/admin only) wired to `useBoards.setBoardLock`.
+- **Team management (Increment 4):** `supabase/functions/invite/index.ts` (Edge Function); `src/supabase/invite.ts` (`inviteMember`, surfaces the function's error body); `src/ui/Dialog.tsx`; `src/team/TeamManager.tsx` (members list with per-member role editor + invite form + admin create-team); `src/team/useMembers.ts` (`setRole`); header team switcher (`Select`, shown when >1 team) + "Manage" button; `workspace.createTeam`. Plus migration `20260607000001_service_role_grants.sql` (grants `service_role` the table privileges the invite function needs) and a `Select` z-50 fix so dropdowns clear the modal layer.
+- **DebugMenu cleanup (Increment 5):** `src/ui/DebugMenu.tsx` is now a single "Reset local state" action.
+- **Tests:** `tests/helpers/supabaseFake.ts` (in-memory mock client; `setFakeAuthz`/`resetFakeAuthz`; seeds samples; `functions.invoke` stub). `tests/App.test.tsx` reworked: `renderApp` is async, wraps `AuthProvider`, awaits the load; added permission, team-management, and reset tests. Board fixtures across tests updated for `owner`/`authorLocked`. **158 tests pass; format/lint/typecheck/build pass.**
+- **RLS tests:** `supabase/tests/rls_policies_test.sql` — self-contained SQL run in the Supabase SQL editor. It creates throwaway users/teams/boards, impersonates each user via JWT `sub` claims, asserts team isolation, player read-only, the author lock, and admin override at the policy level, then rolls back. Passes against the live database.
+
+### Decisions (where the plan left choices open)
+
+- Data fetching: hand-rolled async hooks keeping the `useBoards`/`useTopics` surface; no extra data-fetching library. Optimistic updates, refetch on write error.
+- Auth: Supabase Auth (email + password), context provider, state-based navigation behind an auth gate (no router yet; the share route comes in Stage 2).
+- Board model carries `owner` + `authorLocked` so the UI can gate edits; the lock is written via a dedicated `setBoardLock` (separate from content updates) to respect the `enforce_board_guards` trigger.
+- Invites run in an Edge Function: it authorizes the caller via their own login (RLS-read profile/membership), then uses a privileged client for the account creation + membership upsert. Team creation and member re-roling are client-side writes (admin/coach RLS allows them).
+- The function's privileged client uses a new-format secret key from `SUPABASE_SECRET_KEYS` (the legacy `SUPABASE_SERVICE_ROLE_KEY` is rejected on this project). `service_role` must be granted table privileges explicitly (see the grants migration); RLS bypass alone is not enough.
+- The invite function's "Verify JWT with legacy secret" gateway toggle is **OFF** (new keys are not gateway-verified; the function authenticates the caller itself).
+
+### Pending
+
+- **Latent z-index bug:** `Menu`/`Combobox`/`Tooltip` positioners are still `z-30` and would render behind a `z-40` dialog. Only `Select` was fixed (the one in a dialog today). Lift the others when a dialog first needs them.
+- **No unit test added for the dropdown fix or member re-roling.** The z-index bug is purely visual (not observable in happy-dom). A re-role test needs a second seeded member, which the deliberately filter-blind `supabaseFake` cannot provide without disturbing `useWorkspace`'s team derivation. Revisit if the fake gains filter awareness.
+- **Stage 2:** not started. Scope is in the `### Stages` section above, not repeated here. (`plans/project_overview.md` is already reconciled to multi-team; the doc pass still owes `README.md`, `AGENTS.md`, `docs/architecture.md`.)
+- **Cleanup:** `src/boards/storage.ts` and `src/topics/storage.ts` are now vestigial for the app (they only supply `SAMPLE_BOARDS`/`SAMPLE_TOPICS` to the tests and are themselves tested); consider extracting the samples and dropping the localStorage load/save/clear.
+
 ### Critical Issues
+
+- _None open._ The invite blocker below is resolved.
+
+### Resolved
+
+- **Invite Edge Function `permission denied for table profiles`.** Root cause: `service_role` was never granted table privileges. The init migration has the Data API's "automatically expose new tables" off, so grants are explicit, and only `authenticated` was granted. `service_role` bypasses RLS but still needs the table GRANT, so the function's secret-key client was denied. Fixed by migration `supabase/migrations/20260607000001_service_role_grants.sql` (usage + full DML on all five tables to `service_role`), which the user ran. **Invites now work** (admin invited a player live). The deployed function reads the privileged key from `SUPABASE_SECRET_KEYS` (`privilegedKey()`); the temporary diagnostics and dead key fallbacks have been removed from the file — the user should redeploy it once at their convenience to pick up the slimmer version (behaviour is unchanged; only error text differs). Keep "Verify JWT" OFF.
+- **Could not select a coach when inviting; the role dropdown did nothing.** All popup positioners were `z-30` but `Dialog` is `z-40`, so the `Select` opened behind the modal backdrop. Fixed by bumping the `Select` positioner to `z-50` (`src/ui/Select.tsx`). The same latent issue remains for `Menu`/`Combobox`/`Tooltip` inside a dialog — see Pending.
+- **No way to change a member's role after inviting.** Added a per-member role `Select` in `TeamManager` wired to `useMembers.setRole` (a `memberships` update; allowed by the `memberships_update` RLS policy for coaches/admins). The caller's own row stays read-only to avoid self-lockout.

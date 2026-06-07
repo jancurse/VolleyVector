@@ -6,5 +6,21 @@ import { supabase } from "./client";
 export async function inviteMember(email: string, teamId: string, role: TeamRole): Promise<{ error: string | null }> {
   const { error } = await supabase.functions.invoke("invite", { body: { email, teamId, role } });
 
-  return { error: error ? error.message : null };
+  if (!error) return { error: null };
+
+  // A failed call carries the function's HTTP Response; surface the reason it returned rather than the
+  // generic "Edge Function returned a non-2xx status code".
+  const context = (error as { context?: { json?: () => Promise<{ error?: string }> } }).context;
+
+  if (context?.json) {
+    try {
+      const body = await context.json();
+
+      if (body?.error) return { error: body.error };
+    } catch {
+      // Body was not readable JSON; fall back to the generic message.
+    }
+  }
+
+  return { error: error.message };
 }

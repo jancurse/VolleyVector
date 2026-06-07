@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { JSX } from "react";
 
+import { useAuth } from "../auth/useAuth";
 import { inviteMember } from "../supabase/invite";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
@@ -36,12 +37,14 @@ export function TeamManager({
   isAdmin,
   onCreateTeam,
 }: TeamManagerProps): JSX.Element {
-  const { members, loading, reload } = useMembers(open ? teamId : null);
+  const { user } = useAuth();
+  const { members, loading, reload, setRole: setMemberRole } = useMembers(open ? teamId : null);
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<TeamRole>("player");
   const [inviting, setInviting] = useState(false);
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
 
   const [newTeam, setNewTeam] = useState("");
   const [createStatus, setCreateStatus] = useState<string | null>(null);
@@ -89,11 +92,28 @@ export function TeamManager({
             {members.map((member) => (
               <li key={member.userId} className="flex items-center justify-between gap-3 text-base">
                 <span className="truncate">{member.email || member.userId}</span>
-                <span className="font-mono text-2xs uppercase tracking-[0.16em] text-text-dim">{member.role}</span>
+                {member.userId === user?.id ? (
+                  <span className="font-mono text-2xs uppercase tracking-[0.16em] text-text-dim">{member.role}</span>
+                ) : (
+                  <div className="w-28 shrink-0">
+                    <Select
+                      ariaLabel={`Role for ${member.email || member.userId}`}
+                      value={member.role}
+                      options={ROLE_OPTIONS}
+                      onValueChange={(next) => {
+                        setRoleError(null);
+                        void setMemberRole(member.userId, next === "coach" ? "coach" : "player").then(({ error }) => {
+                          if (error) setRoleError(error);
+                        });
+                      }}
+                    />
+                  </div>
+                )}
               </li>
             ))}
           </ul>
         )}
+        {roleError && <p className="m-0 text-sm text-danger">{roleError}</p>}
       </section>
 
       <section className="flex flex-col gap-2">

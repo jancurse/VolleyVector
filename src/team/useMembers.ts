@@ -9,13 +9,34 @@ type MembershipRow = { user_id: string; role: TeamRole };
 type ProfileRow = { id: string; email: string | null };
 
 // The members of one team, joined with their profiles for an email to show. Loads when given a team
-// (null while a manager dialog is closed), and exposes a reload so a fresh invite shows immediately.
-export function useMembers(teamId: string | null): { members: Member[]; loading: boolean; reload: () => void } {
+// (null while a manager dialog is closed), and exposes a reload so a fresh invite shows immediately,
+// plus setRole to re-role a member (RLS permits this for the team's coaches and admins).
+export function useMembers(teamId: string | null): {
+  members: Member[];
+  loading: boolean;
+  reload: () => void;
+  setRole: (userId: string, role: TeamRole) => Promise<{ error: string | null }>;
+} {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
+
+  const setRole = useCallback(
+    async (userId: string, role: TeamRole): Promise<{ error: string | null }> => {
+      if (!teamId) return { error: "No team selected" };
+
+      const { error } = await supabase.from("memberships").update({ role }).eq("team_id", teamId).eq("user_id", userId);
+
+      if (error) return { error: error.message };
+
+      setMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, role } : m)));
+
+      return { error: null };
+    },
+    [teamId]
+  );
 
   useEffect(() => {
     let active = true;
@@ -51,5 +72,5 @@ export function useMembers(teamId: string | null): { members: Member[]; loading:
     };
   }, [teamId, tick]);
 
-  return { members, loading, reload };
+  return { members, loading, reload, setRole };
 }

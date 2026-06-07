@@ -96,6 +96,12 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - **Integrate with git, not by copying.** A worktree reaches the feature branch through a git merge. Never copy files between workspaces to share results.
 - **Wrong place? Stop and ask.** If your workspace looks misconfigured, for example branched off `main` instead of the feature branch, stop and tell the user. Do not work around it.
 
+## Backend (Supabase)
+
+- **The user runs all Supabase actions** (SQL migrations, admin bootstrap, Edge Function deploys). Hand over exact steps and wait. Never self-provision, log in, or install deploy tooling.
+- **Grant `service_role` in migrations, not only `authenticated`.** "Auto-expose new tables" is off, so grants are explicit. `service_role` bypasses RLS but still needs the table GRANT, or Edge Functions using the secret key fail with `permission denied for table ...`.
+- **Edge Functions use the new secret key**, read from the `SUPABASE_SECRET_KEYS` dict, not the legacy `SUPABASE_SERVICE_ROLE_KEY`. Keep "Verify JWT" off and authorize the caller in code.
+
 ## Package Management
 
 - Use `npm`. Install with `npm install <package>` (runtime) or `npm install -D <package>` (dev tooling).
