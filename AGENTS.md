@@ -92,11 +92,12 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 ### Workspaces and worktrees
 
 - All work lives on a **feature branch**, never on `main`. The feature branch has one primary workspace, and may spawn **worktrees**: sub-branches checked out in their own directories for parallel work.
+- **Open a worktree with the EnterWorktree tool, never by hand.** Do not run `git worktree`, `git branch`, or `git checkout` to make one. EnterWorktree is configured to branch off the **current branch**, not `main`, which is what you want.
 - **Name every branch `<issue_number>-<name>`.** Both feature branches and sub-worktree branches start with the issue number, e.g. `3-product-dev`.
 - **Stay in your workspace.** You belong to exactly one workspace, either the feature branch's primary checkout or a worktree. Edit only its files. Never edit, move, copy into, or delete files in another workspace or branch, and never reach around a guard that blocks this (with Bash file ops, by disabling the guard, or otherwise).
 - **Read your own workspace first.** Reach into the feature branch or another worktree only when you genuinely need context missing from yours, and then only to read.
 - **Integrate with git, not by copying.** A worktree reaches the feature branch through a git merge. Never copy files between workspaces to share results.
-- **Wrong place? Stop and ask.** If your workspace looks misconfigured, for example branched off `main` instead of the feature branch, stop and tell the user. Do not work around it.
+- **Wrong place? Stop and ask.** If you suspect you are in the wrong location, for example branched off `main` instead of the feature branch, stop, tell the user, and ask for help. Do not work around it.
 
 ## Backend (Supabase)
 
