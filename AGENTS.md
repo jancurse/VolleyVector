@@ -14,7 +14,7 @@ VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, brow
 
 ### Module map
 
-- `src/boards/`: the `Board` model, pure operations, the `localStorage` store, the playback hook, and derived arrows.
+- `src/boards/`: the `Board` model, pure operations, the Supabase-backed store, the playback hook, and derived arrows.
 - `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
 - `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, inspector, step strip, and description/tag editors.
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
