@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
+import type { Space } from "./space";
 
 // A user's workspace: the teams they belong to (and as what), the global-admin flag, and which space
-// is active. Content loads are scoped to the active team. The personal space and its navigation arrive
-// in Stage 2; for now the active space is always one of the user's teams.
+// is active. The active space is either one of the user's teams or their private personal space, and
+// content loads (boards, topics) are scoped to it.
 
 export type TeamRole = "coach" | "player";
 
@@ -20,10 +21,13 @@ export type Workspace = {
   error: string | null;
   isAdmin: boolean;
   teams: TeamMembership[];
+  /** The space whose library is on screen: a team's, or the user's personal space. */
+  activeSpace: Space;
+  setActiveSpace: (space: Space) => void;
+  /** The active team's id, or null when the personal space is active. */
   activeTeamId: string | null;
-  /** The caller's role in the active team, or null when none is active. */
+  /** The caller's role in the active team, or null when the personal space is active. */
   activeRole: TeamRole | null;
-  setActiveTeamId: (teamId: string) => void;
   /** Create a team (admins only) and switch to it; returns the new id, or null on failure. */
   createTeam: (name: string) => Promise<string | null>;
 };
@@ -38,7 +42,11 @@ export function useWorkspace(): Workspace {
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [teams, setTeams] = useState<TeamMembership[]>([]);
-  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const [activeSpace, setActiveSpace] = useState<Space>({ kind: "personal" });
+
+  // Pick the landing space (the first team, or personal when in no team) once, on the first load, so a
+  // later deliberate switch is never overridden.
+  const defaulted = useRef(false);
 
   useEffect(() => {
     if (!user) return;
@@ -72,7 +80,12 @@ export function useWorkspace(): Workspace {
 
       setIsAdmin((profile.data as { is_admin: boolean }).is_admin);
       setTeams(list);
-      setActiveTeamId((prev) => prev ?? list[0]?.teamId ?? null);
+
+      if (!defaulted.current) {
+        defaulted.current = true;
+        setActiveSpace(list[0] ? { kind: "team", teamId: list[0].teamId } : { kind: "personal" });
+      }
+
       setLoading(false);
     })();
 
@@ -103,14 +116,15 @@ export function useWorkspace(): Workspace {
       }
 
       setTeams((prev) => [...prev, { teamId, teamName: name, role: "coach" }]);
-      setActiveTeamId(teamId);
+      setActiveSpace({ kind: "team", teamId });
 
       return teamId;
     },
     [user]
   );
 
+  const activeTeamId = activeSpace.kind === "team" ? activeSpace.teamId : null;
   const activeRole = teams.find((t) => t.teamId === activeTeamId)?.role ?? null;
 
-  return { loading, error, isAdmin, teams, activeTeamId, activeRole, setActiveTeamId, createTeam };
+  return { loading, error, isAdmin, teams, activeSpace, setActiveSpace, activeTeamId, activeRole, createTeam };
 }

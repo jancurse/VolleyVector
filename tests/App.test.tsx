@@ -17,6 +17,7 @@ vi.mock("../src/supabase/client", async () => {
 beforeEach(() => {
   localStorage.clear();
   resetFakeAuthz();
+  window.location.hash = "";
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -599,16 +600,131 @@ describe("team management", () => {
     expect(await screen.findByText("Invited newcoach@volley.test")).toBeInTheDocument();
   });
 
-  test("an admin creates a team, which adds a team switcher", async () => {
+  test("an admin creates a team, which becomes selectable in the space switcher", async () => {
     const user = await renderApp();
-
-    expect(screen.queryByLabelText("Active team")).not.toBeInTheDocument(); // one team, no switcher yet
 
     await user.click(screen.getByRole("button", { name: "Manage" }));
     await user.type(screen.getByLabelText("Team name"), "Travel Squad");
     await user.click(screen.getByRole("button", { name: "Create team" }));
 
     expect(await screen.findByText("Created Travel Squad")).toBeInTheDocument();
-    expect(screen.getByLabelText("Active team")).toBeInTheDocument(); // now two teams
+
+    await user.keyboard("{Escape}"); // close the manage dialog to reach the header switcher
+    await user.click(screen.getByRole("combobox", { name: "Active space" }));
+    expect(await screen.findByRole("option", { name: "Travel Squad" })).toBeInTheDocument();
+  });
+});
+
+// Every user has a private personal space (My Boards / My Topics) alongside the teams they belong to,
+// reached from the header space switcher. It is the owner's alone, so it always allows authoring but
+// never team management.
+describe("personal space", () => {
+  test("switching to the personal space shows My Boards in place of the team library", async () => {
+    const user = await renderApp();
+
+    expect(screen.getByRole("button", { name: /Sample Position/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Active space" }));
+    await user.click(await screen.findByRole("option", { name: "Personal" }));
+
+    expect(await screen.findByRole("button", { name: /My Personal Position/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Sample Position/ })).not.toBeInTheDocument();
+  });
+
+  test("the personal space offers authoring but no team management", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("combobox", { name: "Active space" }));
+    await user.click(await screen.findByRole("option", { name: "Personal" }));
+
+    expect(await screen.findByRole("button", { name: "+ New board" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Manage" })).not.toBeInTheDocument();
+  });
+});
+
+// Sharing exposes a personal board to a team and to a read-only link; copying and promotion move a board
+// between spaces. The data layer writes through RLS, which is the real boundary; these cover the wiring.
+describe("sharing", () => {
+  async function openMyBoard(user: UserEvent): Promise<void> {
+    await user.click(screen.getByRole("combobox", { name: "Active space" }));
+    await user.click(await screen.findByRole("option", { name: "Personal" }));
+    await user.click(await screen.findByRole("button", { name: /My Personal Position/ }));
+  }
+
+  test("an owner shares a personal board with a team", async () => {
+    const user = await renderApp();
+
+    await openMyBoard(user);
+    await user.click(screen.getByRole("button", { name: "Share" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Share board" });
+
+    await user.click(within(dialog).getByRole("button", { name: "Share" }));
+
+    // The board is now shared, so the dialog offers the link and a way to stop.
+    expect(within(dialog).getByRole("button", { name: "Stop sharing" })).toBeInTheDocument();
+  });
+
+  test("an owner moves their personal board into a team library", async () => {
+    const user = await renderApp();
+
+    await openMyBoard(user);
+    await user.click(screen.getByRole("button", { name: "Share" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Share board" });
+
+    await user.click(within(dialog).getByRole("button", { name: "Move to library" }));
+
+    // The board leaves the personal library; the view returns to My Boards.
+    expect(await screen.findByRole("button", { name: "+ New board" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /My Personal Position/ })).not.toBeInTheDocument();
+  });
+
+  test("a viewer copies a team board into My Boards", async () => {
+    const user = await renderApp();
+
+    await openPosition(user);
+    await user.click(screen.getByRole("button", { name: "Copy to My Boards" }));
+
+    expect(await screen.findByRole("button", { name: "Copied to My Boards" })).toBeInTheDocument();
+  });
+});
+
+// A share link is the one URL-addressable surface, opening exactly one board read-only. It resolves a
+// team board or a shared personal board; an unshared personal board's link does not resolve.
+describe("share links", () => {
+  function renderShare(token: string): UserEvent {
+    const user = userEvent.setup();
+
+    window.location.hash = `#/share/${token}`;
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
+
+    return user;
+  }
+
+  test("opens a shared board read-only, with no edit controls", async () => {
+    renderShare("token-shared-1");
+
+    expect(await screen.findByRole("heading", { name: "Shared Tactic" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+  });
+
+  test("does not resolve an unshared personal board", async () => {
+    renderShare("token-personal-1");
+
+    expect(await screen.findByText(/open a board/)).toBeInTheDocument();
+  });
+
+  test("lets a coach add the shared board to their team library", async () => {
+    const user = renderShare("token-shared-1");
+
+    await screen.findByRole("heading", { name: "Shared Tactic" });
+    await user.click(await screen.findByRole("button", { name: "Add to My Team" }));
+
+    expect(await screen.findByText("Added to My Team")).toBeInTheDocument();
   });
 });

@@ -44,6 +44,12 @@ insert into public.boards (id, owner, scope, team_id, title, author_locked) valu
   ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 'team', 'b0000000-0000-0000-0000-00000000000a', 'Board A locked', true),
   ('c0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000005', 'team', 'b0000000-0000-0000-0000-00000000000b', 'Board B',        false);
 
+-- Personal boards (unshared), for the sharing, token, copy, and move tests. One owned by a coach of team
+-- A, one by a player of team A. share_token is minted by the insert trigger.
+insert into public.boards (id, owner, scope, title) values
+  ('d0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'personal', 'Coach A personal'),
+  ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000004', 'personal', 'Player A personal');
+
 -- ---------------------------------------------------------------------------
 -- 1. Team isolation: a coach of team B can neither read nor write team A's boards.
 -- ---------------------------------------------------------------------------
@@ -139,6 +145,126 @@ begin
   update public.boards set title = 'admin edit' where id = 'c0000000-0000-0000-0000-000000000002';
   get diagnostics updated = row_count;
   if updated <> 1 then raise exception 'FAIL admin write: admin could not edit a locked board'; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 5. Personal privacy and the shared-read path: an unshared personal board is the owner's alone; once
+--    its owner shares it into a team, that team's members may read it, but other teams still cannot.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000003","role":"authenticated"}'; -- coachA2
+do $$
+declare n int;
+begin
+  select count(*) into n from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
+  if n <> 0 then raise exception 'FAIL personal privacy: a teammate read an unshared personal board'; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA (owner)
+do $$
+declare updated int;
+begin
+  update public.boards set shared = true, team_id = 'b0000000-0000-0000-0000-00000000000a'
+    where id = 'd0000000-0000-0000-0000-000000000001';
+  get diagnostics updated = row_count;
+  if updated <> 1 then raise exception 'FAIL share: an owner could not share their personal board (% rows)', updated; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000003","role":"authenticated"}'; -- coachA2
+do $$
+declare n int;
+begin
+  select count(*) into n from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
+  if n <> 1 then raise exception 'FAIL shared read: a teammate could not read a board shared into their team'; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}'; -- coachB
+do $$
+declare n int;
+begin
+  select count(*) into n from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
+  if n <> 0 then raise exception 'FAIL shared isolation: another team read a board shared elsewhere'; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 6. Share-token resolution: the public function returns a team board or a shared personal board for an
+--    exact token, but never an unshared personal board, and resolves for a visitor with no account (anon).
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  tok_team text;
+  tok_shared text;
+  tok_unshared text;
+  n int;
+begin
+  select share_token into tok_team     from public.boards where id = 'c0000000-0000-0000-0000-000000000001';
+  select share_token into tok_shared   from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
+  select share_token into tok_unshared from public.boards where id = 'd0000000-0000-0000-0000-000000000002';
+
+  set local role anon;
+
+  select count(*) into n from public.board_by_token(tok_team);
+  if n <> 1 then raise exception 'FAIL token: a team board did not resolve by token'; end if;
+
+  select count(*) into n from public.board_by_token(tok_shared);
+  if n <> 1 then raise exception 'FAIL token: a shared personal board did not resolve by token'; end if;
+
+  select count(*) into n from public.board_by_token(tok_unshared);
+  if n <> 0 then raise exception 'FAIL token: an unshared personal board resolved by token'; end if;
+
+  reset role;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 7. Copy and promotion writes: any user may create a personal board (a copy target); a coach may insert
+--    a team board (promote by copy); the owner may move their own board into a team they coach, but a
+--    non-coach owner may not.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}'; -- coachB
+do $$
+begin
+  insert into public.boards (owner, scope, title)
+  values ('a0000000-0000-0000-0000-000000000005', 'personal', 'coach B copy');
+exception when others then
+  raise exception 'FAIL copy: a user could not create a personal board (a copy target): %', sqlerrm;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA (owner)
+do $$
+declare updated int;
+begin
+  insert into public.boards (owner, scope, team_id, title)
+  values ('a0000000-0000-0000-0000-000000000002', 'team', 'b0000000-0000-0000-0000-00000000000a', 'promoted copy');
+
+  update public.boards set scope = 'team', team_id = 'b0000000-0000-0000-0000-00000000000a', shared = false
+    where id = 'd0000000-0000-0000-0000-000000000001';
+  get diagnostics updated = row_count;
+  if updated <> 1 then raise exception 'FAIL move: an owner-coach could not move their board into the team (% rows)', updated; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000004","role":"authenticated"}'; -- playerA (non-coach owner)
+do $$
+declare blocked boolean := false;
+begin
+  begin
+    update public.boards set scope = 'team', team_id = 'b0000000-0000-0000-0000-00000000000a'
+      where id = 'd0000000-0000-0000-0000-000000000002';
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL move guard: a non-coach owner moved their board into a team'; end if;
 end $$;
 reset role;
 

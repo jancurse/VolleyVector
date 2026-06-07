@@ -214,6 +214,8 @@ Add or update unit tests to cover the changed behaviour — no more than the cha
     - Deleting archives the affected data so it stays recoverable, instead of erasing it.
     - Team content belongs to the team, not to individuals: deleting an account keeps its team content, which is removed only when the team itself is deleted. (Requires changing the Stage 1 schema, where `boards.owner` / `topics.owner` currently cascade-delete.)
 - [ ] Redesign the top-right header controls (team switcher, Manage, email, theme toggle, sign out): the current layout is rough. Use the frontend-design skill.
+- [ ] Promote whole topics, carrying their subtree: let an owner copy or move a personal topic (its subtopics and the boards filed under them) into a team they coach. Stage 2 ships board-level sharing and promotion only; topics are not shareable in the schema (no shared flag or token), so this needs a schema change and a deep subtree copy. (Deferred from Stage 2 by the user.)
+- [ ] Give a team a surface for boards shared into it but not yet promoted. Today a shared personal board is readable by the team (RLS) and reachable by its link, but it does not appear in the team library until a coach promotes it; an inbox-style view would let coaches find and promote shared boards without the link.
 
 ## Implementation Notes
 
@@ -221,8 +223,8 @@ Add or update unit tests to cover the changed behaviour — no more than the cha
 
 - **Stage 0 (Supabase setup):** done by the user.
 - **Stage 1 (persisted, authenticated, team-scoped library):** complete. Green on tests/build; RLS proven against the database (`supabase/tests/rls_policies_test.sql` passes); live checks verified by the user (login, persistence across reload and a second browser, invite round-trip, role select + re-roling, team creation + switcher, author lock, player read-only).
-- **Stage 2 (personal space, sharing, share links, keep-alive):** not started.
-- Work lives in the git worktree `.claude/worktrees/4-phase2` (branch `worktree-4-phase2`), committed through `64487ed`, except `supabase/tests/rls_policies_test.sql` left uncommitted per the user's instruction. Not merged to `4-backend`.
+- **Stage 2 (personal space, sharing, share links, keep-alive):** built and green locally (166 tests, format/lint/typecheck/build all pass), **pending the user's live verification**. It needs the user to run one new migration (`20260607000002_sharing.sql`), re-run the extended RLS test, set the keep-alive Action secrets, and check the flows on screen. No new Edge Function deploy is required.
+- Work lives in the git worktree `.claude/worktrees/4-phase2` (branch `worktree-4-phase2`). Stage 1 was committed through `64487ed`; all Stage 2 changes are uncommitted in the working tree (no git run without the user's say-so). Not merged to `4-backend`.
 
 ### Working agreement with the user
 
@@ -246,7 +248,24 @@ Add or update unit tests to cover the changed behaviour — no more than the cha
 - **Tests:** `tests/helpers/supabaseFake.ts` (in-memory mock client; `setFakeAuthz`/`resetFakeAuthz`; seeds samples; `functions.invoke` stub). `tests/App.test.tsx` reworked: `renderApp` is async, wraps `AuthProvider`, awaits the load; added permission, team-management, and reset tests. Board fixtures across tests updated for `owner`/`authorLocked`. **158 tests pass; format/lint/typecheck/build pass.**
 - **RLS tests:** `supabase/tests/rls_policies_test.sql` — self-contained SQL run in the Supabase SQL editor. It creates throwaway users/teams/boards, impersonates each user via JWT `sub` claims, asserts team isolation, player read-only, the author lock, and admin override at the policy level, then rolls back. Passes against the live database.
 
+### What was built (Stage 2)
+
+- **Personal space + navigation:** `src/workspace/space.ts` (`Space = personal | team`); `useWorkspace` now tracks `activeSpace`/`setActiveSpace` (defaults to the first team, else personal) and keeps `activeTeamId`/`activeRole` derived. `useBoards`/`useTopics` take a `Space` and load/insert scoped to it (team by `team_id`, personal by `owner`); `rows.ts` insert builders take `scope`+`teamId`. `App` gained a header space switcher (`Select`, "Active space"), and `canEdit`/`canEditBoard`/`canSetLock`/Manage now treat the personal space as always-the-owner's. No SQL — the Stage 1 RLS already covers personal read/write.
+- **Sharing + share links + promotion:** `Board` gained `shared` + `teamId` (mapped in `rows.ts`). `useBoards` gained `shareBoard`/`unshareBoard`/`moveBoardToTeam` (owner-only active-list writes). `src/sharing/share.ts` holds the cross-space ops (`copyBoardToPersonal`, `copyBoardToTeam`, `boardByToken` via RPC, `fetchShareUrl`/`shareUrl`). UI: `ShareDialog` (owner: share/unshare/copy-link + copy/move to a coached team), `CopyToPersonalButton`, `PromoteToTeamMenu`, and `ShareView` + `useShareRoute` (the `#/share/<token>` hash route, read-only, reusing `BoardView` via its new `actions`/`backLabel` props). `App` mounts the share route ahead of the auth gate.
+- **Migration `20260607000002_sharing.sql`:** widens `boards_select` so a team member can read a personal board shared into their team, and adds `board_by_token(text)` (`security definer`, granted to `anon`) resolving one shareable board by exact token. No promote RPC needed — every share/copy/move is a plain RLS-allowed write.
+- **Keep-alive:** `.github/workflows/keep-alive.yml` pings the REST API twice weekly (Mon/Thu) with the publishable key; the user adds `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` repo secrets.
+- **Docs pass:** `README.md`, `AGENTS.md`, and `docs/architecture.md` updated (backend, two spaces, roles, sharing, admin-reads-all privacy note; fixed the stale localStorage and "Unfiled surface" descriptions).
+- **Tests:** `supabaseFake` is now filter-aware (applies `.eq`/`.in`), seeds a personal board and a shared-personal board, and stubs `rpc(board_by_token)`. `App.test.tsx` adds personal-space, sharing, and share-link tests. `supabase/tests/rls_policies_test.sql` extended with sections 5–7 (personal privacy, shared read path, token resolution as `anon`, copy, owner-move allowed, non-coach-owner move blocked). **166 tests pass.**
+
 ### Decisions (where the plan left choices open)
+
+- **Promote-move authority (user's call):** anyone can copy a shared board into their own personal space; a coach can copy a shared board into a team; only the **owner** (who coaches the target team) can **move** their own board in. A coach cannot move someone else's content, only copy it. This needs no privileged RPC: move is the owner updating their own row (RLS `personal owner=me` USING, `team coach` WITH CHECK); copy is anyone inserting a deep copy they author.
+- **Share-link routing:** a hash route (`#/share/<token>`), so a link resolves on a static host with no rewrite rules and without disturbing the app's state-based navigation.
+- **Cross-space split:** single-space edits (share/unshare/own-move) live on `useBoards` (optimistic list mutations); cross-space inserts (copy/promote) are plain async functions in `src/sharing/share.ts`, since they write into a space the active list does not hold.
+- **Board model:** carries `shared` + `teamId` for the share UI; `scope` is derived from the active space and the `share_token` is fetched on demand (so a just-created board's link still resolves), rather than threading both through the model.
+- **Topic-subtree promotion deferred** (user's call): Stage 2 is board-only. Topics are not shareable in the schema, so promoting a topic tree needs a schema change and a deep subtree copy — recorded in Follow-ups.
+
+### Decisions from Stage 1 (where the plan left choices open)
 
 - Data fetching: hand-rolled async hooks keeping the `useBoards`/`useTopics` surface; no extra data-fetching library. Optimistic updates, refetch on write error.
 - Auth: Supabase Auth (email + password), context provider, state-based navigation behind an auth gate (no router yet; the share route comes in Stage 2).
@@ -257,10 +276,16 @@ Add or update unit tests to cover the changed behaviour — no more than the cha
 
 ### Pending
 
-- **Latent z-index bug:** `Menu`/`Combobox`/`Tooltip` positioners are still `z-30` and would render behind a `z-40` dialog. Only `Select` was fixed (the one in a dialog today). Lift the others when a dialog first needs them.
-- **No unit test added for the dropdown fix or member re-roling.** The z-index bug is purely visual (not observable in happy-dom). A re-role test needs a second seeded member, which the deliberately filter-blind `supabaseFake` cannot provide without disturbing `useWorkspace`'s team derivation. Revisit if the fake gains filter awareness.
-- **Stage 2:** not started. Scope is in the `### Stages` section above, not repeated here. (`plans/project_overview.md` is already reconciled to multi-team; the doc pass still owes `README.md`, `AGENTS.md`, `docs/architecture.md`.)
+- **Stage 2 live verification (the user's step):** run the new migration, re-run the RLS test, set the keep-alive secrets, and check the flows on screen. See the handoff steps below.
+- **Latent z-index bug:** `Menu`/`Combobox`/`Tooltip` positioners are still `z-30` and would render behind a `z-40` dialog. `Select` is `z-50`; `ShareDialog` deliberately uses `Select` (not `Menu`) for its team pickers to stay clear of this. The `PromoteToTeamMenu` `Menu` is only used outside a dialog (on `ShareView`), so it is unaffected. Lift the others when a dialog first needs them.
 - **Cleanup:** `src/boards/storage.ts` and `src/topics/storage.ts` are now vestigial for the app (they only supply `SAMPLE_BOARDS`/`SAMPLE_TOPICS` to the tests and are themselves tested); consider extracting the samples and dropping the localStorage load/save/clear.
+
+### Stage 2 handoff — the user runs these
+
+1. **Run the migration** in the Supabase SQL Editor: paste and run `supabase/migrations/20260607000002_sharing.sql` (widens the board read policy; adds the `board_by_token` function). No Edge Function redeploy is needed.
+2. **Re-run the RLS test:** paste and run `supabase/tests/rls_policies_test.sql`. Expect one row, `ALL RLS TESTS PASSED` (it now also covers sharing, token resolution, copy, and move). It rolls itself back.
+3. **Keep-alive Action:** in the GitHub repo, add two Actions secrets — `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` — then optionally run the "Supabase keep-alive" workflow once by hand to confirm it succeeds.
+4. **Live checks on screen** (dev server): switch to the personal space and create a board there; share a personal board to the team and open its copied link in a private window (resolves read-only); from the link, copy it to My Boards and, as a coach, add it to the team library; move a personal board into the team; confirm an unshared board's link does not resolve.
 
 ### Critical Issues
 

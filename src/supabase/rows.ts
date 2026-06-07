@@ -45,8 +45,8 @@ export type TopicRow = {
 export type BoardInsert = {
   id: string;
   owner: string;
-  scope: "team";
-  team_id: string;
+  scope: Scope;
+  team_id: string | null;
   title: string;
   description: string;
   mode: CourtMode;
@@ -61,8 +61,8 @@ export type BoardUpdate = Omit<BoardInsert, "id" | "owner" | "scope" | "team_id"
 export type TopicInsert = {
   id: string;
   owner: string;
-  scope: "team";
-  team_id: string;
+  scope: Scope;
+  team_id: string | null;
   title: string;
   blocks: TopicBlock[];
   parent_id: string | null;
@@ -81,16 +81,18 @@ export function boardFromRow(row: BoardRow): Board {
     topicId: row.topic_id,
     owner: row.owner,
     authorLocked: row.author_locked,
+    shared: row.shared,
+    teamId: row.team_id,
     createdAt: Date.parse(row.created_at),
     updatedAt: Date.parse(row.updated_at),
   };
 }
 
-export function boardToInsert(board: Board, owner: string, teamId: string): BoardInsert {
+export function boardToInsert(board: Board, owner: string, scope: Scope, teamId: string | null): BoardInsert {
   return {
     id: board.id,
     owner,
-    scope: "team",
+    scope,
     team_id: teamId,
     title: board.title,
     description: board.description,
@@ -124,11 +126,11 @@ export function topicFromRow(row: TopicRow): Topic {
   };
 }
 
-export function topicToInsert(topic: Topic, owner: string, teamId: string): TopicInsert {
+export function topicToInsert(topic: Topic, owner: string, scope: Scope, teamId: string | null): TopicInsert {
   return {
     id: topic.id,
     owner,
-    scope: "team",
+    scope,
     team_id: teamId,
     title: topic.title,
     blocks: topic.blocks,

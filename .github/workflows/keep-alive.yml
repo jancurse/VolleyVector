@@ -1,0 +1,29 @@
+# Keeps the free-tier Supabase project from pausing. The free tier pauses a project after 7 days with no
+# database activity, and recovering needs a manual dashboard restore, so this pings the REST API twice a
+# week to keep it warm. The query reads nothing meaningful (row-level security returns no rows to the
+# anonymous key); it only has to touch the database.
+#
+# Setup (once, in the GitHub repo settings → Secrets and variables → Actions):
+#   - SUPABASE_URL: the project URL, e.g. https://<ref>.supabase.co
+#   - SUPABASE_PUBLISHABLE_KEY: the publishable key (sb_publishable_...), safe to store; it is the same
+#     key the client ships with.
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "0 9 * * 1,4" # 09:00 UTC every Monday and Thursday
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          curl --fail --silent --show-error \
+            "${SUPABASE_URL}/rest/v1/teams?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}"

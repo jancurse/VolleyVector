@@ -23,6 +23,8 @@ const SAMPLE_POSITION: Board = {
   topicId: "topic-defense",
   owner: "",
   authorLocked: false,
+  shared: false,
+  teamId: null,
   markers: [
     { id: "opp", role: "opposite", label: "OPP" },
     { id: "mb1", role: "middle", label: "MB1" },
@@ -60,6 +62,8 @@ const SAMPLE_SEQUENCE: Board = {
   topicId: "topic-drills",
   owner: "",
   authorLocked: false,
+  shared: false,
+  teamId: null,
   markers: [
     { id: "s", role: "setter", label: "S" },
     { id: "mb1", role: "middle", label: "MB1" },

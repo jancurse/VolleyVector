@@ -37,6 +37,10 @@ export type Board = {
   owner: string;
   /** When set on a team board, only the author and admins may edit, delete, or clear the lock. */
   authorLocked: boolean;
+  /** A personal board the owner has shared: visible to its target team and link-resolvable. */
+  shared: boolean;
+  /** For a team board, its owning team; for a shared personal board, the team it is shared into. */
+  teamId: string | null;
   createdAt: number;
   updatedAt: number;
 };

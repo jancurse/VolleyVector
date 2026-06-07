@@ -4,12 +4,13 @@ import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
 import type { TopicRow } from "../supabase/rows";
 import { topicFromRow, topicToInsert } from "../supabase/rows";
+import type { Space } from "../workspace/space";
 import { createTopic, deleteTopic, moveTopic, nestTopic, setTopic } from "./operations";
 import type { Topic } from "./types";
 
 export type TopicsStore = {
   topics: Topic[];
-  /** True until the active team's topics have loaded. */
+  /** True until the active space's topics have loaded. */
   loading: boolean;
   /** The last load or write error, or null. */
   error: string | null;
@@ -36,9 +37,18 @@ function changedPlacements(prev: readonly Topic[], next: readonly Topic[]): Topi
   });
 }
 
-/** The active team's topic tree, loaded from Supabase and written through on each edit. Like boards,
+/** A read query for the topics of one space: a team's by team, the personal space's by owner. */
+function selectSpaceTopics(space: Space, userId: string) {
+  const query = supabase.from("topics").select("*");
+
+  return space.kind === "team"
+    ? query.eq("scope", "team").eq("team_id", space.teamId)
+    : query.eq("scope", "personal").eq("owner", userId);
+}
+
+/** The active space's topic tree, loaded from Supabase and written through on each edit. Like boards,
  *  edits apply optimistically and a failed write surfaces an error and refetches. */
-export function useTopics(teamId: string | null): TopicsStore {
+export function useTopics(space: Space | null): TopicsStore {
   const { user } = useAuth();
 
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -54,22 +64,18 @@ export function useTopics(teamId: string | null): TopicsStore {
   }, [topics]);
 
   const refetch = useCallback(async () => {
-    if (!teamId) return;
+    if (!space || !user) return;
 
-    const { data, error: queryError } = await supabase
-      .from("topics")
-      .select("*")
-      .eq("scope", "team")
-      .eq("team_id", teamId);
+    const { data, error: queryError } = await selectSpaceTopics(space, user.id);
 
     if (!queryError && data) setTopics((data as TopicRow[]).map(topicFromRow));
-  }, [teamId]);
+  }, [space, user]);
 
   useEffect(() => {
     let active = true;
 
     void (async () => {
-      if (!teamId) {
+      if (!space || !user) {
         setTopics([]);
         setLoading(false);
 
@@ -79,11 +85,7 @@ export function useTopics(teamId: string | null): TopicsStore {
       setLoading(true);
       setError(null);
 
-      const { data, error: queryError } = await supabase
-        .from("topics")
-        .select("*")
-        .eq("scope", "team")
-        .eq("team_id", teamId);
+      const { data, error: queryError } = await selectSpaceTopics(space, user.id);
 
       if (!active) return;
 
@@ -101,7 +103,7 @@ export function useTopics(teamId: string | null): TopicsStore {
     return () => {
       active = false;
     };
-  }, [teamId]);
+  }, [space, user]);
 
   const fail = useCallback(
     (message: string) => {
@@ -119,16 +121,19 @@ export function useTopics(teamId: string | null): TopicsStore {
 
       const created = next.find((t) => t.id === id);
 
-      if (created && teamId && user) {
+      if (created && space && user) {
+        const scope = space.kind === "team" ? "team" : "personal";
+        const teamId = space.kind === "team" ? space.teamId : null;
+
         void supabase
           .from("topics")
-          .insert(topicToInsert(created, user.id, teamId))
+          .insert(topicToInsert(created, user.id, scope, teamId))
           .then(({ error: writeError }) => writeError && fail(writeError.message));
       }
 
       return id;
     },
-    [teamId, user, fail]
+    [space, user, fail]
   );
 
   const updateTopic = useCallback(

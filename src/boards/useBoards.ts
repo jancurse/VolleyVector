@@ -4,11 +4,12 @@ import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
 import type { BoardRow } from "../supabase/rows";
 import { boardFromRow, boardToInsert, boardToUpdate } from "../supabase/rows";
+import type { Space } from "../workspace/space";
 import type { Board } from "./types";
 
 export type BoardsStore = {
   boards: Board[];
-  /** True until the active team's boards have loaded. */
+  /** True until the active space's boards have loaded. */
   loading: boolean;
   /** The last load or write error, or null. */
   error: string | null;
@@ -21,12 +22,27 @@ export type BoardsStore = {
   unfileBoards: (boardIds: readonly string[]) => void;
   /** Set or clear a team board's author lock. Only its author or an admin may do this (RLS-enforced). */
   setBoardLock: (id: string, locked: boolean) => void;
+  /** Share a personal board into a team: visible to its members and link-resolvable. Owner-only (RLS). */
+  shareBoard: (id: string, teamId: string) => void;
+  /** Stop sharing a personal board, so only its owner can see it again. Owner-only (RLS). */
+  unshareBoard: (id: string) => void;
+  /** Move the owner's shared personal board into a team they coach; it leaves the personal space. */
+  moveBoardToTeam: (id: string, teamId: string) => void;
 };
 
-/** The active team's boards, loaded from Supabase and written through on each edit. Writes apply
+/** A read query for the boards of one space: a team's by team, the personal space's by owner. */
+function selectSpaceBoards(space: Space, userId: string) {
+  const query = supabase.from("boards").select("*");
+
+  return space.kind === "team"
+    ? query.eq("scope", "team").eq("team_id", space.teamId)
+    : query.eq("scope", "personal").eq("owner", userId);
+}
+
+/** The active space's boards, loaded from Supabase and written through on each edit. Writes apply
  *  optimistically so the UI stays responsive; a failed write surfaces an error and refetches to
  *  reconcile. Access (who may read or write) is enforced by row-level security, never here. */
-export function useBoards(teamId: string | null): BoardsStore {
+export function useBoards(space: Space | null): BoardsStore {
   const { user } = useAuth();
 
   const [boards, setBoards] = useState<Board[]>([]);
@@ -42,23 +58,19 @@ export function useBoards(teamId: string | null): BoardsStore {
   }, [boards]);
 
   const refetch = useCallback(async () => {
-    if (!teamId) return;
+    if (!space || !user) return;
 
-    const { data, error: queryError } = await supabase
-      .from("boards")
-      .select("*")
-      .eq("scope", "team")
-      .eq("team_id", teamId);
+    const { data, error: queryError } = await selectSpaceBoards(space, user.id);
 
     if (!queryError && data)
       setBoards((data as BoardRow[]).map(boardFromRow).sort((a, b) => b.updatedAt - a.updatedAt));
-  }, [teamId]);
+  }, [space, user]);
 
   useEffect(() => {
     let active = true;
 
     void (async () => {
-      if (!teamId) {
+      if (!space || !user) {
         setBoards([]);
         setLoading(false);
 
@@ -68,11 +80,7 @@ export function useBoards(teamId: string | null): BoardsStore {
       setLoading(true);
       setError(null);
 
-      const { data, error: queryError } = await supabase
-        .from("boards")
-        .select("*")
-        .eq("scope", "team")
-        .eq("team_id", teamId);
+      const { data, error: queryError } = await selectSpaceBoards(space, user.id);
 
       if (!active) return;
 
@@ -90,7 +98,7 @@ export function useBoards(teamId: string | null): BoardsStore {
     return () => {
       active = false;
     };
-  }, [teamId]);
+  }, [space, user]);
 
   const fail = useCallback(
     (message: string) => {
@@ -102,15 +110,18 @@ export function useBoards(teamId: string | null): BoardsStore {
 
   const addBoard = useCallback(
     (board: Board) => {
-      if (!teamId || !user) return;
+      if (!space || !user) return;
+
+      const scope = space.kind === "team" ? "team" : "personal";
+      const teamId = space.kind === "team" ? space.teamId : null;
 
       setBoards((prev) => [board, ...prev]);
       void supabase
         .from("boards")
-        .insert(boardToInsert(board, user.id, teamId))
+        .insert(boardToInsert(board, user.id, scope, teamId))
         .then(({ error: writeError }) => writeError && fail(writeError.message));
     },
-    [teamId, user, fail]
+    [space, user, fail]
   );
 
   const updateBoard = useCallback(
@@ -171,5 +182,55 @@ export function useBoards(teamId: string | null): BoardsStore {
     [fail]
   );
 
-  return { boards, loading, error, addBoard, deleteBoard, updateBoard, unfileBoards, setBoardLock };
+  const shareBoard = useCallback(
+    (id: string, teamId: string) => {
+      setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, shared: true, teamId } : b)));
+      void supabase
+        .from("boards")
+        .update({ shared: true, team_id: teamId })
+        .eq("id", id)
+        .then(({ error: writeError }) => writeError && fail(writeError.message));
+    },
+    [fail]
+  );
+
+  const unshareBoard = useCallback(
+    (id: string) => {
+      setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, shared: false, teamId: null } : b)));
+      void supabase
+        .from("boards")
+        .update({ shared: false, team_id: null })
+        .eq("id", id)
+        .then(({ error: writeError }) => writeError && fail(writeError.message));
+    },
+    [fail]
+  );
+
+  // A move relocates the board into the team library, so it leaves the personal space the list holds.
+  // The owner stays the author; topic_id is dropped because it referenced a personal topic.
+  const moveBoardToTeam = useCallback(
+    (id: string, teamId: string) => {
+      setBoards((prev) => prev.filter((b) => b.id !== id));
+      void supabase
+        .from("boards")
+        .update({ scope: "team", team_id: teamId, shared: false, topic_id: null })
+        .eq("id", id)
+        .then(({ error: writeError }) => writeError && fail(writeError.message));
+    },
+    [fail]
+  );
+
+  return {
+    boards,
+    loading,
+    error,
+    addBoard,
+    deleteBoard,
+    updateBoard,
+    unfileBoards,
+    setBoardLock,
+    shareBoard,
+    unshareBoard,
+    moveBoardToTeam,
+  };
 }

@@ -6,9 +6,10 @@ This file provides guidance to LLM agents when working with code in this reposit
 
 ## Repository Overview
 
-VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills. All state lives in the browser's `localStorage`. There is no backend, auth, or sharing yet.
+VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills. Boards and topics persist to a Supabase backend behind invite-only accounts; every access rule is enforced by row-level security, never by the client.
 
 - **Content model.** One `Board` type backs everything: an ordered, non-empty list of steps over a shared set of marker identities. A one-step board is a **Position** (static). Two or more steps make a **Sequence** (animated). Boards are organised into a nestable tree of **Topics** and cut across by free-form **tags**.
+- **Spaces and roles.** Every board and topic lives in one space: a team's shared library, or a user's private personal space. A global admin creates teams and invites; per team, a coach curates the library and a player views it read-only. A personal board can be shared into a team and opened read-only by a share-token link.
 - **Spine decisions to respect** (do not relitigate). Marker coordinates are normalized 0–1, never pixels. Marker identity is stable across all steps, so playback interpolates by identity and movement arrows derive from step-to-step deltas. One `Court` component serves both static and animated modes. The court renders as SVG, not canvas.
 
 ### Module map
@@ -19,6 +20,7 @@ VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, brow
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
 - `src/topics/`: the topic-tree model, operations, store, sidebar, and topic view/editor.
 - `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle and dev-only debug menu.
+- `src/supabase/`, `src/auth/`, `src/workspace/`, `src/team/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the active-space and team membership state, team management (invites, roles), and the sharing flows (share dialog, copy/promote, the share-token route and read-only viewer).
 - `src/App.tsx`: the top-level shell that owns navigation and wires the stores together.
 
 See @docs/architecture.md for how these fit together and the detail behind each.

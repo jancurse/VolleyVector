@@ -17,6 +17,8 @@ function board(id: string, title: string): Board {
     topicId: "t",
     owner: "",
     authorLocked: false,
+    shared: false,
+    teamId: null,
     createdAt: 0,
     updatedAt: 0,
   };

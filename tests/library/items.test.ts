@@ -15,6 +15,8 @@ const position: Board = {
   topicId: null,
   owner: "",
   authorLocked: false,
+  shared: false,
+  teamId: null,
   createdAt: 0,
   updatedAt: 100,
 };
@@ -33,6 +35,8 @@ const sequence: Board = {
   topicId: null,
   owner: "",
   authorLocked: false,
+  shared: false,
+  teamId: null,
   createdAt: 0,
   updatedAt: 200,
 };

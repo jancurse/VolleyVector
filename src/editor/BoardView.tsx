@@ -1,6 +1,6 @@
 import { MotionConfig } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 import { arrowsForStep } from "../boards/arrows";
 import { stepMarkers } from "../boards/operations";
@@ -79,9 +79,22 @@ type BoardViewProps = {
   onToggleLock: () => void;
   onEdit: () => void;
   onBack: () => void;
+  /** Label for the back button. Defaults to the library; the share page overrides it. */
+  backLabel?: string;
+  /** Extra action buttons for the header bar (sharing, copying, promoting), injected by the caller. */
+  actions?: ReactNode;
 };
 
-export function BoardView({ board, canEdit, canSetLock, onToggleLock, onEdit, onBack }: BoardViewProps): JSX.Element {
+export function BoardView({
+  board,
+  canEdit,
+  canSetLock,
+  onToggleLock,
+  onEdit,
+  onBack,
+  backLabel = "← Library",
+  actions,
+}: BoardViewProps): JSX.Element {
   const sequence = isSequence(board);
   const playback = useBoardPlayback(board.steps.length);
   const { step, playing, atEnd } = playback;
@@ -125,7 +138,7 @@ export function BoardView({ board, canEdit, canSetLock, onToggleLock, onEdit, on
     <MotionConfig reducedMotion="user">
       <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(1rem,3vh,1.75rem)] animate-rise motion-reduce:animate-none">
         <Button variant="text" size="sm" className="self-start pl-0" onClick={onBack}>
-          ← Library
+          {backLabel}
         </Button>
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -133,6 +146,7 @@ export function BoardView({ board, canEdit, canSetLock, onToggleLock, onEdit, on
             <h1 className={TITLE}>{board.title || "Untitled board"}</h1>
           </div>
           <div className="flex flex-none items-center gap-2">
+            {actions}
             <Button variant="ghost" onClick={copyJson}>
               {copied ? "Copied" : "Copy JSON"}
             </Button>
