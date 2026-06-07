@@ -3,10 +3,8 @@
 # week to keep it warm. The query reads nothing meaningful (row-level security returns no rows to the
 # anonymous key); it only has to touch the database.
 #
-# Setup (once, in the GitHub repo settings → Secrets and variables → Actions):
-#   - SUPABASE_URL: the project URL, e.g. https://<ref>.supabase.co
-#   - SUPABASE_PUBLISHABLE_KEY: the publishable key (sb_publishable_...), safe to store; it is the same
-#     key the client ships with.
+# The URL and publishable key come from the committed .env (public keys, the same ones the client ships
+# with), so there is nothing to configure in the GitHub repo settings.
 name: Supabase keep-alive
 
 on:
@@ -18,12 +16,13 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Ping the database
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
+          set -a; . ./.env; set +a
           curl --fail --silent --show-error \
-            "${SUPABASE_URL}/rest/v1/teams?select=id&limit=1" \
-            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}"
+            "${VITE_SUPABASE_URL}/rest/v1/teams?select=id&limit=1" \
+            -H "apikey: ${VITE_SUPABASE_PUBLISHABLE_KEY}" \
+            -H "Authorization: Bearer ${VITE_SUPABASE_PUBLISHABLE_KEY}"
