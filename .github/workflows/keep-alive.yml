@@ -1,7 +1,8 @@
 # Keeps the free-tier Supabase project from pausing. The free tier pauses a project after 7 days with no
 # database activity, and recovering needs a manual dashboard restore, so this pings the REST API twice a
-# week to keep it warm. The query reads nothing meaningful (row-level security returns no rows to the
-# anonymous key); it only has to touch the database.
+# week to keep it warm. It calls the anon-granted board_by_token RPC with a token that matches nothing:
+# the function still runs a query against the database, so the project stays warm, and it returns an
+# empty result. (A plain table read fails: the anon role has no table grant, so PostgREST returns 401.)
 #
 # The URL and publishable key come from the committed .env (public keys, the same ones the client ships
 # with), so there is nothing to configure in the GitHub repo settings.
@@ -23,6 +24,8 @@ jobs:
         run: |
           set -a; . ./.env; set +a
           curl --fail --silent --show-error \
-            "${VITE_SUPABASE_URL}/rest/v1/teams?select=id&limit=1" \
+            -X POST "${VITE_SUPABASE_URL}/rest/v1/rpc/board_by_token" \
             -H "apikey: ${VITE_SUPABASE_PUBLISHABLE_KEY}" \
-            -H "Authorization: Bearer ${VITE_SUPABASE_PUBLISHABLE_KEY}"
+            -H "Authorization: Bearer ${VITE_SUPABASE_PUBLISHABLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"token":"keepalive-noop"}'
