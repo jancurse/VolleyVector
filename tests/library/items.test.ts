@@ -13,6 +13,10 @@ const position: Board = {
   steps: [{ id: "s1", instruction: "", positions: { a: { x: 0.5, y: 0.5 } } }],
   tags: ["Defence"],
   topicId: null,
+  owner: "",
+  authorLocked: false,
+  shared: false,
+  teamId: null,
   createdAt: 0,
   updatedAt: 100,
 };
@@ -29,6 +33,10 @@ const sequence: Board = {
   ],
   tags: ["Serve receive", "Defence"],
   topicId: null,
+  owner: "",
+  authorLocked: false,
+  shared: false,
+  teamId: null,
   createdAt: 0,
   updatedAt: 200,
 };

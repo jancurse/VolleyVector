@@ -17,6 +17,8 @@ pnpm-debug.log*
 
 # Environment / secrets
 .env
+# root .env is committed (public keys only); private overrides go in .env.local:
+!/.env
 .env.local
 .env.*.local
 

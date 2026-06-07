@@ -13,9 +13,11 @@ type LibraryProps = {
   boards: readonly Board[];
   onOpen: (id: string) => void;
   onNew: () => void;
+  /** Whether to offer the New board action (a coach of this team, or an admin). */
+  canEdit: boolean;
 };
 
-export function Library({ boards, onOpen, onNew }: LibraryProps): JSX.Element {
+export function Library({ boards, onOpen, onNew, canEdit }: LibraryProps): JSX.Element {
   const items = useMemo(() => toLibraryItems(boards), [boards]);
 
   return (
@@ -25,9 +27,11 @@ export function Library({ boards, onOpen, onNew }: LibraryProps): JSX.Element {
           <p className={EYEBROW}>Library</p>
           <h1 className={TITLE}>Boards</h1>
         </div>
-        <Button variant="ghost" onClick={onNew}>
-          + New board
-        </Button>
+        {canEdit && (
+          <Button variant="ghost" onClick={onNew}>
+            + New board
+          </Button>
+        )}
       </div>
 
       <BoardGrid items={items} onOpen={onOpen} emptyLabel="No boards yet." />

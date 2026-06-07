@@ -21,6 +21,10 @@ const SAMPLE_POSITION: Board = {
   mode: "positions",
   tags: ["sample", "defense"],
   topicId: "topic-defense",
+  owner: "",
+  authorLocked: false,
+  shared: false,
+  teamId: null,
   markers: [
     { id: "opp", role: "opposite", label: "OPP" },
     { id: "mb1", role: "middle", label: "MB1" },
@@ -56,6 +60,10 @@ const SAMPLE_SEQUENCE: Board = {
   mode: "positions",
   tags: ["sample", "reception"],
   topicId: "topic-drills",
+  owner: "",
+  authorLocked: false,
+  shared: false,
+  teamId: null,
   markers: [
     { id: "s", role: "setter", label: "S" },
     { id: "mb1", role: "middle", label: "MB1" },

@@ -1,11 +1,11 @@
 # VolleyCoach architecture
 
 VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills.
-It runs entirely in the browser: a coach lays out players and the ball on a court, writes markdown notes, and either keeps a single static arrangement or chains several into an animation.
-All state lives in the browser's `localStorage`. There is no backend, no accounts, and no network.
+A coach lays out players and the ball on a court, writes markdown notes, and either keeps a single static arrangement or chains several into an animation.
+Boards and topics persist to a Supabase backend behind invite-only accounts: accounts are organised into teams, every user also has a private personal space, and every access rule is enforced in the database by row-level security.
 
 This document is the reference for how the client fits together.
-It is organised by system rather than file by file: the data model, the court, the editor, motion, organisation, and the app shell.
+It is organised by system rather than file by file: the data model, the court, the editor, motion, organisation, the backend and access control, and the app shell.
 
 ## Spine decisions
 
@@ -39,10 +39,16 @@ type Board = {
   steps: BoardStep[]; // ordered, always >= 1
   tags: string[];
   topicId: string | null; // home topic, or Unfiled
+  owner: string; // the author account; set server-side
+  authorLocked: boolean; // a team board only its author and admins may edit
+  shared: boolean; // a personal board made visible to its team
+  teamId: string | null; // a team board's team, or a shared personal board's target team
   createdAt: number;
   updatedAt: number;
 };
 ```
+
+The client model carries only what a surface renders. The placement and access columns a board also has server-side (its `scope`, its team, the share token) are mapped in `supabase/rows.ts`: `scope` follows the active space, and the token is fetched on demand for a share link. See [Backend and access control](#backend-and-access-control).
 
 ### Positions and Sequences
 
@@ -172,24 +178,59 @@ type Topic = {
 
 ### Tags and the browse surface
 
-- The `library/` module is the browse home. A persistent `TopicSidebar` table of contents sits beside a content pane showing All Boards, Unfiled, or one topic's page. The sidebar lists All Boards, the topic tree with disclosure controls, and a new-topic action. Each row's quiet hover-revealed menu (`TopicRowMenu`) reorders the topic among its siblings or re-nests it, so nesting lives here, not in the editor.
+- The `library/` module is the browse home. A persistent `TopicSidebar` table of contents sits beside a content pane showing All Boards or one topic's page. The sidebar lists All Boards, the topic tree with disclosure controls, and a new-topic action. An Unfiled board (no home topic) simply appears in All Boards and under no topic; there is no separate Unfiled surface. Each row's quiet hover-revealed menu (`TopicRowMenu`) reorders the topic among its siblings or re-nests it, so nesting lives here, not in the editor.
 - The card grid splits in two. `CardGrid` is the plain grid of `LibraryCard`s, used by a topic page's board groups and trailing grid. `BoardGrid` wraps it with the type and tag filters and serves the All Boards surface (`Library`) alone: a type control filters All / Positions / Sequences, and selecting tags narrows by intersection. Topic pages render through `CardGrid`, so they carry no filters by construction.
 - Each `LibraryCard` is a button showing a small static court thumbnail (a Sequence shows its first step), the board's kind, title, a count (markers for a Position, steps for a Sequence), and its tag chips. `toLibraryItems` folds the boards into these cards newest-first.
 - Opening a card leaves the browse surface entirely for the full-width view. The browse selection is held above the surface, so closing a board returns to the same place.
+
+## Backend and access control
+
+Boards and topics live in Supabase, not the browser. The access boundary is row-level security in the database: every read and write rule holds even if the client is bypassed, so the client is never trusted. `src/supabase/` holds the one browser client (carrying only the public URL and publishable key) and the row↔model mappers.
+
+### Tables and the two spaces
+
+- The schema is five tables: `profiles` (one per account, with the global-admin flag), `teams`, `memberships` (`(user, team, role)`, role `coach` or `player`), `topics`, and `boards`. Markers and steps are stored as JSON on a board.
+- Every board and topic carries a `scope`: a **team** item belongs to a team's shared library; a **personal** item belongs to one user's private space. The client loads the active space and writes new content into it.
+- A board also carries `owner` (its author), `author_locked`, `shared`, a `team_id` (the owning team, or a shared personal board's target), and an unguessable `share_token` minted server-side.
+
+### Who may do what
+
+| Action                                  | Player | Coach        | Admin           |
+|-----------------------------------------|--------|--------------|-----------------|
+| View their team's library               | ✓      | ✓            | ✓ (every team)  |
+| Create or edit team content             | —      | ✓ (own team) | ✓ (every team)  |
+| Edit a team board its author has locked | —      | author only  | ✓               |
+| Their own personal space                | full   | full         | full + god-mode |
+| Invite a member                         | —      | ✓ (own team) | ✓ (any team)    |
+| Create a team                           | —      | —            | ✓               |
+
+- RLS helper functions (`is_admin`, `is_team_member`, `is_team_coach`) run `security definer` so a policy can check membership without recursing. A `boards` guard trigger keeps `owner` immutable (except to an admin) and limits the author lock to the author and admins.
+- An admin has full read/write across all teams and all personal content. This god-mode is a deliberate privacy trade-off for a small trusted group, called out in the README.
+
+### Sharing and the share link
+
+- Sharing a personal board sets `shared` and a target `team_id`; RLS then lets that team's members read it, and the owner can copy or move it into the team library (a coach of any team can copy a shared board in; only the owner can move their own).
+- Every board has a `share_token`. The `board_by_token` function (`security definer`, granted to anonymous) resolves exactly one board from an exact token, but only a team board or a shared personal board, so an unshared board never leaks and the collection cannot be enumerated. `src/sharing/` holds the share dialog, the copy/promote actions, and the read-only `ShareView` reached by the `#/share/<token>` hash route.
+
+### Auth, invites, and keep-alive
+
+- Auth is invite-only email + password (`src/auth/`). An unauthenticated visitor reaches only the login screen and a valid share link.
+- Inviting creates an account and emails it, which needs a privileged server key, so it runs in a Supabase Edge Function (`supabase/functions/invite/`) that authorizes the caller from their own login before acting. Team creation and re-roling are plain client writes RLS allows.
+- A scheduled GitHub Action (`.github/workflows/keep-alive.yml`) pings the database twice a week so the free-tier project never pauses.
 
 ## State, persistence, and the app shell
 
 ### Stores and persistence
 
-- `useBoards` and `useTopics` hold the board list and the topic tree in React state and expose the mutations the UI calls. Both load their data on first mount and persist it back to `localStorage` after edits settle, batching a burst of edits into one write.
-- Each store seeds itself from samples when nothing is stored yet, so the app opens with a Position, a Sequence, and a small starter topic tree to explore rather than an empty screen.
-- The stores keep membership and curation honest. Filing or editing a board refreshes its `updatedAt`, so it leads its topic's newest-first order. Structural topic moves, such as reordering siblings or nesting from the sidebar, only touch the topic tree and never a board. So curation never churns the library's order.
+- `useBoards` and `useTopics` hold the active space's board list and topic tree in React state and expose the mutations the UI calls. Both load from Supabase when the active space changes, scoped to it (a team's by team, the personal space's by owner), and write each edit through to the database. Edits apply optimistically so the UI stays responsive; a failed write surfaces an error and refetches to reconcile.
+- The active space comes from `workspace/useWorkspace.ts`, which loads the user's teams, role per team, and admin flag, and tracks which space is on screen. The header space switcher moves between the personal space and each team.
+- The stores keep curation honest. Filing or editing a board refreshes its `updatedAt`, so it leads its topic's newest-first order. Structural topic moves, such as reordering siblings or nesting from the sidebar, only touch the topic tree and never a board, so curation never churns the library's order. The first team's library is seeded once, server-side, by the setup seed.
 
 ### Navigation and the app shell
 
-- `App` is the top-level owner of navigation and ties the two stores together. It chooses between three surfaces by precedence: a draft in the editor wins, otherwise an open board shows its view, otherwise the browse surface.
-- Creating a board makes a single-step Position and opens it in the editor. Committing files the board into its chosen topic and returns to its view. Deleting a board (and deleting a topic, which cascades and unfiles its boards) is confirmed first.
-- The header carries the brand, the theme toggle, and, only in a development build, a debug menu for clearing stored boards, topics, or all local state.
+- `App` is the top-level owner of navigation and ties the stores together. A share link wins over everything (it is openable with no account); otherwise an unauthenticated visitor sees the login gate. Signed in, it chooses between three surfaces by precedence: a draft in the editor wins, otherwise an open board shows its view, otherwise the browse surface.
+- Creating a board makes a single-step Position in the active space and opens it in the editor. Committing files the board into its chosen topic and returns to its view. Deleting a board (and deleting a topic, which cascades and unfiles its boards) is confirmed first.
+- The header carries the brand, the space switcher, a Manage action for a team's coaches and admins, the signed-in email, the theme toggle, sign-out, and, only in a development build, a debug menu for clearing local state.
 
 ### Theme and typography
 

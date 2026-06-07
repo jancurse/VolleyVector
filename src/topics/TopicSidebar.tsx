@@ -21,6 +21,8 @@ type TopicSidebarProps = {
   onReorder: (id: string, dir: -1 | 1) => void;
   /** Re-parent a topic — nesting and un-nesting live here, not in the topic editor. */
   onNest: (id: string, parentId: string | null) => void;
+  /** Whether to offer the new-topic and per-row organise actions (a coach of this team, or an admin). */
+  canEdit: boolean;
 };
 
 const NAV_ITEM =
@@ -39,6 +41,7 @@ export function TopicSidebar({
   onNewTopic,
   onReorder,
   onNest,
+  canEdit,
 }: TopicSidebarProps): JSX.Element {
   const renderRow = (topic: Topic, depth: number, hasChildren: boolean): JSX.Element => {
     const on = selection.kind === "topic" && selection.id === topic.id;
@@ -60,7 +63,7 @@ export function TopicSidebar({
         >
           {topic.title}
         </button>
-        <span className={CONTROLS}>
+        <span className={cx(CONTROLS, !canEdit && "hidden")}>
           <TopicRowMenu
             title={topic.title}
             canMoveUp={index > 0}
@@ -110,9 +113,11 @@ export function TopicSidebar({
         {childrenOf(topics, null).map((topic) => renderTopic(topic, 0))}
       </div>
 
-      <Button variant="dashed" size="sm" className="mt-[0.6rem] justify-start text-left" onClick={onNewTopic}>
-        + New topic
-      </Button>
+      {canEdit && (
+        <Button variant="dashed" size="sm" className="mt-[0.6rem] justify-start text-left" onClick={onNewTopic}>
+          + New topic
+        </Button>
+      )}
     </nav>
   );
 }

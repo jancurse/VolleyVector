@@ -15,6 +15,10 @@ function board(id: string, title: string): Board {
     steps: [{ id: "s", instruction: "", positions: { m: { x: 0.5, y: 0.5 } } }],
     tags: [],
     topicId: "t",
+    owner: "",
+    authorLocked: false,
+    shared: false,
+    teamId: null,
     createdAt: 0,
     updatedAt: 0,
   };
@@ -35,6 +39,7 @@ function renderView(blocks: TopicBlock[], boards: Board[]) {
       onSelectTopic={vi.fn()}
       onEdit={vi.fn()}
       onAddSubtopic={vi.fn()}
+      canEdit
     />
   );
 }

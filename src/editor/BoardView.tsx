@@ -1,6 +1,6 @@
 import { MotionConfig } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 import { arrowsForStep } from "../boards/arrows";
 import { stepMarkers } from "../boards/operations";
@@ -72,11 +72,29 @@ function DescriptionPanel({ markdown }: { markdown: string }): JSX.Element {
 // here before choosing to edit.
 type BoardViewProps = {
   board: Board;
+  /** Whether the current user may edit this board (a coach of its team or an admin, lock permitting). */
+  canEdit: boolean;
+  /** Whether the current user may set or clear the author lock (the board's author, or an admin). */
+  canSetLock: boolean;
+  onToggleLock: () => void;
   onEdit: () => void;
   onBack: () => void;
+  /** Label for the back button. Defaults to the library; the share page overrides it. */
+  backLabel?: string;
+  /** Extra action buttons for the header bar (sharing, copying, promoting), injected by the caller. */
+  actions?: ReactNode;
 };
 
-export function BoardView({ board, onEdit, onBack }: BoardViewProps): JSX.Element {
+export function BoardView({
+  board,
+  canEdit,
+  canSetLock,
+  onToggleLock,
+  onEdit,
+  onBack,
+  backLabel = "← Library",
+  actions,
+}: BoardViewProps): JSX.Element {
   const sequence = isSequence(board);
   const playback = useBoardPlayback(board.steps.length);
   const { step, playing, atEnd } = playback;
@@ -120,7 +138,7 @@ export function BoardView({ board, onEdit, onBack }: BoardViewProps): JSX.Elemen
     <MotionConfig reducedMotion="user">
       <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(1rem,3vh,1.75rem)] animate-rise motion-reduce:animate-none">
         <Button variant="text" size="sm" className="self-start pl-0" onClick={onBack}>
-          ← Library
+          {backLabel}
         </Button>
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -128,12 +146,20 @@ export function BoardView({ board, onEdit, onBack }: BoardViewProps): JSX.Elemen
             <h1 className={TITLE}>{board.title || "Untitled board"}</h1>
           </div>
           <div className="flex flex-none items-center gap-2">
+            {actions}
             <Button variant="ghost" onClick={copyJson}>
               {copied ? "Copied" : "Copy JSON"}
             </Button>
-            <Button variant="primary" onClick={onEdit}>
-              Edit
-            </Button>
+            {canSetLock && (
+              <Button variant="ghost" onClick={onToggleLock}>
+                {board.authorLocked ? "Unlock editing" : "Lock editing"}
+              </Button>
+            )}
+            {canEdit && (
+              <Button variant="primary" onClick={onEdit}>
+                Edit
+              </Button>
+            )}
           </div>
         </div>
 
