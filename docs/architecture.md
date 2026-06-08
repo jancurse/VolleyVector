@@ -214,8 +214,9 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 
 ### Auth, invites, and keep-alive
 
-- Auth is invite-only email + password (`src/auth/`). An unauthenticated visitor reaches only the login screen and a valid share link.
-- Inviting creates an account and emails it, which needs a privileged server key, so it runs in a Supabase Edge Function (`supabase/functions/invite/`) that authorizes the caller from their own login before acting. Team creation and re-roling are plain client writes RLS allows.
+- Auth is invite-only email + password (`src/auth/`). An unauthenticated visitor reaches only the login screen, a valid share link, and a valid invite link. There is no open sign-up: an account is only ever created server-side, by the `invite` or `redeem-invite` Edge Function.
+- Inviting by email creates an account and emails it, which needs a privileged server key, so it runs in a Supabase Edge Function (`supabase/functions/invite/`) that authorizes the caller from their own login before acting. Team creation and re-roling are plain client writes RLS allows.
+- Inviting by link is the second invite path, for sharing through any channel (WhatsApp, etc.). A coach mints a single-use link (a row in `invites`, with the team, role, a 7-day expiry, and a server-minted token), shown in the team manager. The recipient opens `#/invite/<token>`: `invite_preview` (`security definer`, granted to anonymous) reveals the team and role only while the link is still valid, then they either join in one click if already signed in or set up an account with their own email and password. Redeeming runs in `supabase/functions/redeem-invite/`, which holds the secret key: it claims the link atomically (`update ... where used_at is null`, so two people racing one link see one winner), creates the account if the recipient is new, and adds the membership. `src/invites/` holds the client helpers, the `#/invite/<token>` route, and the `InviteAccept` screen.
 - A scheduled GitHub Action (`.github/workflows/keep-alive.yml`) pings the database twice a week so the free-tier project never pauses.
 
 ## State, persistence, and the app shell

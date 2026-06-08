@@ -595,6 +595,7 @@ describe("team management", () => {
     const user = await renderApp();
 
     await user.click(screen.getByRole("button", { name: "Team" }));
+    await user.click(screen.getByRole("button", { name: "Invite member" }));
     await user.type(screen.getByLabelText("Email"), "newcoach@volley.test");
     await user.click(screen.getByRole("button", { name: "Send invite" }));
 
@@ -610,7 +611,7 @@ describe("team management", () => {
     const dialog = await screen.findByRole("dialog");
 
     expect(within(dialog).getByText(TEST_USER.email)).toBeInTheDocument(); // the roster shows
-    expect(within(dialog).queryByRole("button", { name: "Send invite" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Invite member" })).not.toBeInTheDocument();
   });
 
   test("an admin creates a team through the admin panel, which becomes selectable in the space switcher", async () => {

@@ -26,6 +26,8 @@ import { AdminManager } from "./admin/AdminManager";
 import { useWorkspace } from "./workspace/useWorkspace";
 import { useShareRoute } from "./sharing/useShareRoute";
 import { ShareView } from "./sharing/ShareView";
+import { useInviteRoute } from "./invites/useInviteRoute";
+import { InviteAccept } from "./invites/InviteAccept";
 import { ShareDialog } from "./sharing/ShareDialog";
 import { CopyToPersonalButton } from "./sharing/CopyToPersonalButton";
 import { copyBoardToPersonal, copyBoardToTeam } from "./sharing/share";
@@ -49,6 +51,7 @@ export function App(): JSX.Element {
   const { user, loading, signOut } = useAuth();
   const workspace = useWorkspace();
   const shareToken = useShareRoute();
+  const inviteToken = useInviteRoute();
 
   // Hold content loads until the workspace has resolved the landing space, so the app does not fetch the
   // personal space and then immediately re-fetch the defaulted team.
@@ -135,6 +138,11 @@ export function App(): JSX.Element {
   if (shareToken) return <ShareView key={shareToken} token={shareToken} />;
 
   if (loading) return loader;
+
+  // An invite link is openable with or without an account: a signed-in visitor joins in one click, a
+  // newcomer sets up an account. Resolve auth first so it knows which, then let it win over the gate.
+  if (inviteToken) return <InviteAccept key={inviteToken} token={inviteToken} />;
+
   if (!user) return <Login />;
 
   if (workspace.error) {

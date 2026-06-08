@@ -2,22 +2,20 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { useAuth } from "../auth/useAuth";
-import { inviteMember } from "../supabase/invite";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
-import { Field } from "../ui/Field";
-import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { cx, MUTED, PANEL_TITLE } from "../ui/styles";
 import { useConfirm } from "../ui/useConfirm";
 import type { TeamRole } from "../workspace/useWorkspace";
+import { InviteDialog } from "./InviteDialog";
 import type { Member } from "./useMembers";
 import { useMembers } from "./useMembers";
 
 // The team menu: the roster of the active team, open to any member. A player sees it read-only; a
-// coach or admin (canManage) also re-roles, removes, and invites members. Inviting goes through the
-// server-side `invite` function; re-role and remove are plain writes RLS allows a team's coaches and
-// admins. Admin-only concerns (creating teams) live in the separate AdminManager.
+// coach or admin (canManage) also re-roles and removes members, and opens the invite dialog. Re-role and
+// remove are plain writes RLS allows a team's coaches and admins; inviting (by email or link) lives in
+// InviteDialog. Admin-only concerns (creating teams) live in the separate AdminManager.
 type TeamManagerProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,32 +50,8 @@ export function TeamManager({ open, onOpenChange, teamId, teamName, canManage }:
   const { confirm, dialog } = useConfirm();
   const { members, loading, reload, setRole: setMemberRole, remove } = useMembers(open ? teamId : null);
 
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<TeamRole>("player");
-  const [inviting, setInviting] = useState(false);
-  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
-
-  const invite = async () => {
-    if (!teamId || email.trim() === "") return;
-
-    setInviting(true);
-    setInviteStatus(null);
-
-    const { error } = await inviteMember(email.trim(), teamId, role);
-
-    setInviting(false);
-
-    if (error) {
-      setInviteStatus(error);
-
-      return;
-    }
-
-    setInviteStatus(`Invited ${email.trim()}`);
-    setEmail("");
-    reload();
-  };
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const removeMember = async (member: Member) => {
     setMemberError(null);
@@ -153,25 +127,18 @@ export function TeamManager({ open, onOpenChange, teamId, teamName, canManage }:
       </section>
 
       {canManage && (
-        <section className="flex flex-col gap-2">
-          <span className={PANEL_TITLE}>Invite a member</span>
-          <Field label="Email">
-            <Input type="email" value={email} autoComplete="off" onChange={(event) => setEmail(event.target.value)} />
-          </Field>
-          <Field label="Role">
-            <Select
-              ariaLabel="Invite role"
-              value={role}
-              options={ROLE_OPTIONS}
-              onValueChange={(next) => setRole(next === "coach" ? "coach" : "player")}
-            />
-          </Field>
-          <Button onClick={() => void invite()} disabled={inviting || email.trim() === ""}>
-            {inviting ? "Inviting…" : "Send invite"}
-          </Button>
-          {inviteStatus && <p className="m-0 text-sm text-text-dim">{inviteStatus}</p>}
-        </section>
+        <Button variant="ghost" onClick={() => setInviteOpen(true)}>
+          Invite member
+        </Button>
       )}
+
+      <InviteDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        teamId={teamId}
+        teamName={teamName}
+        onInvited={reload}
+      />
       {dialog}
     </Dialog>
   );
