@@ -97,7 +97,7 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - **Name every branch `<issue_number>-<name>`.** Both feature branches and sub-worktree branches start with the issue number, e.g. `3-product-dev`.
 - **Stay in your workspace.** You belong to exactly one workspace, either the feature branch's primary checkout or a worktree. Edit only its files. Never edit, move, copy into, or delete files in another workspace or branch, and never reach around a guard that blocks this (with Bash file ops, by disabling the guard, or otherwise).
 - **Read your own workspace first.** Reach into the feature branch or another worktree only when you genuinely need context missing from yours, and then only to read.
-- **Integrate with git, not by copying.** A worktree reaches the feature branch through a git merge. Never copy files between workspaces to share results.
+- **Integrate with git, never by copying or with a merge commit.** Rebase the worktree branch onto the feature branch, then fast-forward: `git rebase <feature>` in the worktree, then `git -C <feature-checkout> merge --ff-only <worktree-branch>`. If `--ff-only` is refused, finish the rebase instead of making a merge commit.
 - **Wrong place? Stop and ask.** If you suspect you are in the wrong location, for example branched off `main` instead of the feature branch, stop, tell the user, and ask for help. Do not work around it.
 
 ## Backend (Supabase)
