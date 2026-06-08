@@ -1,0 +1,3 @@
+# SPA fallback: serve index.html for any path Cloudflare Pages can't match to a
+# static asset, so deep links (e.g. share routes) resolve client-side instead of 404ing.
+/*    /index.html    200
