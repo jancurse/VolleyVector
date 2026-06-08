@@ -91,8 +91,9 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 
 ### Workspaces and worktrees
 
-- All work lives on a **feature branch**, never on `main`. The feature branch has one primary workspace, and may spawn **worktrees**: sub-branches checked out in their own directories for parallel work.
-- **Open a worktree with the EnterWorktree tool, never by hand.** Do not run `git worktree`, `git branch`, or `git checkout` to make one. EnterWorktree is configured to branch off the **current branch**, not `main`, which is what you want.
+- Each feature has its own folder. Inside it, the feature branch's checkout and its worktrees sit side by side, each in its own sibling folder.
+- Work in the feature branch's checkout or a worktree, never on `main`.
+- **When you create a worktree, use the EnterWorktree tool**, not `git` by hand. It runs a custom hook that creates the worktree in a parallel folder and adds it to VS Code.
 - **Name every branch `<issue_number>-<name>`.** Both feature branches and sub-worktree branches start with the issue number, e.g. `3-product-dev`.
 - **Stay in your workspace.** You belong to exactly one workspace, either the feature branch's primary checkout or a worktree. Edit only its files. Never edit, move, copy into, or delete files in another workspace or branch, and never reach around a guard that blocks this (with Bash file ops, by disabling the guard, or otherwise).
 - **Read your own workspace first.** Reach into the feature branch or another worktree only when you genuinely need context missing from yours, and then only to read.
