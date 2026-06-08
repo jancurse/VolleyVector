@@ -9,7 +9,7 @@
     - **Do not self-provision the host.** The Cloudflare account, the Pages project, and any custom domain are the user's to create in Stage 0. Hand them the exact ordered steps and wait for confirmation and any values before doing anything that depends on the host.
     - **Consume Phase 2's outputs as they are; do not guess them.** Production env var names, the URL routes share links and guards use, and the Supabase auth configuration are all defined by Phase 2. Confirm them against the merged Phase 2 code rather than inventing names or shapes.
     - **Do not duplicate the keep-alive Action.** It is Phase 2's deliverable. Phase 3 only confirms it covers the production project.
-    - **Respect the gating.** Stages or steps marked as gated on Phase 2 must not run until Phase 2 is merged to `main`. Do not stub or fake a backend to make progress.
+    - **Do not stub or fake a backend to make progress.**
     - Where this plan leaves an implementation choice open, default to modern, simple, secure-by-default practice and record what you chose in Implementation Notes.
 - **Required reading**:
     - @CLAUDE.md
@@ -32,32 +32,25 @@ Phase 3 is the "Deploy and operate" phase from @plans/project_overview.md: deplo
 - **Host: Cloudflare Pages.** Chosen for its generous free tier and unified registrar + DNS + hosting + SSL, which suit a free-tier project meant to run without ongoing cost or attention.
 - **URL: `volleycoach.pages.dev` to start.** No custom domain in this phase. A custom domain can be attached later without redoing the deploy; that work and its Supabase redirect-list update are a follow-up.
 - **Build and deploy: GitHub Actions + Wrangler, gated on CI.** A GitHub Actions workflow builds and publishes to Cloudflare Pages (Direct Upload) via Wrangler, running only after the CI checks pass, so only green commits reach production. Cloudflare's native Git build integration is not used.
-- **First deploy targets the post-Phase-2 app.** The deploy workflow is built in Stage 1, but its first live run happens after Phase 2 is merged to `main`. There is no interim deploy of the Phase 1 localStorage build.
+- **No interim early-build deploy.** The deploy workflow is built in Stage 1; its first live run publishes the current app. There is no separate deploy of the earlier localStorage build.
 - **CI on PRs, live deploys from `main` only.** CI runs on pull requests against `main` and stays the gate. The deploy workflow publishes live only from `main`. There are no automatic preview deployments; a preview can be run on demand by hand (Wrangler, or a manually triggered workflow) when a branch needs a live URL.
 - **Production env: GitHub Actions repository variables.** The production build must read the Supabase project URL and anon key from GitHub Actions repository variables (reusing Phase 2's `VITE_*` names), not from committed files. Setting those variables is a required user action (Stage 0); until it is done the build has no Supabase config. Both values are public by design (RLS is the guard); the service-role key is never part of the client build. Keeping them as build-time CI config rather than committed keeps environment configuration out of the source and lets a separate production Supabase project be introduced later without a code change. This is separate from Phase 2's git-ignored local `.env`, which never reaches the CI build.
 - **No server-side branch protection.** Branch protection and rulesets are unavailable on the free private repo, so direct pushes to `main` cannot be blocked server-side. The deploy-on-green-CI gate is the production safeguard. Enabling branch protection is a follow-up for when the repo is made public.
 - **Keep-alive ownership.** The scheduled GitHub Action that keeps Supabase warm is Phase 2's. Phase 3 does not add its own; it only confirms the existing one covers production.
 
-### Dependency on Phase 2
-
-Phase 3 planning and the user-performed host setup are independent of Phase 2. Several build and verification steps consume Phase 2's output and are gated on it being merged to `main`.
-
-- **Independent of Phase 2** (can proceed now): the Cloudflare account and Pages project (Stage 0), setting the Supabase URL and anon key as repository variables (the values and `VITE_*` names are already in hand from Phase 2's `.env.local`), the build configuration (`npm run build` → `dist`, Node 22), and the SPA fallback rule. These can be validated against the current `main` build.
-- **Gated on Phase 2 merged to `main`**: a working production deploy that actually uses those variables (the Phase 2 client code that reads them must be on the deployed branch), adding the production URL to Supabase's auth redirect allow-list, the full-flow phone verification (login, share link, guards are Phase 2 surfaces), and the RLS audit (RLS is Phase 2's deliverable).
-
 ### Stages
 
-- **Stage 0 — Host and CI setup (user gate, independent of Phase 2).**
+- **Stage 0 — Host and CI setup (user gate).**
     - A setup gate the user performs, and the agent's first action. The agent presents a precise ordered checklist, then waits. It does not create the account, project, or token, or set any secret or variable itself.
     - The user, in their own Cloudflare account: create the account, create a Pages project (Direct Upload) whose name yields `volleycoach.pages.dev`, and create a scoped API token with Pages edit permission.
     - The user adds the Cloudflare API token and account ID as GitHub Actions secrets so the deploy workflow can publish.
-    - The user sets the Supabase project URL and anon key as GitHub Actions repository variables, using the exact `VITE_*` names from Phase 2's `.env.local`. The values are already in hand, so this does not wait for Phase 2 to merge.
+    - The user sets the Supabase project URL and anon key as GitHub Actions repository variables, using the `VITE_*` names the client reads (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
 - **Stage 1 — Production pipeline and front-end deploy.**
-    - The SPA fallback so deep links resolve to `index.html` (specified now; fully validated once Phase 2's routes exist).
+    - The SPA fallback so deep links resolve to `index.html`.
     - A GitHub Actions deploy workflow that runs after CI passes and publishes the build to `volleycoach.pages.dev` via Wrangler.
     - The deploy workflow references the Supabase repository variables (set by the user in Stage 0) so they are injected into the build.
 - **Stage 2 — Production verification and operations.**
-    - Add the production URL to Supabase's auth redirect/site-URL allow-list (user step, gated on Phase 2).
+    - Add the production URL to Supabase's auth redirect/site-URL allow-list (user step).
     - The production verification walkthrough, on desktop then phone (see the Production verification section).
     - The final RLS audit (see the RLS audit section).
     - Confirm Phase 2's keep-alive Action covers the production project.
@@ -108,25 +101,18 @@ Add or update unit tests to cover the changed behavior — no more than the chan
 
 ## Implementation Notes
 
-_In progress. Stage 0 is complete and the Phase-2-independent Stage 1 artifacts are built; the gated parts wait on Phase 2 merging to `main`._
+Stage 0 and Stage 1 are complete. Stage 2 remains: the first live deploy, the Supabase auth redirect allow-list, the desktop and phone verification walkthroughs, and the RLS audit.
 
 ### Status
 
-- **Stage 0 — complete (user-performed).** The Cloudflare Pages project `volleycoach` was created via Direct Upload and is live at `volleycoach.pages.dev` (placeholder content). The GitHub Actions secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and the repository variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, are all set.
-- **Stage 1 — built, not yet active.** `public/_redirects` and `.github/workflows/deploy.yml` exist in the working tree, uncommitted and not yet on `main`. The deploy workflow only fires once it is on `main`, so no live deploy has happened.
-- **Gated on Phase 2 merged to `main`.** The first live deploy, the Supabase auth redirect allow-list update, the desktop and phone verification walkthroughs, and the RLS audit.
+- **Stage 0 — complete (user-performed).** The Cloudflare Pages project `volleycoach` is live at `volleycoach.pages.dev`, production branch `main`. The GitHub Actions secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and the repository variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, are all set.
+- **Stage 1 — complete.** `public/_redirects` and `.github/workflows/deploy.yml` are committed on the feature branch. The deploy workflow fires on `workflow_run` after CI passes on `main`, so the first live deploy runs once this reaches `main`.
+- **Stage 2 — remaining.** The first live deploy, the Supabase auth redirect allow-list update, the desktop and phone verification walkthroughs, and the RLS audit.
 
 ### Decisions made
 
 - **SPA fallback.** `public/_redirects` with `/*  /index.html  200`. Vite copies it to `dist/_redirects`, confirmed in a local `npm run build`.
 - **Deploy trigger and gating.** `.github/workflows/deploy.yml` runs on `workflow_run` after the `CI` workflow completes successfully on `main` (guarded by `conclusion == 'success'`), plus `workflow_dispatch` for on-demand runs. It checks out `workflow_run.head_sha` so it deploys the exact commit CI passed.
 - **Publish mechanism.** `cloudflare/wrangler-action@v3` running `pages deploy dist --project-name=volleycoach --branch=main`. Wrangler is intentionally not added to `package.json`; the deploy-only tooling lives in the action.
-- **Production branch.** Direct Upload Pages projects do not expose a production-branch setting in the dashboard, so it could not be configured during setup. The workflow passes `--branch=main`; whether that produces a production deploy rather than a preview depends on the project's actual production branch, which must be verified before the first live deploy (see Critical Issues).
-- **Env injection.** The build reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from GitHub Actions **repository variables** (`vars.*`), per the plan's decision; the Cloudflare API token and account ID come from **secrets**. The two `VITE_*` names were taken from Phase 2's git-ignored `.env`.
-
-### Critical Issues
-
-Two open items, both to resolve before the first live deploy:
-
-- **`VITE_*` names unconfirmed against merged Phase 2.** They were taken from Phase 2's unmerged `.env`. Re-confirm them against the merged Phase 2 code before deploying.
-- **Production branch unverified for the Direct Upload project.** Its production branch is not configurable in the dashboard. Confirm what it is (via the Cloudflare API or `wrangler pages deployment list`) and ensure the workflow's `--branch=main` targets production, adjusting the flag if the project's production branch differs, so the first deploy publishes to `volleycoach.pages.dev` rather than a preview URL.
+- **Production branch.** The Cloudflare project's production branch is `main` (shown on the project's Production card in the dashboard), so the workflow's `--branch=main` publishes to `volleycoach.pages.dev` rather than a preview URL.
+- **Env injection.** The build reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from GitHub Actions **repository variables** (`vars.*`); the Cloudflare API token and account ID come from **secrets**. The names match the merged Phase 2 client (`src/supabase/client.ts`).
