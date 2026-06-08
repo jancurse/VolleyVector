@@ -10,12 +10,14 @@ type ProfileRow = { id: string; email: string | null };
 
 // The members of one team, joined with their profiles for an email to show. Loads when given a team
 // (null while a manager dialog is closed), and exposes a reload so a fresh invite shows immediately,
-// plus setRole to re-role a member (RLS permits this for the team's coaches and admins).
+// plus setRole and remove to re-role or drop a member (RLS permits both for the team's coaches and
+// admins).
 export function useMembers(teamId: string | null): {
   members: Member[];
   loading: boolean;
   reload: () => void;
   setRole: (userId: string, role: TeamRole) => Promise<{ error: string | null }>;
+  remove: (userId: string) => Promise<{ error: string | null }>;
 } {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +34,21 @@ export function useMembers(teamId: string | null): {
       if (error) return { error: error.message };
 
       setMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, role } : m)));
+
+      return { error: null };
+    },
+    [teamId]
+  );
+
+  const remove = useCallback(
+    async (userId: string): Promise<{ error: string | null }> => {
+      if (!teamId) return { error: "No team selected" };
+
+      const { error } = await supabase.from("memberships").delete().eq("team_id", teamId).eq("user_id", userId);
+
+      if (error) return { error: error.message };
+
+      setMembers((prev) => prev.filter((m) => m.userId !== userId));
 
       return { error: null };
     },
@@ -72,5 +89,5 @@ export function useMembers(teamId: string | null): {
     };
   }, [teamId, tick]);
 
-  return { members, loading, reload, setRole };
+  return { members, loading, reload, setRole, remove };
 }

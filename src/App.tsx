@@ -22,6 +22,7 @@ import { Button } from "./ui/Button";
 import { cx, MUTED } from "./ui/styles";
 import { Select } from "./ui/Select";
 import { TeamManager } from "./team/TeamManager";
+import { AdminManager } from "./admin/AdminManager";
 import { useWorkspace } from "./workspace/useWorkspace";
 import { useShareRoute } from "./sharing/useShareRoute";
 import { ShareView } from "./sharing/ShareView";
@@ -73,6 +74,7 @@ export function App(): JSX.Element {
   const [draft, setDraft] = useState<Board | null>(null);
   const [selection, setSelection] = useState<Selection>({ kind: "all" });
   const [managing, setManaging] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
 
   const openBoard = openId !== null ? (boards.find((b) => b.id === openId) ?? null) : null;
@@ -248,9 +250,14 @@ export function App(): JSX.Element {
                 }
               />
             </div>
-            {!personal && canEdit && (
+            {!personal && (
               <Button variant="ghost" size="sm" onClick={() => setManaging(true)}>
-                Manage
+                Team
+              </Button>
+            )}
+            {workspace.isAdmin && (
+              <Button variant="ghost" size="sm" onClick={() => setAdminOpen(true)}>
+                Admin
               </Button>
             )}
             <span className="font-mono text-2xs text-text-dim max-[640px]:hidden">{user.email}</span>
@@ -274,9 +281,9 @@ export function App(): JSX.Element {
           onOpenChange={setManaging}
           teamId={workspace.activeTeamId}
           teamName={teamName ?? ""}
-          isAdmin={workspace.isAdmin}
-          onCreateTeam={workspace.createTeam}
+          canManage={canEdit}
         />
+        <AdminManager open={adminOpen} onOpenChange={setAdminOpen} onCreateTeam={workspace.createTeam} />
         {openBoard && (
           <ShareDialog
             open={sharing}

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { App } from "../src/App";
 import { AuthProvider } from "../src/auth/useAuth";
-import { resetFakeAuthz, setFakeAuthz } from "./helpers/supabaseFake";
+import { resetFakeAuthz, setFakeAuthz, TEST_USER } from "./helpers/supabaseFake";
 
 // Mock only the external Supabase client; the real stores, hooks, and components run against it.
 vi.mock("../src/supabase/client", async () => {
@@ -568,7 +568,7 @@ describe("permissions", () => {
 
     expect(screen.queryByRole("button", { name: "+ New board" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+ New topic" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Manage" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
 
     await openPosition(user);
 
@@ -587,29 +587,42 @@ describe("permissions", () => {
   });
 });
 
-// Team management is reached from the header. A coach/admin invites by email (through the Edge
-// Function), and an admin creates teams, which brings up a team switcher.
+// The team menu is reached from the header by any team member. A coach/admin invites by email (through
+// the Edge Function); a player sees the roster read-only. Creating teams is an admin concern split out
+// into the separate Admin panel.
 describe("team management", () => {
-  test("a coach invites a member through the manage dialog", async () => {
+  test("a coach invites a member through the team menu", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Manage" }));
+    await user.click(screen.getByRole("button", { name: "Team" }));
     await user.type(screen.getByLabelText("Email"), "newcoach@volley.test");
     await user.click(screen.getByRole("button", { name: "Send invite" }));
 
     expect(await screen.findByText("Invited newcoach@volley.test")).toBeInTheDocument();
   });
 
-  test("an admin creates a team, which becomes selectable in the space switcher", async () => {
+  test("a player opens the team menu but cannot manage members", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Manage" }));
+    await user.click(screen.getByRole("button", { name: "Team" }));
+
+    const dialog = await screen.findByRole("dialog");
+
+    expect(within(dialog).getByText(TEST_USER.email)).toBeInTheDocument(); // the roster shows
+    expect(within(dialog).queryByRole("button", { name: "Send invite" })).not.toBeInTheDocument();
+  });
+
+  test("an admin creates a team through the admin panel, which becomes selectable in the space switcher", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Admin" }));
     await user.type(screen.getByLabelText("Team name"), "Travel Squad");
     await user.click(screen.getByRole("button", { name: "Create team" }));
 
     expect(await screen.findByText("Created Travel Squad")).toBeInTheDocument();
 
-    await user.keyboard("{Escape}"); // close the manage dialog to reach the header switcher
+    await user.keyboard("{Escape}"); // close the admin dialog to reach the header switcher
     await user.click(screen.getByRole("combobox", { name: "Active space" }));
     expect(await screen.findByRole("option", { name: "Travel Squad" })).toBeInTheDocument();
   });
@@ -638,7 +651,7 @@ describe("personal space", () => {
     await user.click(await screen.findByRole("option", { name: "Personal" }));
 
     expect(await screen.findByRole("button", { name: "+ New board" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Manage" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Team" })).not.toBeInTheDocument();
   });
 });
 

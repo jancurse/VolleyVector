@@ -8,20 +8,22 @@ import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
-import { MUTED, PANEL_TITLE } from "../ui/styles";
+import { cx, MUTED, PANEL_TITLE } from "../ui/styles";
+import { useConfirm } from "../ui/useConfirm";
 import type { TeamRole } from "../workspace/useWorkspace";
+import type { Member } from "./useMembers";
 import { useMembers } from "./useMembers";
 
-// The team management dialog: who is in the active team, an invite-by-email form, and (for an admin) a
-// new-team form. Reached from the header by a coach or admin. Inviting goes through the server-side
-// `invite` function; creating a team is a plain insert an admin's RLS allows.
+// The team menu: the roster of the active team, open to any member. A player sees it read-only; a
+// coach or admin (canManage) also re-roles, removes, and invites members. Inviting goes through the
+// server-side `invite` function; re-role and remove are plain writes RLS allows a team's coaches and
+// admins. Admin-only concerns (creating teams) live in the separate AdminManager.
 type TeamManagerProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   teamId: string | null;
   teamName: string;
-  isAdmin: boolean;
-  onCreateTeam: (name: string) => Promise<string | null>;
+  canManage: boolean;
 };
 
 const ROLE_OPTIONS = [
@@ -29,25 +31,32 @@ const ROLE_OPTIONS = [
   { value: "player", label: "Player" },
 ];
 
-export function TeamManager({
-  open,
-  onOpenChange,
-  teamId,
-  teamName,
-  isAdmin,
-  onCreateTeam,
-}: TeamManagerProps): JSX.Element {
+const REMOVE_BUTTON =
+  "grid size-7 flex-none place-items-center rounded-md text-text-dim opacity-0 outline-none transition-[opacity,color,background-color] duration-150 ease-settle hover:bg-control-hover hover:text-danger focus-visible:opacity-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent group-hover:opacity-100 group-focus-within:opacity-100";
+
+function RoleChip({ role }: { role: TeamRole }): JSX.Element {
+  return (
+    <span
+      className={cx(
+        "rounded-pill px-2 py-0.5 font-mono text-2xs uppercase tracking-[0.16em]",
+        role === "coach" ? "bg-accent-weak text-accent" : "text-text-dim"
+      )}
+    >
+      {role}
+    </span>
+  );
+}
+
+export function TeamManager({ open, onOpenChange, teamId, teamName, canManage }: TeamManagerProps): JSX.Element {
   const { user } = useAuth();
-  const { members, loading, reload, setRole: setMemberRole } = useMembers(open ? teamId : null);
+  const { confirm, dialog } = useConfirm();
+  const { members, loading, reload, setRole: setMemberRole, remove } = useMembers(open ? teamId : null);
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<TeamRole>("player");
   const [inviting, setInviting] = useState(false);
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
-  const [roleError, setRoleError] = useState<string | null>(null);
-
-  const [newTeam, setNewTeam] = useState("");
-  const [createStatus, setCreateStatus] = useState<string | null>(null);
+  const [memberError, setMemberError] = useState<string | null>(null);
 
   const invite = async () => {
     if (!teamId || email.trim() === "") return;
@@ -70,83 +79,100 @@ export function TeamManager({
     reload();
   };
 
-  const create = async () => {
-    if (newTeam.trim() === "") return;
+  const removeMember = async (member: Member) => {
+    setMemberError(null);
 
-    const created = newTeam.trim();
+    const ok = await confirm({
+      title: `Remove ${member.email || "this member"}?`,
+      description: `They will lose access to ${teamName}.`,
+      confirmLabel: "Remove",
+      danger: true,
+    });
 
-    if (await onCreateTeam(created)) {
-      setCreateStatus(`Created ${created}`);
-      setNewTeam("");
-    }
+    if (!ok) return;
+
+    const { error } = await remove(member.userId);
+
+    if (error) setMemberError(error);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={`Manage ${teamName}`}>
+    <Dialog open={open} onOpenChange={onOpenChange} title={teamName}>
       <section className="flex flex-col gap-2">
         <span className={PANEL_TITLE}>Members</span>
         {loading ? (
           <p className={MUTED}>Loading…</p>
         ) : (
-          <ul className="m-0 flex list-none flex-col gap-1 p-0">
-            {members.map((member) => (
-              <li key={member.userId} className="flex items-center justify-between gap-3 text-base">
-                <span className="truncate">{member.email || member.userId}</span>
-                {member.userId === user?.id ? (
-                  <span className="font-mono text-2xs uppercase tracking-[0.16em] text-text-dim">{member.role}</span>
-                ) : (
-                  <div className="w-28 shrink-0">
-                    <Select
-                      ariaLabel={`Role for ${member.email || member.userId}`}
-                      value={member.role}
-                      options={ROLE_OPTIONS}
-                      onValueChange={(next) => {
-                        setRoleError(null);
-                        void setMemberRole(member.userId, next === "coach" ? "coach" : "player").then(({ error }) => {
-                          if (error) setRoleError(error);
-                        });
-                      }}
-                    />
-                  </div>
-                )}
-              </li>
-            ))}
+          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+            {members.map((member) => {
+              const isSelf = member.userId === user?.id;
+
+              return (
+                <li
+                  key={member.userId}
+                  className="group -mx-1.5 flex items-center justify-between gap-3 rounded-md px-1.5 py-1 text-base"
+                >
+                  <span className="truncate">{member.email || member.userId}</span>
+                  {canManage && !isSelf ? (
+                    <div className="flex items-center gap-1">
+                      <div className="w-28 shrink-0">
+                        <Select
+                          ariaLabel={`Role for ${member.email || member.userId}`}
+                          value={member.role}
+                          options={ROLE_OPTIONS}
+                          onValueChange={(next) => {
+                            setMemberError(null);
+                            void setMemberRole(member.userId, next === "coach" ? "coach" : "player").then(
+                              ({ error }) => {
+                                if (error) setMemberError(error);
+                              }
+                            );
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className={REMOVE_BUTTON}
+                        aria-label={`Remove ${member.email || member.userId}`}
+                        onClick={() => void removeMember(member)}
+                      >
+                        <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden="true">
+                          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <RoleChip role={member.role} />
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
-        {roleError && <p className="m-0 text-sm text-danger">{roleError}</p>}
+        {memberError && <p className="m-0 text-sm text-danger">{memberError}</p>}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <span className={PANEL_TITLE}>Invite a member</span>
-        <Field label="Email">
-          <Input type="email" value={email} autoComplete="off" onChange={(event) => setEmail(event.target.value)} />
-        </Field>
-        <Field label="Role">
-          <Select
-            ariaLabel="Invite role"
-            value={role}
-            options={ROLE_OPTIONS}
-            onValueChange={(next) => setRole(next === "coach" ? "coach" : "player")}
-          />
-        </Field>
-        <Button onClick={() => void invite()} disabled={inviting || email.trim() === ""}>
-          {inviting ? "Inviting…" : "Send invite"}
-        </Button>
-        {inviteStatus && <p className="m-0 text-sm text-text-dim">{inviteStatus}</p>}
-      </section>
-
-      {isAdmin && (
+      {canManage && (
         <section className="flex flex-col gap-2">
-          <span className={PANEL_TITLE}>New team</span>
-          <Field label="Team name">
-            <Input value={newTeam} onChange={(event) => setNewTeam(event.target.value)} />
+          <span className={PANEL_TITLE}>Invite a member</span>
+          <Field label="Email">
+            <Input type="email" value={email} autoComplete="off" onChange={(event) => setEmail(event.target.value)} />
           </Field>
-          <Button variant="ghost" onClick={() => void create()} disabled={newTeam.trim() === ""}>
-            Create team
+          <Field label="Role">
+            <Select
+              ariaLabel="Invite role"
+              value={role}
+              options={ROLE_OPTIONS}
+              onValueChange={(next) => setRole(next === "coach" ? "coach" : "player")}
+            />
+          </Field>
+          <Button onClick={() => void invite()} disabled={inviting || email.trim() === ""}>
+            {inviting ? "Inviting…" : "Send invite"}
           </Button>
-          {createStatus && <p className="m-0 text-sm text-text-dim">{createStatus}</p>}
+          {inviteStatus && <p className="m-0 text-sm text-text-dim">{inviteStatus}</p>}
         </section>
       )}
+      {dialog}
     </Dialog>
   );
 }
