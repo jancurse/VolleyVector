@@ -23,6 +23,8 @@ import { cx, MUTED } from "./ui/styles";
 import { Select } from "./ui/Select";
 import { TeamManager } from "./team/TeamManager";
 import { AdminManager } from "./admin/AdminManager";
+import { AccountManager } from "./account/AccountManager";
+import { NameSetup } from "./account/NameSetup";
 import { useWorkspace } from "./workspace/useWorkspace";
 import { useShareRoute } from "./sharing/useShareRoute";
 import { ShareView } from "./sharing/ShareView";
@@ -78,6 +80,7 @@ export function App(): JSX.Element {
   const [selection, setSelection] = useState<Selection>({ kind: "all" });
   const [managing, setManaging] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
 
   const openBoard = openId !== null ? (boards.find((b) => b.id === openId) ?? null) : null;
@@ -152,6 +155,10 @@ export function App(): JSX.Element {
       </div>
     );
   }
+
+  // Once the workspace resolves, a user with no display name set must choose one before reaching the
+  // app. This wins over the content-loading gate, so the prompt shows without waiting on boards/topics.
+  if (!workspace.loading && workspace.displayName === null) return <NameSetup onSave={workspace.setDisplayName} />;
 
   // Block on the first load only. A later team switch keeps the prior content on screen until the new
   // data arrives, so switching teams (or working in a dialog mid-load) never blanks the whole app.
@@ -268,7 +275,9 @@ export function App(): JSX.Element {
                 Admin
               </Button>
             )}
-            <span className="font-mono text-2xs text-text-dim max-[640px]:hidden">{user.email}</span>
+            <Button variant="ghost" size="sm" onClick={() => setAccountOpen(true)}>
+              Account
+            </Button>
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
             <Button variant="ghost" size="sm" onClick={() => void signOut()}>
               Sign out
@@ -292,6 +301,13 @@ export function App(): JSX.Element {
           canManage={canEdit}
         />
         <AdminManager open={adminOpen} onOpenChange={setAdminOpen} onCreateTeam={workspace.createTeam} />
+        <AccountManager
+          open={accountOpen}
+          onOpenChange={setAccountOpen}
+          email={user.email ?? ""}
+          displayName={workspace.displayName ?? ""}
+          onSave={workspace.setDisplayName}
+        />
         {openBoard && (
           <ShareDialog
             open={sharing}

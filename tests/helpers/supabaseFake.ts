@@ -21,11 +21,12 @@ const BOARD_AUTHOR = "seed-coach";
 
 const ISO = "2026-01-01T00:00:00.000Z";
 
-// The test user's standing in the active team. Defaults to an admin coach (full access); a test can
-// lower it to exercise read-only and per-role gating, and resetFakeAuthz restores the default.
-type Authz = { isAdmin: boolean; role: "coach" | "player" };
+// The test user's standing in the active team. Defaults to an admin coach (full access) with a set
+// display name; a test can lower the role, or clear the name to exercise the first-login prompt, and
+// resetFakeAuthz restores the default.
+type Authz = { isAdmin: boolean; role: "coach" | "player"; displayName: string | null };
 
-const authz: Authz = { isAdmin: true, role: "coach" };
+const authz: Authz = { isAdmin: true, role: "coach", displayName: "Coach Casey" };
 
 export function setFakeAuthz(next: Partial<Authz>): void {
   Object.assign(authz, next);
@@ -34,6 +35,7 @@ export function setFakeAuthz(next: Partial<Authz>): void {
 export function resetFakeAuthz(): void {
   authz.isAdmin = true;
   authz.role = "coach";
+  authz.displayName = "Coach Casey";
 }
 
 function toBoardRow(board: Board): BoardRow {
@@ -174,7 +176,10 @@ function from(table: string): Query {
     case "teams":
       return makeQuery([{ id: TEST_TEAM_ID, name: "My Team" }], { id: "new-team" });
     case "profiles":
-      return makeQuery([{ id: TEST_USER.id, email: TEST_USER.email, is_admin: authz.isAdmin }], null);
+      return makeQuery(
+        [{ id: TEST_USER.id, email: TEST_USER.email, is_admin: authz.isAdmin, display_name: authz.displayName }],
+        null
+      );
     default:
       return makeQuery([], null);
   }

@@ -704,6 +704,62 @@ describe("sharing", () => {
   });
 });
 
+// Every user has a display name. A user with none set must choose one on first login before reaching
+// the app; afterwards they change it from the Account panel in the header.
+describe("display name", () => {
+  test("a user with no name set is prompted for one before the app, then enters it", async () => {
+    setFakeAuthz({ displayName: null });
+    const user = userEvent.setup();
+
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
+
+    await screen.findByRole("heading", { name: /What’s your name\?/ });
+
+    // The library is gated behind the prompt until a name is entered.
+    expect(screen.queryByRole("button", { name: /Sample Position/ })).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Name"), "Coach Casey");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByRole("button", { name: /Sample Position/ })).toBeInTheDocument();
+  });
+
+  test("a user with a name set skips the prompt and lands in the app", async () => {
+    await renderApp();
+
+    expect(screen.queryByRole("heading", { name: /What’s your name\?/ })).not.toBeInTheDocument();
+  });
+
+  test("the Account panel shows the name read-only with the email, and edits it behind the change icon", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Account" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Account" });
+
+    // The name shows as text, not a field, until the change icon reveals the input.
+    expect(within(dialog).getByText("Coach Casey")).toBeInTheDocument();
+    expect(within(dialog).getByText(TEST_USER.email)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Name")).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Change name" }));
+
+    const name = within(dialog).getByLabelText("Name");
+
+    await user.clear(name);
+    await user.type(name, "Coach Morgan");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    // Saving returns to the read-only view showing the new name.
+    expect(await within(dialog).findByText("Coach Morgan")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Name")).not.toBeInTheDocument();
+  });
+});
+
 // A share link is the one URL-addressable surface, opening exactly one board read-only. It resolves a
 // team board or a shared personal board; an unshared personal board's link does not resolve.
 describe("share links", () => {

@@ -20,6 +20,10 @@ export type Workspace = {
   loading: boolean;
   error: string | null;
   isAdmin: boolean;
+  /** The user's display name, or null when they have not set one yet (the first-login prompt). */
+  displayName: string | null;
+  /** Save the user's display name; returns an error message, or null on success. */
+  setDisplayName: (name: string) => Promise<{ error: string | null }>;
   teams: TeamMembership[];
   /** The space whose library is on screen: a team's, or the user's personal space. */
   activeSpace: Space;
@@ -41,6 +45,7 @@ export function useWorkspace(): Workspace {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [displayName, setName] = useState<string | null>(null);
   const [teams, setTeams] = useState<TeamMembership[]>([]);
   const [activeSpace, setActiveSpace] = useState<Space>({ kind: "personal" });
 
@@ -57,7 +62,7 @@ export function useWorkspace(): Workspace {
       setLoading(true);
       setError(null);
 
-      const profile = await supabase.from("profiles").select("is_admin").eq("id", user.id).single();
+      const profile = await supabase.from("profiles").select("is_admin, display_name").eq("id", user.id).single();
       const memberships = await supabase.from("memberships").select("team_id, role").eq("user_id", user.id);
 
       if (!active) return;
@@ -78,7 +83,10 @@ export function useWorkspace(): Workspace {
       const names = new Map(((named?.data ?? []) as TeamRow[]).map((t) => [t.id, t.name]));
       const list = rows.map((m) => ({ teamId: m.team_id, teamName: names.get(m.team_id) ?? "Team", role: m.role }));
 
-      setIsAdmin((profile.data as { is_admin: boolean }).is_admin);
+      const data = profile.data as { is_admin: boolean; display_name: string | null };
+
+      setIsAdmin(data.is_admin);
+      setName(data.display_name);
       setTeams(list);
 
       if (!defaulted.current) {
@@ -123,8 +131,36 @@ export function useWorkspace(): Workspace {
     [user]
   );
 
+  const setDisplayName = useCallback(
+    async (name: string): Promise<{ error: string | null }> => {
+      if (!user) return { error: "Not signed in" };
+
+      const trimmed = name.trim();
+      const { error } = await supabase.from("profiles").update({ display_name: trimmed }).eq("id", user.id);
+
+      if (error) return { error: error.message };
+
+      setName(trimmed);
+
+      return { error: null };
+    },
+    [user]
+  );
+
   const activeTeamId = activeSpace.kind === "team" ? activeSpace.teamId : null;
   const activeRole = teams.find((t) => t.teamId === activeTeamId)?.role ?? null;
 
-  return { loading, error, isAdmin, teams, activeSpace, setActiveSpace, activeTeamId, activeRole, createTeam };
+  return {
+    loading,
+    error,
+    isAdmin,
+    displayName,
+    setDisplayName,
+    teams,
+    activeSpace,
+    setActiveSpace,
+    activeTeamId,
+    activeRole,
+    createTeam,
+  };
 }
