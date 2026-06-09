@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -18,6 +18,9 @@ beforeEach(() => {
   localStorage.clear();
   resetFakeAuthz();
   window.location.hash = "";
+  // The path is the source of truth for navigation now, and one happy-dom window is shared across a
+  // file's tests, so reset it so each test starts from the landing route.
+  window.history.replaceState(null, "", "/");
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -419,14 +422,14 @@ describe("board JSON export", () => {
   });
 });
 
-// Dev-only (import.meta.env.DEV is true under Vitest). The actions clear storage then reload, so the
-// reload and the production-build gate are environment APIs left to the build step; this only checks
-// the menu gates open to its three actions.
-describe("debug menu", () => {
-  test("opens to offer the reset action", async () => {
+// The avatar menu is the single account control. In a dev build (import.meta.env.DEV is true under Vitest)
+// it also folds in the debug "reset local state" action; the reset clears storage then reloads, an
+// environment API left to the build step, so this only checks the menu's contents and keyboard behaviour.
+describe("avatar menu", () => {
+  test("offers the dev reset action", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Debug menu" }));
+    await user.click(screen.getByRole("button", { name: "Account menu" }));
 
     expect(screen.getByRole("menuitem", { name: "Reset local state" })).toBeInTheDocument();
   });
@@ -434,15 +437,15 @@ describe("debug menu", () => {
   test("is keyboard-navigable and dismisses on escape", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Debug menu" }));
+    await user.click(screen.getByRole("button", { name: "Account menu" }));
     await user.keyboard("{ArrowDown}");
 
-    expect(screen.getByRole("menuitem", { name: "Reset local state" })).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "Account settings" })).toHaveFocus();
 
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("menuitem", { name: "Reset local state" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Debug menu" })).toHaveFocus();
+    expect(screen.queryByRole("menuitem", { name: "Account settings" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Account menu" })).toHaveFocus();
   });
 });
 
@@ -577,40 +580,40 @@ describe("permissions", () => {
     expect(screen.queryByRole("button", { name: /editing/ })).not.toBeInTheDocument();
   });
 
-  test("the author lock toggles from a board's view", async () => {
+  test("the author lock toggles from the top bar of a board's view", async () => {
     const user = await renderApp(); // the default fake authz is an admin coach
 
     await openPosition(user);
-    await user.click(screen.getByRole("button", { name: "Lock editing" }));
 
-    expect(screen.getByRole("button", { name: "Unlock editing" })).toBeInTheDocument();
+    // The board's contextual actions live in the top bar, beside the breadcrumb.
+    const topBar = screen.getByRole("banner");
+
+    await user.click(within(topBar).getByRole("button", { name: "Lock editing" }));
+
+    expect(within(topBar).getByRole("button", { name: "Unlock editing" })).toBeInTheDocument();
+    expect(within(topBar).getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });
 });
 
-// The team menu is reached from the header by any team member. A coach/admin mints a single-use invite
-// link; a player sees the roster read-only. Creating teams is an admin concern split out into the separate
-// Admin panel.
+// Team management is reached from a gear on the active team in the sidebar's space switcher, shown only to
+// a user who may curate that team (a coach or admin). A coach/admin mints a single-use invite link.
+// Creating teams is an admin concern split out into the separate Admin panel.
 describe("team management", () => {
-  test("a coach creates an invite link through the team menu", async () => {
+  test("a coach opens team management from the space-switcher gear and mints an invite link", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Team" }));
+    await user.click(screen.getByRole("button", { name: "Manage My Team" }));
     await user.click(screen.getByRole("button", { name: "Invite member" }));
     await user.click(screen.getByRole("button", { name: "Create invite link" }));
 
     expect(await screen.findByDisplayValue(/\/#\/invite\/new-invite-token$/)).toBeInTheDocument();
   });
 
-  test("a player opens the team menu but cannot manage members", async () => {
+  test("a player gets no team-management gear, since management is coach-facing", async () => {
     setFakeAuthz({ isAdmin: false, role: "player" });
-    const user = await renderApp();
+    await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Team" }));
-
-    const dialog = await screen.findByRole("dialog");
-
-    expect(within(dialog).getByText(TEST_USER.email)).toBeInTheDocument(); // the roster shows
-    expect(within(dialog).queryByRole("button", { name: "Invite member" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Manage/ })).not.toBeInTheDocument();
   });
 
   test("an admin creates a team through the admin panel, which becomes selectable in the space switcher", async () => {
@@ -622,14 +625,13 @@ describe("team management", () => {
 
     expect(await screen.findByText("Created Travel Squad")).toBeInTheDocument();
 
-    await user.keyboard("{Escape}"); // close the admin dialog to reach the header switcher
-    await user.click(screen.getByRole("combobox", { name: "Active space" }));
-    expect(await screen.findByRole("option", { name: "Travel Squad" })).toBeInTheDocument();
+    // The admin page stays put after creating; the new team appears in the sidebar switcher.
+    expect(await screen.findByRole("button", { name: "Travel Squad" })).toBeInTheDocument();
   });
 });
 
 // Every user has a private personal space (My Boards / My Topics) alongside the teams they belong to,
-// reached from the header space switcher. It is the owner's alone, so it always allows authoring but
+// reached from the sidebar space switcher. It is the owner's alone, so it always allows authoring but
 // never team management.
 describe("personal space", () => {
   test("switching to the personal space shows My Boards in place of the team library", async () => {
@@ -637,8 +639,7 @@ describe("personal space", () => {
 
     expect(screen.getByRole("button", { name: /Sample Position/ })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("combobox", { name: "Active space" }));
-    await user.click(await screen.findByRole("option", { name: "Personal" }));
+    await user.click(screen.getByRole("button", { name: "Personal" }));
 
     expect(await screen.findByRole("button", { name: /My Personal Position/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Sample Position/ })).not.toBeInTheDocument();
@@ -647,11 +648,10 @@ describe("personal space", () => {
   test("the personal space offers authoring but no team management", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("combobox", { name: "Active space" }));
-    await user.click(await screen.findByRole("option", { name: "Personal" }));
+    await user.click(screen.getByRole("button", { name: "Personal" }));
 
     expect(await screen.findByRole("button", { name: "+ New board" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Team" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Manage/ })).not.toBeInTheDocument();
   });
 });
 
@@ -659,8 +659,7 @@ describe("personal space", () => {
 // between spaces. The data layer writes through RLS, which is the real boundary; these cover the wiring.
 describe("sharing", () => {
   async function openMyBoard(user: UserEvent): Promise<void> {
-    await user.click(screen.getByRole("combobox", { name: "Active space" }));
-    await user.click(await screen.findByRole("option", { name: "Personal" }));
+    await user.click(screen.getByRole("button", { name: "Personal" }));
     await user.click(await screen.findByRole("button", { name: /My Personal Position/ }));
   }
 
@@ -704,7 +703,7 @@ describe("sharing", () => {
 });
 
 // Every user has a display name. A user with none set must choose one on first login before reaching
-// the app; afterwards they change it from the Account panel in the header.
+// the app; afterwards they change it from the account settings reached through the avatar menu.
 describe("display name", () => {
   test("a user with no name set is prompted for one before the app, then enters it", async () => {
     setFakeAuthz({ displayName: null });
@@ -733,29 +732,29 @@ describe("display name", () => {
     expect(screen.queryByRole("heading", { name: /What’s your name\?/ })).not.toBeInTheDocument();
   });
 
-  test("the Account panel shows the name read-only with the email, and edits it behind the change icon", async () => {
+  test("the account settings page shows the name read-only with the email, and edits it behind the change icon", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Account" }));
+    await user.click(screen.getByRole("button", { name: "Account menu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Account settings" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "Account" });
+    // The settings page shows the name as text, not a field, until the change icon reveals the input.
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByText("Coach Casey")).toBeInTheDocument();
+    expect(screen.getByText(TEST_USER.email)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
 
-    // The name shows as text, not a field, until the change icon reveals the input.
-    expect(within(dialog).getByText("Coach Casey")).toBeInTheDocument();
-    expect(within(dialog).getByText(TEST_USER.email)).toBeInTheDocument();
-    expect(within(dialog).queryByLabelText("Name")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Change name" }));
 
-    await user.click(within(dialog).getByRole("button", { name: "Change name" }));
-
-    const name = within(dialog).getByLabelText("Name");
+    const name = screen.getByLabelText("Name");
 
     await user.clear(name);
     await user.type(name, "Coach Morgan");
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     // Saving returns to the read-only view showing the new name.
-    expect(await within(dialog).findByText("Coach Morgan")).toBeInTheDocument();
-    expect(within(dialog).queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(await screen.findByText("Coach Morgan")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
   });
 });
 
@@ -798,13 +797,61 @@ describe("share links", () => {
   });
 });
 
-// Self-service account deletion lives in the header, available to every signed-in user (admin actions on
-// other accounts live in the Admin panel, covered in admin/AdminManager.test).
+// Self-service account deletion lives in the avatar menu, available to every signed-in user (admin actions
+// on other accounts live in the Admin panel, covered in admin/AdminManager.test).
 describe("account deletion", () => {
-  test("the header offers a self-delete action even to a non-admin", async () => {
+  test("the avatar menu offers a self-delete action even to a non-admin", async () => {
     setFakeAuthz({ isAdmin: false, role: "player" });
-    await renderApp();
+    const user = await renderApp();
 
-    expect(screen.getByRole("button", { name: "Delete account" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Account menu" }));
+
+    expect(screen.getByRole("menuitem", { name: "Delete account" })).toBeInTheDocument();
+  });
+});
+
+// The URL is the single source of truth for navigation: opening a board writes its path, a deep link
+// resolves to the board, and an unreadable id lands on the in-app not-found surface (RLS hides the row
+// rather than answering 403, so "no access" and "missing" both surface here).
+describe("routing", () => {
+  function renderAt(path: string): UserEvent {
+    const user = userEvent.setup();
+
+    window.history.replaceState(null, "", path);
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
+
+    return user;
+  }
+
+  test("opening a board writes its path to the URL", async () => {
+    const user = await renderApp();
+
+    expect(window.location.pathname).toBe("/t/my-team");
+
+    await openPosition(user);
+
+    expect(window.location.pathname).toMatch(/^\/t\/my-team\/board\//);
+  });
+
+  test("a board deep link resolves to the board, switching to its space", async () => {
+    renderAt("/personal/board/personal-board-1");
+
+    expect(await screen.findByRole("heading", { name: "My Personal Position" })).toBeInTheDocument();
+  });
+
+  test("an unknown board id lands on the not-found surface", async () => {
+    const user = renderAt("/personal/board/does-not-exist");
+
+    // The board resolves over several async hops (auth, workspace, the space switch, the board lookup),
+    // so re-query until the not-found surface settles rather than holding a node from an earlier commit.
+    await waitFor(() => expect(screen.getByRole("heading", { name: /This page/ })).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /Go to your library/ }));
+
+    expect(await screen.findByRole("button", { name: /My Personal Position/ })).toBeInTheDocument();
   });
 });

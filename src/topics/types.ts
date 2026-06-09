@@ -12,6 +12,8 @@ export type TopicBlock =
 export type Topic = {
   id: string;
   title: string;
+  /** The topic's URL handle: minted once at creation, stable across renames. */
+  slug: string;
   /** The topic's document: markdown and board-group blocks in the coach's chosen order. */
   blocks: TopicBlock[];
   /** Parent topic id, or null for a top-level (root) topic. */

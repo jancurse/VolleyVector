@@ -1,6 +1,6 @@
 import type { Board } from "../boards/types";
 import { supabase } from "../supabase/client";
-import type { BoardRow } from "../supabase/rows";
+import type { BoardRow, Scope } from "../supabase/rows";
 import { boardFromRow, boardToInsert } from "../supabase/rows";
 
 // Cross-space board moves that do not belong to one space's live list: deep-copying a board into the
@@ -39,6 +39,26 @@ export async function boardByToken(token: string): Promise<{ board: Board | null
   const rows = (data ?? []) as BoardRow[];
 
   return { board: rows[0] ? boardFromRow(rows[0]) : null, error: null };
+}
+
+/** Resolve a board by its id for a path deep link, returning its placement so a stale link can self-heal
+ *  to the board's real space. RLS hides unreadable rows, so a null board means "not found or no access" —
+ *  the two are indistinguishable on read and both surface a single not-found state. */
+export async function fetchBoardById(
+  boardId: string
+): Promise<{ board: Board | null; scope: Scope | null; teamId: string | null }> {
+  const { data, error } = await supabase
+    .from("boards")
+    .select("*")
+    .eq("id", boardId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error || !data) return { board: null, scope: null, teamId: null };
+
+  const row = data as BoardRow;
+
+  return { board: boardFromRow(row), scope: row.scope, teamId: row.team_id };
 }
 
 /** The shareable link for a token: a hash route so it resolves on a static host with no server config. */

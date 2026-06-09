@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { AdminManager } from "../../src/admin/AdminManager";
+import { AdminPage } from "../../src/admin/AdminPage";
+import type { AdminSub } from "../../src/routing/route";
 import {
   DELETED_ACCOUNT,
   DELETED_TEAM,
@@ -16,7 +18,7 @@ import {
   TEST_USER,
 } from "../helpers/supabaseFake";
 
-// Mock only the external Supabase client; the real hook and component run against it.
+// Mock only the external Supabase client; the real hook and page run against it.
 vi.mock("../../src/supabase/client", async () => {
   const mod = await import("../helpers/supabaseFake");
 
@@ -26,30 +28,44 @@ vi.mock("../../src/supabase/client", async () => {
 beforeEach(() => resetRecorded());
 afterEach(() => vi.clearAllMocks());
 
+// The three sub-pages are their own routes, driven by `sub`; a small harness owns it so a tab click
+// switches the visible panel exactly as navigation would in the app.
+function Harness() {
+  const [sub, setSub] = useState<AdminSub>("teams");
+
+  return <AdminPage sub={sub} onNavigateSub={setSub} onCreateTeam={vi.fn()} currentUserId={TEST_USER.id} />;
+}
+
 async function renderPanel(): Promise<UserEvent> {
   const user = userEvent.setup();
 
-  render(<AdminManager open onOpenChange={() => {}} onCreateTeam={vi.fn()} currentUserId={TEST_USER.id} />);
-  await screen.findByText("My Team");
+  render(<Harness />);
+  await screen.findByText("My Team"); // the teams tab is the default
 
   return user;
 }
 
-describe("AdminManager", () => {
-  test("lists teams, accounts, and grace-archived content", async () => {
-    await renderPanel();
+const goTab = (user: UserEvent, name: string) => user.click(screen.getByRole("tab", { name }));
 
-    expect(screen.getByText("Active")).toBeInTheDocument();
+describe("AdminPage", () => {
+  test("lists teams, accounts, and grace-archived content across its tabs", async () => {
+    const user = await renderPanel();
+
+    expect(screen.getByText("Active")).toBeInTheDocument(); // the live team's state
+
+    await goTab(user, "Accounts");
     expect(screen.getByText(OTHER_MEMBER.email)).toBeInTheDocument();
-    expect(screen.getByText("Archived Board")).toBeInTheDocument();
-    expect(screen.getByText("Archived Topic")).toBeInTheDocument();
 
     // The admin account is flagged and cannot be deleted; a non-admin account offers a delete.
-    const adminRow = screen.getByText(TEST_USER.email).closest("li") as HTMLElement;
+    const adminRow = screen.getByText(TEST_USER.email).closest("tr") as HTMLElement;
 
     expect(within(adminRow).getByText("Admin")).toBeInTheDocument();
     expect(within(adminRow).queryByRole("button", { name: "Delete account" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete account" })).toBeInTheDocument();
+
+    await goTab(user, "Recovery");
+    expect(screen.getByText("Archived Board")).toBeInTheDocument();
+    expect(screen.getByText("Archived Topic")).toBeInTheDocument();
   });
 
   test("archiving a team issues the archive write", async () => {
@@ -77,6 +93,7 @@ describe("AdminManager", () => {
   test("deleting an account invokes the delete-account function after confirming", async () => {
     const user = await renderPanel();
 
+    await goTab(user, "Accounts");
     await user.click(screen.getByRole("button", { name: "Delete account" }));
     const dialog = await screen.findByRole("alertdialog");
 
@@ -88,7 +105,8 @@ describe("AdminManager", () => {
   test("restoring grace-archived content clears its deleted_at", async () => {
     const user = await renderPanel();
 
-    const row = screen.getByText("Archived Board").closest("li") as HTMLElement;
+    await goTab(user, "Recovery");
+    const row = screen.getByText("Archived Board").closest("tr") as HTMLElement;
 
     await user.click(within(row).getByRole("button", { name: "Restore" }));
 
@@ -100,7 +118,8 @@ describe("AdminManager", () => {
   test("restoring a deleted team clears the team's deleted_at", async () => {
     const user = await renderPanel();
 
-    const row = screen.getByText(DELETED_TEAM.name).closest("li") as HTMLElement;
+    await goTab(user, "Recovery");
+    const row = screen.getByText(DELETED_TEAM.name).closest("tr") as HTMLElement;
 
     await user.click(within(row).getByRole("button", { name: "Restore" }));
 
@@ -113,7 +132,8 @@ describe("AdminManager", () => {
   test("restoring a deleted account invokes the restore-account function", async () => {
     const user = await renderPanel();
 
-    const row = screen.getByText(DELETED_ACCOUNT.email).closest("li") as HTMLElement;
+    await goTab(user, "Recovery");
+    const row = screen.getByText(DELETED_ACCOUNT.email).closest("tr") as HTMLElement;
 
     await user.click(within(row).getByRole("button", { name: "Restore" }));
 

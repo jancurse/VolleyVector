@@ -11,6 +11,7 @@ export const SAMPLE_TOPICS: Topic[] = [
   {
     id: "topic-rotations",
     title: "Rotations",
+    slug: "rotations",
     blocks: [
       {
         id: "topic-rotations-intro",
@@ -24,6 +25,7 @@ export const SAMPLE_TOPICS: Topic[] = [
   {
     id: "topic-defense",
     title: "Defense",
+    slug: "defense",
     blocks: [
       {
         id: "topic-defense-intro",
@@ -37,6 +39,7 @@ export const SAMPLE_TOPICS: Topic[] = [
   {
     id: "topic-drills",
     title: "Drills",
+    slug: "drills",
     blocks: [
       {
         id: "topic-drills-intro",

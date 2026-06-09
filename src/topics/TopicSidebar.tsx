@@ -93,10 +93,7 @@ export function TopicSidebar({
   };
 
   return (
-    <nav
-      className="sticky top-[clamp(0.5rem,2vh,1rem)] flex flex-col gap-[0.1rem] animate-rise motion-reduce:animate-none max-[860px]:static"
-      aria-label="Topics"
-    >
+    <nav className="flex flex-col gap-[0.1rem]" aria-label="Topics">
       <button
         type="button"
         className={cx(NAV_ITEM, selection.kind === "all" && "bg-accent-weak text-text")}

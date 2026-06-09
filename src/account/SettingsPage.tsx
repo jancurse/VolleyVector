@@ -3,41 +3,28 @@ import type { JSX } from "react";
 import { Pencil } from "lucide-react";
 
 import { Button } from "../ui/Button";
-import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
-import { FIELD_LABEL } from "../ui/styles";
+import { cx, EYEBROW, FIELD_LABEL, PAGE, PAGE_BAR, PANEL, TITLE } from "../ui/styles";
 
 const PENCIL_ICON = <Pencil size={15} aria-hidden="true" />;
 
-// The account panel: a user's own profile, reached from the header. The display name shows read-only
-// with a pencil to switch into editing it (a plain update RLS allows on the user's own row, limited to
-// display_name by the column grant). The sign-in email shows read-only beneath.
-type AccountManagerProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+// The account settings page, reached from the avatar menu. The display name shows read-only with a pencil
+// to switch into editing it (a plain update RLS allows on the user's own row, limited to display_name by
+// the column grant). The sign-in email shows read-only beneath. Sign out and delete account stay in the
+// avatar menu, the always-available account cluster.
+type SettingsPageProps = {
   email: string;
   displayName: string;
   onSave: (name: string) => Promise<{ error: string | null }>;
 };
 
-export function AccountManager({ open, onOpenChange, email, displayName, onSave }: AccountManagerProps): JSX.Element {
+export function SettingsPage({ email, displayName, onSave }: SettingsPageProps): JSX.Element {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(displayName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [wasOpen, setWasOpen] = useState(open);
-
-  // Reset to the read-only view, the saved name, and no error each time the dialog opens.
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setEditing(false);
-      setName(displayName);
-      setError(null);
-    }
-  }
 
   const save = async () => {
     if (name.trim() === "") return;
@@ -59,8 +46,15 @@ export function AccountManager({ open, onOpenChange, email, displayName, onSave 
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Account">
-      <section className="flex flex-col gap-4">
+    <section className={PAGE}>
+      <div className={PAGE_BAR}>
+        <div>
+          <p className={EYEBROW}>Account</p>
+          <h1 className={TITLE}>Settings</h1>
+        </div>
+      </div>
+
+      <div className={cx(PANEL, "max-w-[34rem] gap-6")}>
         {editing ? (
           <Field label="Name">
             <Input value={name} autoFocus autoComplete="name" onChange={(event) => setName(event.target.value)} />
@@ -98,7 +92,7 @@ export function AccountManager({ open, onOpenChange, email, displayName, onSave 
         </div>
 
         {error && <p className="m-0 text-sm text-danger">{error}</p>}
-      </section>
-    </Dialog>
+      </div>
+    </section>
   );
 }

@@ -4,6 +4,7 @@ import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
 import type { TopicRow } from "../supabase/rows";
 import { topicFromRow, topicToInsert } from "../supabase/rows";
+import { uniqueSlug } from "../routing/slug";
 import type { Space } from "../workspace/space";
 import { createTopic, deleteTopic, moveTopic, nestTopic, setTopic } from "./operations";
 import type { Topic } from "./types";
@@ -126,10 +127,26 @@ export function useTopics(space: Space | null): TopicsStore {
         const scope = space.kind === "team" ? "team" : "personal";
         const teamId = space.kind === "team" ? space.teamId : null;
 
-        void supabase
-          .from("topics")
-          .insert(topicToInsert(created, user.id, scope, teamId))
-          .then(({ error: writeError }) => writeError && fail(writeError.message));
+        void (async () => {
+          const { error: writeError } = await supabase
+            .from("topics")
+            .insert(topicToInsert(created, user.id, scope, teamId));
+
+          // Unique-index backstop: a slug collision (e.g. a concurrent mint) retries once with a random suffix.
+          if (writeError?.code === "23505") {
+            const slug = `${created.slug}-${Math.random().toString(36).slice(2, 6)}`;
+
+            setTopics((prev) => setTopic(prev, id, { slug }));
+
+            const retry = await supabase
+              .from("topics")
+              .insert(topicToInsert({ ...created, slug }, user.id, scope, teamId));
+
+            if (retry.error) fail(retry.error.message);
+          } else if (writeError) {
+            fail(writeError.message);
+          }
+        })();
       }
 
       return id;
@@ -139,10 +156,24 @@ export function useTopics(space: Space | null): TopicsStore {
 
   const updateTopic = useCallback(
     (id: string, patch: Partial<Pick<Topic, "title" | "blocks">>) => {
-      setTopics((prev) => setTopic(prev, id, patch));
+      // Slugs never change on rename, except the first rename away from the creation placeholder
+      // ("New topic"), which mints the real slug. Real renames after that never touch it.
+      const current = latest.current.find((t) => t.id === id);
+      const full: Partial<Pick<Topic, "title" | "blocks" | "slug">> =
+        patch.title !== undefined && current?.title === "New topic" && patch.title !== current.title
+          ? {
+              ...patch,
+              slug: uniqueSlug(
+                patch.title,
+                latest.current.filter((t) => t.id !== id).map((t) => t.slug)
+              ),
+            }
+          : patch;
+
+      setTopics((prev) => setTopic(prev, id, full));
       void supabase
         .from("topics")
-        .update(patch)
+        .update(full)
         .eq("id", id)
         .then(({ error: writeError }) => writeError && fail(writeError.message));
     },

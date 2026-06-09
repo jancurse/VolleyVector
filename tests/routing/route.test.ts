@@ -1,0 +1,104 @@
+import { describe, expect, it, test } from "vitest";
+
+import { buildPath, parsePath, routeSpace, sameRouteSpace, type Route } from "../../src/routing/route";
+
+const personal = { kind: "personal" } as const;
+const team = { kind: "team", teamSlug: "acme" } as const;
+
+// Every routable kind, with its canonical path. Round-tripping both directions covers parse and build.
+const cases: { route: Route; path: string }[] = [
+  { route: { kind: "library", space: personal }, path: "/personal" },
+  { route: { kind: "library", space: team }, path: "/t/acme" },
+  { route: { kind: "topic", space: personal, topicSlug: "serve-receive" }, path: "/personal/topic/serve-receive" },
+  { route: { kind: "topic", space: team, topicSlug: "rotations" }, path: "/t/acme/topic/rotations" },
+  { route: { kind: "board", space: personal, boardId: "b-1", edit: false }, path: "/personal/board/b-1" },
+  { route: { kind: "board", space: personal, boardId: "b-1", edit: true }, path: "/personal/board/b-1/edit" },
+  { route: { kind: "board", space: team, boardId: "b-2", edit: false }, path: "/t/acme/board/b-2" },
+  { route: { kind: "board", space: team, boardId: "b-2", edit: true }, path: "/t/acme/board/b-2/edit" },
+  { route: { kind: "team", teamSlug: "acme" }, path: "/t/acme/team" },
+  { route: { kind: "settings" }, path: "/settings" },
+  { route: { kind: "admin", sub: "teams" }, path: "/admin/teams" },
+  { route: { kind: "admin", sub: "accounts" }, path: "/admin/accounts" },
+  { route: { kind: "admin", sub: "recovery" }, path: "/admin/recovery" },
+];
+
+describe("parsePath / buildPath", () => {
+  test.each(cases)("round-trips $path", ({ route, path }) => {
+    expect(buildPath(route)).toBe(path);
+    expect(parsePath(path)).toEqual(route);
+  });
+
+  it("parses the root path and builds it back", () => {
+    expect(parsePath("/")).toEqual({ kind: "root" });
+    expect(parsePath("")).toEqual({ kind: "root" });
+    expect(buildPath({ kind: "root" })).toBe("/");
+  });
+
+  it("keeps a topic URL flat, so it survives re-nesting", () => {
+    // The slug is the whole topic segment: no ancestor path is encoded.
+    expect(parsePath("/t/acme/topic/deep")).toEqual({ kind: "topic", space: team, topicSlug: "deep" });
+  });
+
+  it("treats board view and edit as distinct routes", () => {
+    expect(parsePath("/personal/board/x")).toMatchObject({ edit: false });
+    expect(parsePath("/personal/board/x/edit")).toMatchObject({ edit: true });
+  });
+
+  it("canonicalises a bare /admin to the teams sub-page", () => {
+    expect(parsePath("/admin")).toEqual({ kind: "admin", sub: "teams" });
+    expect(buildPath(parsePath("/admin"))).toBe("/admin/teams");
+  });
+
+  it("ignores a trailing slash", () => {
+    expect(parsePath("/personal/")).toEqual({ kind: "library", space: personal });
+    expect(parsePath("/t/acme/")).toEqual({ kind: "library", space: team });
+  });
+
+  it("round-trips a slug that needs URL-encoding", () => {
+    const route: Route = { kind: "topic", space: { kind: "team", teamSlug: "a b" }, topicSlug: "c/d" };
+
+    expect(parsePath(buildPath(route))).toEqual(route);
+  });
+
+  test.each([
+    "/nope",
+    "/admin/nope",
+    "/settings/extra",
+    "/personal/board",
+    "/personal/team",
+    "/personal/board/x/copy",
+    "/t",
+  ])("falls back to not-found for %s", (path) => {
+    expect(parsePath(path)).toEqual({ kind: "notFound", path });
+  });
+
+  it("does not interpret the URL hash (share and invite links ride the hash)", () => {
+    // parsePath reads only the pathname; a share/invite hash leaves the path as root.
+    expect(parsePath("/")).toEqual({ kind: "root" });
+  });
+});
+
+describe("routeSpace", () => {
+  it("returns the space for space-bearing routes, including team management", () => {
+    expect(routeSpace({ kind: "library", space: team })).toEqual(team);
+    expect(routeSpace({ kind: "topic", space: personal, topicSlug: "x" })).toEqual(personal);
+    expect(routeSpace({ kind: "board", space: team, boardId: "b", edit: false })).toEqual(team);
+    expect(routeSpace({ kind: "team", teamSlug: "acme" })).toEqual(team);
+  });
+
+  it("returns null for the space-less routes", () => {
+    expect(routeSpace({ kind: "settings" })).toBeNull();
+    expect(routeSpace({ kind: "admin", sub: "teams" })).toBeNull();
+    expect(routeSpace({ kind: "root" })).toBeNull();
+    expect(routeSpace({ kind: "notFound", path: "/x" })).toBeNull();
+  });
+});
+
+describe("sameRouteSpace", () => {
+  it("compares spaces by kind and team handle", () => {
+    expect(sameRouteSpace(personal, { kind: "personal" })).toBe(true);
+    expect(sameRouteSpace(team, { kind: "team", teamSlug: "acme" })).toBe(true);
+    expect(sameRouteSpace(team, { kind: "team", teamSlug: "other" })).toBe(false);
+    expect(sameRouteSpace(personal, team)).toBe(false);
+  });
+});

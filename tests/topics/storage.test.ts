@@ -27,6 +27,7 @@ describe("topics storage", () => {
     const topic: Topic = {
       id: "t",
       title: "T",
+      slug: "t",
       blocks: [
         { id: "m", kind: "markdown", text: "hi" },
         { id: "g", kind: "boards", boardIds: ["b1", "b2"] },
@@ -39,7 +40,8 @@ describe("topics storage", () => {
     expect(loadTopics()).toEqual([topic]);
   });
 
-  const topicWith = (blocks: unknown) => JSON.stringify([{ id: "t", title: "T", blocks, parentId: null, order: 0 }]);
+  const topicWith = (blocks: unknown) =>
+    JSON.stringify([{ id: "t", title: "T", slug: "t", blocks, parentId: null, order: 0 }]);
 
   test.each([
     ["malformed json", "not json"],

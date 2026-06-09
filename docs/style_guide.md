@@ -42,3 +42,11 @@
 - Use `@testing-library/user-event` for realistic interactions.
 - Do not mock our own components, hooks, or utilities. Test real integration, and mock only external dependencies (network calls, Supabase, browser APIs).
 - Mirror the `src/` structure under `tests/`, and name files `*.test.ts` / `*.test.tsx`.
+
+## UI Controls
+
+- Every control renders through the `src/ui/` wrappers and the shared class strings in `src/ui/styles.ts`. Never style a control with ad-hoc classes.
+- Use one `primary` Button per view: the single main action.
+- Use `ghost` for secondary actions. Use `text` or an `IconButton` for quiet actions.
+- Use `danger` only for destructive actions. Use `dashed` only for "add" affordances.
+- A destructive row action is an `IconButton` with an `aria-label`, never a bespoke button with its own class string.

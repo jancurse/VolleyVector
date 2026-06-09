@@ -122,6 +122,25 @@ export const OVERLAY_MOTION =
 export const OVERLAY_ITEM =
   "flex w-full items-center cursor-default select-none rounded-sm px-2 py-1.5 text-left font-ui text-base font-semibold text-text outline-none data-[highlighted]:bg-control-hover data-[selected]:bg-control-hover";
 
+// ---- Tables (management pages) ----------------------------------------------------------------
+
+// One shared table look for every management page (members, teams, accounts, recovery), so all four
+// render identically from existing tokens. The frame wraps the table as a panel card; the table drops
+// its last row's rule so it never doubles the frame's border.
+
+/** The bordered card a management table sits in, matching the panel surface. */
+export const TABLE_FRAME = "overflow-hidden rounded-xl border border-border bg-panel";
+
+/** The table element: full width, with the last body row's rule removed. */
+export const TABLE = "w-full border-collapse text-left text-base [&_tbody_tr:last-child_td]:border-0";
+
+/** A header cell: a quiet mono caption per column. */
+export const TABLE_HEAD_CELL =
+  "border-b border-border px-4 py-2.5 font-mono text-2xs font-semibold uppercase tracking-[0.16em] text-text-dim";
+
+/** A body cell, ruled off from the next row. */
+export const TABLE_CELL = "border-b border-border px-4 py-3 align-middle";
+
 // ---- Swatches and domain composites -----------------------------------------------------------
 
 /** The coloured role/colour disc, shared by the inspector's swatch picker and the palette legend. */

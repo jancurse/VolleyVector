@@ -1,5 +1,5 @@
 import { MotionConfig } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
@@ -38,33 +38,19 @@ function DescriptionPanel({ markdown }: { markdown: string }): JSX.Element {
 
 // The read-only surface for one board, what players and share-link visitors get. A Position renders a
 // single static court and its description; a Sequence renders the animated court with a transport and
-// a step scrubber, plus the current step's instruction (markdown) below the description. A coach lands
-// here before choosing to edit.
+// a step scrubber, plus the current step's instruction (markdown) below the description. In the app the
+// board's contextual actions (share, copy, lock, edit) live in the shell's top bar; the share page,
+// which has no top bar, injects its actions into the header here.
 type BoardViewProps = {
   board: Board;
-  /** Whether the current user may edit this board (a coach of its team or an admin, lock permitting). */
-  canEdit: boolean;
-  /** Whether the current user may set or clear the author lock (the board's author, or an admin). */
-  canSetLock: boolean;
-  onToggleLock: () => void;
-  onEdit: () => void;
   onBack: () => void;
   /** Label for the back button. Defaults to the library; the share page overrides it. */
   backLabel?: string;
-  /** Extra action buttons for the header bar (sharing, copying, promoting), injected by the caller. */
+  /** Action buttons for the header bar (copying, promoting), used by the shell-less share page. */
   actions?: ReactNode;
 };
 
-export function BoardView({
-  board,
-  canEdit,
-  canSetLock,
-  onToggleLock,
-  onEdit,
-  onBack,
-  backLabel = "← Library",
-  actions,
-}: BoardViewProps): JSX.Element {
+export function BoardView({ board, onBack, backLabel = "← Library", actions }: BoardViewProps): JSX.Element {
   const sequence = isSequence(board);
   const playback = useBoardPlayback(board.steps.length);
   const { step, playing, atEnd } = playback;
@@ -85,25 +71,6 @@ export function BoardView({
     setStepDirection(step < prevStep ? "animate-step-back" : "animate-step-fwd");
   }
 
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-
-    const id = window.setTimeout(() => setCopied(false), 1500);
-
-    return () => window.clearTimeout(id);
-  }, [copied]);
-
-  const copyJson = async () => {
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(board, null, 2));
-      setCopied(true);
-    } catch {
-      // The clipboard call can reject (no permission or an insecure context); keep the view intact.
-    }
-  };
-
   return (
     <MotionConfig reducedMotion="user">
       <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(1rem,3vh,1.75rem)] animate-rise motion-reduce:animate-none">
@@ -115,22 +82,7 @@ export function BoardView({
             <p className={EYEBROW}>{sequence ? "Sequence" : "Position"}</p>
             <h1 className={TITLE}>{board.title || "Untitled board"}</h1>
           </div>
-          <div className="flex flex-none items-center gap-2">
-            {actions}
-            <Button variant="ghost" onClick={copyJson}>
-              {copied ? "Copied" : "Copy JSON"}
-            </Button>
-            {canSetLock && (
-              <Button variant="ghost" onClick={onToggleLock}>
-                {board.authorLocked ? "Unlock editing" : "Lock editing"}
-              </Button>
-            )}
-            {canEdit && (
-              <Button variant="primary" onClick={onEdit}>
-                Edit
-              </Button>
-            )}
-          </div>
+          {actions && <div className="flex flex-none items-center gap-2">{actions}</div>}
         </div>
 
         {sequence ? (

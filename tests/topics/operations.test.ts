@@ -21,11 +21,11 @@ import type { Topic, TopicBlock } from "../../src/topics/types";
 
 // A small tree: two roots (A before B); A has children A1, A2; A1 has a grandchild A1a.
 const TREE: Topic[] = [
-  { id: "A", title: "A", blocks: [], parentId: null, order: 0 },
-  { id: "B", title: "B", blocks: [], parentId: null, order: 1 },
-  { id: "A1", title: "A1", blocks: [], parentId: "A", order: 0 },
-  { id: "A2", title: "A2", blocks: [], parentId: "A", order: 1 },
-  { id: "A1a", title: "A1a", blocks: [], parentId: "A1", order: 0 },
+  { id: "A", title: "A", slug: "a", blocks: [], parentId: null, order: 0 },
+  { id: "B", title: "B", slug: "b", blocks: [], parentId: null, order: 1 },
+  { id: "A1", title: "A1", slug: "a1", blocks: [], parentId: "A", order: 0 },
+  { id: "A2", title: "A2", slug: "a2", blocks: [], parentId: "A", order: 1 },
+  { id: "A1a", title: "A1a", slug: "a1a", blocks: [], parentId: "A1", order: 0 },
 ];
 
 describe("childrenOf", () => {
@@ -61,6 +61,16 @@ describe("createTopic", () => {
 
     expect(created).toMatchObject({ title: "A3", parentId: "A", blocks: [] });
     expect(childrenOf(topics, "A").map((t) => t.id)).toEqual(["A1", "A2", id]); // last among A's children
+  });
+
+  test("mints the slug from the title, disambiguating a duplicate with -2", () => {
+    const first = createTopic(TREE, null, "Serve Receive");
+
+    expect(first.topics.find((t) => t.id === first.id)?.slug).toBe("serve-receive");
+
+    const second = createTopic(first.topics, null, "Serve Receive");
+
+    expect(second.topics.find((t) => t.id === second.id)?.slug).toBe("serve-receive-2");
   });
 });
 

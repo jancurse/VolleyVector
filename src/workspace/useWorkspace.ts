@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../auth/useAuth";
+import { slugify } from "../routing/slug";
 import { supabase } from "../supabase/client";
 import type { Space } from "./space";
 
@@ -13,6 +14,8 @@ export type TeamRole = "coach" | "player";
 export type TeamMembership = {
   teamId: string;
   teamName: string;
+  /** The team's URL handle: minted once at creation, stable across renames. */
+  slug: string;
   role: TeamRole;
 };
 
@@ -37,7 +40,7 @@ export type Workspace = {
 };
 
 type MembershipRow = { team_id: string; role: TeamRole };
-type TeamRow = { id: string; name: string; archived_at: string | null; deleted_at: string | null };
+type TeamRow = { id: string; name: string; slug: string; archived_at: string | null; deleted_at: string | null };
 
 export function useWorkspace(): Workspace {
   const { user } = useAuth();
@@ -77,7 +80,7 @@ export function useWorkspace(): Workspace {
       const rows = (memberships.data ?? []) as MembershipRow[];
       const ids = rows.map((m) => m.team_id);
       const named = ids.length
-        ? await supabase.from("teams").select("id, name, archived_at, deleted_at").in("id", ids)
+        ? await supabase.from("teams").select("id, name, slug, archived_at, deleted_at").in("id", ids)
         : null;
 
       if (!active) return;
@@ -85,10 +88,15 @@ export function useWorkspace(): Workspace {
       // An archived or deleted team is hidden from the space switcher, so neither can be the active space.
       const teamRows = (named?.data ?? []) as TeamRow[];
       const hidden = new Set(teamRows.filter((t) => t.archived_at || t.deleted_at).map((t) => t.id));
-      const names = new Map(teamRows.map((t) => [t.id, t.name]));
+      const byId = new Map<string, TeamRow>(teamRows.map((t) => [t.id, t]));
       const list = rows
         .filter((m) => !hidden.has(m.team_id))
-        .map((m) => ({ teamId: m.team_id, teamName: names.get(m.team_id) ?? "Team", role: m.role }));
+        .map((m) => ({
+          teamId: m.team_id,
+          teamName: byId.get(m.team_id)?.name ?? "Team",
+          slug: byId.get(m.team_id)?.slug ?? m.team_id,
+          role: m.role,
+        }));
 
       const data = profile.data as { is_admin: boolean; display_name: string | null };
 
@@ -113,7 +121,14 @@ export function useWorkspace(): Workspace {
     async (name: string): Promise<string | null> => {
       if (!user) return null;
 
-      const created = await supabase.from("teams").insert({ name }).select("id").single();
+      let slug = slugify(name);
+      let created = await supabase.from("teams").insert({ name, slug }).select("id").single();
+
+      // Slugs are globally unique across teams; on a collision retry once with a random suffix.
+      if (created.error?.code === "23505") {
+        slug = `${slugify(name)}-${Math.random().toString(36).slice(2, 6)}`;
+        created = await supabase.from("teams").insert({ name, slug }).select("id").single();
+      }
 
       if (created.error || !created.data) {
         setError(created.error?.message ?? "Could not create team");
@@ -130,7 +145,7 @@ export function useWorkspace(): Workspace {
         return null;
       }
 
-      setTeams((prev) => [...prev, { teamId, teamName: name, role: "coach" }]);
+      setTeams((prev) => [...prev, { teamId, teamName: name, slug, role: "coach" }]);
       setActiveSpace({ kind: "team", teamId });
 
       return teamId;

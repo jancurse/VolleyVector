@@ -28,7 +28,7 @@ const ONE = board("b1", "Board One");
 const TWO = board("b2", "Board Two");
 
 function renderView(blocks: TopicBlock[], boards: Board[]) {
-  const topic: Topic = { id: "t", title: "Topic", blocks, parentId: null, order: 0 };
+  const topic: Topic = { id: "t", title: "Topic", slug: "topic", blocks, parentId: null, order: 0 };
 
   render(
     <TopicView
@@ -39,6 +39,7 @@ function renderView(blocks: TopicBlock[], boards: Board[]) {
       onSelectTopic={vi.fn()}
       onEdit={vi.fn()}
       onAddSubtopic={vi.fn()}
+      onNewBoard={vi.fn()}
       canEdit
     />
   );

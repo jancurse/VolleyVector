@@ -37,6 +37,7 @@ export type TopicRow = {
   scope: Scope;
   team_id: string | null;
   title: string;
+  slug: string;
   blocks: TopicBlock[];
   parent_id: string | null;
   sort_order: number;
@@ -68,6 +69,7 @@ export type TopicInsert = {
   scope: Scope;
   team_id: string | null;
   title: string;
+  slug: string;
   blocks: TopicBlock[];
   parent_id: string | null;
   sort_order: number;
@@ -124,6 +126,7 @@ export function topicFromRow(row: TopicRow): Topic {
   return {
     id: row.id,
     title: row.title,
+    slug: row.slug,
     blocks: row.blocks,
     parentId: row.parent_id,
     order: row.sort_order,
@@ -137,6 +140,7 @@ export function topicToInsert(topic: Topic, owner: string, scope: Scope, teamId:
     scope,
     team_id: teamId,
     title: topic.title,
+    slug: topic.slug,
     blocks: topic.blocks,
     parent_id: topic.parentId,
     sort_order: topic.order,

@@ -68,6 +68,7 @@ function toTopicRow(topic: Topic): TopicRow {
     scope: "team",
     team_id: TEST_TEAM_ID,
     title: topic.title,
+    slug: topic.slug,
     blocks: topic.blocks,
     parent_id: topic.parentId,
     sort_order: topic.order,
@@ -153,6 +154,7 @@ type Query = {
   is: (column: string, value: unknown) => Query;
   not: (column: string, op: string, value: unknown) => Query;
   single: () => Promise<DbResult>;
+  maybeSingle: () => Promise<DbResult>;
   then: (onfulfilled: (value: DbResult) => unknown, onrejected?: (reason: unknown) => unknown) => Promise<unknown>;
 };
 
@@ -197,6 +199,7 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
       return query;
     },
     single: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
+    maybeSingle: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     then: (onfulfilled, onrejected) => Promise.resolve(write ? ok(null) : ok(matches())).then(onfulfilled, onrejected),
   };
 
@@ -251,8 +254,8 @@ function from(table: string): Query {
       return makeQuery(
         table,
         [
-          { id: TEST_TEAM_ID, name: "My Team", archived_at: null, deleted_at: null },
-          { id: DELETED_TEAM.id, name: DELETED_TEAM.name, archived_at: null, deleted_at: ISO },
+          { id: TEST_TEAM_ID, name: "My Team", slug: "my-team", archived_at: null, deleted_at: null },
+          { id: DELETED_TEAM.id, name: DELETED_TEAM.name, slug: "old-team", archived_at: null, deleted_at: ISO },
         ],
         { id: "new-team" }
       );

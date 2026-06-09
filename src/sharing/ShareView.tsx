@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { useAuth } from "../auth/useAuth";
 import type { Board } from "../boards/types";
 import { BoardView } from "../editor/BoardView";
+import { CopyJsonButton } from "../editor/CopyJsonButton";
 import { Button } from "../ui/Button";
 import { cx, MUTED } from "../ui/styles";
 import { useWorkspace } from "../workspace/useWorkspace";
@@ -49,15 +50,16 @@ export function ShareView({ token }: { token: string }): JSX.Element {
 
   let actions: JSX.Element | undefined;
 
-  if (user && loaded.status === "ready") {
+  if (loaded.status === "ready") {
     const board = loaded.board;
 
     actions = (
       <>
-        <CopyToPersonalButton onCopy={() => copyBoardToPersonal(board, user.id)} />
-        {coached.length > 0 && (
+        {user && <CopyToPersonalButton onCopy={() => copyBoardToPersonal(board, user.id)} />}
+        {user && coached.length > 0 && (
           <PromoteToTeamMenu teams={coached} onPromote={(teamId) => copyBoardToTeam(board, user.id, teamId)} />
         )}
+        <CopyJsonButton board={board} />
       </>
     );
   }
@@ -90,10 +92,6 @@ export function ShareView({ token }: { token: string }): JSX.Element {
         {loaded.status === "ready" && (
           <BoardView
             board={loaded.board}
-            canEdit={false}
-            canSetLock={false}
-            onToggleLock={() => {}}
-            onEdit={() => {}}
             onBack={openApp}
             backLabel={user ? "← Open VolleyCoach" : "← Sign in"}
             actions={actions}
