@@ -69,6 +69,13 @@ export function iconButtonClass(variant: IconButtonVariant, size: IconButtonSize
   return cx(ICON_BASE, ICON_VARIANT[variant], ICON_SIZE[size]);
 }
 
+// ---- Toggles ----------------------------------------------------------------------------------
+
+/** A pill toggle: quiet by default, accent-tinted when pressed. Shared by the wrapped tag filter and
+    the standalone Toggle control. */
+export const TOGGLE_PILL =
+  "cursor-pointer rounded-pill border border-border bg-control px-2.5 py-1 font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:bg-control-hover hover:text-text data-[pressed]:border-[color-mix(in_srgb,var(--accent)_45%,transparent)] data-[pressed]:bg-accent-weak data-[pressed]:text-text";
+
 // ---- Panels, fields, overlays -----------------------------------------------------------------
 
 /** The bordered card the inspector, description, tag editor, and topic picker share. */
@@ -101,8 +108,11 @@ export const PAGE_BAR = "flex flex-wrap items-end justify-between gap-4 max-[760
 export const INPUT =
   "w-full border border-border bg-control text-text rounded-md transition-[border-color,background-color] duration-150 ease-settle focus:outline-none focus:border-accent focus:bg-control-hover placeholder:text-text-dim";
 
+/** The floating overlay surface (border, fill, shadow) without padding, so a caller can set its own. */
+export const OVERLAY_SURFACE = "z-20 rounded-lg border border-border bg-court-surface shadow-overlay outline-none";
+
 /** A floating overlay surface for menus, listboxes, and combobox popups. */
-export const OVERLAY = "z-20 rounded-lg border border-border bg-court-surface p-1 shadow-overlay outline-none";
+export const OVERLAY = cx(OVERLAY_SURFACE, "p-1");
 
 /** Restrained enter/exit for overlays, on the shared settle easing; honours reduced motion. */
 export const OVERLAY_MOTION =

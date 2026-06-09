@@ -40,6 +40,30 @@
   transition: stroke 0.4s ease;
 }
 
+/* The authoring grid: hairline reference lines that read as texture, not structure. Finer grids dim
+   and thin out so a dense 27×27 stays a quiet wash rather than a busy mesh. */
+.court-grid {
+  animation: court-fade 0.3s var(--ease-settle) both;
+}
+
+.court-grid[data-divisions="9"] {
+  opacity: 0.78;
+}
+
+.court-grid[data-divisions="27"] {
+  opacity: 0.5;
+}
+
+.court-grid-line {
+  stroke: var(--court-grid);
+  stroke-width: 1.5;
+  transition: stroke 0.4s ease;
+}
+
+.court-grid[data-divisions="27"] .court-grid-line {
+  stroke-width: 1;
+}
+
 .court-net-tape {
   stroke: var(--net);
   stroke-width: 4;
@@ -162,7 +186,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .court-marker,
-  .court-arrow {
+  .court-arrow,
+  .court-grid {
     animation: none;
   }
 }

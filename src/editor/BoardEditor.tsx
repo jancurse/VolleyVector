@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { JSX, KeyboardEvent } from "react";
 
 import { arrowsForStep } from "../boards/arrows";
@@ -16,15 +16,15 @@ import {
 import type { Board } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { Court } from "../court/Court";
-import { clampToCourt } from "../court/geometry";
+import { clampToCourt, snapToGrid } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
-import type { CourtMode, MarkerRole } from "../court/roles";
+import type { MarkerRole } from "../court/roles";
 import { TopicPicker } from "../topics/TopicPicker";
 import type { Topic } from "../topics/types";
 import { Button } from "../ui/Button";
 import { CourtFrame } from "../ui/CourtFrame";
 import { Input } from "../ui/Input";
-import { ToggleGroup } from "../ui/ToggleGroup";
+import { CourtToolbar } from "./CourtToolbar";
 import { DescriptionEditor } from "./DescriptionEditor";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
@@ -39,11 +39,6 @@ const ARROW_DELTAS: Record<string, NormalizedPoint> = {
   ArrowUp: { x: 0, y: -1 },
   ArrowDown: { x: 0, y: 1 },
 };
-
-const MODE_ITEMS = [
-  { value: "positions", label: "Positions" },
-  { value: "basic", label: "Basic" },
-];
 
 // Edits a working draft of one board, one step at a time. A single-step board is a Position — a
 // static court, with an Add step affordance that clones the current positions to promote it to a
@@ -75,7 +70,14 @@ export function BoardEditor({
   const [draft, setDraft] = useState(board);
   const [activeStepId, setActiveStepId] = useState(board.steps[0].id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [grid, setGrid] = useState(0);
+  const [snapOn, setSnapOn] = useState(true);
   const frameRef = useRef<HTMLElement>(null);
+
+  const snap = useMemo(
+    () => (grid > 0 && snapOn ? (p: NormalizedPoint) => snapToGrid(p, grid) : undefined),
+    [grid, snapOn]
+  );
 
   const stepIndex = Math.max(
     0,
@@ -176,6 +178,8 @@ export function BoardEditor({
             <Court
               markers={markers}
               arrows={arrows}
+              grid={grid}
+              snap={snap}
               label={draft.title || "Untitled board"}
               selectedId={selectedId}
               onSelect={select}
@@ -200,11 +204,13 @@ export function BoardEditor({
             </div>
           )}
 
-          <ToggleGroup
-            ariaLabel="Court mode"
-            items={MODE_ITEMS}
-            value={draft.mode}
-            onValueChange={(mode) => setDraft((d) => ({ ...d, mode: mode as CourtMode }))}
+          <CourtToolbar
+            mode={draft.mode}
+            onModeChange={(mode) => setDraft((d) => ({ ...d, mode }))}
+            grid={grid}
+            onGridChange={setGrid}
+            snap={snapOn}
+            onSnapChange={setSnapOn}
           />
 
           <MarkerPalette mode={draft.mode} onAdd={add} />

@@ -94,6 +94,7 @@
   --court-zone: #232a36;
   --court-line: rgba(228, 233, 242, 0.82);
   --net: rgba(228, 233, 242, 0.42);
+  --court-grid: rgba(228, 233, 242, 0.11);
   --court-cast: rgba(0, 0, 0, 0.55);
   --ball-arrow: #d7dcea;
 
@@ -124,6 +125,7 @@
   --court-zone: #efeadd;
   --court-line: #2c313c;
   --net: rgba(44, 49, 60, 0.45);
+  --court-grid: rgba(44, 49, 60, 0.13);
   --court-cast: rgba(46, 44, 62, 0.18);
   --ball-arrow: #2c313c;
 

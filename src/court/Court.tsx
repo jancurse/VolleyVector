@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { Arrows } from "./Arrows";
 import { ATTACK_LINE, COURT_SPAN, toSvg, VIEW_SIZE } from "./geometry";
 import type { NormalizedPoint } from "./geometry";
+import { CourtGrid } from "./Grid";
 import { Marker } from "./Marker";
 import type { Arrow, Marker as MarkerData } from "./types";
 import { useMarkerDrag } from "./useMarkerDrag";
@@ -32,6 +33,10 @@ type CourtProps = {
   animated?: boolean;
   /** Derived movement arrows to overlay (drill steps); drawn beneath the markers. */
   arrows?: readonly Arrow[];
+  /** Faint reference grid: the number of cells per axis (0 = off). An authoring aid. */
+  grid?: number;
+  /** Optional transform applied to each dragged position, e.g. snapping it to the grid. */
+  snap?: (position: NormalizedPoint) => NormalizedPoint;
   /** Provide both `onSelect` and `onMove` to make the court an editable surface. */
   onSelect?: (id: string | null) => void;
   onMove?: (id: string, position: NormalizedPoint) => void;
@@ -43,12 +48,14 @@ export function Court({
   selectedId = null,
   animated = false,
   arrows,
+  grid = 0,
+  snap,
   onSelect,
   onMove,
 }: CourtProps): JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null);
   const editable = Boolean(onSelect && onMove);
-  const drag = useMarkerDrag(svgRef, onSelect ?? noSelect, onMove ?? noMove);
+  const drag = useMarkerDrag(svgRef, onSelect ?? noSelect, onMove ?? noMove, snap);
 
   return (
     <svg
@@ -73,6 +80,8 @@ export function Court({
 
       <rect className="court-play" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
       <rect className="court-zone" x={left} y={toSvg(0)} width={COURT_SPAN} height={ATTACK_LINE * COURT_SPAN} />
+
+      <CourtGrid divisions={grid} />
 
       <rect className="court-boundary" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
       <line className="court-attack" x1={left} y1={toSvg(ATTACK_LINE)} x2={right} y2={toSvg(ATTACK_LINE)} />

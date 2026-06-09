@@ -26,10 +26,13 @@ function clientToNormalized(svg: SVGSVGElement, clientX: number, clientY: number
   return fromSvgPoint({ x: point.x, y: point.y });
 }
 
+const identity = (position: NormalizedPoint): NormalizedPoint => position;
+
 export function useMarkerDrag(
   svgRef: RefObject<SVGSVGElement | null>,
   onSelect: (id: string | null) => void,
-  onMove: (id: string, position: NormalizedPoint) => void
+  onMove: (id: string, position: NormalizedPoint) => void,
+  snap: (position: NormalizedPoint) => NormalizedPoint = identity
 ): MarkerDrag {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -49,9 +52,9 @@ export function useMarkerDrag(
 
       const position = clientToNormalized(svgRef.current, event.clientX, event.clientY);
 
-      if (position) onMove(draggingId, clampToCourt(position));
+      if (position) onMove(draggingId, snap(clampToCourt(position)));
     },
-    [draggingId, onMove, svgRef]
+    [draggingId, onMove, snap, svgRef]
   );
 
   return {
