@@ -20,7 +20,7 @@ VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, brow
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
 - `src/topics/`: the topic-tree model, operations, store, sidebar, and topic view/editor.
 - `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle and dev-only debug menu.
-- `src/supabase/`, `src/auth/`, `src/workspace/`, `src/team/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the active-space and team membership state, team management (invites, roles), and the sharing flows (share dialog, copy/promote, the share-token route and read-only viewer).
+- `src/supabase/`, `src/auth/`, `src/account/`, `src/workspace/`, `src/team/`, `src/admin/`, `src/invites/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the account panel and display-name setup, the active-space and team membership state, team management (roles, invite links), admin management (teams, accounts, deleted-content recovery), the invite-link flow (preview, accept, set-password), and the sharing flows (share dialog, copy/promote, the share-token route and read-only viewer).
 - `src/App.tsx`: the top-level shell that owns navigation and wires the stores together.
 
 See @docs/architecture.md for how these fit together and the detail behind each.
