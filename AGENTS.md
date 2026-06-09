@@ -52,7 +52,7 @@ See @docs/architecture.md for how these fit together and the detail behind each.
 
 All commands run from the project root. See @docs/development.md for the full list.
 
-- `npm run dev` starts the Vite dev server
+- `npm run dev` starts the Vite dev server. Run it bare, never with `--port`: Vite auto-picks a free port, and a non-standard port is not in the Supabase auth redirect allow-list.
 - `npm run build` type-checks and builds for production
 - `npm run format`, `npm run lint`, and `npm run typecheck` format, lint, and type-check `src`/`tests`
 - `npm run test` runs the test suite
