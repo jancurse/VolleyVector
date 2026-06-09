@@ -12,7 +12,7 @@ export type Scope = "team" | "personal";
 
 export type BoardRow = {
   id: string;
-  owner: string;
+  owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;
@@ -27,11 +27,13 @@ export type BoardRow = {
   share_token: string;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
 };
 
 export type TopicRow = {
   id: string;
-  owner: string;
+  owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;
@@ -40,11 +42,13 @@ export type TopicRow = {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
 };
 
 export type BoardInsert = {
   id: string;
-  owner: string;
+  owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;
@@ -60,7 +64,7 @@ export type BoardUpdate = Omit<BoardInsert, "id" | "owner" | "scope" | "team_id"
 
 export type TopicInsert = {
   id: string;
-  owner: string;
+  owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;

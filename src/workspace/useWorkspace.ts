@@ -37,7 +37,7 @@ export type Workspace = {
 };
 
 type MembershipRow = { team_id: string; role: TeamRole };
-type TeamRow = { id: string; name: string };
+type TeamRow = { id: string; name: string; archived_at: string | null; deleted_at: string | null };
 
 export function useWorkspace(): Workspace {
   const { user } = useAuth();
@@ -76,12 +76,19 @@ export function useWorkspace(): Workspace {
 
       const rows = (memberships.data ?? []) as MembershipRow[];
       const ids = rows.map((m) => m.team_id);
-      const named = ids.length ? await supabase.from("teams").select("id, name").in("id", ids) : null;
+      const named = ids.length
+        ? await supabase.from("teams").select("id, name, archived_at, deleted_at").in("id", ids)
+        : null;
 
       if (!active) return;
 
-      const names = new Map(((named?.data ?? []) as TeamRow[]).map((t) => [t.id, t.name]));
-      const list = rows.map((m) => ({ teamId: m.team_id, teamName: names.get(m.team_id) ?? "Team", role: m.role }));
+      // An archived or deleted team is hidden from the space switcher, so neither can be the active space.
+      const teamRows = (named?.data ?? []) as TeamRow[];
+      const hidden = new Set(teamRows.filter((t) => t.archived_at || t.deleted_at).map((t) => t.id));
+      const names = new Map(teamRows.map((t) => [t.id, t.name]));
+      const list = rows
+        .filter((m) => !hidden.has(m.team_id))
+        .map((m) => ({ teamId: m.team_id, teamName: names.get(m.team_id) ?? "Team", role: m.role }));
 
       const data = profile.data as { is_admin: boolean; display_name: string | null };
 

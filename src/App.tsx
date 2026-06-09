@@ -25,6 +25,7 @@ import { TeamManager } from "./team/TeamManager";
 import { AdminManager } from "./admin/AdminManager";
 import { AccountManager } from "./account/AccountManager";
 import { NameSetup } from "./account/NameSetup";
+import { deleteAccount } from "./supabase/deleteAccount";
 import { useWorkspace } from "./workspace/useWorkspace";
 import { useShareRoute } from "./sharing/useShareRoute";
 import { ShareView } from "./sharing/ShareView";
@@ -106,6 +107,28 @@ export function App(): JSX.Element {
     deleteBoard(id);
     setDraft(null);
     setOpenId(null);
+  };
+
+  const deleteOwnAccount = async () => {
+    const ok = await confirm({
+      title: "Delete your account?",
+      description:
+        "Your personal content is archived for 3 months; team content you authored stays with the team. This cannot be undone.",
+      confirmLabel: "Delete account",
+      danger: true,
+    });
+
+    if (!ok) return;
+
+    const { error } = await deleteAccount();
+
+    if (error) {
+      await confirm({ title: "Could not delete your account", description: error, confirmLabel: "OK" });
+
+      return;
+    }
+
+    await signOut();
   };
 
   const createTopic = (parentId: string | null) => setSelection({ kind: "topic", id: topics.addTopic(parentId) });
@@ -282,6 +305,9 @@ export function App(): JSX.Element {
             <Button variant="ghost" size="sm" onClick={() => void signOut()}>
               Sign out
             </Button>
+            <Button variant="danger" size="sm" onClick={() => void deleteOwnAccount()}>
+              Delete account
+            </Button>
           </div>
         </header>
 
@@ -300,7 +326,12 @@ export function App(): JSX.Element {
           teamName={teamName ?? ""}
           canManage={canEdit}
         />
-        <AdminManager open={adminOpen} onOpenChange={setAdminOpen} onCreateTeam={workspace.createTeam} />
+        <AdminManager
+          open={adminOpen}
+          onOpenChange={setAdminOpen}
+          onCreateTeam={workspace.createTeam}
+          currentUserId={user.id}
+        />
         <AccountManager
           open={accountOpen}
           onOpenChange={setAccountOpen}

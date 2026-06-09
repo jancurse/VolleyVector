@@ -798,3 +798,14 @@ describe("share links", () => {
     expect(await screen.findByText("Added to My Team")).toBeInTheDocument();
   });
 });
+
+// Self-service account deletion lives in the header, available to every signed-in user (admin actions on
+// other accounts live in the Admin panel, covered in admin/AdminManager.test).
+describe("account deletion", () => {
+  test("the header offers a self-delete action even to a non-admin", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+    await renderApp();
+
+    expect(screen.getByRole("button", { name: "Delete account" })).toBeInTheDocument();
+  });
+});

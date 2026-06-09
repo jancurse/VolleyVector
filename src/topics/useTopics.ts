@@ -37,9 +37,10 @@ function changedPlacements(prev: readonly Topic[], next: readonly Topic[]): Topi
   });
 }
 
-/** A read query for the topics of one space: a team's by team, the personal space's by owner. */
+/** A read query for the topics of one space: a team's by team, the personal space's by owner. Grace-archived
+ *  rows (deleted_at set) are hidden from every normal view; only admin recovery reads them. */
 function selectSpaceTopics(space: Space, userId: string) {
-  const query = supabase.from("topics").select("*");
+  const query = supabase.from("topics").select("*").is("deleted_at", null);
 
   return space.kind === "team"
     ? query.eq("scope", "team").eq("team_id", space.teamId)
@@ -151,12 +152,10 @@ export function useTopics(space: Space | null): TopicsStore {
   const removeTopic = useCallback(
     (id: string) => {
       setTopics((prev) => deleteTopic(prev, id));
-      // The row's ON DELETE CASCADE removes the whole subtree server-side; boards return to Unfiled
-      // via the topic_id ON DELETE SET NULL.
+      // soft_delete_topic grace-archives the whole subtree server-side and returns its member boards to
+      // Unfiled (topic_id = null), so a deleted topic is recoverable by an admin within the window.
       void supabase
-        .from("topics")
-        .delete()
-        .eq("id", id)
+        .rpc("soft_delete_topic", { root: id })
         .then(({ error: writeError }) => writeError && fail(writeError.message));
     },
     [fail]

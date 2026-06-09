@@ -74,13 +74,22 @@ export function useMembers(teamId: string | null): {
 
       const rows = (memberships.data ?? []) as MembershipRow[];
       const ids = rows.map((m) => m.user_id);
-      const profiles = ids.length ? await supabase.from("profiles").select("id, email").in("id", ids) : null;
+      // Exclude soft-deleted accounts: they keep their membership (so a restore re-grants team access) but
+      // must not appear in the live roster.
+      const profiles = ids.length
+        ? await supabase.from("profiles").select("id, email").in("id", ids).is("deleted_at", null)
+        : null;
 
       if (!active) return;
 
-      const emails = new Map(((profiles?.data ?? []) as ProfileRow[]).map((p) => [p.id, p.email ?? ""]));
+      const live = (profiles?.data ?? []) as ProfileRow[];
+      const emails = new Map(live.map((p) => [p.id, p.email ?? ""]));
 
-      setMembers(rows.map((m) => ({ userId: m.user_id, email: emails.get(m.user_id) ?? "", role: m.role })));
+      setMembers(
+        rows
+          .filter((m) => emails.has(m.user_id))
+          .map((m) => ({ userId: m.user_id, email: emails.get(m.user_id) ?? "", role: m.role }))
+      );
       setLoading(false);
     })();
 
