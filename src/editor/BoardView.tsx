@@ -4,7 +4,7 @@ import type { JSX, ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
 import { arrowsForStep } from "../boards/arrows";
-import { stepMarkers } from "../boards/operations";
+import { stepAnnotations, stepMarkers } from "../boards/operations";
 import type { Board } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { useBoardPlayback } from "../boards/useBoardPlayback";
@@ -56,8 +56,13 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
   const { step, playing, atEnd } = playback;
 
   const markers = useMemo(() => stepMarkers(board, step), [board, step]);
-  // Arrows preview the upcoming move while paused; during play the motion itself shows the path.
-  const arrows = useMemo(() => (playing ? [] : arrowsForStep(board, step)), [board, step, playing]);
+  const annotations = useMemo(() => stepAnnotations(board, step), [board, step]);
+  // Arrows preview the upcoming move while paused; during play the motion itself shows the path. The
+  // board-level toggle hides them entirely; manual arrow annotations are unaffected.
+  const arrows = useMemo(
+    () => (playing || !board.autoArrows ? [] : arrowsForStep(board, step)),
+    [board, step, playing]
+  );
   const instruction = board.steps[step]?.instruction ?? "";
 
   // The instruction changing reads as a move between two notes: the incoming one slides in from the
@@ -89,7 +94,13 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
           <div className={VIEW_BODY}>
             <div className="flex min-w-0 flex-col items-center gap-[clamp(0.7rem,2vh,1.15rem)]">
               <CourtFrame className="max-[1040px]:justify-self-center">
-                <Court animated markers={markers} arrows={arrows} label={board.title || "Untitled board"} />
+                <Court
+                  animated
+                  markers={markers}
+                  arrows={arrows}
+                  annotations={annotations}
+                  label={board.title || "Untitled board"}
+                />
               </CourtFrame>
 
               <Toolbar ariaLabel="Playback" className="gap-[0.55rem]">
@@ -147,7 +158,7 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
         ) : (
           <div className={VIEW_BODY}>
             <CourtFrame className="max-[1040px]:justify-self-center">
-              <Court markers={markers} label={board.title || "Untitled board"} />
+              <Court markers={markers} annotations={annotations} label={board.title || "Untitled board"} />
             </CourtFrame>
             <DescriptionPanel markdown={board.description} />
           </div>

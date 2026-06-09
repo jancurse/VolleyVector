@@ -16,7 +16,10 @@ export type MarkerDrag = {
   onPointerUp: () => void;
 };
 
-function clientToNormalized(svg: SVGSVGElement, clientX: number, clientY: number): NormalizedPoint | null {
+/** Map a client (screen) coordinate back to the court's normalized space through the SVG's on-screen
+ *  matrix, so a pointer maps exactly however the court is sized. Shared by marker drag and annotation
+ *  drawing. Returns null when the matrix is unavailable (e.g. the element is not laid out yet). */
+export function clientToNormalized(svg: SVGSVGElement, clientX: number, clientY: number): NormalizedPoint | null {
   const ctm = svg.getScreenCTM();
 
   if (!ctm) return null;

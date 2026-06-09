@@ -1,6 +1,8 @@
 import type { NormalizedPoint } from "../court/geometry";
 import type { CourtMode } from "../court/roles";
-import type { Marker } from "../court/types";
+import type { Annotation, Marker } from "../court/types";
+
+export type { Annotation, AnnotationKind, AnnotationStyle } from "../court/types";
 
 // A board is one diagram on the court: an ordered, non-empty list of steps over a shared set of
 // marker identities. A board with one step is a Position (static, like a tactic); a board with two or
@@ -11,12 +13,14 @@ import type { Marker } from "../court/types";
 /** A marker's stable identity, shared across all of a board's steps (everything but its position). */
 export type BoardMarker = Omit<Marker, "position">;
 
-/** One step: an instruction shown during playback, and where each marker sits for this step. */
+/** One step: an instruction shown during playback, where each marker sits, and any drawn annotations. */
 export type BoardStep = {
   id: string;
   instruction: string;
   /** Position of each marker on this step, keyed by marker id. */
   positions: Record<string, NormalizedPoint>;
+  /** Drawings on this step (lines, arrows, shapes, freehand). Optional: a step without any has none. */
+  annotations?: Annotation[];
 };
 
 export type Board = {
@@ -42,6 +46,8 @@ export type Board = {
   shared: boolean;
   /** For a team board, its owning team; for a shared personal board, the team it is shared into. */
   teamId: string | null;
+  /** Whether the derived movement arrows are shown. Off hides them entirely; manual arrows are unaffected. */
+  autoArrows: boolean;
   createdAt: number;
   updatedAt: number;
 };

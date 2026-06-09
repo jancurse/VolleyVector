@@ -1,8 +1,9 @@
+import { clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
 import type { CourtMode, MarkerRole } from "../court/roles";
 import { ROLES } from "../court/roles";
 import type { Marker } from "../court/types";
-import type { Board, BoardMarker, BoardStep } from "./types";
+import type { Annotation, Board, BoardMarker, BoardStep } from "./types";
 
 // Pure transforms over a board, its steps, and its markers. A position edit touches one step; an
 // identity edit (role, label, colour, add, remove) spans every step, so a marker stays one identity
@@ -75,6 +76,7 @@ export function createBoard(now: number, mode: CourtMode = "positions", title = 
     authorLocked: false,
     shared: false,
     teamId: null,
+    autoArrows: true,
     createdAt: now,
     updatedAt: now,
   };
@@ -112,10 +114,14 @@ export function stepMoves(board: Board, index: number): MarkerMove[] {
     .filter(({ from: a, to: b }) => Math.hypot(b.x - a.x, b.y - a.y) > MOVE_EPSILON);
 }
 
-/** Insert a step after `afterIndex`, cloning that step's positions so only what changes needs dragging. */
+/** Insert a step after `afterIndex`, cloning that step's positions and annotations so the diagram
+ *  carries forward and only what changes needs editing. */
 export function insertStep(board: Board, afterIndex: number): { board: Board; stepId: string } {
   const base = board.steps[afterIndex] ?? board.steps[board.steps.length - 1];
   const step = makeStep({ ...base.positions });
+
+  if (base.annotations?.length) step.annotations = base.annotations.map((a) => ({ ...a }));
+
   const steps = [...board.steps];
 
   steps.splice(afterIndex + 1, 0, step);
@@ -188,4 +194,56 @@ export function removeMarker(board: Board, markerId: string): Board {
       return { ...s, positions: rest };
     }),
   };
+}
+
+// Annotations live on a single step (no cross-step identity), so every annotation edit targets one
+// step by id, mirroring the position edits above. All point writes clamp to the court's reach.
+
+/** Step `index`'s annotations (the drawings on it), or an empty list when it has none. */
+export function stepAnnotations(board: Board, index: number): Annotation[] {
+  return board.steps[index]?.annotations ?? [];
+}
+
+/** Rewrite a step's annotations through `next`, leaving every other step untouched. */
+function withStepAnnotations(
+  board: Board,
+  stepId: string,
+  next: (annotations: readonly Annotation[]) => Annotation[]
+): Board {
+  return {
+    ...board,
+    steps: board.steps.map((s) => (s.id === stepId ? { ...s, annotations: next(s.annotations ?? []) } : s)),
+  };
+}
+
+/** Add a drawn annotation to one step. */
+export function addAnnotation(board: Board, stepId: string, annotation: Annotation): Board {
+  return withStepAnnotations(board, stepId, (annotations) => [...annotations, annotation]);
+}
+
+/** Patch one annotation on one step — its style (colour, width) or geometry. */
+export function updateAnnotation(board: Board, stepId: string, id: string, patch: Partial<Annotation>): Board {
+  return withStepAnnotations(board, stepId, (annotations) =>
+    annotations.map((a) => (a.id === id ? ({ ...a, ...patch } as Annotation) : a))
+  );
+}
+
+/** Remove one annotation from one step. */
+export function removeAnnotation(board: Board, stepId: string, id: string): Board {
+  return withStepAnnotations(board, stepId, (annotations) => annotations.filter((a) => a.id !== id));
+}
+
+const shiftPoint = (p: NormalizedPoint, dx: number, dy: number): NormalizedPoint =>
+  clampToCourt({ x: p.x + dx, y: p.y + dy });
+
+/** Shift every point of an annotation by a normalized delta — the whole-shape move. Clamped to court. */
+export function translateAnnotation(annotation: Annotation, dx: number, dy: number): Annotation {
+  switch (annotation.kind) {
+    case "arrow":
+      return { ...annotation, from: shiftPoint(annotation.from, dx, dy), to: shiftPoint(annotation.to, dx, dy) };
+    case "free":
+      return { ...annotation, points: annotation.points.map((p) => shiftPoint(p, dx, dy)) };
+    default:
+      return { ...annotation, a: shiftPoint(annotation.a, dx, dy), b: shiftPoint(annotation.b, dx, dy) };
+  }
 }

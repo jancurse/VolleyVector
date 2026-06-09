@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  addAnnotation,
   addMarker,
   boardsInTopic,
   createBoard,
@@ -8,15 +9,19 @@ import {
   makeMarker,
   moveStep,
   nextLabel,
+  removeAnnotation,
   removeMarker,
   removeStep,
   setMarker,
   setStepInstruction,
   setStepPosition,
+  stepAnnotations,
   stepMarkers,
   stepMoves,
+  translateAnnotation,
+  updateAnnotation,
 } from "../../src/boards/operations";
-import type { Board } from "../../src/boards/types";
+import type { Annotation, Board } from "../../src/boards/types";
 import { isSequence } from "../../src/boards/types";
 import type { MarkerRole } from "../../src/court/roles";
 import type { Marker } from "../../src/court/types";
@@ -46,6 +51,7 @@ const SEQUENCE: Board = {
   authorLocked: false,
   shared: false,
   teamId: null,
+  autoArrows: true,
   createdAt: 0,
   updatedAt: 0,
 };
@@ -65,12 +71,22 @@ function filed(id: string, topicId: string | null, updatedAt: number): Board {
     authorLocked: false,
     shared: false,
     teamId: null,
+    autoArrows: true,
     createdAt: 0,
     updatedAt,
   };
 }
 
 const FILED: Board[] = [filed("c", "t1", 2), filed("a", "t1", 0), filed("b", "t1", 1), filed("x", null, 0)];
+
+const LINE: Annotation = {
+  id: "ann1",
+  kind: "line",
+  a: { x: 0.1, y: 0.2 },
+  b: { x: 0.4, y: 0.5 },
+  color: "blue",
+  width: 8,
+};
 
 describe("nextLabel", () => {
   test.each<[MarkerRole, string]>([
@@ -117,7 +133,7 @@ describe("createBoard", () => {
     const board = createBoard(1234, "basic", "Press");
 
     expect(board).toMatchObject({ title: "Press", mode: "basic", markers: [], createdAt: 1234, updatedAt: 1234 });
-    expect(board).toMatchObject({ topicId: null }); // a fresh board is Unfiled
+    expect(board).toMatchObject({ topicId: null, autoArrows: true }); // a fresh board is Unfiled, auto arrows on
     expect(board.steps).toHaveLength(1);
     expect(board.steps[0]).toMatchObject({ instruction: "", positions: {} });
     expect(isSequence(board)).toBe(false);
@@ -253,5 +269,102 @@ describe("boardsInTopic", () => {
   test("returns a topic's boards newest-edited first, ignoring the rest", () => {
     expect(boardsInTopic(FILED, "t1").map((b) => b.id)).toEqual(["c", "b", "a"]); // updatedAt 2, 1, 0
     expect(boardsInTopic(FILED, "missing")).toEqual([]);
+  });
+});
+
+describe("stepAnnotations", () => {
+  test("defaults to an empty list when a step has no annotations", () => {
+    expect(stepAnnotations(SEQUENCE, 0)).toEqual([]);
+    expect(stepAnnotations(SEQUENCE, 9)).toEqual([]); // out of range
+  });
+});
+
+describe("addAnnotation", () => {
+  test("adds an annotation to one step only, without mutating the input", () => {
+    const result = addAnnotation(SEQUENCE, "s1", LINE);
+
+    expect(stepAnnotations(result, 0)).toEqual([LINE]);
+    expect(stepAnnotations(result, 1)).toEqual([]); // the other step is untouched
+    expect(SEQUENCE.steps[0].annotations).toBeUndefined(); // input unchanged
+  });
+});
+
+describe("updateAnnotation", () => {
+  test("patches one annotation's style, leaving its geometry and the step's others alone", () => {
+    const other: Annotation = { ...LINE, id: "ann2" };
+    const board = addAnnotation(addAnnotation(SEQUENCE, "s1", LINE), "s1", other);
+    const result = updateAnnotation(board, "s1", "ann1", { color: "red", width: 14 });
+
+    expect(stepAnnotations(result, 0)[0]).toMatchObject({ id: "ann1", color: "red", width: 14, a: LINE.a });
+    expect(stepAnnotations(result, 0)[1]).toEqual(other); // the other annotation is untouched
+  });
+});
+
+describe("removeAnnotation", () => {
+  test("removes one annotation from a step", () => {
+    const board = addAnnotation(SEQUENCE, "s1", LINE);
+
+    expect(stepAnnotations(removeAnnotation(board, "s1", "ann1"), 0)).toEqual([]);
+  });
+});
+
+describe("translateAnnotation", () => {
+  test("shifts both corners of a two-corner shape", () => {
+    const moved = translateAnnotation(LINE, 0.1, -0.1);
+
+    if (moved.kind !== "line") throw new Error("kind changed");
+
+    expect(moved.a.x).toBeCloseTo(0.2);
+    expect(moved.a.y).toBeCloseTo(0.1);
+    expect(moved.b.x).toBeCloseTo(0.5);
+    expect(moved.b.y).toBeCloseTo(0.4);
+  });
+
+  test("shifts an arrow's endpoints", () => {
+    const arrow: Annotation = {
+      id: "a",
+      kind: "arrow",
+      from: { x: 0.3, y: 0.3 },
+      to: { x: 0.6, y: 0.6 },
+      color: "green",
+      width: 5,
+    };
+    const moved = translateAnnotation(arrow, -0.1, 0);
+
+    if (moved.kind !== "arrow") throw new Error("kind changed");
+
+    expect(moved.from.x).toBeCloseTo(0.2);
+    expect(moved.to.x).toBeCloseTo(0.5);
+  });
+
+  test("shifts every point of a freehand stroke, clamping past the court's reach", () => {
+    const free: Annotation = {
+      id: "f",
+      kind: "free",
+      points: [
+        { x: 0.2, y: 0.2 },
+        { x: 1.05, y: 0.4 },
+      ],
+      color: "blue",
+      width: 8,
+    };
+    const moved = translateAnnotation(free, 0.2, 0);
+
+    if (moved.kind !== "free") throw new Error("kind changed");
+
+    expect(moved.points[0].x).toBeCloseTo(0.4);
+    expect(moved.points[1].x).toBeCloseTo(1.1); // 1.25 clamped to 1 + MARKER_REACH
+  });
+});
+
+describe("insertStep with annotations", () => {
+  test("clones the base step's annotations into the inserted step", () => {
+    const board = addAnnotation(SEQUENCE, "s1", LINE);
+    const { board: next, stepId } = insertStep(board, 0);
+    const inserted = next.steps.find((s) => s.id === stepId);
+
+    expect(inserted?.annotations).toEqual([LINE]);
+    expect(inserted?.annotations).not.toBe(board.steps[0].annotations); // a fresh array
+    expect(inserted?.annotations?.[0]).not.toBe(LINE); // each shape cloned, not shared
   });
 });

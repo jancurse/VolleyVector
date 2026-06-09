@@ -20,6 +20,7 @@ function board(id: string, title: string): Board {
     authorLocked: false,
     shared: false,
     teamId: null,
+    autoArrows: true,
     createdAt: 0,
     updatedAt: 0,
   };

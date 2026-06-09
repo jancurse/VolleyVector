@@ -17,6 +17,7 @@ const position: Board = {
   authorLocked: false,
   shared: false,
   teamId: null,
+  autoArrows: true,
   createdAt: 0,
   updatedAt: 100,
 };
@@ -37,6 +38,7 @@ const sequence: Board = {
   authorLocked: false,
   shared: false,
   teamId: null,
+  autoArrows: true,
   createdAt: 0,
   updatedAt: 200,
 };

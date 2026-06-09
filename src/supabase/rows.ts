@@ -24,6 +24,7 @@ export type BoardRow = {
   topic_id: string | null;
   shared: boolean;
   author_locked: boolean;
+  auto_arrows: boolean;
   share_token: string;
   created_at: string;
   updated_at: string;
@@ -59,6 +60,7 @@ export type BoardInsert = {
   steps: BoardStep[];
   tags: string[];
   topic_id: string | null;
+  auto_arrows: boolean;
 };
 
 export type BoardUpdate = Omit<BoardInsert, "id" | "owner" | "scope" | "team_id">;
@@ -89,6 +91,7 @@ export function boardFromRow(row: BoardRow): Board {
     authorLocked: row.author_locked,
     shared: row.shared,
     teamId: row.team_id,
+    autoArrows: row.auto_arrows,
     createdAt: Date.parse(row.created_at),
     updatedAt: Date.parse(row.updated_at),
   };
@@ -107,6 +110,7 @@ export function boardToInsert(board: Board, owner: string, scope: Scope, teamId:
     steps: board.steps,
     tags: board.tags,
     topic_id: board.topicId,
+    auto_arrows: board.autoArrows,
   };
 }
 
@@ -119,6 +123,7 @@ export function boardToUpdate(board: Board): BoardUpdate {
     steps: board.steps,
     tags: board.tags,
     topic_id: board.topicId,
+    auto_arrows: board.autoArrows,
   };
 }
 

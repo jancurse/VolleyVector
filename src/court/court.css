@@ -164,6 +164,35 @@
   opacity: 0.82;
 }
 
+/* Drawn annotations. The layer is inert by default so it never blocks marker dragging or a surface
+   deselect; the select tool's hit targets switch interaction back on. currentColor is set per shape to
+   its palette colour, and a shape fades in on a step change rather than interpolating. */
+.court-annotations {
+  pointer-events: none;
+}
+
+.court-annotation {
+  animation: court-fade 0.3s var(--ease-settle) both;
+}
+
+.court-annotation--draft {
+  animation: none;
+}
+
+.court-annotation--selected {
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+
+.court-annotation-hit {
+  pointer-events: all;
+  fill: transparent;
+  cursor: grab;
+}
+
+.court-annotation-hit:active {
+  cursor: grabbing;
+}
+
 @keyframes court-pop {
   from {
     opacity: 0;
@@ -187,6 +216,7 @@
 @media (prefers-reduced-motion: reduce) {
   .court-marker,
   .court-arrow,
+  .court-annotation,
   .court-grid {
     animation: none;
   }

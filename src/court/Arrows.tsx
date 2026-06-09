@@ -1,35 +1,44 @@
 import type { JSX } from "react";
 
+import type { NormalizedPoint } from "./geometry";
 import { toSvgPoint } from "./geometry";
 import type { Arrow } from "./types";
 
-// Derived movement arrows. Each arrow is a straight line capped with a triangular head, inset at both
-// ends so it clears the source and target discs, and coloured (via currentColor) to its marker.
+// Movement arrows. Each is a straight line capped with a triangular head, inset at both ends so it
+// clears the source and target discs, and coloured (via currentColor) to its marker. The geometry is
+// shared with manual arrow annotations (with no insets), so both kinds wear the same arrowhead.
 
 const START_GAP = 50; // clear the source disc, in SVG units
 const END_GAP = 52; // clear the target disc
 const HEAD_LEN = 26;
 const HEAD_WIDTH = 12;
 
-type Segment = { line: { x1: number; y1: number; x2: number; y2: number }; head: string };
+export type ArrowSegment = { line: { x1: number; y1: number; x2: number; y2: number }; head: string };
 
-// The drawable line + arrowhead for one move, or null when the two ends are too close to draw cleanly.
-function segment(arrow: Arrow): Segment | null {
-  const a = toSvgPoint(arrow.from);
-  const b = toSvgPoint(arrow.to);
+/** The drawable line + arrowhead between two normalized points, inset by the given gaps, or null when
+ *  the two ends are too close to draw cleanly. Auto arrows inset to clear the marker discs; a manual
+ *  arrow passes 0/0 to span exactly what was drawn while keeping the identical head. */
+export function arrowSegment(
+  from: NormalizedPoint,
+  to: NormalizedPoint,
+  startGap = START_GAP,
+  endGap = END_GAP
+): ArrowSegment | null {
+  const a = toSvgPoint(from);
+  const b = toSvgPoint(to);
   const len = Math.hypot(b.x - a.x, b.y - a.y);
 
-  if (len <= START_GAP + END_GAP + HEAD_LEN) return null;
+  if (len <= startGap + endGap + HEAD_LEN) return null;
 
   const ux = (b.x - a.x) / len;
   const uy = (b.y - a.y) / len;
-  const tip = { x: b.x - ux * END_GAP, y: b.y - uy * END_GAP };
+  const tip = { x: b.x - ux * endGap, y: b.y - uy * endGap };
   const base = { x: tip.x - ux * HEAD_LEN, y: tip.y - uy * HEAD_LEN };
   const nx = -uy;
   const ny = ux;
 
   return {
-    line: { x1: a.x + ux * START_GAP, y1: a.y + uy * START_GAP, x2: base.x, y2: base.y },
+    line: { x1: a.x + ux * startGap, y1: a.y + uy * startGap, x2: base.x, y2: base.y },
     head: `M ${tip.x} ${tip.y} L ${base.x + nx * HEAD_WIDTH} ${base.y + ny * HEAD_WIDTH} L ${base.x - nx * HEAD_WIDTH} ${base.y - ny * HEAD_WIDTH} Z`,
   };
 }
@@ -38,7 +47,7 @@ export function Arrows({ arrows }: { arrows: readonly Arrow[] }): JSX.Element {
   return (
     <g className="court-arrows" aria-hidden="true">
       {arrows.map((arrow, i) => {
-        const seg = segment(arrow);
+        const seg = arrowSegment(arrow.from, arrow.to);
 
         if (!seg) return null;
 
