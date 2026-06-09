@@ -1,6 +1,7 @@
 import { MotionConfig } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import type { JSX, ReactNode } from "react";
+import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
 import { arrowsForStep } from "../boards/arrows";
 import { stepMarkers } from "../boards/operations";
@@ -15,44 +16,13 @@ import { Toolbar, ToolbarButton } from "../ui/Toolbar";
 import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TITLE, cx } from "../ui/styles";
 import { StepStrip } from "./StepStrip";
 
-const PLAY_ICON = (
-  <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden="true">
-    <path d="M8 5.5v13l11-6.5z" fill="currentColor" />
-  </svg>
-);
+const PLAY_ICON = <Play size={20} fill="currentColor" aria-hidden="true" />;
 
-const PAUSE_ICON = (
-  <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden="true">
-    <rect x={6.5} y={5} width={4} height={14} rx={1.2} fill="currentColor" />
-    <rect x={13.5} y={5} width={4} height={14} rx={1.2} fill="currentColor" />
-  </svg>
-);
+const PAUSE_ICON = <Pause size={20} fill="currentColor" aria-hidden="true" />;
 
-const PREV_ICON = (
-  <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden="true">
-    <path
-      d="M15 6l-6 6 6 6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
+const PREV_ICON = <ChevronLeft size={18} strokeWidth={2.2} aria-hidden="true" />;
 
-const NEXT_ICON = (
-  <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden="true">
-    <path
-      d="M9 6l6 6-6 6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
+const NEXT_ICON = <ChevronRight size={18} strokeWidth={2.2} aria-hidden="true" />;
 
 const VIEW_BODY =
   "grid grid-cols-[min(74vh,560px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]";

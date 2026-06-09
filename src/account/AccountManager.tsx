@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { JSX } from "react";
+import { Pencil } from "lucide-react";
 
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
@@ -8,18 +9,7 @@ import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
 import { FIELD_LABEL } from "../ui/styles";
 
-const PENCIL_ICON = (
-  <svg viewBox="0 0 24 24" width={15} height={15} aria-hidden="true">
-    <path
-      d="M4 20h4l10-10-4-4L4 16zM14.5 5.5l4 4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
+const PENCIL_ICON = <Pencil size={15} aria-hidden="true" />;
 
 // The account panel: a user's own profile, reached from the header. The display name shows read-only
 // with a pencil to switch into editing it (a plain update RLS allows on the user's own row, limited to

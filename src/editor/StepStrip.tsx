@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from "react";
 import type { JSX, KeyboardEvent, PointerEvent } from "react";
+import { X } from "lucide-react";
 
 import { Toolbar, ToolbarButton } from "../ui/Toolbar";
 import { STEP_CHIP, STEP_CHIP_DRAGGING, STEP_CHIP_ON, STEP_NUM, STEP_REMOVE, buttonClass, cx } from "../ui/styles";
@@ -7,11 +8,7 @@ import { STEP_CHIP, STEP_CHIP_DRAGGING, STEP_CHIP_ON, STEP_NUM, STEP_REMOVE, but
 // A pointer needs to move this far before a press becomes a drag rather than a step-selecting click.
 const DRAG_THRESHOLD = 4;
 
-const RemoveIcon = (
-  <svg viewBox="0 0 16 16" width={13} height={13} fill="none" stroke="currentColor" aria-hidden="true">
-    <path d="M4 4l8 8M12 4l-8 8" strokeWidth={1.7} strokeLinecap="round" />
-  </svg>
-);
+const RemoveIcon = <X size={13} aria-hidden="true" />;
 
 // The row of step chips for a Sequence, grouped in a toolbar with roving arrow-key focus. Read-only in
 // playback (click a chip to scrub); in the editor each chip also drags to reorder and carries a remove

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { Select as BaseSelect } from "@base-ui/react/select";
+import { Check, ChevronsUpDown } from "lucide-react";
 
 import { cx, OVERLAY, OVERLAY_MOTION } from "./styles";
 
@@ -29,7 +30,7 @@ export function Select({ value, onValueChange, options, ariaLabel }: SelectProps
       <BaseSelect.Trigger className={TRIGGER} aria-label={ariaLabel}>
         <BaseSelect.Value className="truncate" />
         <BaseSelect.Icon className="shrink-0 text-text-dim">
-          <CaretIcon />
+          <ChevronsUpDown size={14} aria-hidden="true" className="block" />
         </BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
@@ -51,7 +52,7 @@ export function Select({ value, onValueChange, options, ariaLabel }: SelectProps
               >
                 <BaseSelect.ItemText>{option.label}</BaseSelect.ItemText>
                 <BaseSelect.ItemIndicator className="ml-auto flex text-accent">
-                  <CheckIcon />
+                  <Check size={14} aria-hidden="true" className="block" />
                 </BaseSelect.ItemIndicator>
               </BaseSelect.Item>
             ))}
@@ -59,29 +60,5 @@ export function Select({ value, onValueChange, options, ariaLabel }: SelectProps
         </BaseSelect.Positioner>
       </BaseSelect.Portal>
     </BaseSelect.Root>
-  );
-}
-
-function CaretIcon() {
-  return (
-    <svg width={14} height={14} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" className="block">
-      <path d="M11 10H5l3 3.5zm0-4H5l3-3.5z" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      width={14}
-      height={14}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      aria-hidden="true"
-      className="block"
-    >
-      <path d="m2.5 8.5 4 4 7-9" strokeWidth={1.6} />
-    </svg>
   );
 }

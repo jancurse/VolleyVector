@@ -1,4 +1,5 @@
 import type { JSX } from "react";
+import { ChevronDown, Grid3x3, Magnet } from "lucide-react";
 
 import { cx, FIELD_LABEL } from "../ui/styles";
 import { Popover } from "../ui/Popover";
@@ -34,10 +35,10 @@ export function GridControl({ divisions, onDivisionsChange, snap, onSnapChange }
 
   const trigger = (
     <button type="button" className={TRIGGER}>
-      <GridIcon />
+      <Grid3x3 size={14} aria-hidden="true" />
       Grid
       <span className={cx("font-mono", on ? "text-accent" : "text-text-dim")}>{on ? divisions : "Off"}</span>
-      <CaretIcon />
+      <ChevronDown size={12} aria-hidden="true" className="text-text-dim" />
     </button>
   );
 
@@ -54,54 +55,10 @@ export function GridControl({ divisions, onDivisionsChange, snap, onSnapChange }
           />
         </div>
         <Toggle pressed={on && snap} disabled={!on} onPressedChange={onSnapChange} ariaLabel="Snap to grid">
-          <MagnetIcon />
+          <Magnet size={14} aria-hidden="true" />
           Snap to grid
         </Toggle>
       </div>
     </Popover>
-  );
-}
-
-function GridIcon(): JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      width={14}
-      height={14}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.2}
-      aria-hidden="true"
-    >
-      <rect x="2.4" y="2.4" width="11.2" height="11.2" rx="1.6" />
-      <path d="M6.13 2.4v11.2M9.87 2.4v11.2M2.4 6.13h11.2M2.4 9.87h11.2" />
-    </svg>
-  );
-}
-
-function CaretIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 16 16" width={12} height={12} fill="currentColor" aria-hidden="true" className="text-text-dim">
-      <path d="M4.5 6.5 8 10l3.5-3.5z" />
-    </svg>
-  );
-}
-
-function MagnetIcon(): JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={14}
-      height={14}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M6.5 3v8a5.5 5.5 0 0 0 11 0V3" />
-      <path d="M6.5 8h-2.5M20 8h-2.5" />
-    </svg>
   );
 }

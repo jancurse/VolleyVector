@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { JSX } from "react";
+import { X } from "lucide-react";
 
 import { useAuth } from "../auth/useAuth";
 import { Button } from "../ui/Button";
@@ -110,9 +111,7 @@ export function TeamManager({ open, onOpenChange, teamId, teamName, canManage }:
                         aria-label={`Remove ${member.email || member.userId}`}
                         onClick={() => void removeMember(member)}
                       >
-                        <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden="true">
-                          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                        </svg>
+                        <X size={14} aria-hidden="true" />
                       </button>
                     </div>
                   ) : (
