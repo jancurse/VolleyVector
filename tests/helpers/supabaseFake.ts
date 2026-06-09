@@ -256,6 +256,8 @@ function from(table: string): Query {
         ],
         { id: "new-team" }
       );
+    case "invites":
+      return makeQuery(table, [], { token: "new-invite-token" });
     case "profiles":
       return makeQuery(
         table,
@@ -295,6 +297,7 @@ const auth = {
   getSession: () => Promise.resolve({ data: { session }, error: null }),
   onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
   signInWithPassword: () => Promise.resolve({ data: { session }, error: null }),
+  updateUser: () => Promise.resolve({ data: { user: TEST_USER }, error: null }),
   signOut: () => Promise.resolve({ error: null }),
 };
 

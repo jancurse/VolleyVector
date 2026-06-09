@@ -12,11 +12,19 @@ export type AuthValue = {
   /** True until the first session lookup resolves, so the app can hold its gate rather than flash. */
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  /** Set a password on the current user, used to finish an invite that leaves the account without one. */
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 };
 
 async function signIn(email: string, password: string): Promise<{ error: string | null }> {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  return { error: error?.message ?? null };
+}
+
+async function updatePassword(password: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.auth.updateUser({ password });
 
   return { error: error?.message ?? null };
 }
@@ -43,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   }, []);
 
   const value = useMemo<AuthValue>(
-    () => ({ session, user: session?.user ?? null, loading, signIn, signOut }),
+    () => ({ session, user: session?.user ?? null, loading, signIn, updatePassword, signOut }),
     [session, loading]
   );
 

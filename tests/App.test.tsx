@@ -587,19 +587,18 @@ describe("permissions", () => {
   });
 });
 
-// The team menu is reached from the header by any team member. A coach/admin invites by email (through
-// the Edge Function); a player sees the roster read-only. Creating teams is an admin concern split out
-// into the separate Admin panel.
+// The team menu is reached from the header by any team member. A coach/admin mints a single-use invite
+// link; a player sees the roster read-only. Creating teams is an admin concern split out into the separate
+// Admin panel.
 describe("team management", () => {
-  test("a coach invites a member through the team menu", async () => {
+  test("a coach creates an invite link through the team menu", async () => {
     const user = await renderApp();
 
     await user.click(screen.getByRole("button", { name: "Team" }));
     await user.click(screen.getByRole("button", { name: "Invite member" }));
-    await user.type(screen.getByLabelText("Email"), "newcoach@volley.test");
-    await user.click(screen.getByRole("button", { name: "Send invite" }));
+    await user.click(screen.getByRole("button", { name: "Create invite link" }));
 
-    expect(await screen.findByText("Invited newcoach@volley.test")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue(/\/#\/invite\/new-invite-token$/)).toBeInTheDocument();
   });
 
   test("a player opens the team menu but cannot manage members", async () => {

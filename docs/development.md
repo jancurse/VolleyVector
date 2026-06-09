@@ -34,7 +34,7 @@ Run `npm run dev` to start the Vite dev server at <http://localhost:5173> with h
 
 ### Deployment
 
-Not yet implemented. To be filled later.
+The app deploys to Cloudflare Pages at <https://volleycoach.pages.dev>. `.github/workflows/deploy.yml` publishes automatically once CI passes on `main`, so there is no manual deploy step, and production config lives in GitHub Actions variables and secrets rather than the repo.
 
 ### Useful Commands
 

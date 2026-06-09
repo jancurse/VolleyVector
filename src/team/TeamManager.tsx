@@ -48,7 +48,7 @@ function RoleChip({ role }: { role: TeamRole }): JSX.Element {
 export function TeamManager({ open, onOpenChange, teamId, teamName, canManage }: TeamManagerProps): JSX.Element {
   const { user } = useAuth();
   const { confirm, dialog } = useConfirm();
-  const { members, loading, reload, setRole: setMemberRole, remove } = useMembers(open ? teamId : null);
+  const { members, loading, setRole: setMemberRole, remove } = useMembers(open ? teamId : null);
 
   const [memberError, setMemberError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -132,13 +132,7 @@ export function TeamManager({ open, onOpenChange, teamId, teamName, canManage }:
         </Button>
       )}
 
-      <InviteDialog
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        teamId={teamId}
-        teamName={teamName}
-        onInvited={reload}
-      />
+      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} teamId={teamId} teamName={teamName} />
       {dialog}
     </Dialog>
   );

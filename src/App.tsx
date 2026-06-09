@@ -18,6 +18,8 @@ import { TooltipProvider } from "./ui/Tooltip";
 import { useConfirm } from "./ui/useConfirm";
 import { useAuth } from "./auth/useAuth";
 import { Login } from "./auth/Login";
+import { SetPassword } from "./auth/SetPassword";
+import { isInviteLanding } from "./auth/inviteLanding";
 import { Button } from "./ui/Button";
 import { cx, MUTED } from "./ui/styles";
 import { Select } from "./ui/Select";
@@ -79,6 +81,7 @@ export function App(): JSX.Element {
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Board | null>(null);
   const [selection, setSelection] = useState<Selection>({ kind: "all" });
+  const [passwordReady, setPasswordReady] = useState(false);
   const [managing, setManaging] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -170,6 +173,11 @@ export function App(): JSX.Element {
   if (inviteToken) return <InviteAccept key={inviteToken} token={inviteToken} />;
 
   if (!user) return <Login />;
+
+  // An invite email signs its recipient in as a freshly created, passwordless account. Collect a password
+  // before the app, so the account is usable for ordinary sign-in afterwards.
+  if (isInviteLanding && !passwordReady)
+    return <SetPassword email={user.email ?? ""} onDone={() => setPasswordReady(true)} />;
 
   if (workspace.error) {
     return (
