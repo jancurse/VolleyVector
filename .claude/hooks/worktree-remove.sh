@@ -19,7 +19,7 @@ fi
 # node_modules) are present, so real uncommitted work is never discarded. The
 # branch is left in place.
 changes=$(git -C "$dir" status --porcelain 2>/dev/null \
-  | grep -vE '^\?\? (\.worktree-setup\.log|\.claude/settings\.local\.json)$' || true)
+  | grep -vE '^\?\? \.claude/settings\.local\.json$' || true)
 if [ -z "$changes" ]; then
   git -C "$repo" worktree remove --force "$dir" >&2 2>&1 || true
 else

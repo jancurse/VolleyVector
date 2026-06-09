@@ -52,9 +52,9 @@ if command -v code >/dev/null 2>&1; then
 fi
 
 # Install dependencies in the background so creation stays fast and never trips
-# the hook timeout. Progress lands in the worktree's .worktree-setup.log.
+# the hook timeout. Output is discarded so no setup log clutters the worktree.
 if [ ! -d "$dir/node_modules" ] && command -v npm >/dev/null 2>&1; then
-  nohup npm --prefix "$dir" install >"$dir/.worktree-setup.log" 2>&1 </dev/null &
+  nohup npm --prefix "$dir" install >/dev/null 2>&1 </dev/null &
   disown 2>/dev/null || true
 fi
 
