@@ -40,10 +40,21 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    async function init() {
+      let { data } = await supabase.auth.getSession();
+
+      // In dev, auto-login with the machine-level credentials so the dev server (and Playwright, which
+      // starts from empty storage) never stalls on the gate. The whole branch is dropped from production.
+      if (!data.session && import.meta.env.DEV && import.meta.env.VITE_DEV_EMAIL && import.meta.env.VITE_DEV_PASSWORD) {
+        await signIn(import.meta.env.VITE_DEV_EMAIL, import.meta.env.VITE_DEV_PASSWORD);
+        ({ data } = await supabase.auth.getSession());
+      }
+
       setSession(data.session);
       setLoading(false);
-    });
+    }
+
+    init();
 
     const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
 

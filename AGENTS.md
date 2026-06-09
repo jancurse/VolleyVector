@@ -64,7 +64,7 @@ Use the diagnostics skill after code changes to ensure formatting, linting, and 
 The repo enables the following Claude Code tools (binaries to install are in @docs/development.md):
 
 - **`typescript-lsp`** — use the LSP tool for code intelligence (go-to-definition, find references, hover) instead of grepping for symbols.
-- **`playwright`** — drive the running dev server in a browser to verify the UI visually (screenshots, interaction); look and motion are core to this product, so check changes on screen, not just in tests.
+- **`playwright`** — drive the running dev server in a browser to verify the UI visually (screenshots, interaction); look and motion are core to this product, so check changes on screen, not just in tests. A dev build auto-logs-in from `~/.config/volleycoach/dev.env`, so the server opens past the login gate; if that file is missing you hit the gate (set it up per @docs/development.md).
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
 
 ## Working Practices
@@ -77,6 +77,7 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - **Never silently substitute**: if you cannot complete a specific instruction (a file is missing, a tool fails), stop and say so. Do not quietly do something different and present it as the original request.
 - **Flag reversals explicitly**: when you change your mind about a recommendation, say so plainly and explain why, rather than sliding into a new direction as if it were a continuation.
 - Report results factually without positive spin. If errors or issues remain unresolved, state them clearly.
+- **User-only steps are part of the task.** Some steps need the user (Supabase, Cloudflare, admin actions). Walk them through it with exact, ordered steps and wait. Do not work around it to do it yourself, and do not finish the code, declare done, and dump the rest on them. The task is not done until you have guided their part to completion.
 
 ### Problem Solving
 
