@@ -11,7 +11,8 @@
       "mcp__claude_ai_Context7__query-docs",
       "WebSearch",
       "WebFetch(domain:github.com)"
-    ]
+    ],
+    "ask": ["Bash(npx supabase:*)", "Bash(supabase:*)"]
   },
   "hooks": {
     "PreToolUse": [

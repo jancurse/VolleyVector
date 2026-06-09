@@ -3,6 +3,10 @@
     "playwright": {
       "command": "npx",
       "args": ["@playwright/mcp@0.0.75", "--headless"]
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=xobsdirytehneeofjmrq&read_only=true"
     }
   }
 }

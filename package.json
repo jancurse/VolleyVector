@@ -50,6 +50,7 @@
     "globals": "^16.5.0",
     "happy-dom": "^20.0.10",
     "prettier": "^3.6.2",
+    "supabase": "^2.105.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.11",

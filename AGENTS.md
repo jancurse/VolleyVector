@@ -105,7 +105,9 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 
 ## Backend (Supabase)
 
-- **The user runs all Supabase actions** (SQL migrations, admin bootstrap, Edge Function deploys). Hand over exact steps and wait. Never self-provision, log in, or install deploy tooling.
+- **Read the DB yourself via the Supabase MCP server**, scoped read-only to the project: inspect schema, run SELECTs, debug RLS, read logs. It cannot write. Do not ask the user to paste results you can fetch.
+- **Apply migrations and deploy functions via the CLI** (`npx supabase db push`, `npx supabase functions deploy`), never by asking the user to paste SQL. Migrations stay reviewed files in `supabase/migrations/`. The project is production: confirm with the user before any push or deploy.
+- **The user still does interactive setup**: `supabase login`, `supabase link`, and admin bootstrap. Never self-provision or log in for them.
 - **Grant `service_role` in migrations, not only `authenticated`.** "Auto-expose new tables" is off, so grants are explicit. `service_role` bypasses RLS but still needs the table GRANT, or Edge Functions using the secret key fail with `permission denied for table ...`.
 - **Edge Functions use the new secret key**, read from the `SUPABASE_SECRET_KEYS` dict, not the legacy `SUPABASE_SERVICE_ROLE_KEY`. Keep "Verify JWT" off and authorize the caller in code.
 
