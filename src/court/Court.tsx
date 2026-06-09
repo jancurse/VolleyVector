@@ -61,6 +61,16 @@ export function Court({
       onPointerUp={editable ? drag.onPointerUp : undefined}
       onPointerCancel={editable ? drag.onPointerUp : undefined}
     >
+      <defs>
+        {/* Soft top-light to bottom-shade overlay that gives every marker disc a tactile, lit-from-above
+            feel without per-colour stops: object-bounding-box, so it spans each disc whatever its size. */}
+        <linearGradient id="court-marker-sheen" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity={0.24} />
+          <stop offset="48%" stopColor="#ffffff" stopOpacity={0} />
+          <stop offset="100%" stopColor="#000000" stopOpacity={0.16} />
+        </linearGradient>
+      </defs>
+
       <rect className="court-play" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
       <rect className="court-zone" x={left} y={toSvg(0)} width={COURT_SPAN} height={ATTACK_LINE * COURT_SPAN} />
 

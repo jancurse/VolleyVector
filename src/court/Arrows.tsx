@@ -6,8 +6,8 @@ import type { Arrow } from "./types";
 // Derived movement arrows. Each arrow is a straight line capped with a triangular head, inset at both
 // ends so it clears the source and target discs, and coloured (via currentColor) to its marker.
 
-const START_GAP = 56; // clear the source disc, in SVG units
-const END_GAP = 58; // clear the target disc
+const START_GAP = 50; // clear the source disc, in SVG units
+const END_GAP = 52; // clear the target disc
 const HEAD_LEN = 26;
 const HEAD_WIDTH = 12;
 

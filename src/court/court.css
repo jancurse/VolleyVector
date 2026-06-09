@@ -64,16 +64,32 @@
 .court-marker {
   transform-box: fill-box;
   transform-origin: center;
-  filter: drop-shadow(0 4px 5px var(--marker-shadow));
   animation: court-pop 0.5s var(--ease-settle) both;
-  transition:
-    transform 0.18s var(--ease-settle),
-    filter 0.2s ease;
+  transition: transform 0.18s var(--ease-settle);
+}
+
+/* A hidden caster behind the disc carries the only filter, so the disc, ring, and label render as
+   crisp vector while still casting a soft shadow. Theme-driven: a darker drop on the light court, a
+   deeper one on the dark court. */
+.court-marker-shadow {
+  fill: #000;
+  filter: var(--marker-cast);
+  transition: filter 0.2s ease;
+}
+
+.court-marker--dragging .court-marker-shadow {
+  filter: var(--marker-cast-lift);
+}
+
+/* A crisp separator ring on the disc edge: invisible on the light court (the role ring already reads
+   there), a light rim on the dark court so a disc never sinks into the surface. */
+.court-marker-edge {
+  stroke: var(--marker-edge);
+  stroke-width: 3;
 }
 
 .court-marker--dragging {
-  transform: scale(1.09);
-  filter: drop-shadow(0 10px 14px var(--marker-shadow));
+  transform: scale(1.08);
 }
 
 .court-marker-hit {

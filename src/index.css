@@ -103,7 +103,9 @@
   --border: rgba(255, 255, 255, 0.09);
   --control: rgba(255, 255, 255, 0.05);
   --control-hover: rgba(255, 255, 255, 0.1);
-  --marker-shadow: rgba(0, 0, 0, 0.5);
+  --marker-cast: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.5));
+  --marker-cast-lift: drop-shadow(0 9px 14px rgba(0, 0, 0, 0.55));
+  --marker-edge: rgba(231, 236, 246, 0.55);
 
   --accent: #7aa2ff;
   --accent-weak: rgba(122, 162, 255, 0.16);
@@ -131,7 +133,9 @@
   --border: rgba(20, 24, 32, 0.1);
   --control: rgba(20, 24, 32, 0.04);
   --control-hover: rgba(20, 24, 32, 0.08);
-  --marker-shadow: rgba(34, 37, 46, 0.22);
+  --marker-cast: drop-shadow(0 3px 4px rgba(34, 37, 46, 0.22));
+  --marker-cast-lift: drop-shadow(0 9px 12px rgba(34, 37, 46, 0.28));
+  --marker-edge: transparent;
 
   --accent: #2f6fe0;
   --accent-weak: rgba(47, 111, 224, 0.12);
