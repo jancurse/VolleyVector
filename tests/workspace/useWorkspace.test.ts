@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import type { ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
@@ -30,6 +30,8 @@ function tableQuery(rows: Row[]) {
     select: () => query,
     eq: () => query,
     in: (column: string, values: unknown[]) => tableQuery(rows.filter((r) => values.includes(r[column]))),
+    insert: () => Promise.resolve({ error: null }),
+    delete: () => query,
     single: () => Promise.resolve({ data: rows[0] ?? null, error: null }),
     then: (onfulfilled: (value: Result) => unknown) => Promise.resolve({ data: rows, error: null }).then(onfulfilled),
   };
@@ -70,5 +72,21 @@ describe("useWorkspace", () => {
 
     expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active"]);
     expect(result.current.otherTeams.map((t) => t.teamId)).toEqual(others);
+  });
+
+  test("joinTeam and leaveTeam move a team between the member and other lists", async () => {
+    isAdmin = true;
+
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(() => result.current.joinTeam("team-other", "player"));
+    expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active", "team-other"]);
+    expect(result.current.otherTeams).toEqual([]);
+
+    await act(() => result.current.leaveTeam("team-other"));
+    expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active"]);
+    expect(result.current.otherTeams.map((t) => t.teamId)).toEqual(["team-other"]);
   });
 });

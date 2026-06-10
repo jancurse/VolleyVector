@@ -43,6 +43,8 @@ export type Workspace = {
   createTeam: (name: string) => Promise<string | null>;
   /** Join one of the other teams with a chosen role (admins only); returns an error message or null. */
   joinTeam: (teamId: string, role: TeamRole) => Promise<{ error: string | null }>;
+  /** Leave a team's roster (admins only, who keep full reach); the team moves to the other-teams list. */
+  leaveTeam: (teamId: string) => Promise<{ error: string | null }>;
 };
 
 type MembershipRow = { team_id: string; role: TeamRole };
@@ -179,6 +181,25 @@ export function useWorkspace(): Workspace {
     [user, otherTeams]
   );
 
+  const leaveTeam = useCallback(
+    async (teamId: string): Promise<{ error: string | null }> => {
+      const team = teams.find((t) => t.teamId === teamId);
+
+      if (!user) return { error: "Not signed in" };
+      if (!team) return { error: "Not a member of this team" };
+
+      const { error } = await supabase.from("memberships").delete().eq("team_id", teamId).eq("user_id", user.id);
+
+      if (error) return { error: error.message };
+
+      setTeams((prev) => prev.filter((t) => t.teamId !== teamId));
+      setOtherTeams((prev) => [...prev, { teamId: team.teamId, teamName: team.teamName, slug: team.slug }]);
+
+      return { error: null };
+    },
+    [user, teams]
+  );
+
   const setDisplayName = useCallback(
     async (name: string): Promise<{ error: string | null }> => {
       if (!user) return { error: "Not signed in" };
@@ -212,5 +233,6 @@ export function useWorkspace(): Workspace {
     activeRole,
     createTeam,
     joinTeam,
+    leaveTeam,
   };
 }

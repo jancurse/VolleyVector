@@ -488,7 +488,7 @@ export function App(): JSX.Element {
   } else if (route.kind === "team") {
     // The team in the URL is one the user can reach (else it resolves to nothing → not found). Management
     // is coach-facing: a coach of that team or an admin curates it, anyone else reads the roster only. An
-    // admin who is not on the roster may join with a chosen role.
+    // admin moves on and off the roster freely: join with a chosen role, or leave (their reach stays).
     const teamId = findTeamId(allTeams, route.teamSlug);
     const team = allTeams.find((t) => t.teamId === teamId);
     const membership = teams.find((t) => t.teamId === teamId);
@@ -501,6 +501,7 @@ export function App(): JSX.Element {
           canManage={workspace.isAdmin || membership?.role === "coach"}
           currentUserId={user.id}
           onJoin={workspace.isAdmin && !membership ? (role) => workspace.joinTeam(teamId, role) : undefined}
+          onLeave={workspace.isAdmin && membership ? () => workspace.leaveTeam(teamId) : undefined}
         />
       ) : (
         <NotFound onHome={() => navigate(homeRoute())} />
