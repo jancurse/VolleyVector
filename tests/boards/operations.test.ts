@@ -3,8 +3,11 @@ import { describe, expect, test } from "vitest";
 import {
   addAnnotation,
   addMarker,
+  annotationHandles,
   boardsInTopic,
+  copyAnnotationsToNextStep,
   createBoard,
+  duplicateAnnotation,
   insertStep,
   makeMarker,
   moveStep,
@@ -12,6 +15,7 @@ import {
   removeAnnotation,
   removeMarker,
   removeStep,
+  reshapeAnnotation,
   setMarker,
   setStepInstruction,
   setStepPosition,
@@ -366,5 +370,172 @@ describe("insertStep with annotations", () => {
     expect(inserted?.annotations).toEqual([LINE]);
     expect(inserted?.annotations).not.toBe(board.steps[0].annotations); // a fresh array
     expect(inserted?.annotations?.[0]).not.toBe(LINE); // each shape cloned, not shared
+  });
+});
+
+const RECT: Annotation = {
+  id: "r1",
+  kind: "rect",
+  a: { x: 0.6, y: 0.7 },
+  b: { x: 0.2, y: 0.3 },
+  color: "red",
+  width: 8,
+};
+const ARROW: Annotation = {
+  id: "a1",
+  kind: "arrow",
+  from: { x: 0.3, y: 0.3 },
+  to: { x: 0.6, y: 0.6 },
+  color: "green",
+  width: 5,
+};
+const FREE: Annotation = {
+  id: "f1",
+  kind: "free",
+  points: [
+    { x: 0.1, y: 0.1 },
+    { x: 0.2, y: 0.2 },
+  ],
+  color: "blue",
+  width: 8,
+};
+
+describe("annotationHandles", () => {
+  test.each([
+    [LINE, ["start", "end"]],
+    [ARROW, ["start", "end"]],
+    [RECT, ["nw", "ne", "se", "sw"]],
+    [{ ...RECT, kind: "area" } as Annotation, ["nw", "ne", "se", "sw"]],
+    [FREE, []],
+  ])("a %o exposes handles %j", (annotation, handles) => {
+    expect(annotationHandles(annotation).map((h) => h.handle)).toEqual(handles);
+  });
+
+  test("derives box corners whatever the corner order", () => {
+    // RECT's a/b are given se-to-nw; the handles still map to compass corners.
+    const points = Object.fromEntries(annotationHandles(RECT).map((h) => [h.handle, h.point]));
+
+    expect(points.nw).toEqual({ x: 0.2, y: 0.3 });
+    expect(points.se).toEqual({ x: 0.6, y: 0.7 });
+  });
+});
+
+describe("reshapeAnnotation", () => {
+  test.each([
+    ["start", { x: 0.05, y: 0.05 }],
+    ["end", { x: 0.9, y: 0.9 }],
+  ] as const)("moves a line's %s endpoint", (handle, point) => {
+    const next = reshapeAnnotation(LINE, handle, point);
+
+    if (next.kind !== "line") throw new Error("kind changed");
+
+    expect(handle === "start" ? next.a : next.b).toEqual(point);
+    expect(handle === "start" ? next.b : next.a).toEqual(handle === "start" ? LINE.b : LINE.a);
+  });
+
+  test.each([
+    ["start", "from"],
+    ["end", "to"],
+  ] as const)("moves an arrow's %s endpoint", (handle, key) => {
+    const next = reshapeAnnotation(ARROW, handle, { x: 0.5, y: 0.1 });
+
+    if (next.kind !== "arrow") throw new Error("kind changed");
+
+    expect(next[key]).toEqual({ x: 0.5, y: 0.1 });
+  });
+
+  test.each(["nw", "ne", "se", "sw"] as const)("dragging a box's %s corner anchors the opposite one", (handle) => {
+    const next = reshapeAnnotation(RECT, handle, { x: 0.5, y: 0.5 });
+
+    if (next.kind !== "rect") throw new Error("kind changed");
+
+    const before = Object.fromEntries(annotationHandles(RECT).map((h) => [h.handle, h.point]));
+    const opposite = { nw: "se", ne: "sw", se: "nw", sw: "ne" }[handle];
+
+    expect(next.a).toEqual({ x: 0.5, y: 0.5 });
+    expect(next.b).toEqual(before[opposite]);
+  });
+
+  test("clamps the moved point to the court's reach", () => {
+    const next = reshapeAnnotation(LINE, "end", { x: 1.5, y: -0.5 });
+
+    if (next.kind !== "line") throw new Error("kind changed");
+
+    expect(next.b).toEqual({ x: 1.1, y: -0.1 });
+  });
+
+  test("leaves a freehand stroke unchanged", () => {
+    expect(reshapeAnnotation(FREE, "start", { x: 0.5, y: 0.5 })).toBe(FREE);
+  });
+});
+
+describe("duplicateAnnotation", () => {
+  test("returns an offset copy with a fresh id", () => {
+    const copy = duplicateAnnotation(LINE);
+
+    if (copy.kind !== "line") throw new Error("kind changed");
+
+    expect(copy.id).not.toBe(LINE.id);
+    expect(copy.a.x).toBeCloseTo(0.13);
+    expect(copy.a.y).toBeCloseTo(0.23);
+  });
+
+  test("clamps the offset copy to the court's reach", () => {
+    const edge: Annotation = { ...LINE, b: { x: 1.1, y: 1.1 } } as Annotation;
+    const copy = duplicateAnnotation(edge);
+
+    if (copy.kind !== "line") throw new Error("kind changed");
+
+    expect(copy.b).toEqual({ x: 1.1, y: 1.1 });
+  });
+});
+
+describe("copyAnnotationsToNextStep", () => {
+  test("appends clones with fresh ids, keeping the next step's own drawings", () => {
+    const board = addAnnotation(addAnnotation(SEQUENCE, "s1", LINE), "s2", RECT);
+    const next = copyAnnotationsToNextStep(board, 0);
+    const target = next.steps[1].annotations ?? [];
+
+    expect(target).toHaveLength(2);
+    expect(target[0]).toEqual(RECT); // the existing drawing survives
+    expect(target[1]).toMatchObject({ kind: "line", a: LINE.a, b: LINE.b });
+    expect(target[1].id).not.toBe(LINE.id);
+    expect(next.steps[0].annotations).toEqual([LINE]); // the source step is untouched
+  });
+
+  test.each([
+    ["the last step", addAnnotation(SEQUENCE, "s2", LINE), 1],
+    ["a step with no drawings", SEQUENCE, 0],
+  ])("is a no-op on %s", (_name, board, index) => {
+    expect(copyAnnotationsToNextStep(board, index)).toBe(board);
+  });
+});
+
+describe("text annotations", () => {
+  const TEXT: Annotation = { id: "t1", kind: "text", at: { x: 0.4, y: 0.6 }, text: "Serve", color: "red", width: 8 };
+
+  test("translates by its anchor and duplicates with a fresh id", () => {
+    const moved = translateAnnotation(TEXT, 0.1, -0.1);
+
+    if (moved.kind !== "text") throw new Error("kind changed");
+
+    expect(moved.at.x).toBeCloseTo(0.5);
+    expect(moved.at.y).toBeCloseTo(0.5);
+
+    const copy = duplicateAnnotation(TEXT);
+
+    expect(copy.id).not.toBe(TEXT.id);
+    expect(copy).toMatchObject({ kind: "text", text: "Serve" });
+  });
+
+  test("offers no reshape handles and ignores reshape", () => {
+    expect(annotationHandles(TEXT)).toEqual([]);
+    expect(reshapeAnnotation(TEXT, "start", { x: 0, y: 0 })).toBe(TEXT);
+  });
+
+  test("copies to the next step like any other drawing", () => {
+    const next = copyAnnotationsToNextStep(addAnnotation(SEQUENCE, "s1", TEXT), 0);
+
+    expect(next.steps[1].annotations?.[0]).toMatchObject({ kind: "text", text: "Serve" });
   });
 });

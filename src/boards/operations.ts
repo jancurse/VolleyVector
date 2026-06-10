@@ -243,7 +243,111 @@ export function translateAnnotation(annotation: Annotation, dx: number, dy: numb
       return { ...annotation, from: shiftPoint(annotation.from, dx, dy), to: shiftPoint(annotation.to, dx, dy) };
     case "free":
       return { ...annotation, points: annotation.points.map((p) => shiftPoint(p, dx, dy)) };
+    case "text":
+      return { ...annotation, at: shiftPoint(annotation.at, dx, dy) };
     default:
       return { ...annotation, a: shiftPoint(annotation.a, dx, dy), b: shiftPoint(annotation.b, dx, dy) };
+  }
+}
+
+// How far (normalized) a duplicated shape lands from its original, so the copy reads as a new shape.
+const DUPLICATE_OFFSET = 0.03;
+
+/** A copy of an annotation with a fresh id, offset slightly down-right (clamped to the court). */
+export function duplicateAnnotation(annotation: Annotation): Annotation {
+  return { ...translateAnnotation(annotation, DUPLICATE_OFFSET, DUPLICATE_OFFSET), id: newId() };
+}
+
+/** Append clones (fresh ids) of step `index`'s annotations to the next step. Appending never destroys
+ *  drawings already on that step, and a stray copy stays one undo away. No-op on the last step. */
+export function copyAnnotationsToNextStep(board: Board, index: number): Board {
+  const from = board.steps[index];
+  const to = board.steps[index + 1];
+
+  if (!from?.annotations?.length || !to) return board;
+
+  const clones = from.annotations.map((a) => ({ ...a, id: newId() }));
+
+  return {
+    ...board,
+    steps: board.steps.map((s) => (s.id === to.id ? { ...s, annotations: [...(s.annotations ?? []), ...clones] } : s)),
+  };
+}
+
+// Reshaping grabs one handle of a shape: a line/arrow exposes its two endpoints, a rect/area its four
+// box corners (dragging one keeps the opposite corner anchored). Freehand offers no handles — it only
+// translates as a whole.
+
+export type AnnotationHandle = "start" | "end" | "nw" | "ne" | "se" | "sw";
+
+/** The four corners of a two-corner shape's bounding box, keyed by compass handle. */
+function boxCorners(a: NormalizedPoint, b: NormalizedPoint): Record<"nw" | "ne" | "se" | "sw", NormalizedPoint> {
+  const minX = Math.min(a.x, b.x);
+  const maxX = Math.max(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxY = Math.max(a.y, b.y);
+
+  return {
+    nw: { x: minX, y: minY },
+    ne: { x: maxX, y: minY },
+    se: { x: maxX, y: maxY },
+    sw: { x: minX, y: maxY },
+  };
+}
+
+const OPPOSITE: Record<"nw" | "ne" | "se" | "sw", "nw" | "ne" | "se" | "sw"> = {
+  nw: "se",
+  ne: "sw",
+  se: "nw",
+  sw: "ne",
+};
+
+/** The grabbable handles of a shape with their positions, in the order they should render. */
+export function annotationHandles(annotation: Annotation): { handle: AnnotationHandle; point: NormalizedPoint }[] {
+  switch (annotation.kind) {
+    case "line":
+      return [
+        { handle: "start", point: annotation.a },
+        { handle: "end", point: annotation.b },
+      ];
+    case "arrow":
+      return [
+        { handle: "start", point: annotation.from },
+        { handle: "end", point: annotation.to },
+      ];
+    case "rect":
+    case "area": {
+      const corners = boxCorners(annotation.a, annotation.b);
+
+      return (["nw", "ne", "se", "sw"] as const).map((handle) => ({ handle, point: corners[handle] }));
+    }
+    case "free":
+    case "text":
+      return [];
+  }
+}
+
+/** Move one handle of a shape to `point` (clamped), anchoring a box's opposite corner. */
+export function reshapeAnnotation(
+  annotation: Annotation,
+  handle: AnnotationHandle,
+  point: NormalizedPoint
+): Annotation {
+  const p = clampToCourt(point);
+
+  switch (annotation.kind) {
+    case "line":
+      return handle === "start" ? { ...annotation, a: p } : handle === "end" ? { ...annotation, b: p } : annotation;
+    case "arrow":
+      return handle === "start" ? { ...annotation, from: p } : handle === "end" ? { ...annotation, to: p } : annotation;
+    case "rect":
+    case "area": {
+      if (handle === "start" || handle === "end") return annotation;
+
+      return { ...annotation, a: p, b: boxCorners(annotation.a, annotation.b)[OPPOSITE[handle]] };
+    }
+    case "free":
+    case "text":
+      return annotation;
   }
 }

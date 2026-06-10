@@ -29,6 +29,7 @@ const ANNOTATIONS: Annotation[] = [
     color: "violet",
     width: 8,
   },
+  { id: "t", kind: "text", at: { x: 0.5, y: 0.7 }, text: "Serve", color: "red", width: 8 },
 ];
 
 describe("Court", () => {
@@ -52,12 +53,33 @@ describe("Court", () => {
     expect(screen.getByLabelText("Volleyball half-court")).toBeInTheDocument();
   });
 
+  test.each([
+    ["select", "r", 4], // a selected rect under the select tool shows its four corner handles
+    ["select", "a", 2], // a selected arrow shows its two endpoint handles
+    ["markers", "r", 0], // no handles outside the select tool
+    ["select", null, 0], // or with nothing selected
+  ] as const)("under the %s tool with %s selected renders %i reshape handles", (tool, selectedId, count) => {
+    const { container } = render(
+      <Court
+        markers={MARKERS}
+        annotations={ANNOTATIONS}
+        tool={tool}
+        selectedAnnotationId={selectedId}
+        onDrawAnnotation={() => {}}
+        onReshapeAnnotation={() => {}}
+      />
+    );
+
+    expect(container.querySelectorAll(".court-annotation-handle")).toHaveLength(count);
+  });
+
   test("renders every annotation kind alongside the markers", () => {
     const { container } = render(<Court markers={MARKERS} annotations={ANNOTATIONS} label="Annotated" />);
 
     expect(screen.getByLabelText("Annotated")).toBeInTheDocument();
     // Each annotation renders one themed group; the markers still render too.
     expect(container.querySelectorAll(".court-annotation")).toHaveLength(ANNOTATIONS.length);
+    expect(screen.getByText("Serve")).toBeInTheDocument(); // the text label renders its content
     expect(screen.getByLabelText("Setter")).toBeInTheDocument();
   });
 });

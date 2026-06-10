@@ -1,9 +1,11 @@
 import { useRef } from "react";
 import type { JSX } from "react";
 
+import type { AnnotationHandle } from "../boards/operations";
 import { Annotations } from "./Annotations";
 import { Arrows } from "./Arrows";
-import { ATTACK_LINE, COURT_SPAN, toSvg, VIEW_SIZE } from "./geometry";
+import type { SnapResult } from "./snapping";
+import { ATTACK_LINE, COURT_SPAN, toSvg, toSvgPoint, VIEW_SIZE } from "./geometry";
 import type { NormalizedPoint } from "./geometry";
 import { CourtGrid } from "./Grid";
 import { Marker } from "./Marker";
@@ -59,6 +61,12 @@ type CourtProps = {
   onDrawAnnotation?: (annotation: Annotation) => void;
   /** Move a shape by a normalized delta (the select tool's drag). */
   onTranslateAnnotation?: (id: string, dx: number, dy: number) => void;
+  /** Move one handle of the selected shape (the select tool's reshape drag). */
+  onReshapeAnnotation?: (id: string, handle: AnnotationHandle, point: NormalizedPoint) => void;
+  /** Magnetic snapping for drawn/reshaped annotation points; the court shows a dot where it locks. */
+  annotationSnap?: (point: NormalizedPoint) => SnapResult;
+  /** Fired when any pointer gesture on the surface ends — the editor's cue to commit it to history. */
+  onGestureEnd?: () => void;
 };
 
 export function Court({
@@ -78,6 +86,9 @@ export function Court({
   onSelectAnnotation,
   onDrawAnnotation,
   onTranslateAnnotation,
+  onReshapeAnnotation,
+  annotationSnap,
+  onGestureEnd,
 }: CourtProps): JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null);
   const editable = Boolean(onSelect && onMove);
@@ -88,6 +99,8 @@ export function Court({
     onDraw: onDrawAnnotation ?? noDraw,
     onSelect: onSelectAnnotation ?? noSelect,
     onTranslate: onTranslateAnnotation ?? noTranslate,
+    onReshape: onReshapeAnnotation,
+    snapPoint: annotationSnap,
   });
 
   // An annotation tool (drawing or select) is active when the editor wired the handlers and the tool is
@@ -96,17 +109,24 @@ export function Court({
   const interactive = editable || drawingTool;
 
   const surface = drawingTool ? draw : editable ? drag : null;
+  const crosshair = drawingTool && tool !== "select";
 
   return (
     <svg
       ref={svgRef}
-      className={`court${interactive ? " court--editable" : ""}`}
+      className={`court${interactive ? " court--editable" : ""}${crosshair ? " court--draw" : ""}`}
       viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
       aria-label={label}
       onPointerDown={surface?.onSurfacePointerDown}
       onPointerMove={surface?.onPointerMove}
-      onPointerUp={surface?.onPointerUp}
-      onPointerCancel={surface?.onPointerUp}
+      onPointerUp={() => {
+        surface?.onPointerUp();
+        onGestureEnd?.();
+      }}
+      onPointerCancel={() => {
+        surface?.onPointerUp();
+        onGestureEnd?.();
+      }}
     >
       <defs>
         {/* Soft top-light to bottom-shade overlay that gives every marker disc a tactile, lit-from-above
@@ -145,6 +165,16 @@ export function Court({
           draft={draw.draft}
           selectedId={tool === "select" ? selectedAnnotationId : null}
           onShapePointerDown={tool === "select" ? draw.onShapePointerDown : undefined}
+          onHandlePointerDown={tool === "select" && onReshapeAnnotation ? draw.onHandlePointerDown : undefined}
+        />
+      )}
+
+      {draw.snapTarget && (
+        <circle
+          className="court-snap-dot"
+          cx={toSvgPoint(draw.snapTarget).x}
+          cy={toSvgPoint(draw.snapTarget).y}
+          r={8}
         />
       )}
 

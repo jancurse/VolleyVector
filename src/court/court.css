@@ -16,6 +16,10 @@
   touch-action: none;
 }
 
+.court--draw {
+  cursor: crosshair;
+}
+
 .court-play {
   fill: var(--court-play);
   transition: fill 0.4s ease;
@@ -179,18 +183,78 @@
   animation: none;
 }
 
+/* A text label: the shape's palette colour over a theme-background halo (paint-order draws the
+   stroke behind the fill), so it stays legible across the court lines on either theme. */
+.court-annotation-text {
+  fill: currentColor;
+  stroke: var(--court-surface);
+  stroke-width: 8;
+  paint-order: stroke;
+  stroke-linejoin: round;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
 .court-annotation--selected {
   filter: drop-shadow(0 0 6px var(--accent));
+}
+
+/* Under the select tool an unselected shape glows softly in its own colour on hover, an invitation
+   to grab it; the selected shape keeps the stronger accent glow above. */
+.court-annotations--select .court-annotation:hover:not(.court-annotation--selected) {
+  filter: drop-shadow(0 0 4px currentColor);
 }
 
 .court-annotation-hit {
   pointer-events: all;
   fill: transparent;
-  cursor: grab;
+  cursor: move;
 }
 
-.court-annotation-hit:active {
-  cursor: grabbing;
+/* Reshape handles on the selected shape: an accent-ringed dot per endpoint/corner, popping in with
+   the shared settle easing. The wide invisible hit circle carries the interaction and the cursor. */
+.court-annotation-handle {
+  animation: court-pop 0.3s var(--ease-settle) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.court-annotation-handle-dot {
+  fill: var(--bg);
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+
+.court-annotation-handle-hit {
+  pointer-events: all;
+  fill: transparent;
+}
+
+.court-annotation-handle-hit[data-handle="start"],
+.court-annotation-handle-hit[data-handle="end"] {
+  cursor: move;
+}
+
+.court-annotation-handle-hit[data-handle="nw"],
+.court-annotation-handle-hit[data-handle="se"] {
+  cursor: nwse-resize;
+}
+
+.court-annotation-handle-hit[data-handle="ne"],
+.court-annotation-handle-hit[data-handle="sw"] {
+  cursor: nesw-resize;
+}
+
+/* The snap indicator: a small accent dot popping in where a drawn point locks onto a target. */
+.court-snap-dot {
+  fill: var(--accent);
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: court-pop 0.15s var(--ease-settle) both;
+  filter: drop-shadow(0 0 4px var(--accent));
 }
 
 @keyframes court-pop {
@@ -217,6 +281,8 @@
   .court-marker,
   .court-arrow,
   .court-annotation,
+  .court-annotation-handle,
+  .court-snap-dot,
   .court-grid {
     animation: none;
   }
