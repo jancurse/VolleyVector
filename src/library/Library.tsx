@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import type { JSX } from "react";
 
 import type { Board } from "../boards/types";
-import { Button } from "../ui/Button";
 import { EYEBROW, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
 import { BoardGrid } from "./BoardGrid";
 import { toLibraryItems } from "./items";
@@ -27,14 +26,9 @@ export function Library({ boards, onOpen, onNew, canEdit }: LibraryProps): JSX.E
           <p className={EYEBROW}>Library</p>
           <h1 className={TITLE}>Boards</h1>
         </div>
-        {canEdit && (
-          <Button variant="ghost" onClick={onNew}>
-            + New board
-          </Button>
-        )}
       </div>
 
-      <BoardGrid items={items} onOpen={onOpen} emptyLabel="No boards yet." />
+      <BoardGrid items={items} onOpen={onOpen} onNew={canEdit ? onNew : undefined} emptyLabel="No boards yet." />
     </section>
   );
 }

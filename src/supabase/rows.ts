@@ -12,7 +12,7 @@ export type Scope = "team" | "personal";
 
 export type BoardRow = {
   id: string;
-  owner: string;
+  owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;
@@ -24,27 +24,33 @@ export type BoardRow = {
   topic_id: string | null;
   shared: boolean;
   author_locked: boolean;
+  auto_arrows: boolean;
   share_token: string;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
 };
 
 export type TopicRow = {
   id: string;
-  owner: string;
+  owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;
+  slug: string;
   blocks: TopicBlock[];
   parent_id: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
 };
 
 export type BoardInsert = {
   id: string;
-  owner: string;
+  owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;
@@ -54,16 +60,18 @@ export type BoardInsert = {
   steps: BoardStep[];
   tags: string[];
   topic_id: string | null;
+  auto_arrows: boolean;
 };
 
 export type BoardUpdate = Omit<BoardInsert, "id" | "owner" | "scope" | "team_id">;
 
 export type TopicInsert = {
   id: string;
-  owner: string;
+  owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;
+  slug: string;
   blocks: TopicBlock[];
   parent_id: string | null;
   sort_order: number;
@@ -83,6 +91,7 @@ export function boardFromRow(row: BoardRow): Board {
     authorLocked: row.author_locked,
     shared: row.shared,
     teamId: row.team_id,
+    autoArrows: row.auto_arrows,
     createdAt: Date.parse(row.created_at),
     updatedAt: Date.parse(row.updated_at),
   };
@@ -101,6 +110,7 @@ export function boardToInsert(board: Board, owner: string, scope: Scope, teamId:
     steps: board.steps,
     tags: board.tags,
     topic_id: board.topicId,
+    auto_arrows: board.autoArrows,
   };
 }
 
@@ -113,6 +123,7 @@ export function boardToUpdate(board: Board): BoardUpdate {
     steps: board.steps,
     tags: board.tags,
     topic_id: board.topicId,
+    auto_arrows: board.autoArrows,
   };
 }
 
@@ -120,6 +131,7 @@ export function topicFromRow(row: TopicRow): Topic {
   return {
     id: row.id,
     title: row.title,
+    slug: row.slug,
     blocks: row.blocks,
     parentId: row.parent_id,
     order: row.sort_order,
@@ -133,6 +145,7 @@ export function topicToInsert(topic: Topic, owner: string, scope: Scope, teamId:
     scope,
     team_id: teamId,
     title: topic.title,
+    slug: topic.slug,
     blocks: topic.blocks,
     parent_id: topic.parentId,
     sort_order: topic.order,

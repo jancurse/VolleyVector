@@ -1,49 +1,78 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { JSX, KeyboardEvent } from "react";
+import { Redo2, Undo2 } from "lucide-react";
 
 import { arrowsForStep } from "../boards/arrows";
 import {
+  addAnnotation,
   addMarker,
+  copyAnnotationsToNextStep,
+  duplicateAnnotation,
   insertStep,
   moveStep,
+  removeAnnotation,
   removeMarker,
   removeStep,
+  reshapeAnnotation,
   setMarker,
   setStepInstruction,
   setStepPosition,
+  stepAnnotations,
   stepMarkers,
+  translateAnnotation,
+  updateAnnotation,
 } from "../boards/operations";
-import type { Board } from "../boards/types";
+import type { AnnotationHandle } from "../boards/operations";
+import type { Annotation, Board } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { Court } from "../court/Court";
-import { clampToCourt } from "../court/geometry";
+import { clampToCourt, snapToGrid, toSvg, VIEW_SIZE } from "../court/geometry";
+import { snapAnnotationPoint } from "../court/snapping";
 import type { NormalizedPoint } from "../court/geometry";
-import type { CourtMode, MarkerRole } from "../court/roles";
+import type { AnnotationStyle, AnnotationTool } from "../court/types";
+import type { MarkerRole } from "../court/roles";
 import { TopicPicker } from "../topics/TopicPicker";
 import type { Topic } from "../topics/types";
 import { Button } from "../ui/Button";
 import { CourtFrame } from "../ui/CourtFrame";
+import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
 import { ToggleGroup } from "../ui/ToggleGroup";
+import { FIELD_LABEL } from "../ui/styles";
+import { AnnotationInspector } from "./AnnotationInspector";
+import { AnnotationToolbar } from "./AnnotationToolbar";
+import { DEFAULT_ANNOTATION_STYLE } from "./annotationStyle";
+import { CourtToolbar } from "./CourtToolbar";
 import { DescriptionEditor } from "./DescriptionEditor";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
 import { StepStrip } from "./StepStrip";
 import { TagEditor } from "./TagEditor";
+import { useDraftHistory } from "./useDraftHistory";
+import { useEditorShortcuts } from "./useEditorShortcuts";
+
+const AUTO_ARROW_ITEMS = [
+  { value: "on", label: "On" },
+  { value: "off", label: "Off" },
+];
 
 const NUDGE = 0.01;
 const NUDGE_LARGE = 0.05;
+
+// The inline editor for a placed text label, floated over the court at the label's position.
+const TEXT_OVERLAY =
+  "absolute z-10 w-36 -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-bg px-2 py-1 text-center text-sm text-text shadow-sm focus:outline-2 focus:outline-accent-weak";
+
+/** A normalized court coordinate as a CSS percentage of the (square) court frame. */
+function framePercent(normalized: number): string {
+  return `${(toSvg(normalized) / VIEW_SIZE) * 100}%`;
+}
 const ARROW_DELTAS: Record<string, NormalizedPoint> = {
   ArrowLeft: { x: -1, y: 0 },
   ArrowRight: { x: 1, y: 0 },
   ArrowUp: { x: 0, y: -1 },
   ArrowDown: { x: 0, y: 1 },
 };
-
-const MODE_ITEMS = [
-  { value: "positions", label: "Positions" },
-  { value: "basic", label: "Basic" },
-];
 
 // Edits a working draft of one board, one step at a time. A single-step board is a Position — a
 // static court, with an Add step affordance that clones the current positions to promote it to a
@@ -72,10 +101,23 @@ export function BoardEditor({
   tagSuggestions,
   topics = [],
 }: BoardEditorProps): JSX.Element {
-  const [draft, setDraft] = useState(board);
-  const [activeStepId, setActiveStepId] = useState(board.steps[0].id);
+  const { draft, activeStepId, setActiveStepId, set, replace, commit, undo, redo, canUndo, canRedo } =
+    useDraftHistory(board);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tool, setTool] = useState<AnnotationTool>("markers");
+  const [annotationStyle, setAnnotationStyle] = useState<AnnotationStyle>(DEFAULT_ANNOTATION_STYLE);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  const [grid, setGrid] = useState(0);
+  const [snapOn, setSnapOn] = useState(true);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const frameRef = useRef<HTMLElement>(null);
+  // Set while Escape is cancelling the text editor, so the following blur undoes instead of keeping.
+  const textCancelled = useRef(false);
+
+  const snap = useMemo(
+    () => (grid > 0 && snapOn ? (p: NormalizedPoint) => snapToGrid(p, grid) : undefined),
+    [grid, snapOn]
+  );
 
   const stepIndex = Math.max(
     0,
@@ -83,72 +125,183 @@ export function BoardEditor({
   );
   const activeStep = draft.steps[stepIndex] ?? draft.steps[0];
   const markers = stepMarkers(draft, stepIndex);
-  const arrows = arrowsForStep(draft, stepIndex);
+  const annotations = stepAnnotations(draft, stepIndex);
+  const arrows = draft.autoArrows ? arrowsForStep(draft, stepIndex) : [];
   const selected = markers.find((m) => m.id === selectedId) ?? null;
+  const selectedAnnotation = annotations.find((a) => a.id === selectedAnnotationId) ?? null;
+  const editingText = annotations.find((a) => a.id === editingTextId && a.kind === "text") ?? null;
   const sequence = isSequence(draft);
+
+  // Drawn/reshaped points snap to the court's features and the active step's markers; the grid joins
+  // in only while grid snapping is on. Alt bypasses inside the draw hook.
+  const annotationSnap = useMemo(() => {
+    const points = stepMarkers(draft, stepIndex).map((m) => m.position);
+    const divisions = grid > 0 && snapOn ? grid : 0;
+
+    return (p: NormalizedPoint) => snapAnnotationPoint(p, points, divisions);
+  }, [draft, stepIndex, grid, snapOn]);
 
   const select = useCallback((id: string | null) => {
     setSelectedId(id);
     if (id !== null) frameRef.current?.focus();
   }, []);
 
+  // Switching tool clears both selections, so a leftover marker or shape selection never lingers under
+  // a different tool's inspector.
+  const changeTool = useCallback((next: AnnotationTool) => {
+    setTool(next);
+    setSelectedId(null);
+    setSelectedAnnotationId(null);
+  }, []);
+
   const move = useCallback(
-    (id: string, position: NormalizedPoint) => setDraft((d) => setStepPosition(d, activeStepId, id, position)),
-    [activeStepId]
+    (id: string, position: NormalizedPoint) => replace((d) => setStepPosition(d, activeStepId, id, position)),
+    [replace, activeStepId]
+  );
+
+  // Sticky tools: the drawing tool stays active after each shape (Esc returns to select), so a coach
+  // can lay down several shapes in a row without re-picking the tool. A placed text label opens its
+  // inline editor immediately.
+  const drawAnnotation = useCallback(
+    (annotation: Annotation) => {
+      set((d) => addAnnotation(d, activeStepId, annotation));
+      if (annotation.kind === "text") setEditingTextId(annotation.id);
+    },
+    [set, activeStepId]
+  );
+
+  // Closing the text editor: Escape (or ending up empty) undoes the whole placement — the label's
+  // creation was the last recorded edit, so one undo removes it without a junk history entry.
+  const finishTextEdit = useCallback(
+    (text: string) => {
+      if (textCancelled.current || text.trim() === "") undo();
+
+      textCancelled.current = false;
+      setEditingTextId(null);
+    },
+    [undo]
+  );
+
+  const reshape = useCallback(
+    (id: string, handle: AnnotationHandle, point: NormalizedPoint) =>
+      replace((d) => {
+        const annotation = (d.steps.find((s) => s.id === activeStepId)?.annotations ?? []).find((a) => a.id === id);
+
+        return annotation ? updateAnnotation(d, activeStepId, id, reshapeAnnotation(annotation, handle, point)) : d;
+      }),
+    [replace, activeStepId]
+  );
+
+  const translate = useCallback(
+    (id: string, dx: number, dy: number) =>
+      replace((d) => {
+        const annotation = (d.steps.find((s) => s.id === activeStepId)?.annotations ?? []).find((a) => a.id === id);
+
+        return annotation ? updateAnnotation(d, activeStepId, id, translateAnnotation(annotation, dx, dy)) : d;
+      }),
+    [replace, activeStepId]
+  );
+
+  const styleAnnotation = useCallback(
+    (patch: Partial<AnnotationStyle>) => {
+      setAnnotationStyle((s) => ({ ...s, ...patch }));
+      if (selectedAnnotationId) set((d) => updateAnnotation(d, activeStepId, selectedAnnotationId, patch));
+    },
+    [set, activeStepId, selectedAnnotationId]
   );
 
   const add = useCallback(
     (role: MarkerRole) => {
       const { board: next, markerId } = addMarker(draft, role, stepIndex);
 
-      setDraft(next);
+      set(() => next);
+      changeTool("markers");
       setSelectedId(markerId);
       frameRef.current?.focus();
     },
-    [draft, stepIndex]
+    [draft, stepIndex, set, changeTool]
   );
 
   const appendStep = useCallback(() => {
     const { board: next, stepId } = insertStep(draft, stepIndex);
 
-    setDraft(next);
+    set(() => next);
     setActiveStepId(stepId);
-  }, [draft, stepIndex]);
+  }, [draft, stepIndex, set, setActiveStepId]);
 
   const deleteStep = useCallback(
     (id: string) => {
-      if (id === activeStepId) {
-        const idx = draft.steps.findIndex((s) => s.id === id);
-        const remaining = draft.steps.filter((s) => s.id !== id);
-        const neighbor = remaining[Math.min(idx, remaining.length - 1)];
+      const idx = draft.steps.findIndex((s) => s.id === id);
+      const remaining = draft.steps.filter((s) => s.id !== id);
+      const neighbor = remaining[Math.min(idx, remaining.length - 1)];
 
-        if (neighbor) setActiveStepId(neighbor.id);
-      }
-
-      setDraft((d) => removeStep(d, id));
+      // Record the removal first, so the undo snapshot still carries the deleted step as active.
+      set((d) => removeStep(d, id));
+      if (id === activeStepId && neighbor) setActiveStepId(neighbor.id);
     },
-    [draft.steps, activeStepId]
+    [draft.steps, activeStepId, set, setActiveStepId]
   );
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
       const delta = ARROW_DELTAS[event.key];
 
-      if (!selected || !delta) return;
+      if (!delta) return;
 
-      event.preventDefault();
       const size = event.shiftKey ? NUDGE_LARGE : NUDGE;
 
-      move(
-        selected.id,
-        clampToCourt({ x: selected.position.x + delta.x * size, y: selected.position.y + delta.y * size })
-      );
+      if (selectedAnnotationId) {
+        event.preventDefault();
+        translate(selectedAnnotationId, delta.x * size, delta.y * size);
+      } else if (selected) {
+        event.preventDefault();
+        move(
+          selected.id,
+          clampToCourt({ x: selected.position.x + delta.x * size, y: selected.position.y + delta.y * size })
+        );
+      }
     },
-    [selected, move]
+    [selected, selectedAnnotationId, move, translate]
   );
 
+  useEditorShortcuts({
+    onUndo: undo,
+    onRedo: redo,
+    // The draw hook consumes Escape (preventDefault) while a shape is mid-draw, so this only ever
+    // sees the next press: clear any selection first, then step a drawing tool back to select.
+    onEscape: () => {
+      if (selectedId || selectedAnnotationId) {
+        setSelectedId(null);
+        setSelectedAnnotationId(null);
+      } else if (tool !== "markers" && tool !== "select") {
+        setTool("select");
+      }
+    },
+    onDelete: () => {
+      if (selectedAnnotation) {
+        set((d) => removeAnnotation(d, activeStepId, selectedAnnotation.id));
+        setSelectedAnnotationId(null);
+      } else if (selected) {
+        set((d) => removeMarker(d, selected.id));
+        setSelectedId(null);
+      }
+    },
+    onDuplicate: () => {
+      if (!selectedAnnotation) return;
+
+      const copy = duplicateAnnotation(selectedAnnotation);
+
+      set((d) => addAnnotation(d, activeStepId, copy));
+      setSelectedAnnotationId(copy.id);
+    },
+    onTool: changeTool,
+  });
+
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-[rise_0.6s_0.05s_var(--ease-settle)_both] motion-reduce:animate-none">
+    <div
+      className="mx-auto flex w-full min-w-0 max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-[rise_0.6s_0.05s_var(--ease-settle)_both] motion-reduce:animate-none"
+      onBlur={commit}
+    >
       <div className="flex items-center gap-4">
         <Button variant="text" onClick={onCancel}>
           Cancel
@@ -158,8 +311,14 @@ export function BoardEditor({
           value={draft.title}
           placeholder="Untitled board"
           aria-label="Board title"
-          onChange={(event) => setDraft((d) => ({ ...d, title: event.target.value }))}
+          onChange={(event) => replace((d) => ({ ...d, title: event.target.value }))}
         />
+        <IconButton aria-label="Undo" tooltip="Undo (Ctrl+Z)" disabled={!canUndo} onClick={undo}>
+          <Undo2 size={16} aria-hidden="true" />
+        </IconButton>
+        <IconButton aria-label="Redo" tooltip="Redo (Ctrl+Shift+Z)" disabled={!canRedo} onClick={redo}>
+          <Redo2 size={16} aria-hidden="true" />
+        </IconButton>
         {onDelete && (
           <Button variant="danger" onClick={onDelete}>
             Delete
@@ -172,26 +331,71 @@ export function BoardEditor({
 
       <div className="grid grid-cols-[min(74vh,560px)_minmax(0,1fr)] items-stretch gap-[clamp(1rem,3vw,2rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
-          <CourtFrame ref={frameRef} tabIndex={0} aria-label="Court editor" onKeyDown={onKeyDown}>
+          <CourtFrame
+            ref={frameRef}
+            tabIndex={0}
+            aria-label="Court editor"
+            className="relative"
+            onKeyDown={onKeyDown}
+            onKeyUp={commit}
+          >
             <Court
               markers={markers}
               arrows={arrows}
+              annotations={annotations}
+              grid={grid}
+              snap={snap}
               label={draft.title || "Untitled board"}
               selectedId={selectedId}
               onSelect={select}
               onMove={move}
+              tool={tool}
+              annotationStyle={annotationStyle}
+              selectedAnnotationId={selectedAnnotationId}
+              onSelectAnnotation={setSelectedAnnotationId}
+              onDrawAnnotation={drawAnnotation}
+              onTranslateAnnotation={translate}
+              onReshapeAnnotation={reshape}
+              annotationSnap={annotationSnap}
+              onGestureEnd={commit}
             />
+            {editingText?.kind === "text" && (
+              <input
+                className={TEXT_OVERLAY}
+                style={{ left: framePercent(editingText.at.x), top: framePercent(editingText.at.y) }}
+                value={editingText.text}
+                placeholder="Label"
+                aria-label="Text label"
+                autoFocus
+                onChange={(event) =>
+                  replace((d) => updateAnnotation(d, activeStepId, editingText.id, { text: event.target.value }))
+                }
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === "Escape") textCancelled.current = true;
+                  if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur();
+                }}
+                onBlur={() => finishTextEdit(editingText.text)}
+              />
+            )}
           </CourtFrame>
 
           {sequence ? (
-            <StepStrip
-              steps={draft.steps}
-              current={stepIndex}
-              onSelect={(i) => setActiveStepId(draft.steps[i]?.id ?? draft.steps[0].id)}
-              onAdd={appendStep}
-              onRemove={deleteStep}
-              onMove={(from, to) => setDraft((d) => moveStep(d, from, to))}
-            />
+            <>
+              <StepStrip
+                steps={draft.steps}
+                current={stepIndex}
+                onSelect={(i) => setActiveStepId(draft.steps[i]?.id ?? draft.steps[0].id)}
+                onAdd={appendStep}
+                onRemove={deleteStep}
+                onMove={(from, to) => set((d) => moveStep(d, from, to))}
+              />
+              {stepIndex < draft.steps.length - 1 && annotations.length > 0 && (
+                <Button variant="text" size="sm" onClick={() => set((d) => copyAnnotationsToNextStep(d, stepIndex))}>
+                  Copy drawings to next step
+                </Button>
+              )}
+            </>
           ) : (
             <div className="flex flex-wrap items-center justify-center gap-[0.4rem]">
               <Button variant="dashed" onClick={appendStep} aria-label="Add step">
@@ -200,12 +404,28 @@ export function BoardEditor({
             </div>
           )}
 
-          <ToggleGroup
-            ariaLabel="Court mode"
-            items={MODE_ITEMS}
-            value={draft.mode}
-            onValueChange={(mode) => setDraft((d) => ({ ...d, mode: mode as CourtMode }))}
+          {sequence && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className={FIELD_LABEL}>Auto arrows</span>
+              <ToggleGroup
+                ariaLabel="Auto arrows"
+                items={AUTO_ARROW_ITEMS}
+                value={draft.autoArrows ? "on" : "off"}
+                onValueChange={(value) => set((d) => ({ ...d, autoArrows: value === "on" }))}
+              />
+            </div>
+          )}
+
+          <CourtToolbar
+            mode={draft.mode}
+            onModeChange={(mode) => set((d) => ({ ...d, mode }))}
+            grid={grid}
+            onGridChange={setGrid}
+            snap={snapOn}
+            onSnapChange={setSnapOn}
           />
+
+          <AnnotationToolbar tool={tool} onToolChange={changeTool} />
 
           <MarkerPalette mode={draft.mode} onAdd={add} />
         </div>
@@ -215,40 +435,52 @@ export function BoardEditor({
             <MarkerInspector
               marker={selected}
               mode={draft.mode}
-              onChangeRole={(role) => setDraft((d) => setMarker(d, selected.id, { role }))}
-              onChangeColor={(color) => setDraft((d) => setMarker(d, selected.id, { color }))}
+              onChangeRole={(role) => set((d) => setMarker(d, selected.id, { role }))}
+              onChangeColor={(color) => set((d) => setMarker(d, selected.id, { color }))}
               onChangeLabel={(label) =>
-                setDraft((d) => setMarker(d, selected.id, { label: label.trim() === "" ? undefined : label }))
+                replace((d) => setMarker(d, selected.id, { label: label.trim() === "" ? undefined : label }))
               }
               onDelete={() => {
-                setDraft((d) => removeMarker(d, selected.id));
+                set((d) => removeMarker(d, selected.id));
                 setSelectedId(null);
               }}
             />
           )}
+          {(tool !== "markers" || selectedAnnotation) && (
+            <AnnotationInspector
+              style={selectedAnnotation ?? annotationStyle}
+              selected={Boolean(selectedAnnotation)}
+              onChangeColor={(color) => styleAnnotation({ color })}
+              onChangeWidth={(width) => styleAnnotation({ width })}
+              onRemove={
+                selectedAnnotation
+                  ? () => {
+                      set((d) => removeAnnotation(d, activeStepId, selectedAnnotation.id));
+                      setSelectedAnnotationId(null);
+                    }
+                  : undefined
+              }
+            />
+          )}
           <DescriptionEditor
             value={draft.description}
-            onChange={(description) => setDraft((d) => ({ ...d, description }))}
+            onChange={(description) => replace((d) => ({ ...d, description }))}
           />
           {sequence && (
             <DescriptionEditor
               key={activeStep.id}
               title={`Step ${stepIndex + 1} instruction`}
               value={activeStep.instruction}
-              onChange={(value) => setDraft((d) => setStepInstruction(d, activeStepId, value))}
+              onChange={(value) => replace((d) => setStepInstruction(d, activeStepId, value))}
               placeholder="What happens on this step? (markdown)"
               compact
             />
           )}
-          <TagEditor
-            tags={draft.tags}
-            suggestions={tagSuggestions}
-            onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
-          />
+          <TagEditor tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => set((d) => ({ ...d, tags }))} />
           <TopicPicker
             topics={topics}
             value={draft.topicId}
-            onChange={(topicId) => setDraft((d) => ({ ...d, topicId }))}
+            onChange={(topicId) => set((d) => ({ ...d, topicId }))}
             label="Topic"
             noneLabel="Unfiled"
           />

@@ -1,8 +1,7 @@
-import { SAMPLE_BOARDS } from "../../src/boards/storage";
 import type { Board } from "../../src/boards/types";
 import type { BoardRow, TopicRow } from "../../src/supabase/rows";
-import { SAMPLE_TOPICS } from "../../src/topics/storage";
 import type { Topic } from "../../src/topics/types";
+import { SAMPLE_BOARDS, SAMPLE_TOPICS } from "./sampleData";
 
 // A tiny in-memory stand-in for the Supabase client, used to test surfaces that read through the data
 // layer. It mocks only the external dependency (per the style guide), so the real stores, hooks, and
@@ -21,11 +20,12 @@ const BOARD_AUTHOR = "seed-coach";
 
 const ISO = "2026-01-01T00:00:00.000Z";
 
-// The test user's standing in the active team. Defaults to an admin coach (full access); a test can
-// lower it to exercise read-only and per-role gating, and resetFakeAuthz restores the default.
-type Authz = { isAdmin: boolean; role: "coach" | "player" };
+// The test user's standing in the active team. Defaults to an admin coach (full access) with a set
+// display name; a test can lower the role, or clear the name to exercise the first-login prompt, and
+// resetFakeAuthz restores the default.
+type Authz = { isAdmin: boolean; role: "coach" | "player"; displayName: string | null };
 
-const authz: Authz = { isAdmin: true, role: "coach" };
+const authz: Authz = { isAdmin: true, role: "coach", displayName: "Coach Casey" };
 
 export function setFakeAuthz(next: Partial<Authz>): void {
   Object.assign(authz, next);
@@ -34,6 +34,7 @@ export function setFakeAuthz(next: Partial<Authz>): void {
 export function resetFakeAuthz(): void {
   authz.isAdmin = true;
   authz.role = "coach";
+  authz.displayName = "Coach Casey";
 }
 
 function toBoardRow(board: Board): BoardRow {
@@ -51,9 +52,12 @@ function toBoardRow(board: Board): BoardRow {
     topic_id: board.topicId,
     shared: false,
     author_locked: false,
+    auto_arrows: true,
     share_token: `token-${board.id}`,
     created_at: ISO,
     updated_at: ISO,
+    deleted_at: null,
+    deleted_by: null,
   };
 }
 
@@ -64,11 +68,14 @@ function toTopicRow(topic: Topic): TopicRow {
     scope: "team",
     team_id: TEST_TEAM_ID,
     title: topic.title,
+    slug: topic.slug,
     blocks: topic.blocks,
     parent_id: topic.parentId,
     sort_order: topic.order,
     created_at: ISO,
     updated_at: ISO,
+    deleted_at: null,
+    deleted_by: null,
   };
 }
 
@@ -87,9 +94,12 @@ const PERSONAL_BOARD: BoardRow = {
   topic_id: null,
   shared: false,
   author_locked: false,
+  auto_arrows: true,
   share_token: "token-personal-1",
   created_at: ISO,
   updated_at: ISO,
+  deleted_at: null,
+  deleted_by: null,
 };
 
 // Another user's personal board, shared into the test team. It belongs to neither the team list nor the
@@ -105,78 +115,183 @@ const SHARED_PERSONAL: BoardRow = {
 };
 
 type Row = Record<string, unknown>;
-type Filter = { column: string; values: unknown[] };
+type Predicate = (row: Row) => boolean;
 type DbResult = { data: unknown; error: { message: string } | null };
 
 const ok = (data: unknown): DbResult => ({ data, error: null });
 
-// A chainable query stub. Filter methods record their constraint and return the same object; awaiting it
-// (or calling single) resolves the seeded rows that match every filter for a read, or an empty success
-// for a write. `created` is the row a write's insert(...).select().single() resolves to (a new id).
+// Writes, RPCs, and Edge Function calls are recorded so a test can assert the data layer issues the right
+// call (a soft-delete update, a soft_delete_topic RPC, a delete-account invoke). Reset between tests.
+export type WriteCall = {
+  table: string;
+  op: "insert" | "update" | "delete";
+  payload?: Row;
+  eq: Record<string, unknown>;
+};
+export type RpcCall = { fn: string; params: unknown };
+export type InvokeCall = { name: string; body: unknown };
+
+export const recordedWrites: WriteCall[] = [];
+export const recordedRpcs: RpcCall[] = [];
+export const recordedInvokes: InvokeCall[] = [];
+
+export function resetRecorded(): void {
+  recordedWrites.length = 0;
+  recordedRpcs.length = 0;
+  recordedInvokes.length = 0;
+}
+
+// A chainable query stub. Filter methods record a predicate and return the same object; awaiting it (or
+// calling single) resolves the seeded rows that match every filter for a read, or an empty success for a
+// write. `created` is the row a write's insert(...).select().single() resolves to (a new id). `.is` treats
+// null and an absent column as equal; `.not(col, "is", null)` matches rows whose column is set.
 type Query = {
   select: () => Query;
-  insert: () => Query;
-  update: () => Query;
+  insert: (payload?: Row) => Query;
+  update: (payload?: Row) => Query;
   delete: () => Query;
   eq: (column: string, value: unknown) => Query;
   in: (column: string, values: readonly unknown[]) => Query;
+  is: (column: string, value: unknown) => Query;
+  not: (column: string, op: string, value: unknown) => Query;
   single: () => Promise<DbResult>;
+  maybeSingle: () => Promise<DbResult>;
   then: (onfulfilled: (value: DbResult) => unknown, onrejected?: (reason: unknown) => unknown) => Promise<unknown>;
 };
 
-function makeQuery(rows: Row[], created: Row | null): Query {
+function makeQuery(table: string, rows: Row[], created: Row | null): Query {
   let write = false;
-  const filters: Filter[] = [];
-  const matches = () => rows.filter((row) => filters.every((f) => f.values.includes(row[f.column])));
+  let record: WriteCall | null = null;
+  const filters: Predicate[] = [];
+  const matches = () => rows.filter((row) => filters.every((f) => f(row)));
+
+  const begin = (op: WriteCall["op"], payload?: Row): Query => {
+    write = true;
+    record = { table, op, payload, eq: {} };
+    recordedWrites.push(record);
+
+    return query;
+  };
 
   const query: Query = {
     select: () => query,
-    insert: () => {
-      write = true;
-
-      return query;
-    },
-    update: () => {
-      write = true;
-
-      return query;
-    },
-    delete: () => {
-      write = true;
-
-      return query;
-    },
+    insert: (payload) => begin("insert", payload),
+    update: (payload) => begin("update", payload),
+    delete: () => begin("delete"),
     eq: (column, value) => {
-      filters.push({ column, values: [value] });
+      filters.push((row) => row[column] === value);
+      if (record) record.eq[column] = value;
 
       return query;
     },
     in: (column, values) => {
-      filters.push({ column, values: [...values] });
+      filters.push((row) => [...values].includes(row[column]));
+
+      return query;
+    },
+    is: (column, value) => {
+      filters.push((row) => (value === null ? row[column] == null : row[column] === value));
+
+      return query;
+    },
+    not: (column, op, value) => {
+      filters.push((row) => (op === "is" && value === null ? row[column] != null : row[column] !== value));
 
       return query;
     },
     single: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
+    maybeSingle: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     then: (onfulfilled, onrejected) => Promise.resolve(write ? ok(null) : ok(matches())).then(onfulfilled, onrejected),
   };
 
   return query;
 }
 
+// A second team member (a player who is not the test user), so member removal can target someone else, and
+// a grace-archived board and topic, so the deleted_at filter and the admin recovery list can be exercised.
+export const OTHER_MEMBER = { id: "player-2", email: "player@volley.test" };
+
+const DELETED_BOARD: BoardRow = {
+  ...PERSONAL_BOARD,
+  id: "deleted-board-1",
+  owner: BOARD_AUTHOR,
+  scope: "team",
+  team_id: TEST_TEAM_ID,
+  title: "Archived Board",
+  share_token: "token-deleted-1",
+  deleted_at: ISO,
+  deleted_by: TEST_USER.id,
+};
+
+const DELETED_TOPIC: TopicRow = {
+  ...toTopicRow(SAMPLE_TOPICS[0]),
+  id: "deleted-topic-1",
+  title: "Archived Topic",
+  deleted_at: ISO,
+  deleted_by: TEST_USER.id,
+};
+
+// A soft-deleted account and a soft-deleted team, so the admin recovery list (and the restore actions) can
+// be exercised. Neither is a member of, or owned by, the test user, so they only surface in the admin panel.
+export const DELETED_ACCOUNT = { id: "gone-1", email: "gone@volley.test" };
+export const DELETED_TEAM = { id: "old-team-1", name: "Old Team" };
+
 function from(table: string): Query {
   switch (table) {
     case "boards":
-      return makeQuery([...SAMPLE_BOARDS.map(toBoardRow), PERSONAL_BOARD], null);
+      return makeQuery(table, [...SAMPLE_BOARDS.map(toBoardRow), PERSONAL_BOARD, DELETED_BOARD], null);
     case "topics":
-      return makeQuery(SAMPLE_TOPICS.map(toTopicRow), null);
+      return makeQuery(table, [...SAMPLE_TOPICS.map(toTopicRow), DELETED_TOPIC], null);
     case "memberships":
-      return makeQuery([{ team_id: TEST_TEAM_ID, user_id: TEST_USER.id, role: authz.role }], null);
+      return makeQuery(
+        table,
+        [
+          { team_id: TEST_TEAM_ID, user_id: TEST_USER.id, role: authz.role },
+          { team_id: TEST_TEAM_ID, user_id: OTHER_MEMBER.id, role: "player" },
+        ],
+        null
+      );
     case "teams":
-      return makeQuery([{ id: TEST_TEAM_ID, name: "My Team" }], { id: "new-team" });
+      return makeQuery(
+        table,
+        [
+          { id: TEST_TEAM_ID, name: "My Team", slug: "my-team", archived_at: null, deleted_at: null },
+          { id: DELETED_TEAM.id, name: DELETED_TEAM.name, slug: "old-team", archived_at: null, deleted_at: ISO },
+        ],
+        { id: "new-team" }
+      );
+    case "invites":
+      return makeQuery(table, [], { token: "new-invite-token" });
     case "profiles":
-      return makeQuery([{ id: TEST_USER.id, email: TEST_USER.email, is_admin: authz.isAdmin }], null);
+      return makeQuery(
+        table,
+        [
+          {
+            id: TEST_USER.id,
+            email: TEST_USER.email,
+            is_admin: authz.isAdmin,
+            display_name: authz.displayName,
+            deleted_at: null,
+          },
+          {
+            id: OTHER_MEMBER.id,
+            email: OTHER_MEMBER.email,
+            is_admin: false,
+            display_name: "Player Pat",
+            deleted_at: null,
+          },
+          {
+            id: DELETED_ACCOUNT.id,
+            email: DELETED_ACCOUNT.email,
+            is_admin: false,
+            display_name: null,
+            deleted_at: ISO,
+          },
+        ],
+        null
+      );
     default:
-      return makeQuery([], null);
+      return makeQuery(table, [], null);
   }
 }
 
@@ -186,19 +301,30 @@ const auth = {
   getSession: () => Promise.resolve({ data: { session }, error: null }),
   onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
   signInWithPassword: () => Promise.resolve({ data: { session }, error: null }),
+  updateUser: () => Promise.resolve({ data: { user: TEST_USER }, error: null }),
   signOut: () => Promise.resolve({ error: null }),
 };
 
-// Inviting goes through an Edge Function; the fake accepts every invite so the client wiring can be
-// tested without the deployed function.
+// Inviting and account deletion go through Edge Functions; the fake records the call and accepts it so the
+// client wiring can be tested without a deployed function.
 const functions = {
-  invoke: () => Promise.resolve({ data: { ok: true }, error: null }),
+  invoke: (name: string, opts?: { body?: unknown }) => {
+    recordedInvokes.push({ name, body: opts?.body });
+
+    return Promise.resolve({ data: { ok: true }, error: null });
+  },
 };
 
 // The share-token resolver, mirroring the public board_by_token function: it returns one board for an
 // exact token, but only a team board or a shared personal board (an unshared personal board never
 // resolves), so a link visitor sees exactly what the database would expose.
 function rpc(fn: string, params: { token?: string }): Promise<DbResult> {
+  recordedRpcs.push({ fn, params });
+
+  // The soft-delete and team-delete RPCs run server-side; the fake accepts them so the client wiring can
+  // be tested without the database.
+  if (fn === "soft_delete_topic" || fn === "delete_team") return Promise.resolve(ok(null));
+
   if (fn !== "board_by_token") return Promise.resolve({ data: null, error: { message: `unknown rpc ${fn}` } });
 
   const all = [...SAMPLE_BOARDS.map(toBoardRow), PERSONAL_BOARD, SHARED_PERSONAL];

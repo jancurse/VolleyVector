@@ -20,13 +20,14 @@ function board(id: string, title: string): Board {
     authorLocked: false,
     shared: false,
     teamId: null,
+    autoArrows: true,
     createdAt: 0,
     updatedAt: 0,
   };
 }
 
 function renderEditor(blocks: TopicBlock[], boards: Board[]) {
-  const topic: Topic = { id: "t", title: "Topic", blocks, parentId: null, order: 0 };
+  const topic: Topic = { id: "t", title: "Topic", slug: "topic", blocks, parentId: null, order: 0 };
   const onDone = vi.fn();
   const onUnfileBoard = vi.fn();
 

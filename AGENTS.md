@@ -19,8 +19,8 @@ VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, brow
 - `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, inspector, step strip, and description/tag editors.
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
 - `src/topics/`: the topic-tree model, operations, store, sidebar, and topic view/editor.
-- `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle and dev-only debug menu.
-- `src/supabase/`, `src/auth/`, `src/workspace/`, `src/team/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the active-space and team membership state, team management (invites, roles), and the sharing flows (share dialog, copy/promote, the share-token route and read-only viewer).
+- `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle.
+- `src/supabase/`, `src/auth/`, `src/account/`, `src/workspace/`, `src/team/`, `src/admin/`, `src/invites/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the account panel and display-name setup, the active-space and team membership state, team management (roles, invite links), admin management (teams, accounts, deleted-content recovery), the invite-link flow (preview, accept, set-password), and the sharing flows (share dialog, copy/promote, the share-token route and read-only viewer).
 - `src/App.tsx`: the top-level shell that owns navigation and wires the stores together.
 
 See @docs/architecture.md for how these fit together and the detail behind each.
@@ -29,6 +29,7 @@ See @docs/architecture.md for how these fit together and the detail behind each.
 
 - Always read the style guide before writing code: @docs/style_guide.md
 - We use Prettier, ESLint, and the TypeScript compiler with a 120-character line length. Do not break lines manually. Run Prettier instead. Settings live in @package.json (Prettier), @eslint.config.js (ESLint), and @tsconfig.json (TypeScript).
+- **Icons: use Lucide (`lucide-react`).** Base UI ships no icons. Render a Lucide component for every UI glyph (`<ChevronRight size={14} />`); never hand-draw an inline `<svg>` icon. The only exceptions are the domain art in `src/court/` (the volleyball, net, and court lines) and the app brand mark in the header (mirrored by `public/favicon.svg`).
 - **Markdown: never hard-wrap a sentence to satisfy a character count.** A single sentence stays on one line and soft-wraps in the editor. You may break lines at sentence boundaries (or other clause/logical boundaries) for clarity — one sentence per line is fine — but do not split a sentence across lines just to hit a width limit. The 120-character limit is a code rule and does not apply to Markdown prose.
 - Code should be concise and readable:
     - Use comments very sparingly. Only write comments to explain a complicated block of code or an unusual line. Do not restate every single line.
@@ -52,7 +53,7 @@ See @docs/architecture.md for how these fit together and the detail behind each.
 
 All commands run from the project root. See @docs/development.md for the full list.
 
-- `npm run dev` starts the Vite dev server
+- `npm run dev` starts the Vite dev server. Run it bare, never with `--port`: Vite auto-picks a free port, and a non-standard port is not in the Supabase auth redirect allow-list.
 - `npm run build` type-checks and builds for production
 - `npm run format`, `npm run lint`, and `npm run typecheck` format, lint, and type-check `src`/`tests`
 - `npm run test` runs the test suite
@@ -64,8 +65,11 @@ Use the diagnostics skill after code changes to ensure formatting, linting, and 
 The repo enables the following Claude Code tools (binaries to install are in @docs/development.md):
 
 - **`typescript-lsp`** — use the LSP tool for code intelligence (go-to-definition, find references, hover) instead of grepping for symbols.
-- **`playwright`** — drive the running dev server in a browser to verify the UI visually (screenshots, interaction); look and motion are core to this product, so check changes on screen, not just in tests.
+- **`playwright`** — drive the running dev server in a browser to verify the UI visually (screenshots, interaction); look and motion are core to this product, so check changes on screen, not just in tests. A dev build auto-logs-in from `~/.config/volleycoach/dev.env`, so the server opens past the login gate; if that file is missing you hit the gate (set it up per @docs/development.md).
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
+- **`supabase`** — two tools serve the backend:
+    - The **Supabase MCP server** (read-only) for inspecting schema, running SELECTs, debugging RLS, and reading logs; the **Supabase CLI** for applying migrations and deploying Edge Functions.
+    - The **`supabase` skill is mandatory**: load it before any Supabase work. The project is production; never push or deploy without user confirmation.
 
 ## Working Practices
 
@@ -77,6 +81,7 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - **Never silently substitute**: if you cannot complete a specific instruction (a file is missing, a tool fails), stop and say so. Do not quietly do something different and present it as the original request.
 - **Flag reversals explicitly**: when you change your mind about a recommendation, say so plainly and explain why, rather than sliding into a new direction as if it were a continuation.
 - Report results factually without positive spin. If errors or issues remain unresolved, state them clearly.
+- **User-only steps are part of the task.** Some steps need the user (Supabase, Cloudflare, admin actions). Walk them through it with exact, ordered steps and wait. Do not work around it to do it yourself, and do not finish the code, declare done, and dump the rest on them. The task is not done until you have guided their part to completion.
 
 ### Problem Solving
 
@@ -91,19 +96,15 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 
 ### Workspaces and worktrees
 
-- All work lives on a **feature branch**, never on `main`. The feature branch has one primary workspace, and may spawn **worktrees**: sub-branches checked out in their own directories for parallel work.
-- **Open a worktree with the EnterWorktree tool, never by hand.** Do not run `git worktree`, `git branch`, or `git checkout` to make one. EnterWorktree is configured to branch off the **current branch**, not `main`, which is what you want.
-- **Name every branch `<issue_number>-<name>`.** Both feature branches and sub-worktree branches start with the issue number, e.g. `3-product-dev`.
+- Each feature has its own folder. Inside it, the feature branch's checkout and its worktrees sit side by side, each in its own sibling folder.
+- Work in the feature branch's checkout or a worktree, never on `main`.
+- **When you create a worktree, use the EnterWorktree tool**, not `git` by hand. It runs a custom hook that creates the worktree in a parallel folder and adds it to VS Code.
+- **Name every branch `<issue_number>-<name>`, where `<issue_number>` is the GitHub issue this work belongs to** (matched to its branch and PR). A worktree shares its feature's issue number, so off `11-follow-ups` use `11-redesign`, never `12-...`. A different number means a different issue.
 - **Stay in your workspace.** You belong to exactly one workspace, either the feature branch's primary checkout or a worktree. Edit only its files. Never edit, move, copy into, or delete files in another workspace or branch, and never reach around a guard that blocks this (with Bash file ops, by disabling the guard, or otherwise).
 - **Read your own workspace first.** Reach into the feature branch or another worktree only when you genuinely need context missing from yours, and then only to read.
-- **Integrate with git, not by copying.** A worktree reaches the feature branch through a git merge. Never copy files between workspaces to share results.
+- **Integrate with git, never by copying or with a merge commit.** Only do this when the user asks: never commit, rebase, or merge without their approval. Rebase the worktree branch onto the feature branch, then fast-forward: `git rebase <feature>` in the worktree, then `git -C <feature-checkout> merge --ff-only <worktree-branch>`. If `--ff-only` is refused, finish the rebase instead of making a merge commit.
+- **Removing a worktree the user asks to exit.** `ExitWorktree` with `action: "remove"` may warn it "could not verify" the worktree, because it checks the branch against its original base, not the feature tip. Once the worktree tip equals the feature branch (after the rebase + `merge --ff-only` above), that warning is safe to ignore: re-invoke with `discard_changes: true`. The remove hook keeps the branch as a backup and refuses on a dirty tree, so only the folder is discarded. Verify the folder is gone afterwards.
 - **Wrong place? Stop and ask.** If you suspect you are in the wrong location, for example branched off `main` instead of the feature branch, stop, tell the user, and ask for help. Do not work around it.
-
-## Backend (Supabase)
-
-- **The user runs all Supabase actions** (SQL migrations, admin bootstrap, Edge Function deploys). Hand over exact steps and wait. Never self-provision, log in, or install deploy tooling.
-- **Grant `service_role` in migrations, not only `authenticated`.** "Auto-expose new tables" is off, so grants are explicit. `service_role` bypasses RLS but still needs the table GRANT, or Edge Functions using the secret key fail with `permission denied for table ...`.
-- **Edge Functions use the new secret key**, read from the `SUPABASE_SECRET_KEYS` dict, not the legacy `SUPABASE_SERVICE_ROLE_KEY`. Keep "Verify JWT" off and authorize the caller in code.
 
 ## Package Management
 

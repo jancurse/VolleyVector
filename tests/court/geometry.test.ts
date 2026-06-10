@@ -8,6 +8,7 @@ import {
   fromSvg,
   fromSvgPoint,
   MARKER_REACH,
+  snapToGrid,
   toSvg,
   toSvgPoint,
   VIEW_SIZE,
@@ -72,6 +73,24 @@ describe("fromSvgPoint", () => {
 
     expect(result.x).toBeCloseTo(0.3);
     expect(result.y).toBeCloseTo(0.7);
+  });
+});
+
+describe("snapToGrid", () => {
+  test.each([
+    // A point close to a 3×3 line is pulled onto it (lines at 0, 1/3, 2/3, 1).
+    [{ x: 0.35, y: 0.66 }, 3, { x: 1 / 3, y: 2 / 3 }],
+    // The middle of a cell stays free, on both axes.
+    [{ x: 0.5, y: 0.5 }, 3, { x: 0.5, y: 0.5 }],
+    // A 27×27 grid resolves finer: 0.5 sits between lines and stays free, 0.07 pulls to 2/27.
+    [{ x: 0.5, y: 0.07 }, 27, { x: 0.5, y: 2 / 27 }],
+    // A 9×9 line pulls a nearby axis (0.47 → 4/9), while a y already past the end line stays put.
+    [{ x: 0.47, y: 1.08 }, 9, { x: 4 / 9, y: 1.08 }],
+  ])("snaps %o on a %i-grid to %o", (point, divisions, expected) => {
+    const result = snapToGrid(point, divisions);
+
+    expect(result.x).toBeCloseTo(expected.x);
+    expect(result.y).toBeCloseTo(expected.y);
   });
 });
 

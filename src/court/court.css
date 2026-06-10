@@ -16,6 +16,10 @@
   touch-action: none;
 }
 
+.court--draw {
+  cursor: crosshair;
+}
+
 .court-play {
   fill: var(--court-play);
   transition: fill 0.4s ease;
@@ -38,6 +42,30 @@
   stroke: var(--court-line);
   stroke-width: 4;
   transition: stroke 0.4s ease;
+}
+
+/* The authoring grid: hairline reference lines that read as texture, not structure. Finer grids dim
+   and thin out so a dense 27×27 stays a quiet wash rather than a busy mesh. */
+.court-grid {
+  animation: court-fade 0.3s var(--ease-settle) both;
+}
+
+.court-grid[data-divisions="9"] {
+  opacity: 0.78;
+}
+
+.court-grid[data-divisions="27"] {
+  opacity: 0.5;
+}
+
+.court-grid-line {
+  stroke: var(--court-grid);
+  stroke-width: 1.5;
+  transition: stroke 0.4s ease;
+}
+
+.court-grid[data-divisions="27"] .court-grid-line {
+  stroke-width: 1;
 }
 
 .court-net-tape {
@@ -64,16 +92,32 @@
 .court-marker {
   transform-box: fill-box;
   transform-origin: center;
-  filter: drop-shadow(0 4px 5px var(--marker-shadow));
   animation: court-pop 0.5s var(--ease-settle) both;
-  transition:
-    transform 0.18s var(--ease-settle),
-    filter 0.2s ease;
+  transition: transform 0.18s var(--ease-settle);
+}
+
+/* A hidden caster behind the disc carries the only filter, so the disc, ring, and label render as
+   crisp vector while still casting a soft shadow. Theme-driven: a darker drop on the light court, a
+   deeper one on the dark court. */
+.court-marker-shadow {
+  fill: #000;
+  filter: var(--marker-cast);
+  transition: filter 0.2s ease;
+}
+
+.court-marker--dragging .court-marker-shadow {
+  filter: var(--marker-cast-lift);
+}
+
+/* A crisp separator ring on the disc edge: invisible on the light court (the role ring already reads
+   there), a light rim on the dark court so a disc never sinks into the surface. */
+.court-marker-edge {
+  stroke: var(--marker-edge);
+  stroke-width: 3;
 }
 
 .court-marker--dragging {
-  transform: scale(1.09);
-  filter: drop-shadow(0 10px 14px var(--marker-shadow));
+  transform: scale(1.08);
 }
 
 .court-marker-hit {
@@ -124,6 +168,95 @@
   opacity: 0.82;
 }
 
+/* Drawn annotations. The layer is inert by default so it never blocks marker dragging or a surface
+   deselect; the select tool's hit targets switch interaction back on. currentColor is set per shape to
+   its palette colour, and a shape fades in on a step change rather than interpolating. */
+.court-annotations {
+  pointer-events: none;
+}
+
+.court-annotation {
+  animation: court-fade 0.3s var(--ease-settle) both;
+}
+
+.court-annotation--draft {
+  animation: none;
+}
+
+/* A text label: the shape's palette colour over a theme-background halo (paint-order draws the
+   stroke behind the fill), so it stays legible across the court lines on either theme. */
+.court-annotation-text {
+  fill: currentColor;
+  stroke: var(--court-surface);
+  stroke-width: 8;
+  paint-order: stroke;
+  stroke-linejoin: round;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.court-annotation--selected {
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+
+/* Under the select tool an unselected shape glows softly in its own colour on hover, an invitation
+   to grab it; the selected shape keeps the stronger accent glow above. */
+.court-annotations--select .court-annotation:hover:not(.court-annotation--selected) {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.court-annotation-hit {
+  pointer-events: all;
+  fill: transparent;
+  cursor: move;
+}
+
+/* Reshape handles on the selected shape: an accent-ringed dot per endpoint/corner, popping in with
+   the shared settle easing. The wide invisible hit circle carries the interaction and the cursor. */
+.court-annotation-handle {
+  animation: court-pop 0.3s var(--ease-settle) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.court-annotation-handle-dot {
+  fill: var(--bg);
+  stroke: var(--accent);
+  stroke-width: 4;
+}
+
+.court-annotation-handle-hit {
+  pointer-events: all;
+  fill: transparent;
+}
+
+.court-annotation-handle-hit[data-handle="start"],
+.court-annotation-handle-hit[data-handle="end"] {
+  cursor: move;
+}
+
+.court-annotation-handle-hit[data-handle="nw"],
+.court-annotation-handle-hit[data-handle="se"] {
+  cursor: nwse-resize;
+}
+
+.court-annotation-handle-hit[data-handle="ne"],
+.court-annotation-handle-hit[data-handle="sw"] {
+  cursor: nesw-resize;
+}
+
+/* The snap indicator: a small accent dot popping in where a drawn point locks onto a target. */
+.court-snap-dot {
+  fill: var(--accent);
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: court-pop 0.15s var(--ease-settle) both;
+  filter: drop-shadow(0 0 4px var(--accent));
+}
+
 @keyframes court-pop {
   from {
     opacity: 0;
@@ -146,7 +279,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .court-marker,
-  .court-arrow {
+  .court-arrow,
+  .court-annotation,
+  .court-annotation-handle,
+  .court-snap-dot,
+  .court-grid {
     animation: none;
   }
 }

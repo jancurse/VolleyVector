@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
+import { X } from "lucide-react";
 
 import { cx, OVERLAY, OVERLAY_ITEM, OVERLAY_MOTION } from "./styles";
 
@@ -123,7 +124,7 @@ export function Combobox({
                   <BaseCombobox.Chip key={tag} className={CHIP} aria-label={tag}>
                     {tag}
                     <BaseCombobox.ChipRemove className={CHIP_REMOVE} aria-label={`Remove ${tag}`}>
-                      <XIcon />
+                      <X size={12} aria-hidden="true" className="block" />
                     </BaseCombobox.ChipRemove>
                   </BaseCombobox.Chip>
                 ))}
@@ -159,21 +160,5 @@ export function Combobox({
         </BaseCombobox.Positioner>
       </BaseCombobox.Portal>
     </BaseCombobox.Root>
-  );
-}
-
-function XIcon() {
-  return (
-    <svg
-      width={12}
-      height={12}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      aria-hidden="true"
-      className="block"
-    >
-      <path d="M4 4l8 8M12 4l-8 8" strokeWidth={1.6} strokeLinecap="round" />
-    </svg>
   );
 }

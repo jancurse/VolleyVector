@@ -31,6 +31,9 @@ export function Menu({ trigger, children, tooltip, align = "end" }: MenuProps) {
   );
 }
 
-export function MenuItem(props: ComponentPropsWithoutRef<typeof BaseMenu.Item>) {
-  return <BaseMenu.Item className={OVERLAY_ITEM} {...props} />;
+export function MenuItem({
+  className,
+  ...props
+}: Omit<ComponentPropsWithoutRef<typeof BaseMenu.Item>, "className"> & { className?: string }) {
+  return <BaseMenu.Item className={cx(OVERLAY_ITEM, className)} {...props} />;
 }

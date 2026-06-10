@@ -1,12 +1,14 @@
+import type { ReactNode } from "react";
 import { ToggleGroup as BaseToggleGroup } from "@base-ui/react/toggle-group";
 import { Toggle } from "@base-ui/react/toggle";
 
-import { cx } from "./styles";
+import { cx, TOGGLE_PILL } from "./styles";
 
 // A group of toggle buttons with arrow-key navigation. The segmented variant is the boxed control
 // (type filter, mode switch); the pills variant is the wrapped tag filter. Single mode keeps one item
 // pressed at all times (deselecting the active one is ignored); multiple mode is a free intersection.
-type Item = { value: string; label: string };
+// An icon-only item passes the glyph as `label` and names itself via `ariaLabel`.
+type Item = { value: string; label: ReactNode; ariaLabel?: string };
 
 type Variant = "segmented" | "pills";
 
@@ -28,8 +30,7 @@ const GROUP: Record<Variant, string> = {
 const TOGGLE: Record<Variant, string> = {
   segmented:
     "cursor-pointer rounded-sm border-0 bg-transparent px-2.5 py-1 font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:text-text data-[pressed]:bg-bg data-[pressed]:text-text",
-  pills:
-    "cursor-pointer rounded-pill border border-border bg-control px-2.5 py-1 font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:bg-control-hover hover:text-text data-[pressed]:border-[color-mix(in_srgb,var(--accent)_45%,transparent)] data-[pressed]:bg-accent-weak data-[pressed]:text-text",
+  pills: TOGGLE_PILL,
 };
 
 export function ToggleGroup(props: ToggleGroupProps) {
@@ -57,7 +58,7 @@ export function ToggleGroup(props: ToggleGroupProps) {
       className={GROUP[variant]}
     >
       {items.map((item) => (
-        <Toggle key={item.value} value={item.value} className={cx(TOGGLE[variant])}>
+        <Toggle key={item.value} value={item.value} aria-label={item.ariaLabel} className={cx(TOGGLE[variant])}>
           {item.label}
         </Toggle>
       ))}

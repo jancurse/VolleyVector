@@ -37,6 +37,25 @@ export function clampToCourt(point: NormalizedPoint): NormalizedPoint {
   return { x: Math.min(max, Math.max(min, point.x)), y: Math.min(max, Math.max(min, point.y)) };
 }
 
+/** Fraction of a grid cell within which an axis snaps to the nearest gridline. About a third of the
+ *  cell on each side pulls to a line, so the middle of every cell stays free for off-grid placement. */
+const SNAP_FRACTION = 0.33;
+
+/** Snap a point to the nearest line of a `divisions`×`divisions` grid over the playing area, per axis
+ *  and only when within {@link SNAP_FRACTION} of a cell — a magnetic pull near lines that leaves the
+ *  rest of each cell free. Snapped coordinates land in [0, 1]; an axis already past the court stays
+ *  put, so a benched marker is never yanked onto the end line. */
+export function snapToGrid(point: NormalizedPoint, divisions: number): NormalizedPoint {
+  return { x: snapAxis(point.x, divisions), y: snapAxis(point.y, divisions) };
+}
+
+function snapAxis(value: number, divisions: number): number {
+  const cell = 1 / divisions;
+  const line = Math.max(0, Math.min(divisions, Math.round(value / cell))) * cell;
+
+  return Math.abs(value - line) <= cell * SNAP_FRACTION ? line : value;
+}
+
 /** Map a single normalized coordinate (0–1 across the playing area) to an SVG coordinate. */
 export function toSvg(normalized: number): number {
   return FREE_ZONE + normalized * COURT_SPAN;

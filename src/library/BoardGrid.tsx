@@ -13,6 +13,8 @@ import type { LibraryItem, LibraryKind } from "./items";
 type BoardGridProps = {
   items: readonly LibraryItem[];
   onOpen: (id: string) => void;
+  /** When set, the grid leads with a dashed "New board" tile. */
+  onNew?: () => void;
   /** Shown when there are no items at all (an empty library). */
   emptyLabel?: string;
 };
@@ -25,7 +27,7 @@ const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
   { value: "sequence", label: "Sequences" },
 ];
 
-export function BoardGrid({ items, onOpen, emptyLabel }: BoardGridProps): JSX.Element {
+export function BoardGrid({ items, onOpen, onNew, emptyLabel }: BoardGridProps): JSX.Element {
   const [type, setType] = useState<TypeFilter>("all");
   const [active, setActive] = useState<string[]>([]);
 
@@ -55,8 +57,8 @@ export function BoardGrid({ items, onOpen, emptyLabel }: BoardGridProps): JSX.El
         )}
       </div>
 
-      {filtered.length > 0 ? (
-        <CardGrid items={filtered} onOpen={onOpen} />
+      {filtered.length > 0 || (items.length === 0 && onNew) ? (
+        <CardGrid items={filtered} onOpen={onOpen} onNew={onNew} />
       ) : (
         <p className={cx(MUTED, "px-4 py-12 text-center")}>
           {items.length === 0 ? (emptyLabel ?? "Nothing here yet.") : "Nothing matches these filters."}

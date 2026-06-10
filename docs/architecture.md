@@ -39,7 +39,7 @@ type Board = {
   steps: BoardStep[]; // ordered, always >= 1
   tags: string[];
   topicId: string | null; // home topic, or Unfiled
-  owner: string; // the author account; set server-side
+  owner: string | null; // the author account, or null once their account is deleted; set server-side
   authorLocked: boolean; // a team board only its author and admins may edit
   shared: boolean; // a personal board made visible to its team
   teamId: string | null; // a team board's team, or a shared personal board's target team
@@ -173,7 +173,7 @@ type Topic = {
 ```
 
 - A board has **at most one** home topic, and its `topicId` is the single source of truth for membership. A board with no topic is **Unfiled**. A `boards` block's ids are only placement hints, intersected with the topic's real members where they render, so a stale id drops and a board never shows twice. Members carry no manual order: they default to newest-edited first, like the library.
-- Topic operations (`topics/operations.ts`) create, rename, nest, reorder, and delete topics, and edit a topic's blocks. Deleting cascades to the whole subtree but never deletes boards: any board under a removed topic returns to Unfiled. Nesting is guarded against cycles.
+- Topic operations (`topics/operations.ts`) create, rename, nest, reorder, and delete topics, and edit a topic's blocks. Deleting cascades to the whole subtree but never deletes boards: any board under a removed topic returns to Unfiled. Server-side the delete is a grace-archive rather than a hard cascade (see [Deletion and recovery](#deletion-and-recovery)). Nesting is guarded against cycles.
 - A topic page (`TopicView`) reads as a document: a subtopic-link row, the blocks in order (prose, and board groups as card grids of their members), then a trailing grid of any unplaced members, so a filed board never disappears. The editor (`TopicEditor`) commits a draft of the same blocks, picking boards from the topic's members and editing prose in place. It holds neither membership nor tree position: filing is the board editor's job, nesting the sidebar's.
 
 ### Tags and the browse surface
@@ -189,9 +189,10 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 
 ### Tables and the two spaces
 
-- The schema is five tables: `profiles` (one per account, with the global-admin flag), `teams`, `memberships` (`(user, team, role)`, role `coach` or `player`), `topics`, and `boards`. Markers and steps are stored as JSON on a board.
+- The schema is six tables: `profiles` (one per account, with a display name and the global-admin flag), `teams`, `memberships` (`(user, team, role)`, role `coach` or `player`), `topics`, `boards`, and `invites` (single-use invite links). Markers and steps are stored as JSON on a board.
 - Every board and topic carries a `scope`: a **team** item belongs to a team's shared library; a **personal** item belongs to one user's private space. The client loads the active space and writes new content into it.
-- A board also carries `owner` (its author), `author_locked`, `shared`, a `team_id` (the owning team, or a shared personal board's target), and an unguessable `share_token` minted server-side.
+- A board also carries `owner` (its author), `author_locked`, `shared`, a `team_id` (the owning team, or a shared personal board's target), and an unguessable `share_token` minted server-side. The `owner` becomes null when its author's account is deleted, which reassigns their team boards to the team and clears the author lock.
+- Boards, topics, teams, and profiles all carry soft-delete state. A removed board or topic is grace-archived (`deleted_at`/`deleted_by`) rather than dropped, and the every-space read queries filter `deleted_at is null`, so a deleted row is hidden everywhere but admin recovery. See [Deletion and recovery](#deletion-and-recovery).
 
 ### Who may do what
 
@@ -203,9 +204,22 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 | Their own personal space                | full   | full         | full + god-mode |
 | Invite a member                         | —      | ✓ (own team) | ✓ (any team)    |
 | Create a team                           | —      | —            | ✓               |
+| Delete their own account                | ✓      | ✓            | ✓               |
+| Archive or delete a team                | —      | —            | ✓               |
+| Restore deleted content or an account   | —      | —            | ✓               |
 
-- RLS helper functions (`is_admin`, `is_team_member`, `is_team_coach`) run `security definer` so a policy can check membership without recursing. A `boards` guard trigger keeps `owner` immutable (except to an admin) and limits the author lock to the author and admins.
+- RLS helper functions (`is_admin`, `is_team_member`, `is_team_coach`) run `security definer` so a policy can check membership without recursing. A `boards` guard trigger keeps `owner` immutable, except that an admin may reassign it and anyone may null it. Nulling orphans the board to the team and auto-clears the author lock. The trigger otherwise limits the author lock to the author and admins.
 - An admin has full read/write across all teams and all personal content. This god-mode is a deliberate privacy trade-off for a small trusted group, called out in the README.
+
+### Deletion and recovery
+
+Removal is a grace-archive, never an immediate hard delete: a removed item is hidden from every normal view, kept three months for admin recovery, then purged. Four removals differ:
+
+- **A board or topic** is soft-deleted in place. `deleteBoard` stamps `deleted_at`/`deleted_by`; `removeTopic` calls the `soft_delete_topic` RPC, which archives the whole subtree and returns its members to Unfiled, replacing the old `ON DELETE CASCADE`. Every space query filters `deleted_at is null`, so the row drops out of the library.
+- **Removing a player** drops only their membership; their content is untouched (RLS already allowed it, no schema change).
+- **A team** has two admin-only states: archive (`archived_at`, a reversible hidden state dropped from the space switcher) and delete (the `delete_team` RPC sets `deleted_at` and starts the purge clock). Delete flags only the team, so its content stays intact: restoring brings it back, purging cascades it away.
+- **An account** deletes through the `delete-account` Edge Function: it bans the auth user and soft-deletes the profile. Their personal content is grace-archived; the team content they authored is reassigned to the team (`owner` becomes null), outside the recovery window. An admin restores within the window via `restore-account` (un-bans and clears the flag).
+- **Purging** runs `purge_expired` (the `purge-expired` Edge Function) on a server-side schedule, hard-deleting boards, topics, and teams past three months. It is granted to `service_role` only, never reachable from a client. The admin panel (`src/admin/`) reads every recovery list through god-mode and drives the restores.
 
 ### Sharing and the share link
 
@@ -214,8 +228,9 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 
 ### Auth, invites, and keep-alive
 
-- Auth is invite-only email + password (`src/auth/`). An unauthenticated visitor reaches only the login screen and a valid share link.
-- Inviting creates an account and emails it, which needs a privileged server key, so it runs in a Supabase Edge Function (`supabase/functions/invite/`) that authorizes the caller from their own login before acting. Team creation and re-roling are plain client writes RLS allows.
+- Auth is invite-only email + password (`src/auth/`). An unauthenticated visitor reaches only the login screen, a valid share link, and a valid invite link. There is no open sign-up: an account is only ever created server-side, by the `invite` or `redeem-invite` Edge Function.
+- Inviting by email creates an account and emails it, which needs a privileged server key, so it runs in a Supabase Edge Function (`supabase/functions/invite/`) that authorizes the caller from their own login before acting. Team creation and re-roling are plain client writes RLS allows. The email path is currently hidden in the UI (the built-in sender is rate-limited), so links are the only invite surface for now; the `invite` function stays in place for when it is restored.
+- Inviting by link is the second invite path, for sharing through any channel (WhatsApp, etc.). A coach mints a single-use link (a row in `invites`, with the team, role, a 7-day expiry, and a server-minted token), shown in the team manager. The recipient opens `#/invite/<token>`: `invite_preview` (`security definer`, granted to anonymous) reveals the team and role only while the link is still valid, then they either join in one click if already signed in or set up an account with their own email and password. Redeeming runs in `supabase/functions/redeem-invite/`, which holds the secret key: it claims the link atomically (`update ... where used_at is null`, so two people racing one link see one winner), creates the account if the recipient is new, and adds the membership. `src/invites/` holds the client helpers, the `#/invite/<token>` route, and the `InviteAccept` screen.
 - A scheduled GitHub Action (`.github/workflows/keep-alive.yml`) pings the database twice a week so the free-tier project never pauses.
 
 ## State, persistence, and the app shell
@@ -228,9 +243,9 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 
 ### Navigation and the app shell
 
-- `App` is the top-level owner of navigation and ties the stores together. A share link wins over everything (it is openable with no account); otherwise an unauthenticated visitor sees the login gate. Signed in, it chooses between three surfaces by precedence: a draft in the editor wins, otherwise an open board shows its view, otherwise the browse surface.
-- Creating a board makes a single-step Position in the active space and opens it in the editor. Committing files the board into its chosen topic and returns to its view. Deleting a board (and deleting a topic, which cascades and unfiles its boards) is confirmed first.
-- The header carries the brand, the space switcher, a Manage action for a team's coaches and admins, the signed-in email, the theme toggle, sign-out, and, only in a development build, a debug menu for clearing local state.
+- `App` is the top-level owner of navigation and ties the stores together. A share link or invite link wins over everything, since both open with no account; otherwise an unauthenticated visitor sees the login gate. After sign-in two one-time gates can precede the app: an invite-email recipient sets a password (their account is created without one), and a first-time user sets a display name. Past the gates it chooses between three surfaces by precedence: a draft in the editor wins, otherwise an open board shows its view, otherwise the browse surface.
+- Creating a board makes a single-step Position in the active space and opens it in the editor. Committing files the board into its chosen topic and returns to its view. Deleting a board, or a topic (which grace-archives the subtree and unfiles its boards), is confirmed first and stays recoverable by an admin within the window.
+- The header carries the brand, the space switcher, a **Team** action (a team's coaches and admins manage roles and mint invite links), an **Admin** action (admins only, for teams, accounts, and content recovery), an **Account** action that opens a panel for the display name and sign-in email, the theme toggle, sign-out, and a **Delete account** action.
 
 ### Theme and typography
 
@@ -240,5 +255,14 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 ### UI components and styling
 
 - The app chrome is built on Base UI primitives styled with Tailwind v4. `src/ui/` holds one thin wrapper per control (`Button`, `Input`, `Select`, `Combobox`, `Menu`, `Tabs`, `AlertDialog`, `Toolbar`, and the rest), and every surface renders through them, so each control has a single definition. Base UI gives the overlays correct keyboard, focus, dismissal, and screen-reader behaviour by construction. The shared class strings live in `src/ui/styles.ts`, and no surface styles a control ad hoc.
+- Icons come from Lucide (`lucide-react`), since Base UI ships none. Every UI glyph is a Lucide component (`<Sun />`, `<ChevronRight />`, `<Play />`), never a hand-drawn `<svg>`, so the icon language stays consistent and new glyphs cost an import rather than a path. Two things stay hand-drawn: the domain art in `src/court/` (the volleyball, the woven net, the court lines) is illustration, not iconography, and the app's brand mark in the header is a custom court-grid glyph. The favicon (`public/favicon.svg`, linked from `index.html`) is that same court-grid mark on a dark tile keyed to the dark-theme background.
 - Design tokens live in a Tailwind `@theme` layer in `src/index.css`: the fonts, the radius, shadow, and type scales, and the light and dark colours. The theme-swapping colours map onto runtime CSS variables, so a utility like `bg-panel` follows the theme switch with no `dark:` variants.
 - The court keeps its own scoped raw CSS in `src/court/court.css`, the only non-Tailwind styling left.
+
+## Deployment and operations
+
+The front end ships as a static bundle on Cloudflare Pages. There is no application server, so every access rule stays in the database under row-level security, exactly as in development.
+
+- **Host and URL.** The Vite build deploys to the Cloudflare Pages project `volleycoach` at `volleycoach.pages.dev`. No custom domain is attached yet. A `public/_redirects` rule (`/*  /index.html  200`) ships in the bundle so deep links, the share and invite routes, resolve to `index.html` instead of 404ing on a static host.
+- **Pipeline.** `.github/workflows/deploy.yml` publishes the build with Wrangler, but only after CI passes on `main`. It runs on `workflow_run` (and manual `workflow_dispatch`) and checks out the exact commit CI verified, so only green `main` commits reach production. There are no automatic preview deploys.
+- **Production configuration.** The build reads the Supabase URL and publishable key from GitHub Actions repository variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`), and the Cloudflare API token and account ID from secrets. Both Supabase values are public by design, since RLS is the guard, and keeping them as CI config rather than committed files lets a separate production project be introduced without a code change. The production URL is registered in Supabase's auth Site URL and redirect allow-list, so login, share, and invite links resolve back to the app.

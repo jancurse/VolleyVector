@@ -23,7 +23,9 @@ type TopicViewProps = {
   onSelectTopic: (id: string) => void;
   onEdit: () => void;
   onAddSubtopic: () => void;
-  /** Whether to offer the edit and subtopic actions (a coach of this team, or an admin). */
+  /** Create a board pre-filed into this topic. */
+  onNewBoard: () => void;
+  /** Whether to offer the new-board, edit, and subtopic actions (a coach of this team, or an admin). */
   canEdit: boolean;
 };
 
@@ -38,6 +40,7 @@ export function TopicView({
   onSelectTopic,
   onEdit,
   onAddSubtopic,
+  onNewBoard,
   canEdit,
 }: TopicViewProps): JSX.Element {
   const subtopics = childrenOf(topics, topic.id);
@@ -76,11 +79,11 @@ export function TopicView({
           <h1 className={TITLE}>{topic.title}</h1>
         </div>
         {canEdit && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="ghost" onClick={onAddSubtopic}>
               + Subtopic
             </Button>
-            <Button variant="primary" onClick={onEdit}>
+            <Button variant="ghost" onClick={onEdit}>
               Edit
             </Button>
           </div>
@@ -99,7 +102,9 @@ export function TopicView({
 
       {rendered}
 
-      {unplaced.length > 0 && <CardGrid items={unplaced.map(boardToItem)} onOpen={onOpenBoard} />}
+      {(unplaced.length > 0 || canEdit) && (
+        <CardGrid items={unplaced.map(boardToItem)} onOpen={onOpenBoard} onNew={canEdit ? onNewBoard : undefined} />
+      )}
     </section>
   );
 }

@@ -21,6 +21,7 @@ You are drafting a plan for a feature or change. Your **only** job is to produce
 - **Never ask to implement**: Do not ask "should I implement this now?", "want me to start?", or any variant. When the user is satisfied, the skill is done — you stop. The user will start implementation separately.
 - **Default to requirements, not implementation**: The plan describes *what* and *why*. Leave *how* to the implementation agent unless the user signals otherwise. Follow the user's lead on specificity: include the detail they ask for, don't volunteer detail they didn't.
 - **No chat content in the plan**: The plan file is a deliverable for the implementation agent. It must contain only: what to build, constraints, acceptance criteria, file locations. It must not contain justifications aimed at the user, references to the planning conversation ("restored", "user said", "earlier iteration"), summary/reassurance text that restates other sections, or answers to questions raised in chat. If the user asked a question during planning, the answer goes in the chat reply; the plan only changes to reflect instructions the implementer needs. Before every plan edit, check: would this sentence make sense to someone who has never read our conversation? If no, it belongs in chat, not the plan.
+- **Follow-ups are deferred features, and deferring is the user's call**: Each entry in `## Follow-ups` is a complete future project, not a loose end. Writing one means pushing scope out of this plan, so you may add a follow-up only when the user has explicitly agreed to defer that work. Never park something there on your own judgement, and never log correct in-scope behaviour there as if it were optional. When in doubt, raise it in chat and let the user decide; absent a clear yes, the section stays `_None._`.
 
 ## Workflow
 
@@ -50,7 +51,7 @@ Every plan follows the template below. The top and bottom sections are fixed; th
     - @docs/style_guide.md
     - <feature-specific files the implementer will need to understand>
 - **Fill Implementation Notes (MANDATORY)**: Before declaring done, fill `## Implementation Notes` in the plan file per its section description. No "done" claim is valid until the section is present.
-- **Surface follow-ups (MANDATORY)**: Before declaring done, re-read `## Follow-ups` and restate every item verbatim in your final message, each as `- [ ] <item>`. If the section is `_None._`, write `Follow-ups: none.` Do not implement follow-ups unless explicitly asked.
+- **Surface follow-ups (MANDATORY)**: Items in `## Follow-ups` are future projects, not part of this task — do not implement them. If you uncover unplanned work that belongs in its own future project, add it there (one feature per top-level bullet, its tasks as sub-bullets). Before declaring done, re-read `## Follow-ups` and restate every item verbatim in your final message, each as `- [ ] <item>`, so the user can review what you deferred. If the section is `_None._`, write `Follow-ups: none.`
 
 ## Plan
 
@@ -72,7 +73,7 @@ Add or update unit tests to cover the changed behavior — no more than the chan
 
 ## Follow-ups
 
-<One actionable sentence per item to flag at implementation end but NOT implement now (adjacent polish, deferred refactors, known-but-deferred bugs). If none, write exactly `_None._` — do not delete the section.>
+<Future features deliberately deferred out of this plan, each a complete project in its own right. Write one top-level bullet per feature, with sub-bullets for the tasks inside it. Do not list loose ends, polish, or correct in-scope behaviour here. While planning, add an item only with the user's explicit approval to defer that work. The implementation agent may instead add items it discovers are out of scope while building, but must surface every one to the user in its final report. If none, write exactly `_None._` — do not delete the section.>
 
 ## Implementation Notes
 

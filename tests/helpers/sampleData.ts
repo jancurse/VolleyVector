@@ -1,12 +1,11 @@
-import type { Board } from "./types";
+import type { Board } from "../../src/boards/types";
+import type { Topic } from "../../src/topics/types";
 
-const STORAGE_KEY = "volleycoach-boards";
-
-// The first-run seeds, one of each kind, so the library opens with something to explore rather than
-// empty. "Sample Position (Base Defence)" is a Position (one step) — a perimeter defence against an
-// outside attack. "Sample Drill (Serve Receive & Sideout)" is a Sequence (four steps): serve,
-// receive, set, hit, finishing to OH1 at the antenna; marker ids stay stable across the steps so
-// playback glides each one by identity and the movement arrows derive from the deltas.
+// The fixture content the Supabase fake serves: one board of each kind plus a small flat topic tree,
+// mirroring what the server-side setup seed gives a first team. "Sample Position (Base Defence)" is a
+// Position (one step); "Sample Drill (Serve Receive & Sideout)" is a Sequence (four steps) whose marker
+// ids stay stable across the steps, so playback glides each one by identity and the movement arrows
+// derive from the deltas.
 
 const SAMPLE_POSITION: Board = {
   id: "sample-perimeter-defence",
@@ -25,6 +24,7 @@ const SAMPLE_POSITION: Board = {
   authorLocked: false,
   shared: false,
   teamId: null,
+  autoArrows: true,
   markers: [
     { id: "opp", role: "opposite", label: "OPP" },
     { id: "mb1", role: "middle", label: "MB1" },
@@ -64,6 +64,7 @@ const SAMPLE_SEQUENCE: Board = {
   authorLocked: false,
   shared: false,
   teamId: null,
+  autoArrows: true,
   markers: [
     { id: "s", role: "setter", label: "S" },
     { id: "mb1", role: "middle", label: "MB1" },
@@ -128,37 +129,47 @@ const SAMPLE_SEQUENCE: Board = {
 
 export const SAMPLE_BOARDS: Board[] = [SAMPLE_POSITION, SAMPLE_SEQUENCE];
 
-function isBoard(value: unknown): value is Board {
-  if (typeof value !== "object" || value === null) return false;
-
-  const b = value as Record<string, unknown>;
-
-  return typeof b.id === "string" && typeof b.title === "string" && Array.isArray(b.markers) && Array.isArray(b.steps);
-}
-
-/** Load the saved boards, or `null` when nothing valid has been stored yet (so the caller can seed). */
-export function loadBoards(): Board[] | null {
-  const raw = localStorage.getItem(STORAGE_KEY);
-
-  if (raw === null) return null;
-
-  try {
-    const parsed: unknown = JSON.parse(raw);
-
-    if (!Array.isArray(parsed) || !parsed.every(isBoard)) return null;
-
-    // Boards saved before Topics carry no home topic; default them to Unfiled so the field is honest.
-    return parsed.map((b) => ({ ...b, topicId: b.topicId ?? null }));
-  } catch {
-    return null;
-  }
-}
-
-export function saveBoards(boards: readonly Board[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(boards));
-}
-
-/** Drop the saved boards so the next load reseeds `SAMPLE_BOARDS`. */
-export function clearBoards(): void {
-  localStorage.removeItem(STORAGE_KEY);
-}
+export const SAMPLE_TOPICS: Topic[] = [
+  {
+    id: "topic-rotations",
+    title: "Rotations",
+    slug: "rotations",
+    blocks: [
+      {
+        id: "topic-rotations-intro",
+        kind: "markdown",
+        text: "How we line up and rotate — serve-receive and base positions through each rotation.",
+      },
+    ],
+    parentId: null,
+    order: 0,
+  },
+  {
+    id: "topic-defense",
+    title: "Defense",
+    slug: "defense",
+    blocks: [
+      {
+        id: "topic-defense-intro",
+        kind: "markdown",
+        text: "Our base defence and how we read the attack — who takes the line, who digs cross-court.",
+      },
+    ],
+    parentId: null,
+    order: 1,
+  },
+  {
+    id: "topic-drills",
+    title: "Drills",
+    slug: "drills",
+    blocks: [
+      {
+        id: "topic-drills-intro",
+        kind: "markdown",
+        text: "Repeatable **drills** for training: serve receive, transition, and out-of-system reps.",
+      },
+    ],
+    parentId: null,
+    order: 2,
+  },
+];

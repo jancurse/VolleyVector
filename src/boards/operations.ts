@@ -1,8 +1,9 @@
+import { clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
 import type { CourtMode, MarkerRole } from "../court/roles";
 import { ROLES } from "../court/roles";
 import type { Marker } from "../court/types";
-import type { Board, BoardMarker, BoardStep } from "./types";
+import type { Annotation, Board, BoardMarker, BoardStep } from "./types";
 
 // Pure transforms over a board, its steps, and its markers. A position edit touches one step; an
 // identity edit (role, label, colour, add, remove) spans every step, so a marker stays one identity
@@ -75,6 +76,7 @@ export function createBoard(now: number, mode: CourtMode = "positions", title = 
     authorLocked: false,
     shared: false,
     teamId: null,
+    autoArrows: true,
     createdAt: now,
     updatedAt: now,
   };
@@ -112,10 +114,14 @@ export function stepMoves(board: Board, index: number): MarkerMove[] {
     .filter(({ from: a, to: b }) => Math.hypot(b.x - a.x, b.y - a.y) > MOVE_EPSILON);
 }
 
-/** Insert a step after `afterIndex`, cloning that step's positions so only what changes needs dragging. */
+/** Insert a step after `afterIndex`, cloning that step's positions and annotations so the diagram
+ *  carries forward and only what changes needs editing. */
 export function insertStep(board: Board, afterIndex: number): { board: Board; stepId: string } {
   const base = board.steps[afterIndex] ?? board.steps[board.steps.length - 1];
   const step = makeStep({ ...base.positions });
+
+  if (base.annotations?.length) step.annotations = base.annotations.map((a) => ({ ...a }));
+
   const steps = [...board.steps];
 
   steps.splice(afterIndex + 1, 0, step);
@@ -188,4 +194,160 @@ export function removeMarker(board: Board, markerId: string): Board {
       return { ...s, positions: rest };
     }),
   };
+}
+
+// Annotations live on a single step (no cross-step identity), so every annotation edit targets one
+// step by id, mirroring the position edits above. All point writes clamp to the court's reach.
+
+/** Step `index`'s annotations (the drawings on it), or an empty list when it has none. */
+export function stepAnnotations(board: Board, index: number): Annotation[] {
+  return board.steps[index]?.annotations ?? [];
+}
+
+/** Rewrite a step's annotations through `next`, leaving every other step untouched. */
+function withStepAnnotations(
+  board: Board,
+  stepId: string,
+  next: (annotations: readonly Annotation[]) => Annotation[]
+): Board {
+  return {
+    ...board,
+    steps: board.steps.map((s) => (s.id === stepId ? { ...s, annotations: next(s.annotations ?? []) } : s)),
+  };
+}
+
+/** Add a drawn annotation to one step. */
+export function addAnnotation(board: Board, stepId: string, annotation: Annotation): Board {
+  return withStepAnnotations(board, stepId, (annotations) => [...annotations, annotation]);
+}
+
+/** Patch one annotation on one step — its style (colour, width) or geometry. */
+export function updateAnnotation(board: Board, stepId: string, id: string, patch: Partial<Annotation>): Board {
+  return withStepAnnotations(board, stepId, (annotations) =>
+    annotations.map((a) => (a.id === id ? ({ ...a, ...patch } as Annotation) : a))
+  );
+}
+
+/** Remove one annotation from one step. */
+export function removeAnnotation(board: Board, stepId: string, id: string): Board {
+  return withStepAnnotations(board, stepId, (annotations) => annotations.filter((a) => a.id !== id));
+}
+
+const shiftPoint = (p: NormalizedPoint, dx: number, dy: number): NormalizedPoint =>
+  clampToCourt({ x: p.x + dx, y: p.y + dy });
+
+/** Shift every point of an annotation by a normalized delta — the whole-shape move. Clamped to court. */
+export function translateAnnotation(annotation: Annotation, dx: number, dy: number): Annotation {
+  switch (annotation.kind) {
+    case "arrow":
+      return { ...annotation, from: shiftPoint(annotation.from, dx, dy), to: shiftPoint(annotation.to, dx, dy) };
+    case "free":
+      return { ...annotation, points: annotation.points.map((p) => shiftPoint(p, dx, dy)) };
+    case "text":
+      return { ...annotation, at: shiftPoint(annotation.at, dx, dy) };
+    default:
+      return { ...annotation, a: shiftPoint(annotation.a, dx, dy), b: shiftPoint(annotation.b, dx, dy) };
+  }
+}
+
+// How far (normalized) a duplicated shape lands from its original, so the copy reads as a new shape.
+const DUPLICATE_OFFSET = 0.03;
+
+/** A copy of an annotation with a fresh id, offset slightly down-right (clamped to the court). */
+export function duplicateAnnotation(annotation: Annotation): Annotation {
+  return { ...translateAnnotation(annotation, DUPLICATE_OFFSET, DUPLICATE_OFFSET), id: newId() };
+}
+
+/** Append clones (fresh ids) of step `index`'s annotations to the next step. Appending never destroys
+ *  drawings already on that step, and a stray copy stays one undo away. No-op on the last step. */
+export function copyAnnotationsToNextStep(board: Board, index: number): Board {
+  const from = board.steps[index];
+  const to = board.steps[index + 1];
+
+  if (!from?.annotations?.length || !to) return board;
+
+  const clones = from.annotations.map((a) => ({ ...a, id: newId() }));
+
+  return {
+    ...board,
+    steps: board.steps.map((s) => (s.id === to.id ? { ...s, annotations: [...(s.annotations ?? []), ...clones] } : s)),
+  };
+}
+
+// Reshaping grabs one handle of a shape: a line/arrow exposes its two endpoints, a rect/area its four
+// box corners (dragging one keeps the opposite corner anchored). Freehand offers no handles — it only
+// translates as a whole.
+
+export type AnnotationHandle = "start" | "end" | "nw" | "ne" | "se" | "sw";
+
+/** The four corners of a two-corner shape's bounding box, keyed by compass handle. */
+function boxCorners(a: NormalizedPoint, b: NormalizedPoint): Record<"nw" | "ne" | "se" | "sw", NormalizedPoint> {
+  const minX = Math.min(a.x, b.x);
+  const maxX = Math.max(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxY = Math.max(a.y, b.y);
+
+  return {
+    nw: { x: minX, y: minY },
+    ne: { x: maxX, y: minY },
+    se: { x: maxX, y: maxY },
+    sw: { x: minX, y: maxY },
+  };
+}
+
+const OPPOSITE: Record<"nw" | "ne" | "se" | "sw", "nw" | "ne" | "se" | "sw"> = {
+  nw: "se",
+  ne: "sw",
+  se: "nw",
+  sw: "ne",
+};
+
+/** The grabbable handles of a shape with their positions, in the order they should render. */
+export function annotationHandles(annotation: Annotation): { handle: AnnotationHandle; point: NormalizedPoint }[] {
+  switch (annotation.kind) {
+    case "line":
+      return [
+        { handle: "start", point: annotation.a },
+        { handle: "end", point: annotation.b },
+      ];
+    case "arrow":
+      return [
+        { handle: "start", point: annotation.from },
+        { handle: "end", point: annotation.to },
+      ];
+    case "rect":
+    case "area": {
+      const corners = boxCorners(annotation.a, annotation.b);
+
+      return (["nw", "ne", "se", "sw"] as const).map((handle) => ({ handle, point: corners[handle] }));
+    }
+    case "free":
+    case "text":
+      return [];
+  }
+}
+
+/** Move one handle of a shape to `point` (clamped), anchoring a box's opposite corner. */
+export function reshapeAnnotation(
+  annotation: Annotation,
+  handle: AnnotationHandle,
+  point: NormalizedPoint
+): Annotation {
+  const p = clampToCourt(point);
+
+  switch (annotation.kind) {
+    case "line":
+      return handle === "start" ? { ...annotation, a: p } : handle === "end" ? { ...annotation, b: p } : annotation;
+    case "arrow":
+      return handle === "start" ? { ...annotation, from: p } : handle === "end" ? { ...annotation, to: p } : annotation;
+    case "rect":
+    case "area": {
+      if (handle === "start" || handle === "end") return annotation;
+
+      return { ...annotation, a: p, b: boxCorners(annotation.a, annotation.b)[OPPOSITE[handle]] };
+    }
+    case "free":
+    case "text":
+      return annotation;
+  }
 }

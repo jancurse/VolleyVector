@@ -1,3 +1,4 @@
+import { uniqueSlug } from "../routing/slug";
 import type { Topic, TopicBlock } from "./types";
 
 // Pure transforms over the topic tree. Nesting lives in `parentId` and order in `order` among
@@ -39,16 +40,26 @@ export function createTopic(
   parentId: string | null,
   title = "New topic"
 ): { topics: Topic[]; id: string } {
-  const topic: Topic = { id: newId(), title, blocks: [], parentId, order: nextOrder(topics, parentId) };
+  const topic: Topic = {
+    id: newId(),
+    title,
+    slug: uniqueSlug(
+      title,
+      topics.map((t) => t.slug)
+    ),
+    blocks: [],
+    parentId,
+    order: nextOrder(topics, parentId),
+  };
 
   return { topics: [...topics, topic], id: topic.id };
 }
 
-/** Patch a topic's editable fields (title, blocks). */
+/** Patch a topic's editable fields (title, blocks, slug). */
 export function setTopic(
   topics: readonly Topic[],
   id: string,
-  patch: Partial<Pick<Topic, "title" | "blocks">>
+  patch: Partial<Pick<Topic, "title" | "blocks" | "slug">>
 ): Topic[] {
   return topics.map((t) => (t.id === id ? { ...t, ...patch } : t));
 }

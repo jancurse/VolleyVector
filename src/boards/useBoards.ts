@@ -30,9 +30,10 @@ export type BoardsStore = {
   moveBoardToTeam: (id: string, teamId: string) => void;
 };
 
-/** A read query for the boards of one space: a team's by team, the personal space's by owner. */
+/** A read query for the boards of one space: a team's by team, the personal space's by owner. Grace-archived
+ *  rows (deleted_at set) are hidden from every normal view; only admin recovery reads them. */
 function selectSpaceBoards(space: Space, userId: string) {
-  const query = supabase.from("boards").select("*");
+  const query = supabase.from("boards").select("*").is("deleted_at", null);
 
   return space.kind === "team"
     ? query.eq("scope", "team").eq("team_id", space.teamId)
@@ -142,16 +143,20 @@ export function useBoards(space: Space | null): BoardsStore {
     [fail]
   );
 
+  // Deletion is a grace-archive, not a hard delete: the row stays for 3 months of admin recovery, hidden
+  // from every normal view. The optimistic removal from the in-memory list is unchanged.
   const deleteBoard = useCallback(
     (id: string) => {
+      if (!user) return;
+
       setBoards((prev) => prev.filter((b) => b.id !== id));
       void supabase
         .from("boards")
-        .delete()
+        .update({ deleted_at: new Date().toISOString(), deleted_by: user.id })
         .eq("id", id)
         .then(({ error: writeError }) => writeError && fail(writeError.message));
     },
-    [fail]
+    [user, fail]
   );
 
   const unfileBoards = useCallback(

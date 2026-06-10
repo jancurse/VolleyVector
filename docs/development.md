@@ -21,6 +21,14 @@
 - Install the recommended VSCode extensions: Prettier, ESLint, and markdownlint.
 - Install the markdown formatting CLIs once per machine: `npm i -g markdownlint-cli2 markdown-table-prettify`.
 - Install `pre-commit` and run `pre-commit install` to enable the markdown commit hooks.
+- **Dev auto-login (optional).** Create a personal, low-privilege Supabase account (a `player` or personal-only login, never an admin) and add its credentials to `~/.config/volleycoach/dev.env`:
+
+    ```sh
+    VITE_DEV_EMAIL=your-dev-account@example.com
+    VITE_DEV_PASSWORD=its-password
+    ```
+
+    The dev server then signs itself in instead of showing the login screen. The file stays out of the repo and is read only in `serve`, so it never reaches production. Keep the account low-privilege, since anyone with the file can sign in as it.
 - **Claude Code**: the repo enables tools that load automatically once you trust the project. Some need a binary installed once per machine:
     - `typescript-lsp` — TypeScript code intelligence. Needs the language server: `npm i -g typescript-language-server typescript` (global; reinstall after switching Node versions).
     - `playwright` — browser automation. Needs a browser: `npx playwright install chromium`.
@@ -34,7 +42,7 @@ Run `npm run dev` to start the Vite dev server at <http://localhost:5173> with h
 
 ### Deployment
 
-Not yet implemented. To be filled later.
+The app deploys to Cloudflare Pages at <https://volleycoach.pages.dev>. `.github/workflows/deploy.yml` publishes automatically once CI passes on `main`, so there is no manual deploy step, and production config lives in GitHub Actions variables and secrets rather than the repo.
 
 ### Useful Commands
 
