@@ -1,7 +1,7 @@
 import type { JSX } from "react";
+import { Plus } from "lucide-react";
 
 import type { Selection } from "../library/selection";
-import { Button } from "../ui/Button";
 import { Collapsible, CollapsibleCaret, CollapsiblePanel } from "../ui/Collapsible";
 import { cx } from "../ui/styles";
 import { childrenOf } from "./operations";
@@ -33,6 +33,10 @@ const LINK =
   "flex-1 min-w-0 cursor-pointer truncate border-0 bg-transparent px-[0.2rem] py-[0.36rem] text-left font-ui text-base font-semibold text-text-dim transition-colors group-hover:text-text";
 const CONTROLS =
   "flex pr-[0.2rem] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100";
+// The add affordance is a ghost topic row, not a button: it shares the rows' anatomy (caret spacer,
+// then label), with a plus at the title anchor and a dimmer weight marking it as an action.
+const ADD_ROW =
+  "flex w-full cursor-pointer items-center gap-[0.05rem] rounded-md border-0 bg-transparent p-0 text-left font-ui text-base font-medium text-text-dim transition-colors duration-150 ease-settle hover:bg-control hover:text-text";
 
 export function TopicSidebar({
   topics,
@@ -108,13 +112,16 @@ export function TopicSidebar({
       </p>
       <div className="flex flex-col gap-[0.05rem]">
         {childrenOf(topics, null).map((topic) => renderTopic(topic, 0))}
+        {canEdit && (
+          <button type="button" className={ADD_ROW} onClick={onNewTopic}>
+            <span className="w-5 flex-none" />
+            <span className="flex items-center gap-1.5 px-[0.2rem] py-[0.36rem]">
+              <Plus size={13} aria-hidden="true" />
+              New topic
+            </span>
+          </button>
+        )}
       </div>
-
-      {canEdit && (
-        <Button variant="dashed" size="sm" className="mt-[0.6rem] justify-start text-left" onClick={onNewTopic}>
-          + New topic
-        </Button>
-      )}
     </nav>
   );
 }
