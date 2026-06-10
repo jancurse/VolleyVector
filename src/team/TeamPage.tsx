@@ -7,7 +7,7 @@ import { EYEBROW, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
 import { useConfirm } from "../ui/useConfirm";
 import type { TeamRole } from "../workspace/useWorkspace";
 import { InviteDialog } from "./InviteDialog";
-import { MembersTable } from "./MembersTable";
+import { MembersList, memberLabel } from "./MembersList";
 import type { Member } from "./useMembers";
 import { useMembers } from "./useMembers";
 
@@ -70,7 +70,7 @@ export function TeamPage({ teamId, teamName, canManage, currentUserId, onJoin, o
     setMemberError(null);
 
     const ok = await confirm({
-      title: `Remove ${member.email || "this member"}?`,
+      title: `Remove ${memberLabel(member)}?`,
       description: `They will lose access to ${teamName}.`,
       confirmLabel: "Remove",
       danger: true,
@@ -103,14 +103,14 @@ export function TeamPage({ teamId, teamName, canManage, currentUserId, onJoin, o
             </Button>
           )}
           {canManage && (
-            <Button variant="ghost" onClick={() => setInviteOpen(true)}>
+            <Button variant="primary" onClick={() => setInviteOpen(true)}>
               Invite member
             </Button>
           )}
         </div>
       </div>
 
-      <MembersTable
+      <MembersList
         members={members}
         loading={loading}
         canManage={canManage}
