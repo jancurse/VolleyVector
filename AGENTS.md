@@ -65,7 +65,7 @@ Use the diagnostics skill after code changes to ensure formatting, linting, and 
 The repo enables the following Claude Code tools (binaries to install are in @docs/development.md):
 
 - **`typescript-lsp`** — use the LSP tool for code intelligence (go-to-definition, find references, hover) instead of grepping for symbols.
-- **`playwright`** — drive the running dev server in a browser to verify the UI visually (screenshots, interaction); look and motion are core to this product, so check changes on screen, not just in tests. A dev build auto-logs-in from `~/.config/volleycoach/dev.env`, so the server opens past the login gate; if that file is missing you hit the gate (set it up per @docs/development.md).
+- **`playwright`** — browser automation against the dev server, for verifying UI changes on screen. **The `playwright` skill is mandatory**: load it before driving the browser. It covers when a visual check pays off and how to keep its token cost contained.
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
 - **`supabase`** — two tools serve the backend:
     - The **Supabase MCP server** (read-only) for inspecting schema, running SELECTs, debugging RLS, and reading logs; the **Supabase CLI** for applying migrations and deploying Edge Functions.
@@ -92,6 +92,7 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 ### Git and Shell
 
 - Do not run git write operations (commit, amend, push, rebase, reset, tag, branch changes) unless the user explicitly asks; otherwise leave changes in the working tree for review.
+- **Write clean, concise commit messages**: a short imperative subject line that says what the change does, a body only when the why is not obvious from the diff. No filler, no restating every file touched.
 - Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
 
 ### Workspaces and worktrees
