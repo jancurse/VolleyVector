@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
-import { Lock, LockOpen } from "lucide-react";
 
 import { boardsInTopic, createBoard } from "./boards/operations";
 import type { Board } from "./boards/types";
 import { useBoards } from "./boards/useBoards";
+import { BoardActionsMenu } from "./editor/BoardActionsMenu";
 import { BoardEditor } from "./editor/BoardEditor";
 import { BoardView } from "./editor/BoardView";
-import { CopyJsonButton } from "./editor/CopyJsonButton";
 import { Library } from "./library/Library";
 import { allTags } from "./library/items";
 import type { Selection } from "./library/selection";
@@ -23,7 +22,6 @@ import { Login } from "./auth/Login";
 import { SetPassword } from "./auth/SetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
 import { Button } from "./ui/Button";
-import { IconButton } from "./ui/IconButton";
 import { cx, MUTED } from "./ui/styles";
 import { TeamPage } from "./team/TeamPage";
 import { AdminPage } from "./admin/AdminPage";
@@ -38,7 +36,7 @@ import { ShareView } from "./sharing/ShareView";
 import { useInviteRoute } from "./invites/useInviteRoute";
 import { InviteAccept } from "./invites/InviteAccept";
 import { ShareDialog } from "./sharing/ShareDialog";
-import { CopyToPersonalButton } from "./sharing/CopyToPersonalButton";
+import { CopyToPersonalMenuItem } from "./sharing/CopyToPersonalMenuItem";
 import { copyBoardToPersonal, copyBoardToTeam, fetchBoardById } from "./sharing/share";
 import { useRoute } from "./routing/useRoute";
 import { buildPath, routeSpace } from "./routing/route";
@@ -74,7 +72,7 @@ const BG =
 // renders the persistent shell; the share and invite hash links still win over everything.
 
 export function App(): JSX.Element {
-  const [theme, toggleTheme] = useTheme();
+  const [, themePreference, setThemePreference] = useTheme();
   const { user, loading, signOut } = useAuth();
   const workspace = useWorkspace();
   const shareToken = useShareRoute();
@@ -395,7 +393,37 @@ export function App(): JSX.Element {
     );
   } else if (route.kind === "board") {
     if (openBoard) {
-      content = <BoardView board={openBoard} onBack={() => navigate(homeRoute())} />;
+      // The board's actions sit on its title row, like every other surface's content header: an overflow
+      // menu for the occasional actions (a team board offers any viewer a personal copy, then the author
+      // lock and Copy JSON), the share dialog for the owner of a personal board, and Edit as the view's
+      // one primary action. RLS has the final say on every write.
+      content = (
+        <BoardView
+          board={openBoard}
+          onBack={() => navigate(homeRoute())}
+          actions={
+            <>
+              <BoardActionsMenu
+                board={openBoard}
+                canLock={!personal && (workspace.isAdmin || openBoard.owner === user.id)}
+                onToggleLock={() => setBoardLock(openBoard.id, !openBoard.authorLocked)}
+              >
+                {!personal && <CopyToPersonalMenuItem onCopy={() => copyBoardToPersonal(openBoard, user.id)} />}
+              </BoardActionsMenu>
+              {personal && openBoard.owner === user.id && (
+                <Button variant="ghost" onClick={() => setSharing(true)}>
+                  {openBoard.shared ? "Shared" : "Share"}
+                </Button>
+              )}
+              {canEditBoard(openBoard) && (
+                <Button variant="primary" onClick={() => startEdit(openBoard)}>
+                  Edit
+                </Button>
+              )}
+            </>
+          }
+        />
+      );
     } else if (missingBoardId === route.boardId) {
       content = <NotFound onHome={() => navigate(homeRoute())} />;
     } else {
@@ -516,51 +544,17 @@ export function App(): JSX.Element {
     />
   );
 
-  // The open board's contextual actions, shown in the top bar beside the breadcrumb that names the board:
-  // the quiet utilities (Copy JSON, the author lock) as icon buttons, then a share or copy affordance (a
-  // team board offers a personal copy to any viewer; the owner of a personal board gets the share dialog),
-  // then Edit as the view's one primary action. RLS has the final say on every write.
-  const boardActions =
-    !showEditor && route.kind === "board" && openBoard ? (
-      <>
-        <CopyJsonButton board={openBoard} size="sm" />
-        {!personal && (workspace.isAdmin || openBoard.owner === user.id) && (
-          <IconButton
-            variant="plain"
-            size="sm"
-            aria-label={openBoard.authorLocked ? "Unlock editing" : "Lock editing"}
-            onClick={() => setBoardLock(openBoard.id, !openBoard.authorLocked)}
-          >
-            {openBoard.authorLocked ? <LockOpen size={16} aria-hidden="true" /> : <Lock size={16} aria-hidden="true" />}
-          </IconButton>
-        )}
-        {personal && openBoard.owner === user.id ? (
-          <Button variant="ghost" size="sm" onClick={() => setSharing(true)}>
-            {openBoard.shared ? "Shared" : "Share"}
-          </Button>
-        ) : !personal ? (
-          <CopyToPersonalButton size="sm" onCopy={() => copyBoardToPersonal(openBoard, user.id)} />
-        ) : null}
-        {canEditBoard(openBoard) && (
-          <Button variant="primary" size="sm" onClick={() => startEdit(openBoard)}>
-            Edit
-          </Button>
-        )}
-      </>
-    ) : undefined;
-
   const topBar = (
     <TopBar
       crumbs={breadcrumbs(route, teams, topics.topics, boards)}
       onNavigate={navigate}
       onOpenNav={sidebarMode === "drawer" ? () => setNavOpen(true) : undefined}
-      actions={boardActions}
       account={
         <AvatarMenu
           displayName={workspace.displayName ?? ""}
           email={user.email ?? ""}
-          theme={theme}
-          onToggleTheme={toggleTheme}
+          themePreference={themePreference}
+          onSetTheme={setThemePreference}
           onAccountSettings={() => navigate({ kind: "settings" })}
           onSignOut={() => void signOut()}
           onDeleteAccount={() => void deleteOwnAccount()}

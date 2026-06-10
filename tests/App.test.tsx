@@ -275,7 +275,7 @@ describe("the view/edit flow", () => {
   test("creating a board opens a fresh single-step Position and commits on Done", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "+ New board" }));
+    await user.click(screen.getByRole("button", { name: "New board" }));
     const title = screen.getByLabelText("Board title");
 
     expect(title).toHaveValue("Untitled board");
@@ -325,7 +325,7 @@ describe("positions and sequences", () => {
   test("adding a step promotes a Position to a Sequence; removing back to one demotes it", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "+ New board" }));
+    await user.click(screen.getByRole("button", { name: "New board" }));
     expect(screen.queryByRole("button", { name: "Step 1" })).not.toBeInTheDocument(); // a Position
 
     await user.click(screen.getByRole("button", { name: "Add step" }));
@@ -401,7 +401,7 @@ describe("positions and sequences", () => {
   });
 });
 
-// Reached from any board's read-only view bar (Positions and Sequences alike). The clipboard is a
+// Reached from the board view's overflow menu (Positions and Sequences alike). The clipboard is a
 // browser API, so it is mocked; opening either sample board and clicking copies that board's JSON.
 describe("board JSON export", () => {
   test.each([
@@ -415,23 +415,32 @@ describe("board JSON export", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
 
     await open(user);
-    await user.click(screen.getByRole("button", { name: "Copy JSON" }));
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Copy JSON" }));
 
     expect(JSON.parse(writeText.mock.calls[0][0])).toMatchObject({ title });
-    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+    // The item stays put and confirms in place, so the menu does not snap shut on the feedback.
+    expect(await screen.findByRole("menuitem", { name: "Copied" })).toBeInTheDocument();
   });
 });
 
-// The avatar menu is the single account control. In a dev build (import.meta.env.DEV is true under Vitest)
-// it also folds in the debug "reset local state" action; the reset clears storage then reloads, an
-// environment API left to the build step, so this only checks the menu's contents and keyboard behaviour.
+// The avatar menu is the single account control, holding the System/Light/Dark theme picker.
 describe("avatar menu", () => {
-  test("offers the dev reset action", async () => {
+  test("picks a theme from the segmented control", async () => {
     const user = await renderApp();
 
     await user.click(screen.getByRole("button", { name: "Account menu" }));
 
-    expect(screen.getByRole("menuitem", { name: "Reset local state" })).toBeInTheDocument();
+    const picker = screen.getByRole("group", { name: "Theme" });
+
+    expect(within(picker).getByRole("button", { name: "System" })).toBeInTheDocument();
+    expect(within(picker).getByRole("button", { name: "Dark" })).toBeInTheDocument();
+
+    await user.click(within(picker).getByRole("button", { name: "Light" }));
+
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(localStorage.getItem("volleycoach-theme")).toBe("light");
+    localStorage.removeItem("volleycoach-theme");
   });
 
   test("is keyboard-navigable and dismisses on escape", async () => {
@@ -482,7 +491,7 @@ describe("topics", () => {
   test("a new board is unfiled: listed in All Boards but under no topic", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "+ New board" }));
+    await user.click(screen.getByRole("button", { name: "New board" }));
     await user.clear(screen.getByLabelText("Board title"));
     await user.type(screen.getByLabelText("Board title"), "Loose ball");
     await user.click(screen.getByRole("button", { name: "Done" }));
@@ -569,29 +578,33 @@ describe("permissions", () => {
     setFakeAuthz({ isAdmin: false, role: "player" });
     const user = await renderApp();
 
-    expect(screen.queryByRole("button", { name: "+ New board" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New board" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+ New topic" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
 
     await openPosition(user);
 
-    expect(screen.getByRole("button", { name: "Copy JSON" })).toBeInTheDocument(); // viewing still works
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /editing/ })).not.toBeInTheDocument();
+
+    // Viewing still works: the overflow menu offers the JSON export, but not the author lock.
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+
+    expect(screen.getByRole("menuitem", { name: "Copy JSON" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /editing/ })).not.toBeInTheDocument();
   });
 
-  test("the author lock toggles from the top bar of a board's view", async () => {
+  test("the author lock toggles from the board view's overflow menu", async () => {
     const user = await renderApp(); // the default fake authz is an admin coach
 
     await openPosition(user);
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Lock editing" }));
 
-    // The board's contextual actions live in the top bar, beside the breadcrumb.
-    const topBar = screen.getByRole("banner");
+    // The lock applied: reopening the menu offers the unlock, and Edit stays available to the author.
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
 
-    await user.click(within(topBar).getByRole("button", { name: "Lock editing" }));
-
-    expect(within(topBar).getByRole("button", { name: "Unlock editing" })).toBeInTheDocument();
-    expect(within(topBar).getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Unlock editing" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });
 });
 
@@ -650,7 +663,7 @@ describe("personal space", () => {
 
     await user.click(screen.getByRole("button", { name: "Personal" }));
 
-    expect(await screen.findByRole("button", { name: "+ New board" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "New board" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Manage/ })).not.toBeInTheDocument();
   });
 });
@@ -688,17 +701,18 @@ describe("sharing", () => {
     await user.click(within(dialog).getByRole("button", { name: "Move to library" }));
 
     // The board leaves the personal library; the view returns to My Boards.
-    expect(await screen.findByRole("button", { name: "+ New board" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "New board" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /My Personal Position/ })).not.toBeInTheDocument();
   });
 
-  test("a viewer copies a team board into My Boards", async () => {
+  test("a viewer copies a team board into My Boards from the overflow menu", async () => {
     const user = await renderApp();
 
     await openPosition(user);
-    await user.click(screen.getByRole("button", { name: "Copy to My Boards" }));
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Copy to My Boards" }));
 
-    expect(await screen.findByRole("button", { name: "Copied to My Boards" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Copied to My Boards" })).toBeInTheDocument();
   });
 });
 

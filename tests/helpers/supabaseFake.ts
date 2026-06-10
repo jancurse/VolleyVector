@@ -1,8 +1,7 @@
-import { SAMPLE_BOARDS } from "../../src/boards/storage";
 import type { Board } from "../../src/boards/types";
 import type { BoardRow, TopicRow } from "../../src/supabase/rows";
-import { SAMPLE_TOPICS } from "../../src/topics/storage";
 import type { Topic } from "../../src/topics/types";
+import { SAMPLE_BOARDS, SAMPLE_TOPICS } from "./sampleData";
 
 // A tiny in-memory stand-in for the Supabase client, used to test surfaces that read through the data
 // layer. It mocks only the external dependency (per the style guide), so the real stores, hooks, and

@@ -1,21 +1,28 @@
 import type { JSX } from "react";
+import { Monitor, Moon, Sun } from "lucide-react";
 
-import type { Theme } from "../theme/useTheme";
+import type { ThemePreference } from "../theme/useTheme";
 import { Menu, MenuItem } from "../ui/Menu";
+import { ToggleGroup } from "../ui/ToggleGroup";
 import { cx } from "../ui/styles";
 
 // The single top-right account control: an initials avatar opening a menu with account settings, the
-// theme toggle, sign out, and delete account. In a development build the debug "reset local state" action
-// folds in here too, so nothing else needs to live in the top bar.
+// theme picker, sign out, and delete account, so nothing else needs to live in the top bar.
 type AvatarMenuProps = {
   displayName: string;
   email: string;
-  theme: Theme;
-  onToggleTheme: () => void;
+  themePreference: ThemePreference;
+  onSetTheme: (preference: ThemePreference) => void;
   onAccountSettings: () => void;
   onSignOut: () => void;
   onDeleteAccount: () => void;
 };
+
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: JSX.Element }[] = [
+  { value: "system", label: "System", icon: <Monitor size={15} aria-hidden="true" /> },
+  { value: "light", label: "Light", icon: <Sun size={15} aria-hidden="true" /> },
+  { value: "dark", label: "Dark", icon: <Moon size={15} aria-hidden="true" /> },
+];
 
 const AVATAR = cx(
   "grid size-9 flex-none cursor-pointer place-items-center rounded-full border border-border bg-accent-weak",
@@ -37,8 +44,8 @@ function initials(name: string): string {
 export function AvatarMenu({
   displayName,
   email,
-  theme,
-  onToggleTheme,
+  themePreference,
+  onSetTheme,
   onAccountSettings,
   onSignOut,
   onDeleteAccount,
@@ -59,17 +66,16 @@ export function AvatarMenu({
       </div>
       <div className={DIVIDER} />
       <MenuItem onClick={onAccountSettings}>Account settings</MenuItem>
-      <MenuItem onClick={onToggleTheme}>{theme === "dark" ? "Light theme" : "Dark theme"}</MenuItem>
-      {import.meta.env.DEV && (
-        <MenuItem
-          onClick={() => {
-            localStorage.clear();
-            window.location.reload();
-          }}
-        >
-          Reset local state
-        </MenuItem>
-      )}
+      <div className={DIVIDER} />
+      <div className="flex items-center justify-between gap-4 px-2 py-1.5">
+        <span className="font-ui text-sm font-medium text-text-dim">Theme</span>
+        <ToggleGroup
+          ariaLabel="Theme"
+          items={THEME_OPTIONS.map(({ value, label, icon }) => ({ value, label: icon, ariaLabel: label }))}
+          value={themePreference}
+          onValueChange={(value) => onSetTheme(value === "light" || value === "dark" ? value : "system")}
+        />
+      </div>
       <div className={DIVIDER} />
       <MenuItem onClick={onSignOut}>Sign out</MenuItem>
       <MenuItem onClick={onDeleteAccount}>

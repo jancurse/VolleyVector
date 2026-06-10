@@ -86,9 +86,6 @@ export function TopicView({
             <Button variant="ghost" onClick={onEdit}>
               Edit
             </Button>
-            <Button variant="primary" onClick={onNewBoard}>
-              + New board
-            </Button>
           </div>
         )}
       </div>
@@ -105,7 +102,9 @@ export function TopicView({
 
       {rendered}
 
-      {unplaced.length > 0 && <CardGrid items={unplaced.map(boardToItem)} onOpen={onOpenBoard} />}
+      {(unplaced.length > 0 || canEdit) && (
+        <CardGrid items={unplaced.map(boardToItem)} onOpen={onOpenBoard} onNew={canEdit ? onNewBoard : undefined} />
+      )}
     </section>
   );
 }

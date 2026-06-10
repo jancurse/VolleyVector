@@ -38,15 +38,15 @@ function DescriptionPanel({ markdown }: { markdown: string }): JSX.Element {
 
 // The read-only surface for one board, what players and share-link visitors get. A Position renders a
 // single static court and its description; a Sequence renders the animated court with a transport and
-// a step scrubber, plus the current step's instruction (markdown) below the description. In the app the
-// board's contextual actions (share, copy, lock, edit) live in the shell's top bar; the share page,
-// which has no top bar, injects its actions into the header here.
+// a step scrubber, plus the current step's instruction (markdown) below the description. The board's
+// actions sit beside the title, like every other surface's content header: the app injects the overflow
+// menu, share/copy, and Edit; the share page injects its copy and promote affordances.
 type BoardViewProps = {
   board: Board;
   onBack: () => void;
   /** Label for the back button. Defaults to the library; the share page overrides it. */
   backLabel?: string;
-  /** Action buttons for the header bar (copying, promoting), used by the shell-less share page. */
+  /** Action buttons for the title row (the app's edit/share cluster, or the share page's copying). */
   actions?: ReactNode;
 };
 
