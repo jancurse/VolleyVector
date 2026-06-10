@@ -67,6 +67,9 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - **`typescript-lsp`** — use the LSP tool for code intelligence (go-to-definition, find references, hover) instead of grepping for symbols.
 - **`playwright`** — drive the running dev server in a browser to verify the UI visually (screenshots, interaction); look and motion are core to this product, so check changes on screen, not just in tests. A dev build auto-logs-in from `~/.config/volleycoach/dev.env`, so the server opens past the login gate; if that file is missing you hit the gate (set it up per @docs/development.md).
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
+- **`supabase`** — two tools serve the backend:
+    - The **Supabase MCP server** (read-only) for inspecting schema, running SELECTs, debugging RLS, and reading logs; the **Supabase CLI** for applying migrations and deploying Edge Functions.
+    - The **`supabase` skill is mandatory**: load it before any Supabase work. The project is production; never push or deploy without user confirmation.
 
 ## Working Practices
 
@@ -102,14 +105,6 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - **Integrate with git, never by copying or with a merge commit.** Only do this when the user asks: never commit, rebase, or merge without their approval. Rebase the worktree branch onto the feature branch, then fast-forward: `git rebase <feature>` in the worktree, then `git -C <feature-checkout> merge --ff-only <worktree-branch>`. If `--ff-only` is refused, finish the rebase instead of making a merge commit.
 - **Removing a worktree the user asks to exit.** `ExitWorktree` with `action: "remove"` may warn it "could not verify" the worktree, because it checks the branch against its original base, not the feature tip. Once the worktree tip equals the feature branch (after the rebase + `merge --ff-only` above), that warning is safe to ignore: re-invoke with `discard_changes: true`. The remove hook keeps the branch as a backup and refuses on a dirty tree, so only the folder is discarded. Verify the folder is gone afterwards.
 - **Wrong place? Stop and ask.** If you suspect you are in the wrong location, for example branched off `main` instead of the feature branch, stop, tell the user, and ask for help. Do not work around it.
-
-## Backend (Supabase)
-
-- **Read the DB yourself via the Supabase MCP server**, scoped read-only to the project: inspect schema, run SELECTs, debug RLS, read logs. It cannot write. Do not ask the user to paste results you can fetch.
-- **Apply migrations and deploy functions via the CLI** (`npx supabase db push`, `npx supabase functions deploy`), never by asking the user to paste SQL. Migrations stay reviewed files in `supabase/migrations/`. The project is production: confirm with the user before any push or deploy.
-- **The user still does interactive setup**: `supabase login`, `supabase link`, and admin bootstrap. Never self-provision or log in for them.
-- **Grant `service_role` in migrations, not only `authenticated`.** "Auto-expose new tables" is off, so grants are explicit. `service_role` bypasses RLS but still needs the table GRANT, or Edge Functions using the secret key fail with `permission denied for table ...`.
-- **Edge Functions use the new secret key**, read from the `SUPABASE_SECRET_KEYS` dict, not the legacy `SUPABASE_SERVICE_ROLE_KEY`. Keep "Verify JWT" off and authorize the caller in code.
 
 ## Package Management
 
