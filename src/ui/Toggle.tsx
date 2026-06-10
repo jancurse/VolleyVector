@@ -20,7 +20,7 @@ export function Toggle({ pressed, onPressedChange, ariaLabel, disabled, children
       onPressedChange={onPressedChange}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={cx(TOGGLE_PILL, "inline-flex items-center gap-1.5 disabled:cursor-default disabled:opacity-40")}
+      className={cx(TOGGLE_PILL, "disabled:cursor-default disabled:opacity-40")}
     >
       {children}
     </BaseToggle>

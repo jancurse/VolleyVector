@@ -62,7 +62,10 @@ describe("toLibraryItems", () => {
 });
 
 describe("collectTags", () => {
-  test("returns each distinct tag once, alphabetically", () => {
-    expect(collectTags(toLibraryItems([position, sequence]))).toEqual(["Defence", "Serve receive"]);
+  test("returns each distinct tag once with its use count, most used first", () => {
+    expect(collectTags(toLibraryItems([position, sequence]))).toEqual([
+      { tag: "Defence", count: 2 },
+      { tag: "Serve receive", count: 1 },
+    ]);
   });
 });
