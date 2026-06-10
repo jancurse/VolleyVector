@@ -118,6 +118,9 @@ export function App(): JSX.Element {
 
   const activeSpace = workspace.activeSpace;
   const teams = workspace.teams;
+  const otherTeams = workspace.otherTeams;
+  // Routing resolves team slugs across every reachable team: an admin may be in a non-member team's space.
+  const allTeams = useMemo(() => [...teams, ...otherTeams], [teams, otherTeams]);
   const personal = activeSpace.kind === "personal";
   const setActiveSpace = workspace.setActiveSpace;
 
@@ -150,7 +153,7 @@ export function App(): JSX.Element {
   // redirect is still aligning the space), the loaded boards belong to a different library, so resolving a
   // board id against them would be wrong — wait for the space-sync effect to catch up first.
   const target = routeSpace(route);
-  const spaceReady = target === null || sameSpace(spaceForRouteSpace(target, teams), activeSpace);
+  const spaceReady = target === null || sameSpace(spaceForRouteSpace(target, allTeams), activeSpace);
 
   // A board URL whose id the matched space's list does not hold, and which is not a fresh, uncommitted draft.
   const needsBoardLookup =
@@ -158,7 +161,7 @@ export function App(): JSX.Element {
 
   if (!needsBoardLookup && missingBoardId !== null) setMissingBoardId(null);
 
-  const homeRoute = () => libraryRoute(activeSpace, teams);
+  const homeRoute = () => libraryRoute(activeSpace, allTeams);
 
   // Follow the URL's space: when the route names a different library than the active one, switch to it.
   useEffect(() => {
@@ -166,10 +169,10 @@ export function App(): JSX.Element {
 
     if (hashRoute || !user || !spaceTarget) return;
 
-    const next = spaceForRouteSpace(spaceTarget, teams);
+    const next = spaceForRouteSpace(spaceTarget, allTeams);
 
     if (!sameSpace(next, activeSpace)) setActiveSpace(next);
-  }, [route, hashRoute, user, teams, activeSpace, setActiveSpace]);
+  }, [route, hashRoute, user, allTeams, activeSpace, setActiveSpace]);
 
   // The bare "/" URL carries no space; once the workspace resolves, send it to the landing library (the
   // first team, else personal), matching the previous default. This canonicalises "/" to a real path.
@@ -178,8 +181,8 @@ export function App(): JSX.Element {
 
     const next: Space = teams[0] ? { kind: "team", teamId: teams[0].teamId } : { kind: "personal" };
 
-    navigate(libraryRoute(next, teams), { replace: true });
-  }, [route, hashRoute, user, workspace.loading, teams, navigate]);
+    navigate(libraryRoute(next, allTeams), { replace: true });
+  }, [route, hashRoute, user, workspace.loading, teams, allTeams, navigate]);
 
   // Canonicalise routable paths in place (e.g. "/admin" → "/admin/teams", trailing slashes, and an old
   // id link replaceState-ing to its slug link), without a new history entry. Root redirects above;
@@ -187,10 +190,10 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (hashRoute || route.kind === "root" || route.kind === "notFound") return;
 
-    const canonical = canonicalRoute(route, teams, topics.topics);
+    const canonical = canonicalRoute(route, allTeams, topics.topics);
 
     if (buildPath(canonical) !== window.location.pathname) navigate(canonical, { replace: true });
-  }, [route, hashRoute, navigate, teams, topics.topics]);
+  }, [route, hashRoute, navigate, allTeams, topics.topics]);
 
   // Resolve a board URL the active space does not hold: confirm it is unreadable (→ not found), or
   // self-heal a stale link to the board's real space. The synchronous resets happen in render above; the
@@ -216,21 +219,21 @@ export function App(): JSX.Element {
 
       if (!sameSpace(real, activeSpace)) {
         setActiveSpace(real);
-        navigate(boardRoute(real, teams, id, edit), { replace: true });
+        navigate(boardRoute(real, allTeams, id, edit), { replace: true });
       }
     });
 
     return () => {
       active = false;
     };
-  }, [hashRoute, needsBoardLookup, user, boardsLoading, route, activeSpace, teams, setActiveSpace, navigate]);
+  }, [hashRoute, needsBoardLookup, user, boardsLoading, route, activeSpace, allTeams, setActiveSpace, navigate]);
 
   const commit = (updated: Board) => {
     if (boards.some((b) => b.id === updated.id)) updateBoard(updated.id, () => updated);
     else addBoard(updated);
 
     setDraft(null);
-    navigate(boardRoute(activeSpace, teams, updated.id, false));
+    navigate(boardRoute(activeSpace, allTeams, updated.id, false));
   };
 
   const remove = async (id: string) => {
@@ -250,7 +253,7 @@ export function App(): JSX.Element {
 
   const startEdit = (board: Board) => {
     setDraft(board);
-    navigate(boardRoute(activeSpace, teams, board.id, true));
+    navigate(boardRoute(activeSpace, allTeams, board.id, true));
   };
 
   // New board placement: unfiled from the library, pre-filed into the topic when created from its page.
@@ -261,17 +264,17 @@ export function App(): JSX.Element {
     const board = { ...createBoard(Date.now()), owner: user.id, topicId };
 
     setDraft(board);
-    navigate(boardRoute(activeSpace, teams, board.id, true));
+    navigate(boardRoute(activeSpace, allTeams, board.id, true));
   };
 
   const cancelEdit = () => {
     const id = draft?.id;
 
     setDraft(null);
-    navigate(id && boards.some((b) => b.id === id) ? boardRoute(activeSpace, teams, id, false) : homeRoute());
+    navigate(id && boards.some((b) => b.id === id) ? boardRoute(activeSpace, allTeams, id, false) : homeRoute());
   };
 
-  const switchSpace = (next: Space) => navigate(libraryRoute(next, teams));
+  const switchSpace = (next: Space) => navigate(libraryRoute(next, allTeams));
 
   const selectTopic = (next: Selection) => {
     if (next.kind === "all") {
@@ -282,7 +285,7 @@ export function App(): JSX.Element {
 
     const topic = topics.topics.find((t) => t.id === next.id);
 
-    if (topic) navigate(topicRoute(activeSpace, teams, topic));
+    if (topic) navigate(topicRoute(activeSpace, allTeams, topic));
   };
 
   const deleteOwnAccount = async () => {
@@ -311,7 +314,7 @@ export function App(): JSX.Element {
     const id = topics.addTopic(parentId);
 
     // Navigate by id (addTopic only returns the id); the canonicalisation effect rewrites it to the slug.
-    navigate({ kind: "topic", space: routeSpaceForSpace(activeSpace, teams), topicSlug: id });
+    navigate({ kind: "topic", space: routeSpaceForSpace(activeSpace, allTeams), topicSlug: id });
   };
 
   const removeTopic = async (id: string) => {
@@ -445,7 +448,7 @@ export function App(): JSX.Element {
           // The first rename away from "New topic" re-mints the slug, so the URL's old handle would go
           // stale; re-point it at the id and let the canonicalisation effect rewrite it to the new slug.
           navigate(
-            { kind: "topic", space: routeSpaceForSpace(activeSpace, teams), topicSlug: selectedTopic.id },
+            { kind: "topic", space: routeSpaceForSpace(activeSpace, allTeams), topicSlug: selectedTopic.id },
             { replace: true }
           );
         }}
@@ -457,7 +460,7 @@ export function App(): JSX.Element {
         topic={selectedTopic}
         topics={topics.topics}
         boards={boardsInTopic(boards, selectedTopic.id)}
-        onOpenBoard={(id) => navigate(boardRoute(activeSpace, teams, id, false))}
+        onOpenBoard={(id) => navigate(boardRoute(activeSpace, allTeams, id, false))}
         onSelectTopic={(id) => selectTopic({ kind: "topic", id })}
         onEdit={() => setEditingTopicId(selectedTopic.id)}
         onAddSubtopic={() => createTopic(selectedTopic.id)}
@@ -469,7 +472,7 @@ export function App(): JSX.Element {
     content = (
       <Library
         boards={boards}
-        onOpen={(id) => navigate(boardRoute(activeSpace, teams, id, false))}
+        onOpen={(id) => navigate(boardRoute(activeSpace, allTeams, id, false))}
         onNew={newBoard}
         canEdit={canEdit}
       />
@@ -483,18 +486,21 @@ export function App(): JSX.Element {
       />
     );
   } else if (route.kind === "team") {
-    // The team in the URL is one the user belongs to (else it resolves to nothing → not found). Management
-    // is coach-facing: a coach of that team or an admin curates it, anyone else reads the roster only.
-    const teamId = findTeamId(teams, route.teamSlug);
+    // The team in the URL is one the user can reach (else it resolves to nothing → not found). Management
+    // is coach-facing: a coach of that team or an admin curates it, anyone else reads the roster only. An
+    // admin who is not on the roster may join with a chosen role.
+    const teamId = findTeamId(allTeams, route.teamSlug);
+    const team = allTeams.find((t) => t.teamId === teamId);
     const membership = teams.find((t) => t.teamId === teamId);
 
     content =
-      teamId && membership ? (
+      teamId && team ? (
         <TeamPage
           teamId={teamId}
-          teamName={membership.teamName}
-          canManage={workspace.isAdmin || membership.role === "coach"}
+          teamName={team.teamName}
+          canManage={workspace.isAdmin || membership?.role === "coach"}
           currentUserId={user.id}
+          onJoin={workspace.isAdmin && !membership ? (role) => workspace.joinTeam(teamId, role) : undefined}
         />
       ) : (
         <NotFound onHome={() => navigate(homeRoute())} />
@@ -528,9 +534,10 @@ export function App(): JSX.Element {
     <Sidebar
       activeSpace={activeSpace}
       teams={teams}
+      otherTeams={otherTeams}
       onSwitchSpace={closing(switchSpace)}
       canManageActiveTeam={!personal && canEdit}
-      onManageTeam={closing((teamId: string) => navigate(teamRoute(teamId, teams)))}
+      onManageTeam={closing((teamId: string) => navigate(teamRoute(teamId, allTeams)))}
       topics={topics.topics}
       selection={selection}
       onSelectTopic={closing(selectTopic)}
@@ -546,7 +553,7 @@ export function App(): JSX.Element {
 
   const topBar = (
     <TopBar
-      crumbs={breadcrumbs(route, teams, topics.topics, boards)}
+      crumbs={breadcrumbs(route, allTeams, topics.topics, boards)}
       onNavigate={navigate}
       onOpenNav={sidebarMode === "drawer" ? () => setNavOpen(true) : undefined}
       account={
@@ -574,6 +581,7 @@ export function App(): JSX.Element {
             <SidebarRail
               activeSpace={activeSpace}
               teams={teams}
+              otherTeams={otherTeams}
               onSwitchSpace={switchSpace}
               expanded={navOpen}
               onExpand={() => setNavOpen(true)}

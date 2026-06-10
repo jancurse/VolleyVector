@@ -2,7 +2,7 @@ import type { Board } from "../boards/types";
 import { boardRoute, findTopicId, libraryRoute, spaceForRouteSpace, topicRoute } from "../routing/links";
 import { routeSpace, type Route } from "../routing/route";
 import type { Topic } from "../topics/types";
-import type { TeamMembership } from "../workspace/useWorkspace";
+import type { TeamRef } from "../workspace/useWorkspace";
 
 // The top bar's breadcrumb, derived purely from the route plus the loaded teams, topics, and boards: the
 // space, then the live topic ancestor chain (walked from `parentId` at render, never encoded in the URL,
@@ -51,7 +51,7 @@ function topicChain(topics: readonly Topic[], topicId: string): Topic[] {
 
 export function breadcrumbs(
   route: Route,
-  teams: readonly TeamMembership[],
+  teams: readonly TeamRef[],
   topics: readonly Topic[],
   boards: readonly Board[]
 ): Crumb[] {

@@ -1,17 +1,21 @@
+import { useState } from "react";
 import type { JSX } from "react";
-import { Settings } from "lucide-react";
+import { ChevronDown, ChevronRight, Settings } from "lucide-react";
 
 import { IconButton } from "../ui/IconButton";
 import { cx, FIELD_LABEL } from "../ui/styles";
 import type { Space } from "../workspace/space";
-import type { TeamMembership } from "../workspace/useWorkspace";
+import type { TeamMembership, TeamRef } from "../workspace/useWorkspace";
 
 // The space picker at the top of the sidebar: the personal space plus each team the user belongs to, as a
-// short list of rows rather than a dropdown. The active row is highlighted; the active team row carries a
-// gear that opens its management page, shown only when the user may curate that team.
+// short list of rows rather than a dropdown. An admin's remaining teams sit behind a collapsed "Other
+// teams" disclosure so the list stays short as teams grow. The active row is highlighted; the active team
+// row carries a gear that opens its management page, shown only when the user may curate that team.
 type SpaceSwitcherProps = {
   activeSpace: Space;
   teams: readonly TeamMembership[];
+  /** Teams reachable without a membership (admins only); hidden behind the "Other teams" disclosure. */
+  otherTeams: readonly TeamRef[];
   onSwitch: (space: Space) => void;
   /** Whether the active team may be managed by this user (a coach of it, or an admin). */
   canManageActiveTeam: boolean;
@@ -30,14 +34,64 @@ export function badgeText(label: string): string {
   return label.trim()[0]?.toUpperCase() ?? "?";
 }
 
+function TeamRow({
+  team,
+  active,
+  canManage,
+  onSwitch,
+  onManage,
+}: {
+  team: TeamRef;
+  active: boolean;
+  canManage: boolean;
+  onSwitch: (space: Space) => void;
+  onManage: (teamId: string) => void;
+}): JSX.Element {
+  return (
+    <div className="relative flex items-center">
+      <button
+        type="button"
+        aria-current={active}
+        className={cx(ROW, active ? ROW_ON : ROW_OFF, active && canManage && "pr-9")}
+        onClick={() => onSwitch({ kind: "team", teamId: team.teamId })}
+      >
+        <span
+          aria-hidden="true"
+          className={cx(BADGE, active ? "border-accent/40 bg-accent-weak text-accent" : "bg-control")}
+        >
+          {badgeText(team.teamName)}
+        </span>
+        <span className="truncate">{team.teamName}</span>
+      </button>
+      {active && canManage && (
+        <IconButton
+          variant="plain"
+          size="sm"
+          aria-label={`Manage ${team.teamName}`}
+          tooltipSide="right"
+          className="absolute right-1"
+          onClick={() => onManage(team.teamId)}
+        >
+          <Settings size={16} aria-hidden="true" />
+        </IconButton>
+      )}
+    </div>
+  );
+}
+
 export function SpaceSwitcher({
   activeSpace,
   teams,
+  otherTeams,
   onSwitch,
   canManageActiveTeam,
   onManageTeam,
 }: SpaceSwitcherProps): JSX.Element {
   const personalActive = activeSpace.kind === "personal";
+  const [othersOpen, setOthersOpen] = useState(false);
+  // The disclosure cannot collapse while one of the other teams is the active space.
+  const otherActive = otherTeams.some((t) => activeSpace.kind === "team" && activeSpace.teamId === t.teamId);
+  const showOthers = othersOpen || otherActive;
 
   return (
     <div className="flex flex-col gap-1">
@@ -58,40 +112,45 @@ export function SpaceSwitcher({
           <span className="truncate">Personal</span>
         </button>
 
-        {teams.map((team) => {
-          const active = activeSpace.kind === "team" && activeSpace.teamId === team.teamId;
+        {teams.map((team) => (
+          <TeamRow
+            key={team.teamId}
+            team={team}
+            active={activeSpace.kind === "team" && activeSpace.teamId === team.teamId}
+            canManage={canManageActiveTeam}
+            onSwitch={onSwitch}
+            onManage={onManageTeam}
+          />
+        ))}
 
-          return (
-            <div key={team.teamId} className="relative flex items-center">
-              <button
-                type="button"
-                aria-current={active}
-                className={cx(ROW, active ? ROW_ON : ROW_OFF, active && canManageActiveTeam && "pr-9")}
-                onClick={() => onSwitch({ kind: "team", teamId: team.teamId })}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cx(BADGE, active ? "border-accent/40 bg-accent-weak text-accent" : "bg-control")}
-                >
-                  {badgeText(team.teamName)}
-                </span>
-                <span className="truncate">{team.teamName}</span>
-              </button>
-              {active && canManageActiveTeam && (
-                <IconButton
-                  variant="plain"
-                  size="sm"
-                  aria-label={`Manage ${team.teamName}`}
-                  tooltipSide="right"
-                  className="absolute right-1"
-                  onClick={() => onManageTeam(team.teamId)}
-                >
-                  <Settings size={16} aria-hidden="true" />
-                </IconButton>
+        {otherTeams.length > 0 && (
+          <>
+            <button
+              type="button"
+              aria-expanded={showOthers}
+              className={cx(ROW, ROW_OFF, "text-sm font-medium")}
+              onClick={() => setOthersOpen((open) => !open)}
+            >
+              {showOthers ? (
+                <ChevronDown size={14} aria-hidden="true" className="flex-none" />
+              ) : (
+                <ChevronRight size={14} aria-hidden="true" className="flex-none" />
               )}
-            </div>
-          );
-        })}
+              Other teams
+            </button>
+            {showOthers &&
+              otherTeams.map((team) => (
+                <TeamRow
+                  key={team.teamId}
+                  team={team}
+                  active={activeSpace.kind === "team" && activeSpace.teamId === team.teamId}
+                  canManage={canManageActiveTeam}
+                  onSwitch={onSwitch}
+                  onManage={onManageTeam}
+                />
+              ))}
+          </>
+        )}
       </div>
     </div>
   );

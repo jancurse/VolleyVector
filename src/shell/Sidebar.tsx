@@ -6,7 +6,7 @@ import { TopicSidebar } from "../topics/TopicSidebar";
 import type { Topic } from "../topics/types";
 import { cx } from "../ui/styles";
 import type { Space } from "../workspace/space";
-import type { TeamMembership } from "../workspace/useWorkspace";
+import type { TeamMembership, TeamRef } from "../workspace/useWorkspace";
 import { BrandMark } from "./BrandMark";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 
@@ -16,6 +16,7 @@ import { SpaceSwitcher } from "./SpaceSwitcher";
 type SidebarProps = {
   activeSpace: Space;
   teams: readonly TeamMembership[];
+  otherTeams: readonly TeamRef[];
   onSwitchSpace: (space: Space) => void;
   canManageActiveTeam: boolean;
   onManageTeam: (teamId: string) => void;
@@ -37,6 +38,7 @@ const ADMIN_ENTRY =
 export function Sidebar({
   activeSpace,
   teams,
+  otherTeams,
   onSwitchSpace,
   canManageActiveTeam,
   onManageTeam,
@@ -62,6 +64,7 @@ export function Sidebar({
         <SpaceSwitcher
           activeSpace={activeSpace}
           teams={teams}
+          otherTeams={otherTeams}
           onSwitch={onSwitchSpace}
           canManageActiveTeam={canManageActiveTeam}
           onManageTeam={onManageTeam}

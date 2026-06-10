@@ -5,7 +5,7 @@ import { Tooltip } from "../ui/Tooltip";
 import { cx } from "../ui/styles";
 import { sameSpace } from "../workspace/space";
 import type { Space } from "../workspace/space";
-import type { TeamMembership } from "../workspace/useWorkspace";
+import type { TeamMembership, TeamRef } from "../workspace/useWorkspace";
 import { badgeText } from "./SpaceSwitcher";
 import { BrandMark } from "./BrandMark";
 
@@ -16,6 +16,8 @@ import { BrandMark } from "./BrandMark";
 type SidebarRailProps = {
   activeSpace: Space;
   teams: readonly TeamMembership[];
+  /** Admin-only non-member teams; the rail shows only the active one, the rest live in the expanded sidebar. */
+  otherTeams: readonly TeamRef[];
   onSwitchSpace: (space: Space) => void;
   /** Whether the expanded-sidebar overlay is open; the Topics toggle stays highlighted while it is. */
   expanded: boolean;
@@ -67,6 +69,7 @@ function RailButton({
 export function SidebarRail({
   activeSpace,
   teams,
+  otherTeams,
   onSwitchSpace,
   expanded,
   onExpand,
@@ -76,7 +79,9 @@ export function SidebarRail({
 }: SidebarRailProps): JSX.Element {
   const spaces: { key: string; name: string; space: Space }[] = [
     { key: "personal", name: "Personal", space: { kind: "personal" } },
-    ...teams.map((t) => ({ key: t.teamId, name: t.teamName, space: { kind: "team", teamId: t.teamId } as Space })),
+    ...[...teams, ...otherTeams.filter((t) => activeSpace.kind === "team" && activeSpace.teamId === t.teamId)].map(
+      (t) => ({ key: t.teamId, name: t.teamName, space: { kind: "team", teamId: t.teamId } as Space })
+    ),
   ];
 
   return (
