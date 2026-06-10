@@ -540,7 +540,7 @@ describe("topics", () => {
   test("a coach creates a topic and explains it in a text block", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "+ New topic" }));
+    await user.click(screen.getByRole("button", { name: "New topic" }));
     await user.click(screen.getByRole("button", { name: "Edit" }));
 
     const title = screen.getByLabelText("Topic title");
@@ -579,7 +579,7 @@ describe("permissions", () => {
     const user = await renderApp();
 
     expect(screen.queryByRole("button", { name: "New board" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "+ New topic" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New topic" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
 
     await openPosition(user);
