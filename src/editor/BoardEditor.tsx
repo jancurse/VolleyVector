@@ -29,7 +29,8 @@ import { Court } from "../court/Court";
 import { clampToCourt, snapToGrid, toSvg, VIEW_SIZE } from "../court/geometry";
 import { snapAnnotationPoint } from "../court/snapping";
 import type { NormalizedPoint } from "../court/geometry";
-import type { AnnotationStyle, AnnotationTool } from "../court/types";
+import type { AnnotationTool, NewAnnotationStyle } from "../court/types";
+import { hasDash, hasFill, isDashTool, isFillTool } from "../court/types";
 import type { MarkerRole } from "../court/roles";
 import { TopicPicker } from "../topics/TopicPicker";
 import type { Topic } from "../topics/types";
@@ -108,7 +109,7 @@ export function BoardEditor({
     useDraftHistory(board);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<AnnotationTool>("markers");
-  const [annotationStyle, setAnnotationStyle] = useState<AnnotationStyle>(DEFAULT_ANNOTATION_STYLE);
+  const [annotationStyle, setAnnotationStyle] = useState<NewAnnotationStyle>(DEFAULT_ANNOTATION_STYLE);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [grid, setGrid] = useState(0);
   const [snapOn, setSnapOn] = useState(true);
@@ -226,7 +227,7 @@ export function BoardEditor({
   );
 
   const styleAnnotation = useCallback(
-    (patch: Partial<AnnotationStyle>) => {
+    (patch: Partial<NewAnnotationStyle>) => {
       setAnnotationStyle((s) => ({ ...s, ...patch }));
       if (selectedAnnotationId) set((d) => updateAnnotation(d, activeStepId, selectedAnnotationId, patch));
     },
@@ -409,6 +410,15 @@ export function BoardEditor({
             )}
           </CourtFrame>
 
+          {/* The multi-click polygon gesture is the one tool whose finish isn't obvious, so spell it
+              out while it is armed (a hover tooltip would never surface on touch). */}
+          {tool === "polygon" && (
+            <p className="m-0 text-center text-sm text-text-dim">
+              Click to place corners. Finish on the first or last corner, by double-clicking, or with Enter. Esc
+              cancels.
+            </p>
+          )}
+
           {sequence ? (
             <>
               <StepStrip
@@ -479,8 +489,28 @@ export function BoardEditor({
             <AnnotationInspector
               style={selectedAnnotation ?? annotationStyle}
               selected={Boolean(selectedAnnotation)}
+              fill={
+                selectedAnnotation
+                  ? hasFill(selectedAnnotation)
+                    ? selectedAnnotation.fill
+                    : undefined
+                  : isFillTool(tool)
+                    ? annotationStyle.fill
+                    : undefined
+              }
+              dash={
+                selectedAnnotation
+                  ? hasDash(selectedAnnotation)
+                    ? (selectedAnnotation.dash ?? "solid")
+                    : undefined
+                  : isDashTool(tool)
+                    ? annotationStyle.dash
+                    : undefined
+              }
               onChangeColor={(color) => styleAnnotation({ color })}
               onChangeWidth={(width) => styleAnnotation({ width })}
+              onChangeFill={(fill) => styleAnnotation({ fill })}
+              onChangeDash={(dash) => styleAnnotation({ dash })}
               onRemove={
                 selectedAnnotation
                   ? () => {

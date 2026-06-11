@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { JSX } from "react";
 
 import type { AnnotationHandle } from "../boards/operations";
@@ -9,9 +9,10 @@ import { ATTACK_LINE, COURT_SPAN, toSvg, toSvgPoint, VIEW_SIZE } from "./geometr
 import type { NormalizedPoint } from "./geometry";
 import { CourtGrid } from "./Grid";
 import { Marker } from "./Marker";
-import type { Annotation, AnnotationStyle, AnnotationTool, Arrow, Marker as MarkerData } from "./types";
+import { MARKER_COLORS } from "./roles";
+import type { Annotation, AnnotationTool, Arrow, Marker as MarkerData, NewAnnotationStyle } from "./types";
 import { useAnnotationDraw } from "./useAnnotationDraw";
-import { useMarkerDrag } from "./useMarkerDrag";
+import { clientToNormalized, useMarkerDrag } from "./useMarkerDrag";
 
 // The single court component, shared by static tactics and individual drill steps. It draws the
 // playing surface, its lines, the net, the given markers, and any drawn annotations. Passing both
@@ -22,6 +23,9 @@ import { useMarkerDrag } from "./useMarkerDrag";
 const NET_BAND = 54; // height of the net mesh above the top line, in SVG units
 const NET_STRANDS = 26;
 
+// The armed-tool tip trails the crosshair by this offset (SVG units), clear of the precision point.
+const TIP_OFFSET = 30;
+
 const left = toSvg(0);
 const right = toSvg(1);
 const netLine = toSvg(0);
@@ -31,7 +35,7 @@ const noSelect = (_id: string | null): void => {};
 const noMove = (_id: string, _position: NormalizedPoint): void => {};
 const noDraw = (_annotation: Annotation): void => {};
 const noTranslate = (_id: string, _dx: number, _dy: number): void => {};
-const DEFAULT_ANNOTATION_STYLE: AnnotationStyle = { color: "blue", width: 6 };
+const DEFAULT_ANNOTATION_STYLE: NewAnnotationStyle = { color: "blue", width: 6, fill: "tint", dash: "solid" };
 
 type CourtProps = {
   markers: readonly MarkerData[];
@@ -53,8 +57,8 @@ type CourtProps = {
   onMove?: (id: string, position: NormalizedPoint) => void;
   /** The active editor tool. `markers` (default) edits markers; other tools draw or select shapes. */
   tool?: AnnotationTool;
-  /** Colour and width applied to a freshly drawn shape. */
-  annotationStyle?: AnnotationStyle;
+  /** Colour, width, and (for closed shapes) fill applied to a freshly drawn shape. */
+  annotationStyle?: NewAnnotationStyle;
   selectedAnnotationId?: string | null;
   onSelectAnnotation?: (id: string | null) => void;
   /** Provide to enable the annotation tools: called with each committed shape. */
@@ -91,6 +95,7 @@ export function Court({
   onGestureEnd,
 }: CourtProps): JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null);
+  const [hover, setHover] = useState<NormalizedPoint | null>(null);
   const editable = Boolean(onSelect && onMove);
   const drag = useMarkerDrag(svgRef, onSelect ?? noSelect, onMove ?? noMove, snap);
   const draw = useAnnotationDraw(svgRef, {
@@ -118,7 +123,11 @@ export function Court({
       viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
       aria-label={label}
       onPointerDown={surface?.onSurfacePointerDown}
-      onPointerMove={surface?.onPointerMove}
+      onPointerMove={(event) => {
+        surface?.onPointerMove(event);
+        if (crosshair) setHover(clientToNormalized(event.currentTarget, event.clientX, event.clientY));
+      }}
+      onPointerLeave={() => setHover(null)}
       onPointerUp={() => {
         surface?.onPointerUp();
         onGestureEnd?.();
@@ -169,6 +178,18 @@ export function Court({
         />
       )}
 
+      {/* The in-progress polygon's finish cues: a dot on the first and last placed vertex, warming to
+          the accent when the cursor is in closing range — click either to finish the shape. */}
+      {draw.closeTargets?.map(({ point, hot }, i) => (
+        <circle
+          key={i}
+          className={`court-poly-target${hot ? " court-poly-target--hot" : ""}`}
+          cx={toSvgPoint(point).x}
+          cy={toSvgPoint(point).y}
+          r={hot ? 14 : 9}
+        />
+      ))}
+
       {draw.snapTarget && (
         <circle
           className="court-snap-dot"
@@ -189,6 +210,19 @@ export function Court({
           onPointerDown={editable && tool === "markers" ? drag.onMarkerPointerDown : undefined}
         />
       ))}
+
+      {/* The armed-tool tip: a swatch in the next shape's colour and weight trailing the crosshair, so
+          which tool is armed (and that it stays armed after a commit) is visible on the court itself.
+          Hidden mid-gesture, where the live draft already shows the style. */}
+      {crosshair && hover && !draw.draft && (
+        <circle
+          className="court-tool-tip"
+          style={{ color: MARKER_COLORS[annotationStyle.color].fill }}
+          cx={toSvgPoint(hover).x + TIP_OFFSET}
+          cy={toSvgPoint(hover).y + TIP_OFFSET}
+          r={4 + annotationStyle.width / 2}
+        />
+      )}
     </svg>
   );
 }

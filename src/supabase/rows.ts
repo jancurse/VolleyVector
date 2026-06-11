@@ -1,4 +1,6 @@
 import type { CourtMode } from "../court/roles";
+import { normalizeSteps } from "../boards/normalize";
+import type { StoredStep } from "../boards/normalize";
 import type { Board, BoardMarker, BoardStep } from "../boards/types";
 import type { Topic, TopicBlock } from "../topics/types";
 
@@ -19,7 +21,7 @@ export type BoardRow = {
   description: string;
   mode: CourtMode;
   markers: BoardMarker[];
-  steps: BoardStep[];
+  steps: StoredStep[];
   tags: string[];
   topic_id: string | null;
   shared: boolean;
@@ -84,7 +86,7 @@ export function boardFromRow(row: BoardRow): Board {
     description: row.description,
     mode: row.mode,
     markers: row.markers,
-    steps: row.steps,
+    steps: normalizeSteps(row.steps),
     tags: row.tags,
     topicId: row.topic_id,
     owner: row.owner,

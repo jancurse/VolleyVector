@@ -324,12 +324,13 @@ describe("translateAnnotation", () => {
     expect(moved.b.y).toBeCloseTo(0.4);
   });
 
-  test("shifts an arrow's endpoints", () => {
+  test("shifts an arrow's endpoints, and its via point when bent", () => {
     const arrow: Annotation = {
       id: "a",
       kind: "arrow",
       from: { x: 0.3, y: 0.3 },
       to: { x: 0.6, y: 0.6 },
+      via: { x: 0.5, y: 0.2 },
       color: "green",
       width: 5,
     };
@@ -339,6 +340,8 @@ describe("translateAnnotation", () => {
 
     expect(moved.from.x).toBeCloseTo(0.2);
     expect(moved.to.x).toBeCloseTo(0.5);
+    expect(moved.via?.x).toBeCloseTo(0.4);
+    expect(moved.via?.y).toBeCloseTo(0.2);
   });
 
   test("shifts every point of a freehand stroke, clamping past the court's reach", () => {
@@ -378,7 +381,20 @@ const RECT: Annotation = {
   kind: "rect",
   a: { x: 0.6, y: 0.7 },
   b: { x: 0.2, y: 0.3 },
+  fill: "none",
   color: "red",
+  width: 8,
+};
+const POLYGON: Annotation = {
+  id: "p1",
+  kind: "polygon",
+  points: [
+    { x: 0.2, y: 0.2 },
+    { x: 0.6, y: 0.2 },
+    { x: 0.4, y: 0.6 },
+  ],
+  fill: "tint",
+  color: "violet",
   width: 8,
 };
 const ARROW: Annotation = {
@@ -389,6 +405,7 @@ const ARROW: Annotation = {
   color: "green",
   width: 5,
 };
+const BENT_ARROW: Annotation = { ...ARROW, via: { x: 0.5, y: 0.2 } };
 const FREE: Annotation = {
   id: "f1",
   kind: "free",
@@ -403,12 +420,24 @@ const FREE: Annotation = {
 describe("annotationHandles", () => {
   test.each([
     [LINE, ["start", "end"]],
-    [ARROW, ["start", "end"]],
+    [ARROW, ["start", "end", "mid"]],
     [RECT, ["nw", "ne", "se", "sw"]],
-    [{ ...RECT, kind: "area" } as Annotation, ["nw", "ne", "se", "sw"]],
+    [{ ...RECT, kind: "ellipse" } as Annotation, ["nw", "ne", "se", "sw"]],
+    [POLYGON, ["v0", "v1", "v2"]],
     [FREE, []],
   ])("a %o exposes handles %j", (annotation, handles) => {
     expect(annotationHandles(annotation).map((h) => h.handle)).toEqual(handles);
+  });
+
+  test("a straight arrow's mid handle sits on its midpoint; a bent arrow's on its via point", () => {
+    expect(annotationHandles(ARROW)[2].point).toEqual({ x: expect.closeTo(0.45), y: expect.closeTo(0.45) });
+    expect(annotationHandles(BENT_ARROW)[2].point).toEqual({ x: 0.5, y: 0.2 });
+  });
+
+  test("a polygon's handles sit on its vertices", () => {
+    if (POLYGON.kind !== "polygon") throw new Error("bad fixture");
+
+    expect(annotationHandles(POLYGON).map((h) => h.point)).toEqual(POLYGON.points);
   });
 
   test("derives box corners whatever the corner order", () => {
@@ -467,6 +496,49 @@ describe("reshapeAnnotation", () => {
   test("leaves a freehand stroke unchanged", () => {
     expect(reshapeAnnotation(FREE, "start", { x: 0.5, y: 0.5 })).toBe(FREE);
   });
+
+  test("moves one polygon vertex, leaving the others in place", () => {
+    const next = reshapeAnnotation(POLYGON, "v1", { x: 0.9, y: 0.1 });
+
+    if (next.kind !== "polygon") throw new Error("kind changed");
+
+    expect(next.points[1]).toEqual({ x: 0.9, y: 0.1 });
+    expect(next.points[0]).toEqual({ x: 0.2, y: 0.2 });
+    expect(next.points[2]).toEqual({ x: 0.4, y: 0.6 });
+  });
+
+  test.each(["v9", "start"] as const)("ignores the foreign handle %s on a polygon", (handle) => {
+    expect(reshapeAnnotation(POLYGON, handle, { x: 0.5, y: 0.5 })).toBe(POLYGON);
+  });
+
+  test("dragging an arrow's mid handle bends it through the dragged point", () => {
+    const next = reshapeAnnotation(ARROW, "mid", { x: 0.5, y: 0.2 });
+
+    if (next.kind !== "arrow") throw new Error("kind changed");
+
+    expect(next.via).toEqual({ x: 0.5, y: 0.2 });
+    expect(next.from).toEqual(ARROW.from);
+    expect(next.to).toEqual(ARROW.to);
+  });
+
+  test("dragging the mid handle back near the straight line clears the bend", () => {
+    // (0.45, 0.46) sits ~0.007 from the from–to diagonal, inside the straighten threshold.
+    const next = reshapeAnnotation(BENT_ARROW, "mid", { x: 0.45, y: 0.46 });
+
+    if (next.kind !== "arrow") throw new Error("kind changed");
+
+    expect(next.via).toBeUndefined();
+  });
+
+  test("moving a bent arrow's endpoint carries the bend along by half the delta", () => {
+    const next = reshapeAnnotation(BENT_ARROW, "end", { x: 0.8, y: 0.6 });
+
+    if (next.kind !== "arrow") throw new Error("kind changed");
+
+    expect(next.to).toEqual({ x: 0.8, y: 0.6 });
+    expect(next.via?.x).toBeCloseTo(0.6);
+    expect(next.via?.y).toBeCloseTo(0.2);
+  });
 });
 
 describe("duplicateAnnotation", () => {
@@ -480,6 +552,19 @@ describe("duplicateAnnotation", () => {
     expect(copy.a.y).toBeCloseTo(0.23);
   });
 
+  test("offsets every polygon vertex in the copy", () => {
+    const copy = duplicateAnnotation(POLYGON);
+
+    if (copy.kind !== "polygon") throw new Error("kind changed");
+
+    expect(copy.id).not.toBe(POLYGON.id);
+    expect(copy.points.map((p) => [p.x, p.y])).toEqual([
+      [expect.closeTo(0.23), expect.closeTo(0.23)],
+      [expect.closeTo(0.63), expect.closeTo(0.23)],
+      [expect.closeTo(0.43), expect.closeTo(0.63)],
+    ]);
+  });
+
   test("clamps the offset copy to the court's reach", () => {
     const edge: Annotation = { ...LINE, b: { x: 1.1, y: 1.1 } } as Annotation;
     const copy = duplicateAnnotation(edge);
@@ -487,6 +572,15 @@ describe("duplicateAnnotation", () => {
     if (copy.kind !== "line") throw new Error("kind changed");
 
     expect(copy.b).toEqual({ x: 1.1, y: 1.1 });
+  });
+
+  test("offsets a bent arrow's via point with its endpoints", () => {
+    const copy = duplicateAnnotation(BENT_ARROW);
+
+    if (copy.kind !== "arrow") throw new Error("kind changed");
+
+    expect(copy.via?.x).toBeCloseTo(0.53);
+    expect(copy.via?.y).toBeCloseTo(0.23);
   });
 });
 
