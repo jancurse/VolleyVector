@@ -1,0 +1,46 @@
+# Court coordinate cheat sheet
+
+The app draws one half-court (9 m × 9 m) with the net at the top.
+Every position is a normalized fraction of that playing area (derived from `src/court/geometry.ts`):
+
+- **x**: `0` left sideline → `1` right sideline (as displayed; this is the players' right, since they face the net).
+- **y**: `0` the net → `1` the end line.
+- The **attack line** sits at `y = 1/3`. The front zone is `y < 1/3`, the back court `y > 1/3`.
+- Markers may sit up to `0.1` outside the court on either axis (the free zone); anything further is clamped on import.
+
+## Useful spots
+
+| Spot                        | Position                             |
+|-----------------------------|--------------------------------------|
+| Ball hanging over the net   | `{ "x": 0.5, "y": -0.05 }`           |
+| Server behind the end line  | `{ "x": 0.83, "y": 1.05 }`           |
+| Setter target at the net    | `{ "x": 0.65, "y": 0.08 }`           |
+| Bench row (waiting markers) | `y = 1.07`, `x = 0.1, 0.21, 0.32, …` |
+
+## Rotation zones
+
+Numbered as the players see them facing the net; zone 1 is back-right, counting counter-clockwise.
+
+| Zone | Court area   | x range   | y range | Centre                 |
+|------|--------------|-----------|---------|------------------------|
+| 1    | back right   | 2/3 – 1   | 2/3 – 1 | `{ x: 0.83, y: 0.83 }` |
+| 2    | front right  | 2/3 – 1   | 0 – 1/3 | `{ x: 0.83, y: 0.17 }` |
+| 3    | front middle | 1/3 – 2/3 | 0 – 1/3 | `{ x: 0.5, y: 0.17 }`  |
+| 4    | front left   | 0 – 1/3   | 0 – 1/3 | `{ x: 0.17, y: 0.17 }` |
+| 5    | back left    | 0 – 1/3   | 2/3 – 1 | `{ x: 0.17, y: 0.83 }` |
+| 6    | back middle  | 1/3 – 2/3 | 2/3 – 1 | `{ x: 0.5, y: 0.83 }`  |
+
+A typical three-player serve-receive line sits around `y ≈ 0.55–0.65` at `x ≈ 0.2 / 0.5 / 0.8`.
+
+## Roles (from `src/court/roles.ts`)
+
+| Role       | Default label | Colour | Mode      |
+|------------|---------------|--------|-----------|
+| `setter`   | `S`           | amber  | positions |
+| `outside`  | `OH`          | blue   | positions |
+| `middle`   | `MB`          | green  | positions |
+| `opposite` | `OPP`         | red    | positions |
+| `libero`   | `L`           | violet | positions |
+| `ball`     | —             | —      | both      |
+| `coach`    | `C`           | slate  | basic     |
+| `player`   | `P`           | blue   | basic     |

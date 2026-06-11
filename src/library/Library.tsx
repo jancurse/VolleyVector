@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 import type { Board } from "../boards/types";
 import { EYEBROW, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
@@ -14,9 +14,11 @@ type LibraryProps = {
   onNew: () => void;
   /** Whether to offer the New board action (a coach of this team, or an admin). */
   canEdit: boolean;
+  /** The page-bar overflow menu (the space's JSON export and import). */
+  menu?: ReactNode;
 };
 
-export function Library({ boards, onOpen, onNew, canEdit }: LibraryProps): JSX.Element {
+export function Library({ boards, onOpen, onNew, canEdit, menu }: LibraryProps): JSX.Element {
   const items = useMemo(() => toLibraryItems(boards), [boards]);
 
   return (
@@ -26,6 +28,7 @@ export function Library({ boards, onOpen, onNew, canEdit }: LibraryProps): JSX.E
           <p className={EYEBROW}>Library</p>
           <h1 className={TITLE}>Boards</h1>
         </div>
+        {menu}
       </div>
 
       <BoardGrid items={items} onOpen={onOpen} onNew={canEdit ? onNew : undefined} emptyLabel="No boards yet." />

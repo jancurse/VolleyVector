@@ -18,6 +18,9 @@ export type TopicsStore = {
   error: string | null;
   /** Add a topic under `parentId` (`null` for a root) and return its id, so the caller can select it. */
   addTopic: (parentId: string | null) => string;
+  /** Insert fully-formed topics (an import; parents before children), awaited in order with retries.
+   *  Resolves to null on success, or the first error message — topics inserted before it stay. */
+  insertTopics: (topics: readonly Topic[]) => Promise<string | null>;
   /** Commit the topic editor's Done: awaited and retried, the tree updates only on success. Resolves
    *  to null on success, or the error message — the caller owns the failure UI. */
   updateTopic: (id: string, patch: Partial<Pick<Topic, "title" | "blocks">>) => Promise<string | null>;
@@ -157,6 +160,28 @@ export function useTopics(space: Space | null): TopicsStore {
     [space, user, fail]
   );
 
+  const insertTopics = useCallback(
+    async (toInsert: readonly Topic[]): Promise<string | null> => {
+      if (!space || !user) return "No active space to import into.";
+
+      const scope = space.kind === "team" ? "team" : "personal";
+      const teamId = space.kind === "team" ? space.teamId : null;
+
+      for (const topic of toInsert) {
+        const writeError = await writeWithRetries(() =>
+          supabase.from("topics").insert(topicToInsert(topic, user.id, scope, teamId))
+        );
+
+        if (writeError !== null) return writeError;
+
+        setTopics((prev) => [...prev, topic]);
+      }
+
+      return null;
+    },
+    [space, user]
+  );
+
   const updateTopic = useCallback(
     async (id: string, patch: Partial<Pick<Topic, "title" | "blocks">>): Promise<string | null> => {
       // Slugs never change on rename, except the first rename away from the creation placeholder
@@ -225,5 +250,5 @@ export function useTopics(space: Space | null): TopicsStore {
     [persistMove]
   );
 
-  return { topics, loading, error, addTopic, updateTopic, removeTopic, reparentTopic, reorderTopic };
+  return { topics, loading, error, addTopic, insertTopics, updateTopic, removeTopic, reparentTopic, reorderTopic };
 }

@@ -460,7 +460,7 @@ describe("positions and sequences", () => {
 });
 
 // Reached from the board view's overflow menu (Positions and Sequences alike). The clipboard is a
-// browser API, so it is mocked; opening either sample board and clicking copies that board's JSON.
+// browser API, so it is mocked; opening either sample board and clicking copies it as a one-board bundle.
 describe("board JSON export", () => {
   test.each([
     ["a Position", openPosition, "Sample Position (Base Defence)"],
@@ -476,9 +476,66 @@ describe("board JSON export", () => {
     await user.click(screen.getByRole("button", { name: "Board actions" }));
     await user.click(screen.getByRole("menuitem", { name: "Copy JSON" }));
 
-    expect(JSON.parse(writeText.mock.calls[0][0])).toMatchObject({ title });
+    expect(JSON.parse(writeText.mock.calls[0][0])).toMatchObject({ formatVersion: 1, boards: [{ title }] });
     // The item stays put and confirms in place, so the menu does not snap shut on the feedback.
     expect(await screen.findByRole("menuitem", { name: "Copied" })).toBeInTheDocument();
+  });
+});
+
+// The library page-bar menu imports a pasted bundle: the dialog previews it (a court per board and the
+// topic titles) before anything is written, and confirming creates the content in the active space.
+describe("bundle import", () => {
+  test("pasting a bundle previews it and confirming creates its topic and board", async () => {
+    const user = await renderApp();
+    const bundle = JSON.stringify({
+      formatVersion: 1,
+      topics: [{ ref: "t1", title: "Imported topic" }],
+      boards: [
+        {
+          ref: "b1",
+          topicRef: "t1",
+          title: "Imported board",
+          mode: "positions",
+          markers: [{ id: "s", role: "setter" }],
+          steps: [{ positions: { s: { x: 0.5, y: 0.5 } } }],
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Library actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Import JSON…" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Import JSON" });
+
+    await user.click(within(dialog).getByLabelText("Bundle JSON"));
+    await user.paste(bundle);
+
+    // The preview renders before anything is written: the topic title, the board title, its kind.
+    expect(within(dialog).getByText("Imported topic")).toBeInTheDocument();
+    expect(within(dialog).getByText("Imported board")).toBeInTheDocument();
+    expect(within(dialog).getByText("Position")).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Import" }));
+
+    // The dialog closes and the new board joins the library; the topic joins the sidebar tree.
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Import JSON" })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /Imported board/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Imported topic" })).toBeInTheDocument();
+  });
+
+  test("a broken bundle shows its errors and cannot be imported", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Library actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Import JSON…" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Import JSON" });
+
+    await user.click(within(dialog).getByLabelText("Bundle JSON"));
+    await user.paste("{broken");
+
+    expect(within(dialog).getByText(/Not valid JSON/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Import" })).toBeDisabled();
   });
 });
 

@@ -1,0 +1,105 @@
+{
+  "formatVersion": 1,
+  "topics": [
+    {
+      "ref": "t-serve-receive",
+      "title": "Serve receive",
+      "parentRef": null,
+      "blocks": [
+        {
+          "kind": "markdown",
+          "text": "How we line up to receive serve in rotation 1, and how the pass turns into a first-tempo attack."
+        },
+        { "kind": "boards", "boardRefs": ["b-r1-lineup", "b-r1-pass-attack"] }
+      ]
+    }
+  ],
+  "boards": [
+    {
+      "ref": "b-r1-lineup",
+      "topicRef": "t-serve-receive",
+      "title": "Rotation 1 — receive lineup",
+      "description": "Three-player receive line with the setter hiding in zone 1, ready to penetrate to the net.",
+      "mode": "positions",
+      "markers": [
+        { "id": "s", "role": "setter" },
+        { "id": "oh1", "role": "outside", "label": "OH1" },
+        { "id": "oh2", "role": "outside", "label": "OH2" },
+        { "id": "mb1", "role": "middle", "label": "MB1" },
+        { "id": "opp", "role": "opposite" },
+        { "id": "lib", "role": "libero" },
+        { "id": "ball", "role": "ball" }
+      ],
+      "steps": [
+        {
+          "instruction": "",
+          "positions": {
+            "s": { "x": 0.85, "y": 0.72 },
+            "oh1": { "x": 0.2, "y": 0.6 },
+            "lib": { "x": 0.5, "y": 0.65 },
+            "oh2": { "x": 0.8, "y": 0.55 },
+            "mb1": { "x": 0.55, "y": 0.12 },
+            "opp": { "x": 0.15, "y": 0.12 },
+            "ball": { "x": 0.5, "y": -0.05 }
+          }
+        }
+      ],
+      "tags": ["serve receive", "rotation 1"]
+    },
+    {
+      "ref": "b-r1-pass-attack",
+      "topicRef": "t-serve-receive",
+      "title": "Rotation 1 — pass to attack",
+      "description": "The libero passes, the setter penetrates from zone 1, and the middle runs a first tempo.",
+      "mode": "positions",
+      "markers": [
+        { "id": "s", "role": "setter" },
+        { "id": "oh1", "role": "outside", "label": "OH1" },
+        { "id": "oh2", "role": "outside", "label": "OH2" },
+        { "id": "mb1", "role": "middle", "label": "MB1" },
+        { "id": "opp", "role": "opposite" },
+        { "id": "lib", "role": "libero" },
+        { "id": "ball", "role": "ball" }
+      ],
+      "steps": [
+        {
+          "instruction": "The serve comes to the libero in zone 6.",
+          "positions": {
+            "s": { "x": 0.85, "y": 0.72 },
+            "oh1": { "x": 0.2, "y": 0.6 },
+            "lib": { "x": 0.5, "y": 0.65 },
+            "oh2": { "x": 0.8, "y": 0.55 },
+            "mb1": { "x": 0.55, "y": 0.12 },
+            "opp": { "x": 0.15, "y": 0.12 },
+            "ball": { "x": 0.5, "y": 0.62 }
+          }
+        },
+        {
+          "instruction": "The setter penetrates to the net while the pass travels to the target zone.",
+          "positions": {
+            "s": { "x": 0.65, "y": 0.08 },
+            "oh1": { "x": 0.12, "y": 0.45 },
+            "lib": { "x": 0.5, "y": 0.7 },
+            "oh2": { "x": 0.85, "y": 0.5 },
+            "mb1": { "x": 0.5, "y": 0.2 },
+            "opp": { "x": 0.15, "y": 0.12 },
+            "ball": { "x": 0.62, "y": 0.15 }
+          }
+        },
+        {
+          "instruction": "First tempo: the middle attacks in front of the setter; the outsides hold for a second ball.",
+          "positions": {
+            "s": { "x": 0.68, "y": 0.06 },
+            "oh1": { "x": 0.1, "y": 0.3 },
+            "lib": { "x": 0.5, "y": 0.75 },
+            "oh2": { "x": 0.88, "y": 0.45 },
+            "mb1": { "x": 0.55, "y": 0.08 },
+            "opp": { "x": 0.15, "y": 0.12 },
+            "ball": { "x": 0.55, "y": 0.04 }
+          }
+        }
+      ],
+      "tags": ["serve receive", "rotation 1", "first tempo"]
+    }
+  ]
+}

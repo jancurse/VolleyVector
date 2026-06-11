@@ -4,6 +4,9 @@ import type { JSX } from "react";
 import { boardsInTopic, createBoard } from "./boards/operations";
 import type { Board } from "./boards/types";
 import { useBoards } from "./boards/useBoards";
+import { ExportMenu } from "./bundle/ExportMenu";
+import { ImportDialog } from "./bundle/ImportDialog";
+import { bundleFilename, toBundle } from "./bundle/serialize";
 import { BoardActionsMenu } from "./editor/BoardActionsMenu";
 import { BoardEditor } from "./editor/BoardEditor";
 import { clearDraftBackup, loadDraftBackup } from "./editor/draftBackup";
@@ -16,6 +19,7 @@ import { TopicEditor } from "./topics/TopicEditor";
 import { TopicView } from "./topics/TopicView";
 import { useTopics } from "./topics/useTopics";
 import { useTheme } from "./theme/useTheme";
+import { MenuItem } from "./ui/Menu";
 import { TooltipProvider } from "./ui/Tooltip";
 import { useConfirm } from "./ui/useConfirm";
 import { useAuth } from "./auth/useAuth";
@@ -24,6 +28,7 @@ import { SetPassword } from "./auth/SetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
 import { Button } from "./ui/Button";
 import { cx, MUTED } from "./ui/styles";
+import type { Topic } from "./topics/types";
 import { TeamPage } from "./team/TeamPage";
 import { AdminPage } from "./admin/AdminPage";
 import { SettingsPage } from "./account/SettingsPage";
@@ -112,6 +117,7 @@ export function App(): JSX.Element {
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [passwordReady, setPasswordReady] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [missingBoardId, setMissingBoardId] = useState<string | null>(null);
 
   // Below the full-sidebar width the navigation lives in an overlay: expanded from the rail's Topics
@@ -496,6 +502,28 @@ export function App(): JSX.Element {
     ),
   ];
 
+  // An import creates everything anew in the active space: topics first (parents before children, the
+  // order the parser returns), then boards, each write awaited so a failure reports back to the dialog.
+  const importBundle = async (newTopics: Topic[], newBoards: Board[]): Promise<string | null> => {
+    const topicError = await topics.insertTopics(newTopics);
+
+    if (topicError !== null) return topicError;
+
+    for (const board of newBoards) {
+      const boardError = await addBoard({ ...board, owner: user.id });
+
+      if (boardError !== null) return boardError;
+    }
+
+    return null;
+  };
+
+  // The space's JSON export (and, for its curators, import) on the All Boards page bar, and the
+  // topic's subtree export on its page bar. Export needs no edit rights, matching viewing.
+  const spaceName = personal
+    ? "My boards"
+    : (allTeams.find((t) => activeSpace.kind === "team" && t.teamId === activeSpace.teamId)?.teamName ?? "Team");
+
   // Moving relocates the original into a team library, so it is confirmed, unlike a copy.
   const moveBoard = async (board: Board, teamId: string) => {
     const name = targetTeams.find((t) => t.teamId === teamId)?.teamName ?? "the team";
@@ -594,6 +622,9 @@ export function App(): JSX.Element {
       />
     );
   } else if (selectedTopic) {
+    // The topic export carries the whole subtree and every board filed under any topic in it.
+    const subtree = subtreeIds(topics.topics, selectedTopic.id);
+
     content = (
       <TopicView
         topic={selectedTopic}
@@ -605,6 +636,18 @@ export function App(): JSX.Element {
         onAddSubtopic={() => createTopic(selectedTopic.id)}
         onNewBoard={newBoard}
         canEdit={canEdit}
+        menu={
+          <ExportMenu
+            label="Topic actions"
+            bundle={() =>
+              toBundle(
+                boards.filter((b) => b.topicId !== null && subtree.includes(b.topicId)),
+                topics.topics.filter((t) => subtree.includes(t.id))
+              )
+            }
+            filename={bundleFilename(selectedTopic.title)}
+          />
+        }
       />
     );
   } else if (route.kind === "library" || route.kind === "topic") {
@@ -614,6 +657,15 @@ export function App(): JSX.Element {
         onOpen={(id) => navigate(boardRoute(activeSpace, allTeams, id, false))}
         onNew={newBoard}
         canEdit={canEdit}
+        menu={
+          <ExportMenu
+            label="Library actions"
+            bundle={() => toBundle(boards, topics.topics)}
+            filename={bundleFilename(spaceName)}
+          >
+            {canEdit && <MenuItem onClick={() => setImporting(true)}>Import JSON…</MenuItem>}
+          </ExportMenu>
+        }
       />
     );
   } else if (route.kind === "settings") {
@@ -749,6 +801,9 @@ export function App(): JSX.Element {
         </SidePanel>
       )}
       {dialog}
+      {canEdit && (
+        <ImportDialog open={importing} onOpenChange={setImporting} topics={topics.topics} onImport={importBundle} />
+      )}
       {openBoard && (
         <ShareDialog
           open={sharing}

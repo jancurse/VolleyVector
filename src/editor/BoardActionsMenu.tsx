@@ -2,13 +2,14 @@ import type { JSX, ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
 
 import type { Board } from "../boards/types";
+import { bundleFilename, toBundle } from "../bundle/serialize";
+import { useBundleExport } from "../bundle/useBundleExport";
 import { IconButton } from "../ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../ui/Menu";
-import { useCopyBoardJson } from "./useCopyBoardJson";
 
 // The board view's overflow menu, beside the title-row actions: the occasional actions (the copy and
-// move targets, the author lock, Copy JSON) as labelled menu items, keeping the visible row to share
-// and Edit.
+// move targets, the author lock, the JSON export) as labelled menu items, keeping the visible row to
+// share and Edit.
 type BoardActionsMenuProps = {
   board: Board;
   /** Whether the viewer may toggle the author lock (the board's author or an admin, on a team board). */
@@ -19,7 +20,7 @@ type BoardActionsMenuProps = {
 };
 
 export function BoardActionsMenu({ board, canLock, onToggleLock, children }: BoardActionsMenuProps): JSX.Element {
-  const { copied, copy } = useCopyBoardJson(board);
+  const { copied, copy, download } = useBundleExport(() => toBundle([board], []), bundleFilename(board.title));
 
   return (
     <Menu
@@ -36,6 +37,7 @@ export function BoardActionsMenu({ board, canLock, onToggleLock, children }: Boa
       <MenuItem closeOnClick={false} onClick={copy}>
         {copied ? "Copied" : "Copy JSON"}
       </MenuItem>
+      <MenuItem onClick={download}>Download JSON</MenuItem>
     </Menu>
   );
 }

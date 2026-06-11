@@ -1,0 +1,49 @@
+{
+  "formatVersion": 1,
+  "topics": [],
+  "boards": [
+    {
+      "ref": "b-pepper",
+      "topicRef": null,
+      "title": "Pepper warm-up",
+      "description": "Classic two-player pepper: pass, set, controlled hit, repeat. The coach watches platform angles.",
+      "mode": "basic",
+      "markers": [
+        { "id": "c", "role": "coach" },
+        { "id": "p1", "role": "player", "label": "P1" },
+        { "id": "p2", "role": "player", "label": "P2", "color": "red" },
+        { "id": "ball", "role": "ball" }
+      ],
+      "steps": [
+        {
+          "instruction": "P1 passes to P2 from about three metres apart.",
+          "positions": {
+            "c": { "x": 0.12, "y": 0.5 },
+            "p1": { "x": 0.45, "y": 0.7 },
+            "p2": { "x": 0.65, "y": 0.4 },
+            "ball": { "x": 0.5, "y": 0.62 }
+          }
+        },
+        {
+          "instruction": "P2 sets the ball straight back.",
+          "positions": {
+            "c": { "x": 0.12, "y": 0.5 },
+            "p1": { "x": 0.45, "y": 0.7 },
+            "p2": { "x": 0.65, "y": 0.4 },
+            "ball": { "x": 0.62, "y": 0.44 }
+          }
+        },
+        {
+          "instruction": "P1 hits a controlled ball at P2, who digs it up to restart the cycle.",
+          "positions": {
+            "c": { "x": 0.12, "y": 0.5 },
+            "p1": { "x": 0.48, "y": 0.65 },
+            "p2": { "x": 0.66, "y": 0.42 },
+            "ball": { "x": 0.64, "y": 0.42 }
+          }
+        }
+      ],
+      "tags": ["warm-up", "ball control"]
+    }
+  ]
+}
