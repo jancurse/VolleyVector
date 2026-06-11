@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { boardsInTopic, createBoard } from "./boards/operations";
@@ -7,6 +7,7 @@ import { useBoards } from "./boards/useBoards";
 import { ExportMenu } from "./bundle/ExportMenu";
 import { ImportDialog } from "./bundle/ImportDialog";
 import { bundleFilename, toBundle } from "./bundle/serialize";
+import { useDraftPreviewRoute } from "./bundle/useDraftPreviewRoute";
 import { BoardActionsMenu } from "./editor/BoardActionsMenu";
 import { BoardEditor } from "./editor/BoardEditor";
 import { clearDraftBackup, loadDraftBackup } from "./editor/draftBackup";
@@ -79,6 +80,12 @@ import { SidePanel } from "./ui/SidePanel";
 const BG =
   "flex min-h-[100dvh] flex-col [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)] transition-[background-color] duration-[400ms]";
 
+// The dev-only draft preview (`#/preview`) lazy-loads behind the DEV check, so its drafts/ glob — and
+// every draft's contents — tree-shakes out of the production bundle entirely.
+const DraftPreview = import.meta.env.DEV
+  ? lazy(() => import("./bundle/DraftPreview").then((m) => ({ default: m.DraftPreview })))
+  : null;
+
 // The URL is the single source of truth for navigation: the active space, the browse selection, and the
 // open board are all derived from the path-based route. A draft (the editor's working copy) and the
 // topic-editing toggle are the only navigation state not in the URL. App wires the stores together and
@@ -90,11 +97,13 @@ export function App(): JSX.Element {
   const workspace = useWorkspace();
   const shareToken = useShareRoute();
   const inviteToken = useInviteRoute();
+  const draftPreviewOpen = useDraftPreviewRoute() && import.meta.env.DEV;
   const { route, navigate } = useRoute();
 
   // A share or invite link rides the hash and owns the whole screen (it opens with or without an account),
-  // so the path router stays dormant while one is active: its effects must not navigate and clear the hash.
-  const hashRoute = shareToken !== null || inviteToken !== null;
+  // and the dev-only draft preview rides it inside the shell, so the path router stays dormant while one
+  // is active: its effects must not navigate and clear the hash.
+  const hashRoute = shareToken !== null || inviteToken !== null || draftPreviewOpen;
 
   // Hold content loads until the workspace has resolved the landing space, so the app does not fetch the
   // personal space and then immediately re-fetch the defaulted team.
@@ -583,7 +592,13 @@ export function App(): JSX.Element {
 
   let content: JSX.Element;
 
-  if (showEditor && draft) {
+  if (DraftPreview && draftPreviewOpen) {
+    content = (
+      <Suspense fallback={<p className={MUTED}>Loading…</p>}>
+        <DraftPreview topics={topics.topics} canEdit={canEdit} onImport={importBundle} />
+      </Suspense>
+    );
+  } else if (showEditor && draft) {
     content = (
       <BoardEditor
         key={`${draft.id}:${draftRevision}`}
@@ -709,6 +724,9 @@ export function App(): JSX.Element {
             filename={bundleFilename(spaceName)}
           >
             {canEdit && <MenuItem onClick={() => setImporting(true)}>Import JSON…</MenuItem>}
+            {import.meta.env.DEV && (
+              <MenuItem onClick={() => (window.location.hash = "#/preview")}>Draft preview…</MenuItem>
+            )}
           </ExportMenu>
         }
       />

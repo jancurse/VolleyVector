@@ -105,6 +105,8 @@ type BoardEditorProps = {
   tagSuggestions?: readonly string[];
   /** The topic tree, for the home-topic picker. */
   topics?: readonly Topic[];
+  /** Label for the commit button; the draft preview relabels it "Save & copy JSON". */
+  doneLabel?: string;
 };
 
 export function BoardEditor({
@@ -114,6 +116,7 @@ export function BoardEditor({
   onDelete,
   tagSuggestions,
   topics = [],
+  doneLabel = "Done",
 }: BoardEditorProps): JSX.Element {
   const { draft, activeStepId, setActiveStepId, set, replace, commit, undo, redo, canUndo, canRedo } =
     useDraftHistory(board);
@@ -398,7 +401,7 @@ export function BoardEditor({
           </Button>
         )}
         <Button variant="primary" disabled={saving} onClick={() => void done()}>
-          {saving ? "Saving…" : "Done"}
+          {saving ? "Saving…" : doneLabel}
         </Button>
       </div>
 

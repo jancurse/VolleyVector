@@ -1,14 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 
-import { stepMarkers } from "../boards/operations";
 import type { Board } from "../boards/types";
-import { Court } from "../court/Court";
 import type { Topic } from "../topics/types";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Textarea } from "../ui/Textarea";
-import { FIELD_LABEL } from "../ui/styles";
+import { BundlePreview } from "./BundlePreview";
 import { parseBundle } from "./parse";
 
 // The import dialog: paste or pick a bundle JSON file, see it parsed live — either the listed errors,
@@ -23,19 +21,6 @@ type ImportDialogProps = {
   /** Create the parsed topics (parents first) then boards; resolves null or the error message. */
   onImport: (topics: Topic[], boards: Board[]) => Promise<string | null>;
 };
-
-/** Each topic with its depth in the new tree, in the parents-first order the parser returns. */
-function withDepths(topics: readonly Topic[]): { topic: Topic; depth: number }[] {
-  const depths = new Map<string | null, number>([[null, -1]]);
-
-  return topics.map((topic) => {
-    const depth = (depths.get(topic.parentId) ?? -1) + 1;
-
-    depths.set(topic.id, depth);
-
-    return { topic, depth };
-  });
-}
 
 export function ImportDialog({ open, onOpenChange, topics, onImport }: ImportDialogProps): JSX.Element {
   const [text, setText] = useState("");
@@ -103,47 +88,7 @@ export function ImportDialog({ open, onOpenChange, topics, onImport }: ImportDia
       )}
 
       {result?.ok && (
-        <>
-          {result.value.notices.length > 0 && (
-            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm text-text-dim">
-              {result.value.notices.map((notice, i) => (
-                <li key={i}>{notice}</li>
-              ))}
-            </ul>
-          )}
-
-          {result.value.topics.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <p className={FIELD_LABEL}>Topics</p>
-              {withDepths(result.value.topics).map(({ topic, depth }) => (
-                <p key={topic.id} className="m-0 text-sm font-semibold" style={{ paddingLeft: `${depth}rem` }}>
-                  {topic.title}
-                </p>
-              ))}
-            </div>
-          )}
-
-          {result.value.boards.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <p className={FIELD_LABEL}>Boards</p>
-              <div className="grid grid-cols-2 gap-3">
-                {result.value.boards.map((board) => (
-                  <div key={board.id} className="overflow-hidden rounded-lg border border-border bg-panel">
-                    <div className="aspect-square w-full bg-court-surface" aria-hidden="true">
-                      <Court markers={stepMarkers(board, 0)} annotations={board.steps[0].annotations} />
-                    </div>
-                    <div className="px-2.5 py-2">
-                      <p className="m-0 text-sm font-semibold">{board.title}</p>
-                      <p className="m-0 font-mono text-2xs text-text-dim">
-                        {board.steps.length === 1 ? "Position" : `Sequence · ${board.steps.length} steps`}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+        <BundlePreview topics={result.value.topics} boards={result.value.boards} notices={result.value.notices} />
       )}
 
       {writeError && <p className="m-0 text-sm text-danger">{writeError}</p>}

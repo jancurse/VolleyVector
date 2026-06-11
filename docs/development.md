@@ -40,6 +40,16 @@
 
 Run `npm run dev` to start the Vite dev server at <http://localhost:5173> with hot module reloading.
 
+### Previewing board-creator drafts
+
+The board-creator skill writes bundle JSON to the gitignored `drafts/` folder. The dev-only `#/preview` route renders those files for the iterate loop:
+
+- **Draft preview…** in the library page-bar menu (or the hash itself) opens it; it hot-reloads as the skill rewrites a draft.
+- Cards open the normal board view and editor.
+- **Save & copy JSON** keeps the edit on the page (in memory only) and copies the bundle to paste back to the skill.
+- **Import** creates what is on screen into the active space.
+- None of it ships: the route is `import.meta.env.DEV`-gated.
+
 ### Deployment
 
 The app deploys to Cloudflare Pages at <https://volleycoach.pages.dev>. `.github/workflows/deploy.yml` publishes automatically once CI passes on `main`, so there is no manual deploy step, and production config lives in GitHub Actions variables and secrets rather than the repo.

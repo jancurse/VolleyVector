@@ -128,8 +128,7 @@ Add or update unit tests to cover the changed behavior — no more than the chan
 
 ## Follow-ups
 
-- A one-action "everything I can reach" takeout across all spaces (e.g. one file per space or a zip). Deferred: per-space export already covers data portability in a few clicks, and a cross-space fetch plus a zip dependency is not worth it until a concrete trigger (offboarding, a user request) shows up.
-- Dev-only file-watched preview route: a `#/preview` route reading a gitignored JSON file the skill writes, so iteration needs no pasting.
+- Dev-only file-watched preview route: a `#/preview` route reading a gitignored JSON file the skill writes, so iteration needs no pasting. **Implemented** (see `docs/development.md` → "Previewing board-creator drafts"): `src/bundle/DraftPreview.tsx` globs `drafts/*.json` (eager, raw) so Vite lists and hot-reloads the files, and renders the shared `BundlePreview` (extracted from the import dialog). Cards open the normal `BoardView`, Edit opens the normal `BoardEditor` whose commit ("Save & copy JSON") keeps the edit on the page and copies the bundle for pasting back to the skill, and Import writes the file plus any local edits through the dialog's write path. The route is DEV-gated and lazy-loaded in `App.tsx` (reached via the hash or the library menu's Draft preview… item), so nothing ships to production.
 - Update-in-place re-import: matching boards/topics by ref or title to update instead of duplicating.
 
 The print/handout half of the original "presentation-grade exports" follow-up is implemented; see the notes below.
