@@ -15,11 +15,19 @@ type BoardActionsMenuProps = {
   /** Whether the viewer may toggle the author lock (the board's author or an admin, on a team board). */
   canLock: boolean;
   onToggleLock: () => void;
+  /** Opens the board's print/handout view. */
+  onPrint: () => void;
   /** The leading menu items (the Copy to and Move to actions), separated from the rest. */
   children?: ReactNode;
 };
 
-export function BoardActionsMenu({ board, canLock, onToggleLock, children }: BoardActionsMenuProps): JSX.Element {
+export function BoardActionsMenu({
+  board,
+  canLock,
+  onToggleLock,
+  onPrint,
+  children,
+}: BoardActionsMenuProps): JSX.Element {
   const { copied, copy, download } = useBundleExport(() => toBundle([board], []), bundleFilename(board.title));
 
   return (
@@ -34,6 +42,7 @@ export function BoardActionsMenu({ board, canLock, onToggleLock, children }: Boa
       {children}
       {children && <MenuSeparator />}
       {canLock && <MenuItem onClick={onToggleLock}>{board.authorLocked ? "Unlock editing" : "Lock editing"}</MenuItem>}
+      <MenuItem onClick={onPrint}>Print…</MenuItem>
       <MenuItem closeOnClick={false} onClick={copy}>
         {copied ? "Copied" : "Copy JSON"}
       </MenuItem>

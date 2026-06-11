@@ -50,6 +50,7 @@ import { useRoute } from "./routing/useRoute";
 import { buildPath, routeSpace } from "./routing/route";
 import { NotFound } from "./routing/NotFound";
 import {
+  boardPrintRoute,
   boardRoute,
   canonicalRoute,
   findTeamId,
@@ -58,8 +59,12 @@ import {
   routeSpaceForSpace,
   spaceForRouteSpace,
   teamRoute,
+  topicPrintRoute,
   topicRoute,
 } from "./routing/links";
+import { BoardPrint } from "./print/BoardPrint";
+import { PrintView } from "./print/PrintView";
+import { TopicPrint } from "./print/TopicPrint";
 import { AppShell } from "./shell/AppShell";
 import { Sidebar } from "./shell/Sidebar";
 import { SidebarRail } from "./shell/SidebarRail";
@@ -449,6 +454,43 @@ export function App(): JSX.Element {
   if (workspace.loading || (boardsLoading && boards.length === 0) || (topics.loading && topics.topics.length === 0))
     return loader;
 
+  const printNotFound = (
+    <div className={cx(BG, "px-[clamp(1.1rem,4vw,2.75rem)] py-10")}>
+      <NotFound onHome={() => navigate(homeRoute())} />
+    </div>
+  );
+
+  // The print routes render their handout chrome-free, outside the shell. The space-sync effect above
+  // aligns the active space to the URL, so the document just reads the loaded lists; a board id or
+  // topic slug the space does not hold is treated as not found once the space has settled.
+  if (route.kind === "printBoard") {
+    const board = boards.find((b) => b.id === route.boardId);
+
+    if (!board) return !spaceReady || boardsLoading ? loader : printNotFound;
+
+    return (
+      <PrintView
+        title={board.title || "Untitled board"}
+        onBack={() => navigate(boardRoute(activeSpace, allTeams, board.id, false))}
+      >
+        <BoardPrint board={board} />
+      </PrintView>
+    );
+  }
+
+  if (route.kind === "printTopic") {
+    const topicId = findTopicId(topics.topics, route.topicSlug);
+    const topic = topics.topics.find((t) => t.id === topicId);
+
+    if (!topic) return !spaceReady || topics.loading ? loader : printNotFound;
+
+    return (
+      <PrintView title={topic.title} onBack={() => navigate(topicRoute(activeSpace, allTeams, topic))}>
+        <TopicPrint topic={topic} boards={boardsInTopic(boards, topic.id)} />
+      </PrintView>
+    );
+  }
+
   const selectedTopic = selection.kind === "topic" ? topics.topics.find((t) => t.id === selection.id) : undefined;
 
   // The teams whose library the viewer may write to, as copy/move targets: an admin reaches every team;
@@ -569,6 +611,7 @@ export function App(): JSX.Element {
                 board={openBoard}
                 canLock={!personal && (workspace.isAdmin || openBoard.owner === user.id)}
                 onToggleLock={() => setBoardLock(openBoard.id, !openBoard.authorLocked)}
+                onPrint={() => navigate(boardPrintRoute(activeSpace, allTeams, openBoard.id))}
               >
                 <CopyToMenu targets={copyTargets(openBoard)} />
                 {personal && openBoard.owner === user.id && targetTeams.length > 0 && (
@@ -646,7 +689,9 @@ export function App(): JSX.Element {
               )
             }
             filename={bundleFilename(selectedTopic.title)}
-          />
+          >
+            <MenuItem onClick={() => navigate(topicPrintRoute(activeSpace, allTeams, selectedTopic))}>Print…</MenuItem>
+          </ExportMenu>
         }
       />
     );

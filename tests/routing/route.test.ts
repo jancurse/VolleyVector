@@ -15,6 +15,13 @@ const cases: { route: Route; path: string }[] = [
   { route: { kind: "board", space: personal, boardId: "b-1", edit: true }, path: "/personal/board/b-1/edit" },
   { route: { kind: "board", space: team, boardId: "b-2", edit: false }, path: "/t/acme/board/b-2" },
   { route: { kind: "board", space: team, boardId: "b-2", edit: true }, path: "/t/acme/board/b-2/edit" },
+  { route: { kind: "printBoard", space: personal, boardId: "b-1" }, path: "/personal/board/b-1/print" },
+  { route: { kind: "printBoard", space: team, boardId: "b-2" }, path: "/t/acme/board/b-2/print" },
+  {
+    route: { kind: "printTopic", space: personal, topicSlug: "serve-receive" },
+    path: "/personal/topic/serve-receive/print",
+  },
+  { route: { kind: "printTopic", space: team, topicSlug: "rotations" }, path: "/t/acme/topic/rotations/print" },
   { route: { kind: "team", teamSlug: "acme" }, path: "/t/acme/team" },
   { route: { kind: "settings" }, path: "/settings" },
   { route: { kind: "admin", sub: "teams" }, path: "/admin/teams" },
@@ -83,6 +90,8 @@ describe("routeSpace", () => {
     expect(routeSpace({ kind: "library", space: team })).toEqual(team);
     expect(routeSpace({ kind: "topic", space: personal, topicSlug: "x" })).toEqual(personal);
     expect(routeSpace({ kind: "board", space: team, boardId: "b", edit: false })).toEqual(team);
+    expect(routeSpace({ kind: "printBoard", space: team, boardId: "b" })).toEqual(team);
+    expect(routeSpace({ kind: "printTopic", space: personal, topicSlug: "x" })).toEqual(personal);
     expect(routeSpace({ kind: "team", teamSlug: "acme" })).toEqual(team);
   });
 

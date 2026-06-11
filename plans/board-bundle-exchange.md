@@ -128,11 +128,11 @@ Add or update unit tests to cover the changed behavior — no more than the chan
 
 ## Follow-ups
 
-- Presentation-grade exports and data-takeout UX:
-    - PDF or print-stylesheet rendering of a topic (courts, step sequences, markdown) for handouts.
-    - A one-action "everything I can reach" takeout across all spaces (e.g. one file per space or a zip).
+- A one-action "everything I can reach" takeout across all spaces (e.g. one file per space or a zip). Deferred: per-space export already covers data portability in a few clicks, and a cross-space fetch plus a zip dependency is not worth it until a concrete trigger (offboarding, a user request) shows up.
 - Dev-only file-watched preview route: a `#/preview` route reading a gitignored JSON file the skill writes, so iteration needs no pasting.
 - Update-in-place re-import: matching boards/topics by ref or title to update instead of duplicating.
+
+The print/handout half of the original "presentation-grade exports" follow-up is implemented; see the notes below.
 
 ## Implementation Notes
 
@@ -143,6 +143,15 @@ Add or update unit tests to cover the changed behavior — no more than the chan
 - The export UI is one hook plus one menu: `useBundleExport` (copy with the 1.5 s confirmation, download via a Blob URL) and `ExportMenu` (Copy JSON / Download JSON plus optional extra items). `BoardActionsMenu` and `CopyJsonButton` now emit single-board bundles; `useCopyBoardJson` is deleted. `Library` and `TopicView` gained an optional `menu` prop and `App` composes the menus there, including the Import JSON… item (only when `canEdit`).
 - `useTopics` gained `insertTopics(topics)`: sequential awaited inserts (parents first) with retries, updating local state per success; a mid-list failure returns the error and keeps the already-inserted topics. `useBoards.addBoard` is reused unchanged for the boards.
 - The skill's examples were authored by hand to match the export shape exactly (no live space had exportable content to harvest); `tests/bundle/examples.test.ts` proves they parse through `src/bundle` with zero notices and pass `scripts/validate.mjs` with zero warnings, which is the drift guard the plan asked for.
+
+### Print/handout exports (follow-up, implemented)
+
+The handout rendering shipped as a print stylesheet surface, not a PDF library, so the same React components serve screen and paper.
+
+- Two chrome-free routes render a paper document the browser prints or saves as PDF: `/…/board/<id>/print` and `/…/topic/<slug>/print` (`printBoard`/`printTopic` in `src/routing/route.ts`). They are reached from a **Print…** item in the board's overflow menu and the topic page's export menu; the space level deliberately has no print surface.
+- `src/print/` holds the surface. `PrintView` forces the light theme and sets the document title while open (so the saved PDF is named after the board or topic), with a screen-only toolbar carrying Back and Print. `BoardPrint` renders one board: kind and title header, description, then a Position's single court or a Sequence's two-column step cards, each a static court with the derived arrows previewing its upcoming move and its instruction, kept whole across page breaks. `TopicPrint` renders the topic document with each board group expanded through `BoardPrint`, using the same placement-hint semantics as `TopicView`.
+- The topic print covers the topic's direct members only, not its subtree. The printed artefact is the one topic document, unlike the topic JSON export, which carries the whole subtree.
+- A stale print deep link whose board or topic the URL's space does not hold shows the not-found surface once the space settles; it does not self-heal to the board's real space the way the board view route does.
 
 ### Critical Issues
 

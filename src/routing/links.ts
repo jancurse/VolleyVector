@@ -60,8 +60,10 @@ export function canonicalRoute(route: Route, teams: readonly TeamRef[], topics: 
   switch (route.kind) {
     case "library":
     case "board":
+    case "printBoard":
       return { ...route, space: canonicalSpace(route.space) };
-    case "topic": {
+    case "topic":
+    case "printTopic": {
       const topic = topics.find((t) => topicSlugOf(t) === route.topicSlug || t.id === route.topicSlug);
 
       return { ...route, space: canonicalSpace(route.space), topicSlug: topic ? topicSlugOf(topic) : route.topicSlug };
@@ -86,6 +88,14 @@ export function topicRoute(space: Space, teams: readonly TeamRef[], topic: Topic
 
 export function boardRoute(space: Space, teams: readonly TeamRef[], boardId: string, edit: boolean): Route {
   return { kind: "board", space: routeSpaceForSpace(space, teams), boardId, edit };
+}
+
+export function boardPrintRoute(space: Space, teams: readonly TeamRef[], boardId: string): Route {
+  return { kind: "printBoard", space: routeSpaceForSpace(space, teams), boardId };
+}
+
+export function topicPrintRoute(space: Space, teams: readonly TeamRef[], topic: Topic): Route {
+  return { kind: "printTopic", space: routeSpaceForSpace(space, teams), topicSlug: topicSlugOf(topic) };
 }
 
 export function teamRoute(teamId: string, teams: readonly TeamRef[]): Route {
