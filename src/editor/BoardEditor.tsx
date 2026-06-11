@@ -23,7 +23,16 @@ import {
   updateAnnotation,
 } from "../boards/operations";
 import type { AnnotationHandle } from "../boards/operations";
-import type { Annotation, Board } from "../boards/types";
+import {
+  clampToLegal,
+  isFrontRow,
+  placeRotationMarker,
+  rotationAssignment,
+  rotationViolations,
+  setStepRotation,
+  violationFlags,
+} from "../boards/rotation";
+import type { Annotation, Board, RotationSlot, StepRotation } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { Court } from "../court/Court";
 import { clampToCourt, snapToGrid, toSvg, VIEW_SIZE } from "../court/geometry";
@@ -48,6 +57,7 @@ import { DescriptionEditor } from "./DescriptionEditor";
 import { saveDraftBackup } from "./draftBackup";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
+import { RotationPanel } from "./RotationPanel";
 import { StepStrip } from "./StepStrip";
 import { TagEditor } from "./TagEditor";
 import { useDraftHistory } from "./useDraftHistory";
@@ -138,6 +148,18 @@ export function BoardEditor({
   const editingText = annotations.find((a) => a.id === editingTextId && a.kind === "text") ?? null;
   const sequence = isSequence(draft);
 
+  // The active step's rotation, resolved: a complete assignment drives the overlap checks (in both
+  // enforcement flavours) and the court's violation flags; an inactive rotation drives neither.
+  const assignment = useMemo(
+    () => rotationAssignment(draft.markers, activeStep.rotation),
+    [draft.markers, activeStep.rotation]
+  );
+  const violations = useMemo(
+    () => (assignment ? rotationViolations(assignment, activeStep.positions, draft.markers) : []),
+    [assignment, activeStep.positions, draft.markers]
+  );
+  const warnings = assignment && violations.length > 0 ? violationFlags(assignment, violations) : undefined;
+
   // Drawn/reshaped points snap to the court's features and the active step's markers; the grid joins
   // in only while grid snapping is on. Alt bypasses inside the draw hook.
   const annotationSnap = useMemo(() => {
@@ -178,9 +200,36 @@ export function BoardEditor({
     setSelectedAnnotationId(null);
   }, []);
 
+  // In strict mode a drag on the actual board clamps at the legal boundary, relative to the other
+  // assigned players' positions on the fresh draft; unassigned markers move freely.
   const move = useCallback(
-    (id: string, position: NormalizedPoint) => replace((d) => setStepPosition(d, activeStepId, id, position)),
+    (id: string, position: NormalizedPoint) =>
+      replace((d) => {
+        const step = d.steps.find((s) => s.id === activeStepId);
+        const legal = d.rotationStrict && step ? rotationAssignment(d.markers, step.rotation) : null;
+        const target = legal && step ? clampToLegal(legal, step.positions, id, position) : position;
+
+        return setStepPosition(d, activeStepId, id, target);
+      }),
     [replace, activeStepId]
+  );
+
+  const changeRotation = useCallback(
+    (rotation: StepRotation | undefined) => set((d) => setStepRotation(d, activeStepId, rotation)),
+    [set, activeStepId]
+  );
+
+  // Placing on the custom rotation board; strict mode refuses a libero on a front-row position.
+  const place = useCallback(
+    (markerId: string, slot: RotationSlot | null) =>
+      set((d) => {
+        const libero = d.markers.find((m) => m.id === markerId)?.role === "libero";
+
+        if (d.rotationStrict && libero && slot !== null && isFrontRow(slot)) return d;
+
+        return placeRotationMarker(d, activeStepId, markerId, slot);
+      }),
+    [set, activeStepId]
   );
 
   // Sticky tools: the drawing tool stays active after each shape (Esc returns to select), so a coach
@@ -373,6 +422,7 @@ export function BoardEditor({
               markers={markers}
               arrows={arrows}
               annotations={annotations}
+              warnings={warnings}
               grid={grid}
               snap={snap}
               label={draft.title || "Untitled board"}
@@ -521,6 +571,14 @@ export function BoardEditor({
               }
             />
           )}
+          <RotationPanel
+            draft={draft}
+            stepIndex={stepIndex}
+            violations={violations}
+            onChangeRotation={changeRotation}
+            onPlace={place}
+            onChangeStrict={(rotationStrict) => set((d) => ({ ...d, rotationStrict }))}
+          />
           <DescriptionEditor
             value={draft.description}
             onChange={(description) => replace((d) => ({ ...d, description }))}

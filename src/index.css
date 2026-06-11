@@ -80,6 +80,7 @@
   --color-accent-weak: var(--accent-weak);
   --color-on-accent: var(--on-accent);
   --color-danger: var(--danger);
+  --color-warn: var(--warn);
 }
 
 :root,
@@ -112,6 +113,7 @@
   --accent-weak: rgba(122, 162, 255, 0.16);
   --on-accent: #0b1020;
   --danger: #ef6a52;
+  --warn: #f0a83c;
 }
 
 [data-theme="light"] {
@@ -143,6 +145,7 @@
   --accent-weak: rgba(47, 111, 224, 0.12);
   --on-accent: #ffffff;
   --danger: #d6442b;
+  --warn: #b97a0d;
 }
 
 html,

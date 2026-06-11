@@ -41,6 +41,8 @@ type MarkerProps = {
   /** Position in the entrance stagger; later markers settle in slightly after earlier ones. */
   index?: number;
   selected?: boolean;
+  /** Marks an overlap violation: the selection halo's grammar in the warning token. */
+  warning?: boolean;
   dragging?: boolean;
   /** When true the marker glides to new positions (drill playback) instead of jumping there. */
   animated?: boolean;
@@ -52,6 +54,7 @@ export function Marker({
   marker,
   index = 0,
   selected = false,
+  warning = false,
   dragging = false,
   animated = false,
   onPointerDown,
@@ -66,7 +69,10 @@ export function Marker({
   // The inner group owns the entrance/lift animations, so a CSS transform never clobbers placement.
   const body = (
     <>
-      <circle className={`court-halo${selected ? " court-halo--on" : ""}`} r={radius + 9} />
+      <circle
+        className={`court-halo${selected || warning ? " court-halo--on" : ""}${!selected && warning ? " court-halo--warn" : ""}`}
+        r={radius + 9}
+      />
       <g
         className={`court-marker${dragging ? " court-marker--dragging" : ""}`}
         style={{ animationDelay: `${0.35 + index * 0.06}s` }}

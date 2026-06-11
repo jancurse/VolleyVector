@@ -37,6 +37,11 @@ const noDraw = (_annotation: Annotation): void => {};
 const noTranslate = (_id: string, _dx: number, _dy: number): void => {};
 const DEFAULT_ANNOTATION_STYLE: NewAnnotationStyle = { color: "blue", width: 6, fill: "tint", dash: "solid" };
 
+export type CourtWarnings = {
+  markerIds: readonly string[];
+  ties: readonly { a: string; b: string }[];
+};
+
 type CourtProps = {
   markers: readonly MarkerData[];
   /** Accessible name for the whole diagram. */
@@ -48,6 +53,10 @@ type CourtProps = {
   arrows?: readonly Arrow[];
   /** The step's drawn annotations, rendered between the arrows and the markers. */
   annotations?: readonly Annotation[];
+  /** Overlap-violation flags: markers carrying a warning halo, and a tie per broken pair. */
+  warnings?: CourtWarnings;
+  /** Empty official-position outlines (the rotation board's unfilled spots), drawn beneath the markers. */
+  spots?: readonly { point: NormalizedPoint; label: string }[];
   /** Faint reference grid: the number of cells per axis (0 = off). An authoring aid. */
   grid?: number;
   /** Optional transform applied to each dragged position, e.g. snapping it to the grid. */
@@ -80,6 +89,8 @@ export function Court({
   animated = false,
   arrows,
   annotations,
+  warnings,
+  spots,
   grid = 0,
   snap,
   onSelect,
@@ -199,12 +210,38 @@ export function Court({
         />
       )}
 
+      {spots?.map(({ point, label }) => {
+        const { x, y } = toSvgPoint(point);
+
+        return (
+          <g key={label} aria-hidden="true">
+            <circle className="court-spot" cx={x} cy={y} r={46} />
+            <text className="court-spot-label" x={x} y={y}>
+              {label}
+            </text>
+          </g>
+        );
+      })}
+
+      {warnings?.ties.map(({ a, b }, i) => {
+        const from = markers.find((m) => m.id === a);
+        const to = markers.find((m) => m.id === b);
+
+        if (!from || !to) return null;
+
+        const p = toSvgPoint(from.position);
+        const q = toSvgPoint(to.position);
+
+        return <line key={i} className="court-tie" x1={p.x} y1={p.y} x2={q.x} y2={q.y} />;
+      })}
+
       {markers.map((marker, i) => (
         <Marker
           key={marker.id}
           marker={marker}
           index={i}
           selected={marker.id === selectedId}
+          warning={warnings?.markerIds.includes(marker.id)}
           dragging={marker.id === drag.draggingId}
           animated={animated}
           onPointerDown={editable && tool === "markers" ? drag.onMarkerPointerDown : undefined}
