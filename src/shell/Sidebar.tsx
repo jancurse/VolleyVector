@@ -17,6 +17,7 @@ type SidebarProps = {
   activeSpace: Space;
   teams: readonly TeamMembership[];
   otherTeams: readonly TeamRef[];
+  showcase: TeamRef | null;
   onSwitchSpace: (space: Space) => void;
   canManageActiveTeam: boolean;
   onManageTeam: (teamId: string) => void;
@@ -39,6 +40,7 @@ export function Sidebar({
   activeSpace,
   teams,
   otherTeams,
+  showcase,
   onSwitchSpace,
   canManageActiveTeam,
   onManageTeam,
@@ -65,6 +67,7 @@ export function Sidebar({
           activeSpace={activeSpace}
           teams={teams}
           otherTeams={otherTeams}
+          showcase={showcase}
           onSwitch={onSwitchSpace}
           canManageActiveTeam={canManageActiveTeam}
           onManageTeam={onManageTeam}

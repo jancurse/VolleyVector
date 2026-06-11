@@ -12,6 +12,7 @@ import { SAMPLE_BOARDS, SAMPLE_TOPICS } from "./sampleData";
 // exercised against the real database, not this fake.
 
 export const TEST_TEAM_ID = "test-team";
+export const SHOWCASE_TEAM_ID = "showcase-team";
 export const TEST_USER = { id: "test-user", email: "coach@volley.test" };
 
 // Seed team boards are authored by someone other than the test user, so ownership-based rules (the
@@ -112,6 +113,17 @@ const SHARED_PERSONAL: BoardRow = {
   title: "Shared Tactic",
   shared: true,
   share_token: "token-shared-1",
+};
+
+// One board in the showcase team, so the read-only Inspiration space shows a distinct library.
+const SHOWCASE_BOARD: BoardRow = {
+  ...PERSONAL_BOARD,
+  id: "showcase-board-1",
+  owner: BOARD_AUTHOR,
+  scope: "team",
+  team_id: SHOWCASE_TEAM_ID,
+  title: "Inspiration Example",
+  share_token: "token-showcase-1",
 };
 
 type Row = Record<string, unknown>;
@@ -239,7 +251,7 @@ export const DELETED_TEAM = { id: "old-team-1", name: "Old Team" };
 function from(table: string): Query {
   switch (table) {
     case "boards":
-      return makeQuery(table, [...SAMPLE_BOARDS.map(toBoardRow), PERSONAL_BOARD, DELETED_BOARD], null);
+      return makeQuery(table, [...SAMPLE_BOARDS.map(toBoardRow), PERSONAL_BOARD, SHOWCASE_BOARD, DELETED_BOARD], null);
     case "topics":
       return makeQuery(table, [...SAMPLE_TOPICS.map(toTopicRow), DELETED_TOPIC], null);
     case "memberships":
@@ -255,8 +267,30 @@ function from(table: string): Query {
       return makeQuery(
         table,
         [
-          { id: TEST_TEAM_ID, name: "My Team", slug: "my-team", archived_at: null, deleted_at: null },
-          { id: DELETED_TEAM.id, name: DELETED_TEAM.name, slug: "old-team", archived_at: null, deleted_at: ISO },
+          {
+            id: TEST_TEAM_ID,
+            name: "My Team",
+            slug: "my-team",
+            is_showcase: false,
+            archived_at: null,
+            deleted_at: null,
+          },
+          {
+            id: SHOWCASE_TEAM_ID,
+            name: "Inspiration",
+            slug: "inspiration",
+            is_showcase: true,
+            archived_at: null,
+            deleted_at: null,
+          },
+          {
+            id: DELETED_TEAM.id,
+            name: DELETED_TEAM.name,
+            slug: "old-team",
+            is_showcase: false,
+            archived_at: null,
+            deleted_at: ISO,
+          },
         ],
         { id: "new-team" }
       );

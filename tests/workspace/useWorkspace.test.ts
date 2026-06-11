@@ -6,16 +6,39 @@ import { describe, expect, test, vi } from "vitest";
 import { AuthProvider } from "../../src/auth/useAuth";
 import { useWorkspace } from "../../src/workspace/useWorkspace";
 
-// A tailored Supabase mock: the user belongs to three teams (one active, one archived, one deleted), and a
-// fourth team exists without them. Only the active membership reaches the team list; the fourth reaches an
-// admin's other-teams list and nobody else's.
+// A tailored Supabase mock: the user belongs to three teams (one active, one archived, one deleted), a
+// fourth team exists without them, and a fifth is the showcase. Only the active membership reaches the
+// team list; the fourth reaches an admin's other-teams list and nobody else's; the showcase reaches
+// everyone, as its own field rather than either list.
 const USER = { id: "u1", email: "coach@test" };
 
 const TEAMS = [
-  { id: "team-active", name: "Active", slug: "active", archived_at: null, deleted_at: null },
-  { id: "team-archived", name: "Archived", slug: "archived", archived_at: "2026-01-01T00:00:00Z", deleted_at: null },
-  { id: "team-deleted", name: "Deleted", slug: "deleted", archived_at: null, deleted_at: "2026-01-01T00:00:00Z" },
-  { id: "team-other", name: "Other", slug: "other", archived_at: null, deleted_at: null },
+  { id: "team-active", name: "Active", slug: "active", is_showcase: false, archived_at: null, deleted_at: null },
+  {
+    id: "team-archived",
+    name: "Archived",
+    slug: "archived",
+    is_showcase: false,
+    archived_at: "2026-01-01T00:00:00Z",
+    deleted_at: null,
+  },
+  {
+    id: "team-deleted",
+    name: "Deleted",
+    slug: "deleted",
+    is_showcase: false,
+    archived_at: null,
+    deleted_at: "2026-01-01T00:00:00Z",
+  },
+  { id: "team-other", name: "Other", slug: "other", is_showcase: false, archived_at: null, deleted_at: null },
+  {
+    id: "team-showcase",
+    name: "Inspiration",
+    slug: "inspiration",
+    is_showcase: true,
+    archived_at: null,
+    deleted_at: null,
+  },
 ];
 
 const MEMBERSHIPS = TEAMS.slice(0, 3).map((t) => ({ team_id: t.id, role: "coach" }));
@@ -72,6 +95,33 @@ describe("useWorkspace", () => {
 
     expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active"]);
     expect(result.current.otherTeams.map((t) => t.teamId)).toEqual(others);
+  });
+
+  test.each([{ admin: false }, { admin: true }])(
+    "exposes the showcase team to everyone, outside both team lists (admin: $admin)",
+    async ({ admin }) => {
+      isAdmin = admin;
+
+      const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.showcase).toMatchObject({ teamId: "team-showcase", teamName: "Inspiration", role: null });
+    }
+  );
+
+  test("a showcase membership stays out of the team list but carries its role", async () => {
+    isAdmin = false;
+    MEMBERSHIPS.push({ team_id: "team-showcase", role: "coach" });
+
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active"]);
+    expect(result.current.showcase?.role).toBe("coach");
+
+    MEMBERSHIPS.pop();
   });
 
   test("joinTeam and leaveTeam move a team between the member and other lists", async () => {

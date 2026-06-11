@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { JSX } from "react";
-import { ChevronDown, ChevronRight, Settings } from "lucide-react";
+import type { JSX, ReactNode } from "react";
+import { ChevronDown, ChevronRight, Lightbulb, Settings } from "lucide-react";
 
 import { IconButton } from "../ui/IconButton";
 import { cx, FIELD_LABEL } from "../ui/styles";
@@ -8,14 +8,17 @@ import type { Space } from "../workspace/space";
 import type { TeamMembership, TeamRef } from "../workspace/useWorkspace";
 
 // The space picker at the top of the sidebar: the personal space plus each team the user belongs to, as a
-// short list of rows rather than a dropdown. An admin's remaining teams sit behind a collapsed "Other
-// teams" disclosure so the list stays short as teams grow. The active row is highlighted; the active team
-// row carries a gear that opens its management page, shown only when the user may curate that team.
+// short list of rows rather than a dropdown. The read-only showcase space (Inspiration) follows the teams
+// with an icon badge, and an admin's remaining teams sit behind a collapsed "Other teams" disclosure so
+// the list stays short as teams grow. The active row is highlighted; the active team row carries a gear
+// that opens its management page, shown only when the user may curate that team.
 type SpaceSwitcherProps = {
   activeSpace: Space;
   teams: readonly TeamMembership[];
   /** Teams reachable without a membership (admins only); hidden behind the "Other teams" disclosure. */
   otherTeams: readonly TeamRef[];
+  /** The showcase space everyone may browse, or null if none exists. */
+  showcase: TeamRef | null;
   onSwitch: (space: Space) => void;
   /** Whether the active team may be managed by this user (a coach of it, or an admin). */
   canManageActiveTeam: boolean;
@@ -40,12 +43,15 @@ function TeamRow({
   canManage,
   onSwitch,
   onManage,
+  icon,
 }: {
   team: TeamRef;
   active: boolean;
   canManage: boolean;
   onSwitch: (space: Space) => void;
   onManage: (teamId: string) => void;
+  /** Replaces the initial in the badge (the showcase row's glyph). */
+  icon?: ReactNode;
 }): JSX.Element {
   return (
     <div className="relative flex items-center">
@@ -59,7 +65,7 @@ function TeamRow({
           aria-hidden="true"
           className={cx(BADGE, active ? "border-accent/40 bg-accent-weak text-accent" : "bg-control")}
         >
-          {badgeText(team.teamName)}
+          {icon ?? badgeText(team.teamName)}
         </span>
         <span className="truncate">{team.teamName}</span>
       </button>
@@ -83,6 +89,7 @@ export function SpaceSwitcher({
   activeSpace,
   teams,
   otherTeams,
+  showcase,
   onSwitch,
   canManageActiveTeam,
   onManageTeam,
@@ -122,6 +129,17 @@ export function SpaceSwitcher({
             onManage={onManageTeam}
           />
         ))}
+
+        {showcase && (
+          <TeamRow
+            team={showcase}
+            active={activeSpace.kind === "team" && activeSpace.teamId === showcase.teamId}
+            canManage={canManageActiveTeam}
+            onSwitch={onSwitch}
+            onManage={onManageTeam}
+            icon={<Lightbulb size={13} />}
+          />
+        )}
 
         {otherTeams.length > 0 && (
           <>

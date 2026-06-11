@@ -115,11 +115,14 @@ export function useBoards(space: Space | null): BoardsStore {
 
       const scope = space.kind === "team" ? "team" : "personal";
       const teamId = space.kind === "team" ? space.teamId : null;
+      // Stamp the commit time (the server stamps its own on insert), so the board leads the
+      // newest-first order even when it carries an older board's timestamps (a duplicate).
+      const stamped = { ...board, createdAt: Date.now(), updatedAt: Date.now() };
 
-      setBoards((prev) => [board, ...prev]);
+      setBoards((prev) => [stamped, ...prev]);
       void supabase
         .from("boards")
-        .insert(boardToInsert(board, user.id, scope, teamId))
+        .insert(boardToInsert(stamped, user.id, scope, teamId))
         .then(({ error: writeError }) => writeError && fail(writeError.message));
     },
     [space, user, fail]

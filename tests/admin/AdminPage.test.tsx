@@ -51,7 +51,9 @@ describe("AdminPage", () => {
   test("lists teams, accounts, and grace-archived content across its tabs", async () => {
     const user = await renderPanel();
 
-    expect(screen.getByText("Active")).toBeInTheDocument(); // the live team's state
+    // The live team's state; the showcase team (Inspiration) lists alongside it.
+    expect(within(screen.getByText("My Team").closest("tr") as HTMLElement).getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("Inspiration")).toBeInTheDocument();
 
     await goTab(user, "Accounts");
     expect(screen.getByText(OTHER_MEMBER.email)).toBeInTheDocument();
@@ -71,7 +73,9 @@ describe("AdminPage", () => {
   test("archiving a team issues the archive write", async () => {
     const user = await renderPanel();
 
-    await user.click(screen.getByRole("button", { name: "Archive" }));
+    const teamRow = screen.getByText("My Team").closest("tr") as HTMLElement;
+
+    await user.click(within(teamRow).getByRole("button", { name: "Archive" }));
 
     const write = recordedWrites.find((c) => c.table === "teams" && c.op === "update");
 
@@ -82,7 +86,9 @@ describe("AdminPage", () => {
   test("deleting a team calls delete_team after confirming", async () => {
     const user = await renderPanel();
 
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    const teamRow = screen.getByText("My Team").closest("tr") as HTMLElement;
+
+    await user.click(within(teamRow).getByRole("button", { name: "Delete" }));
     const dialog = await screen.findByRole("alertdialog");
 
     await user.click(within(dialog).getByRole("button", { name: "Delete team" }));

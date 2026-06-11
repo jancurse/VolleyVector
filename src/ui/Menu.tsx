@@ -1,5 +1,6 @@
 import type { ComponentPropsWithoutRef, ReactElement, ReactNode } from "react";
 import { Menu as BaseMenu } from "@base-ui/react/menu";
+import { ChevronRight } from "lucide-react";
 
 import { cx, OVERLAY, OVERLAY_ITEM, OVERLAY_MOTION } from "./styles";
 import { Tooltip } from "./Tooltip";
@@ -36,4 +37,27 @@ export function MenuItem({
   ...props
 }: Omit<ComponentPropsWithoutRef<typeof BaseMenu.Item>, "className"> & { className?: string }) {
   return <BaseMenu.Item className={cx(OVERLAY_ITEM, className)} {...props} />;
+}
+
+/** A nested menu opening beside its parent item; the label renders as the item with a chevron. */
+export function SubMenu({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <BaseMenu.SubmenuRoot>
+      <BaseMenu.SubmenuTrigger className={cx(OVERLAY_ITEM, "flex items-center justify-between gap-3")}>
+        {label}
+        <ChevronRight size={14} aria-hidden="true" />
+      </BaseMenu.SubmenuTrigger>
+      <BaseMenu.Portal>
+        <BaseMenu.Positioner sideOffset={4} className="z-30 outline-none">
+          <BaseMenu.Popup className={cx(OVERLAY, "flex min-w-[184px] flex-col gap-px", OVERLAY_MOTION)}>
+            {children}
+          </BaseMenu.Popup>
+        </BaseMenu.Positioner>
+      </BaseMenu.Portal>
+    </BaseMenu.SubmenuRoot>
+  );
+}
+
+export function MenuSeparator() {
+  return <BaseMenu.Separator className="mx-1 my-1 h-px bg-border" />;
 }

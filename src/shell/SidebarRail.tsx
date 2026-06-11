@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from "react";
-import { ListTree, ShieldCheck } from "lucide-react";
+import { Lightbulb, ListTree, ShieldCheck } from "lucide-react";
 
 import { Tooltip } from "../ui/Tooltip";
 import { cx } from "../ui/styles";
@@ -18,6 +18,8 @@ type SidebarRailProps = {
   teams: readonly TeamMembership[];
   /** Admin-only non-member teams; the rail shows only the active one, the rest live in the expanded sidebar. */
   otherTeams: readonly TeamRef[];
+  /** The showcase space everyone may browse, or null if none exists. */
+  showcase: TeamRef | null;
   onSwitchSpace: (space: Space) => void;
   /** Whether the expanded-sidebar overlay is open; the Topics toggle stays highlighted while it is. */
   expanded: boolean;
@@ -70,6 +72,7 @@ export function SidebarRail({
   activeSpace,
   teams,
   otherTeams,
+  showcase,
   onSwitchSpace,
   expanded,
   onExpand,
@@ -77,11 +80,21 @@ export function SidebarRail({
   adminActive,
   onOpenAdmin,
 }: SidebarRailProps): JSX.Element {
-  const spaces: { key: string; name: string; space: Space }[] = [
+  const spaces: { key: string; name: string; space: Space; icon?: ReactNode }[] = [
     { key: "personal", name: "Personal", space: { kind: "personal" } },
     ...[...teams, ...otherTeams.filter((t) => activeSpace.kind === "team" && activeSpace.teamId === t.teamId)].map(
       (t) => ({ key: t.teamId, name: t.teamName, space: { kind: "team", teamId: t.teamId } as Space })
     ),
+    ...(showcase
+      ? [
+          {
+            key: showcase.teamId,
+            name: showcase.teamName,
+            space: { kind: "team", teamId: showcase.teamId } as Space,
+            icon: <Lightbulb size={13} aria-hidden="true" />,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -89,7 +102,7 @@ export function SidebarRail({
       <BrandMark />
 
       <div className="mt-4 flex flex-col items-center gap-1.5">
-        {spaces.map(({ key, name, space }) => {
+        {spaces.map(({ key, name, space, icon }) => {
           const active = sameSpace(activeSpace, space);
 
           return (
@@ -100,7 +113,7 @@ export function SidebarRail({
               className={cx(BADGE, active ? BADGE_ON : BADGE_OFF)}
               onClick={() => onSwitchSpace(space)}
             >
-              {badgeText(name)}
+              {icon ?? badgeText(name)}
             </RailButton>
           );
         })}

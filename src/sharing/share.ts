@@ -2,11 +2,12 @@ import type { Board } from "../boards/types";
 import { supabase } from "../supabase/client";
 import type { BoardRow, Scope } from "../supabase/rows";
 import { boardFromRow, boardToInsert } from "../supabase/rows";
+import type { Space } from "../workspace/space";
 
-// Cross-space board moves that do not belong to one space's live list: deep-copying a board into the
-// caller's personal space or a team library, resolving a board from its share token (for a link
-// visitor), and building the link itself. The single-space edits (sharing, unsharing, an owner moving
-// their own board) live on useBoards, which holds the optimistic list they mutate.
+// Cross-space board moves that do not belong to one space's live list: deep-copying a board into another
+// space the caller may write, resolving a board from its share token (for a link visitor), and building
+// the link itself. The single-space edits (sharing, unsharing, an owner moving their own board) live on
+// useBoards, which holds the optimistic list they mutate.
 
 // A deep copy under a new id, authored by the copier and filed nowhere (its source topic lives in the
 // other space). The server mints a fresh share token and clears the shared flag by default.
@@ -14,18 +15,15 @@ function deepCopy(board: Board, userId: string): Board {
   return { ...board, id: crypto.randomUUID(), owner: userId, topicId: null, shared: false, teamId: null };
 }
 
-/** Copy a readable board into the caller's personal space (My Boards). */
-export async function copyBoardToPersonal(board: Board, userId: string): Promise<{ error: string | null }> {
+/** Deep-copy a readable board into a space the caller may write: their personal space, or the library of
+ *  a team they coach (RLS enforces both). A copy into the *active* space belongs on useBoards instead, so
+ *  the open list shows it. */
+export async function copyBoardToSpace(board: Board, userId: string, space: Space): Promise<{ error: string | null }> {
   const copy = deepCopy(board, userId);
-  const { error } = await supabase.from("boards").insert(boardToInsert(copy, userId, "personal", null));
-
-  return { error: error?.message ?? null };
-}
-
-/** Promote a readable board into a team's library by copying it there (a coach of that team). */
-export async function copyBoardToTeam(board: Board, userId: string, teamId: string): Promise<{ error: string | null }> {
-  const copy = deepCopy(board, userId);
-  const { error } = await supabase.from("boards").insert(boardToInsert(copy, userId, "team", teamId));
+  const scope: Scope = space.kind === "team" ? "team" : "personal";
+  const { error } = await supabase
+    .from("boards")
+    .insert(boardToInsert(copy, userId, scope, space.kind === "team" ? space.teamId : null));
 
   return { error: error?.message ?? null };
 }

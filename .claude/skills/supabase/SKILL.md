@@ -18,7 +18,7 @@ Two hard rules frame everything below:
 - Never run `db push` or `functions deploy` without the user's explicit go-ahead.
 - Schema changes (DDL) are reviewed migration files, never SQL pasted into the dashboard. Reads are yours to run via MCP; never ask the user to paste query results back to you.
 
-A **one-off data fix** (plain DML, like deleting a few rows) is neither: it does not belong in the migration history. Hand the user the exact statement to run in the dashboard SQL editor, or — with their explicit go-ahead — flip the MCP server in `.mcp.json` to `read_only=false`, run it yourself, verify, and flip it back.
+For a **simple data fix** (plain DML, like deleting a few rows), ask the user whether they want to run an ad-hoc query rather than adding a migration script. If they do, hand them the exact statement for the dashboard SQL editor, then verify the result with a read. The MCP server stays read-only: never suggest enabling writes on it.
 
 ## Reading the database
 

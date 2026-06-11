@@ -690,29 +690,91 @@ describe("sharing", () => {
     expect(within(dialog).getByRole("button", { name: "Stop sharing" })).toBeInTheDocument();
   });
 
-  test("an owner moves their personal board into a team library", async () => {
+  // Submenus open on hover in the browser, but happy-dom's zero-size rects break the hover tracking, so
+  // these tests drive them with the keyboard (which Base UI supports first-class).
+  test("an owner moves their personal board into a team library from the overflow menu, after confirming", async () => {
     const user = await renderApp();
 
     await openMyBoard(user);
-    await user.click(screen.getByRole("button", { name: "Share" }));
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await screen.findByRole("menuitem", { name: "Move to" });
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
+    await screen.findByRole("menuitem", { name: "My Team" });
+    await user.keyboard("{Enter}");
 
-    const dialog = await screen.findByRole("dialog", { name: "Share board" });
+    const dialog = await screen.findByRole("alertdialog", { name: /Move this board to My Team\?/ });
 
-    await user.click(within(dialog).getByRole("button", { name: "Move to library" }));
+    await user.click(within(dialog).getByRole("button", { name: "Move" }));
 
     // The board leaves the personal library; the view returns to My Boards.
     expect(await screen.findByRole("button", { name: "New board" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /My Personal Position/ })).not.toBeInTheDocument();
   });
 
-  test("a viewer copies a team board into My Boards from the overflow menu", async () => {
+  test("a viewer copies a team board into My Boards through the Copy to menu", async () => {
     const user = await renderApp();
 
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await screen.findByRole("menuitem", { name: "Copy to" });
+    await user.keyboard("{ArrowDown}{ArrowRight}");
+    await screen.findByRole("menuitem", { name: "My Boards" });
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByRole("menuitem", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  test("copying to the space the board is in duplicates it there and opens the copy", async () => {
+    const user = await renderApp();
+
+    await openPosition(user);
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await screen.findByRole("menuitem", { name: "Copy to" });
+    await user.keyboard("{ArrowDown}{ArrowRight}");
+    await screen.findByRole("menuitem", { name: "My Team (duplicate here)" });
+    await user.keyboard("{ArrowDown}{Enter}");
+
+    expect(await screen.findByRole("heading", { name: /Copy of Sample Position/ })).toBeInTheDocument();
+  });
+
+  test("a player viewing a team board gets only the flat personal copy, with no move", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+
+    const user = await renderApp();
+
+    await openPosition(user);
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+
+    expect(screen.getByRole("menuitem", { name: "Copy to My Boards" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Move to" })).not.toBeInTheDocument();
+  });
+});
+
+// The Inspiration showcase is a read-only space every user may browse and copy from; only its curators
+// (coaches of the showcase team) and admins may author in it.
+describe("inspiration space", () => {
+  test("a player browses the showcase read-only and copies a board out of it", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Inspiration" }));
+    await user.click(await screen.findByRole("button", { name: /Inspiration Example/ }));
+
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
     await user.click(screen.getByRole("menuitem", { name: "Copy to My Boards" }));
 
-    expect(await screen.findByRole("menuitem", { name: "Copied to My Boards" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  test("an admin may author in the showcase", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Inspiration" }));
+
+    expect(await screen.findByRole("button", { name: "New board" })).toBeInTheDocument();
   });
 });
 

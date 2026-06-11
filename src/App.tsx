@@ -36,8 +36,10 @@ import { ShareView } from "./sharing/ShareView";
 import { useInviteRoute } from "./invites/useInviteRoute";
 import { InviteAccept } from "./invites/InviteAccept";
 import { ShareDialog } from "./sharing/ShareDialog";
-import { CopyToPersonalMenuItem } from "./sharing/CopyToPersonalMenuItem";
-import { copyBoardToPersonal, copyBoardToTeam, fetchBoardById } from "./sharing/share";
+import { CopyToMenu } from "./sharing/CopyToMenu";
+import type { CopyTarget } from "./sharing/CopyToMenu";
+import { MoveToMenu } from "./sharing/MoveToMenu";
+import { copyBoardToSpace, fetchBoardById } from "./sharing/share";
 import { useRoute } from "./routing/useRoute";
 import { buildPath, routeSpace } from "./routing/route";
 import { NotFound } from "./routing/NotFound";
@@ -119,8 +121,13 @@ export function App(): JSX.Element {
   const activeSpace = workspace.activeSpace;
   const teams = workspace.teams;
   const otherTeams = workspace.otherTeams;
-  // Routing resolves team slugs across every reachable team: an admin may be in a non-member team's space.
-  const allTeams = useMemo(() => [...teams, ...otherTeams], [teams, otherTeams]);
+  const showcase = workspace.showcase;
+  // Routing resolves team slugs across every reachable team: an admin may be in a non-member team's
+  // space, and everyone may be in the showcase space.
+  const allTeams = useMemo(
+    () => [...teams, ...otherTeams, ...(showcase ? [showcase] : [])],
+    [teams, otherTeams, showcase]
+  );
   const personal = activeSpace.kind === "personal";
   const setActiveSpace = workspace.setActiveSpace;
 
@@ -380,6 +387,67 @@ export function App(): JSX.Element {
 
   const selectedTopic = selection.kind === "topic" ? topics.topics.find((t) => t.id === selection.id) : undefined;
 
+  // The teams whose library the viewer may write to, as copy/move targets: an admin reaches every team;
+  // anyone else the teams they coach, including the showcase space for its curators.
+  const targetTeams = workspace.isAdmin
+    ? allTeams
+    : [...teams.filter((t) => t.role === "coach"), ...(showcase?.role === "coach" ? [showcase] : [])];
+
+  // A copy into the active space is a duplicate: it stays in the open list (with its topic) under a
+  // fresh id and title, and the view moves to the copy. addBoard stamps its timestamps.
+  const duplicateBoard = (board: Board) => {
+    const copy: Board = {
+      ...board,
+      id: crypto.randomUUID(),
+      title: `Copy of ${board.title}`,
+      owner: user.id,
+      authorLocked: false,
+      shared: false,
+      teamId: activeSpace.kind === "team" ? activeSpace.teamId : null,
+    };
+
+    addBoard(copy);
+    navigate(boardRoute(activeSpace, allTeams, copy.id, false));
+  };
+
+  // One copy target per writable space, with the active space acting as the duplicate.
+  const copyTargets = (board: Board): CopyTarget[] => [
+    personal
+      ? { key: "personal", label: "My Boards", kind: "duplicate", onDuplicate: () => duplicateBoard(board) }
+      : {
+          key: "personal",
+          label: "My Boards",
+          kind: "copy",
+          onCopy: () => copyBoardToSpace(board, user.id, { kind: "personal" }),
+        },
+    ...targetTeams.map(
+      (t): CopyTarget =>
+        activeSpace.kind === "team" && activeSpace.teamId === t.teamId
+          ? { key: t.teamId, label: t.teamName, kind: "duplicate", onDuplicate: () => duplicateBoard(board) }
+          : {
+              key: t.teamId,
+              label: t.teamName,
+              kind: "copy",
+              onCopy: () => copyBoardToSpace(board, user.id, { kind: "team", teamId: t.teamId }),
+            }
+    ),
+  ];
+
+  // Moving relocates the original into a team library, so it is confirmed, unlike a copy.
+  const moveBoard = async (board: Board, teamId: string) => {
+    const name = targetTeams.find((t) => t.teamId === teamId)?.teamName ?? "the team";
+    const ok = await confirm({
+      title: `Move this board to ${name}?`,
+      description: "It leaves My Boards and joins the team’s library.",
+      confirmLabel: "Move",
+    });
+
+    if (!ok) return;
+
+    moveBoardToTeam(board.id, teamId);
+    navigate(homeRoute());
+  };
+
   let content: JSX.Element;
 
   if (showEditor && draft) {
@@ -397,9 +465,9 @@ export function App(): JSX.Element {
   } else if (route.kind === "board") {
     if (openBoard) {
       // The board's actions sit on its title row, like every other surface's content header: an overflow
-      // menu for the occasional actions (a team board offers any viewer a personal copy, then the author
-      // lock and Copy JSON), the share dialog for the owner of a personal board, and Edit as the view's
-      // one primary action. RLS has the final say on every write.
+      // menu for the occasional actions (Copy to every writable space with the active one duplicating,
+      // the owner's Move to, then the author lock and Copy JSON), the share dialog for the owner of a
+      // personal board, and Edit as the view's one primary action. RLS has the final say on every write.
       content = (
         <BoardView
           board={openBoard}
@@ -411,7 +479,10 @@ export function App(): JSX.Element {
                 canLock={!personal && (workspace.isAdmin || openBoard.owner === user.id)}
                 onToggleLock={() => setBoardLock(openBoard.id, !openBoard.authorLocked)}
               >
-                {!personal && <CopyToPersonalMenuItem onCopy={() => copyBoardToPersonal(openBoard, user.id)} />}
+                <CopyToMenu targets={copyTargets(openBoard)} />
+                {personal && openBoard.owner === user.id && targetTeams.length > 0 && (
+                  <MoveToMenu teams={targetTeams} onMove={(teamId) => void moveBoard(openBoard, teamId)} />
+                )}
               </BoardActionsMenu>
               {personal && openBoard.owner === user.id && (
                 <Button variant="ghost" onClick={() => setSharing(true)}>
@@ -536,6 +607,7 @@ export function App(): JSX.Element {
       activeSpace={activeSpace}
       teams={teams}
       otherTeams={otherTeams}
+      showcase={showcase}
       onSwitchSpace={closing(switchSpace)}
       canManageActiveTeam={!personal && canEdit}
       onManageTeam={closing((teamId: string) => navigate(teamRoute(teamId, allTeams)))}
@@ -583,6 +655,7 @@ export function App(): JSX.Element {
               activeSpace={activeSpace}
               teams={teams}
               otherTeams={otherTeams}
+              showcase={showcase}
               onSwitchSpace={switchSpace}
               expanded={navOpen}
               onExpand={() => setNavOpen(true)}
@@ -613,12 +686,6 @@ export function App(): JSX.Element {
           teams={teams}
           onShare={(teamId) => shareBoard(openBoard.id, teamId)}
           onUnshare={() => unshareBoard(openBoard.id)}
-          onMoveToTeam={(teamId) => {
-            moveBoardToTeam(openBoard.id, teamId);
-            setSharing(false);
-            navigate(homeRoute());
-          }}
-          onCopyToTeam={(teamId) => copyBoardToTeam(openBoard, user.id, teamId)}
         />
       )}
     </TooltipProvider>
