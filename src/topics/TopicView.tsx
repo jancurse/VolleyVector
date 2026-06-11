@@ -1,10 +1,13 @@
 import type { JSX, ReactNode } from "react";
+import { Ellipsis } from "lucide-react";
 
 import type { Board } from "../boards/types";
 import { CardGrid } from "../library/CardGrid";
 import { boardToItem } from "../library/items";
 import { Button } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
 import { Markdown } from "../ui/Markdown";
+import { Menu, MenuItem } from "../ui/Menu";
 import { EYEBROW, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
 import { childrenOf } from "./operations";
 import type { Topic } from "./types";
@@ -22,6 +25,8 @@ type TopicViewProps = {
   onOpenBoard: (id: string) => void;
   onSelectTopic: (id: string) => void;
   onEdit: () => void;
+  /** Deletes the topic and its subtree (behind its own confirmation). */
+  onDelete: () => void;
   onAddSubtopic: () => void;
   /** Create a board pre-filed into this topic. */
   onNewBoard: () => void;
@@ -41,6 +46,7 @@ export function TopicView({
   onOpenBoard,
   onSelectTopic,
   onEdit,
+  onDelete,
   onAddSubtopic,
   onNewBoard,
   canEdit,
@@ -84,6 +90,18 @@ export function TopicView({
         <div className="flex flex-wrap items-center gap-2">
           {canEdit && (
             <>
+              <Menu
+                tooltip="More actions"
+                trigger={
+                  <IconButton variant="plain" aria-label="Topic actions">
+                    <Ellipsis size={16} aria-hidden="true" />
+                  </IconButton>
+                }
+              >
+                <MenuItem onClick={onDelete}>
+                  <span className="text-danger">Delete topic…</span>
+                </MenuItem>
+              </Menu>
               <Button variant="ghost" onClick={onAddSubtopic}>
                 + Subtopic
               </Button>

@@ -7,11 +7,13 @@ import { useBundleExport } from "../bundle/useBundleExport";
 import { IconButton } from "../ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../ui/Menu";
 
-// The board view's overflow menu, beside the title-row actions: the occasional actions (the copy and
-// move targets, the author lock, the JSON export) as labelled menu items, keeping the visible row to
-// share and Edit.
+// The board view's overflow menu, beside the title-row actions: the occasional actions (sharing, the
+// copy and move targets, the author lock, printing, the JSON export, deletion) as labelled menu items,
+// keeping the visible row to Edit alone.
 type BoardActionsMenuProps = {
   board: Board;
+  /** Opens the share dialog; present only for the owner of a personal board. */
+  onShare?: () => void;
   /** Whether the viewer may toggle the author lock (the board's author or an admin, on a team board). */
   canLock: boolean;
   onToggleLock: () => void;
@@ -19,16 +21,20 @@ type BoardActionsMenuProps = {
   onPrint: () => void;
   /** Opens the replace-from-JSON dialog; absent when the viewer may not edit the board. */
   onReplace?: () => void;
+  /** Deletes the board (behind its own confirmation); present only for a viewer who may edit it. */
+  onDelete?: () => void;
   /** The leading menu items (the Copy to and Move to actions), separated from the rest. */
   children?: ReactNode;
 };
 
 export function BoardActionsMenu({
   board,
+  onShare,
   canLock,
   onToggleLock,
   onPrint,
   onReplace,
+  onDelete,
   children,
 }: BoardActionsMenuProps): JSX.Element {
   const { copied, copy, download } = useBundleExport(() => toBundle([board], []), bundleFilename(board.title));
@@ -42,8 +48,9 @@ export function BoardActionsMenu({
         </IconButton>
       }
     >
+      {onShare && <MenuItem onClick={onShare}>{board.shared ? "Shared…" : "Share…"}</MenuItem>}
       {children}
-      {children && <MenuSeparator />}
+      {(onShare || children) && <MenuSeparator />}
       {canLock && <MenuItem onClick={onToggleLock}>{board.authorLocked ? "Unlock editing" : "Lock editing"}</MenuItem>}
       <MenuItem onClick={onPrint}>Print…</MenuItem>
       <MenuItem closeOnClick={false} onClick={copy}>
@@ -51,6 +58,14 @@ export function BoardActionsMenu({
       </MenuItem>
       <MenuItem onClick={download}>Download JSON</MenuItem>
       {onReplace && <MenuItem onClick={onReplace}>Replace from JSON…</MenuItem>}
+      {onDelete && (
+        <>
+          <MenuSeparator />
+          <MenuItem onClick={onDelete}>
+            <span className="text-danger">Delete board…</span>
+          </MenuItem>
+        </>
+      )}
     </Menu>
   );
 }

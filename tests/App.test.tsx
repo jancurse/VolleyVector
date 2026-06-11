@@ -296,9 +296,8 @@ describe("the view/edit flow", () => {
     const user = await renderApp();
 
     await openPosition(user);
-    await openEditor(user);
-
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete board…" }));
     const dialog = await screen.findByRole("alertdialog", { name: /Delete this board/ });
 
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
@@ -311,13 +310,11 @@ describe("the view/edit flow", () => {
     const user = await renderApp();
 
     await openPosition(user);
-    await openEditor(user);
-
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete board…" }));
     const dialog = await screen.findByRole("alertdialog", { name: /Delete this board/ });
 
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" })); // leave the editor
     await user.click(screen.getByRole("button", { name: /Library/ }));
 
     expect(screen.getByRole("button", { name: /Sample Position/ })).toBeInTheDocument();
@@ -678,8 +675,8 @@ describe("topics", () => {
     const user = await renderApp();
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Topic actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete topic…" }));
     const dialog = await screen.findByRole("alertdialog", { name: /Delete this topic/ });
 
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
@@ -799,7 +796,8 @@ describe("sharing", () => {
     const user = await renderApp();
 
     await openMyBoard(user);
-    await user.click(screen.getByRole("button", { name: "Share" }));
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Share…" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Share board" });
 
@@ -817,7 +815,7 @@ describe("sharing", () => {
     await openMyBoard(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
     await screen.findByRole("menuitem", { name: "Move to" });
-    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{ArrowRight}");
     await screen.findByRole("menuitem", { name: "My Team" });
     await user.keyboard("{Enter}");
 

@@ -99,8 +99,6 @@ type BoardEditorProps = {
    *  message — the editor stays open with the draft intact and Done retries. */
   onDone: (board: Board) => Promise<string | null>;
   onCancel: () => void;
-  /** Omitted for a brand-new board that has nothing to delete yet. */
-  onDelete?: () => void;
   /** Existing tags across the library, for the tag editor's autocomplete. */
   tagSuggestions?: readonly string[];
   /** The topic tree, for the home-topic picker. */
@@ -113,7 +111,6 @@ export function BoardEditor({
   board,
   onDone,
   onCancel,
-  onDelete,
   tagSuggestions,
   topics = [],
   doneLabel = "Done",
@@ -379,9 +376,6 @@ export function BoardEditor({
       onBlur={commit}
     >
       <div className="flex items-center gap-4">
-        <Button variant="text" onClick={onCancel}>
-          Cancel
-        </Button>
         <Input
           variant="title"
           value={draft.title}
@@ -395,11 +389,9 @@ export function BoardEditor({
         <IconButton aria-label="Redo" tooltip="Redo (Ctrl+Shift+Z)" disabled={!canRedo} onClick={redo}>
           <Redo2 size={16} aria-hidden="true" />
         </IconButton>
-        {onDelete && (
-          <Button variant="danger" onClick={onDelete}>
-            Delete
-          </Button>
-        )}
+        <Button variant="text" onClick={onCancel}>
+          Cancel
+        </Button>
         <Button variant="primary" disabled={saving} onClick={() => void done()}>
           {saving ? "Saving…" : doneLabel}
         </Button>

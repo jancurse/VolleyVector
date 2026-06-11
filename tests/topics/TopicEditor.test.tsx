@@ -33,14 +33,7 @@ function renderEditor(blocks: TopicBlock[], boards: Board[]) {
   const onUnfileBoard = vi.fn();
 
   render(
-    <TopicEditor
-      topic={topic}
-      boards={boards}
-      onDone={onDone}
-      onCancel={vi.fn()}
-      onDelete={vi.fn()}
-      onUnfileBoard={onUnfileBoard}
-    />
+    <TopicEditor topic={topic} boards={boards} onDone={onDone} onCancel={vi.fn()} onUnfileBoard={onUnfileBoard} />
   );
 
   return { user: userEvent.setup(), onDone, onUnfileBoard };

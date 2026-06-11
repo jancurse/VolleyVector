@@ -40,6 +40,7 @@ function renderView(blocks: TopicBlock[], boards: Board[]) {
       onOpenBoard={vi.fn()}
       onSelectTopic={vi.fn()}
       onEdit={vi.fn()}
+      onDelete={vi.fn()}
       onAddSubtopic={vi.fn()}
       onNewBoard={vi.fn()}
       canEdit

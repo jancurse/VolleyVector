@@ -33,18 +33,10 @@ type TopicEditorProps = {
    *  the editor stays open with the draft intact and Done retries. */
   onDone: (patch: { title: string; blocks: TopicBlock[] }) => Promise<string | null>;
   onCancel: () => void;
-  onDelete: () => void;
   onUnfileBoard: (boardId: string) => void;
 };
 
-export function TopicEditor({
-  topic,
-  boards,
-  onDone,
-  onCancel,
-  onDelete,
-  onUnfileBoard,
-}: TopicEditorProps): JSX.Element {
+export function TopicEditor({ topic, boards, onDone, onCancel, onUnfileBoard }: TopicEditorProps): JSX.Element {
   const [title, setTitle] = useState(topic.title);
   const [blocks, setBlocks] = useState<TopicBlock[]>(topic.blocks);
   const [saving, setSaving] = useState(false);
@@ -65,9 +57,6 @@ export function TopicEditor({
   return (
     <section className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-rise motion-reduce:animate-none">
       <div className="flex items-center gap-4">
-        <Button variant="text" onClick={onCancel}>
-          Cancel
-        </Button>
         <Input
           variant="title"
           value={title}
@@ -75,8 +64,8 @@ export function TopicEditor({
           aria-label="Topic title"
           onChange={(event) => setTitle(event.target.value)}
         />
-        <Button variant="danger" onClick={onDelete}>
-          Delete
+        <Button variant="text" onClick={onCancel}>
+          Cancel
         </Button>
         <Button variant="primary" disabled={saving} onClick={() => void done()}>
           {saving ? "Saving…" : "Done"}

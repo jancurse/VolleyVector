@@ -77,7 +77,7 @@ function DescriptionPanel({ markdown }: { markdown: string }): JSX.Element {
 // single static court and its description; a Sequence renders the animated court with a transport and
 // a step scrubber, plus the current step's instruction (markdown) below the description. The board's
 // actions sit beside the title, like every other surface's content header: the app injects the overflow
-// menu, share/copy, and Edit; the share page injects its copy and promote affordances.
+// menu and Edit; the share page injects its copy and promote affordances.
 type BoardViewProps = {
   board: Board;
   onBack: () => void;

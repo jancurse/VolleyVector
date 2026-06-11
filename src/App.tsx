@@ -422,7 +422,6 @@ export function App(): JSX.Element {
     if (selection.kind === "topic" && removed.includes(selection.id)) navigate(homeRoute());
   };
 
-  const draftExisting = draft !== null && boards.some((b) => b.id === draft.id);
   const tagSuggestions = useMemo(() => allTags(boards), [boards]);
 
   const loader = (
@@ -607,7 +606,6 @@ export function App(): JSX.Element {
         board={draft}
         onDone={commit}
         onCancel={cancelEdit}
-        onDelete={draftExisting ? () => remove(draft.id) : undefined}
         tagSuggestions={tagSuggestions}
         topics={topics.topics}
       />
@@ -615,9 +613,9 @@ export function App(): JSX.Element {
   } else if (route.kind === "board") {
     if (openBoard) {
       // The board's actions sit on its title row, like every other surface's content header: an overflow
-      // menu for the occasional actions (Copy to every writable space with the active one duplicating,
-      // the owner's Move to, then the author lock and Copy JSON), the share dialog for the owner of a
-      // personal board, and Edit as the view's one primary action. RLS has the final say on every write.
+      // menu for the occasional actions (the owner's share dialog on a personal board, Copy to every
+      // writable space with the active one duplicating, the owner's Move to, then the author lock and
+      // Copy JSON), and Edit as the view's one primary action. RLS has the final say on every write.
       content = (
         <BoardView
           board={openBoard}
@@ -626,21 +624,18 @@ export function App(): JSX.Element {
             <>
               <BoardActionsMenu
                 board={openBoard}
+                onShare={personal && openBoard.owner === user.id ? () => setSharing(true) : undefined}
                 canLock={!personal && (workspace.isAdmin || openBoard.owner === user.id)}
                 onToggleLock={() => setBoardLock(openBoard.id, !openBoard.authorLocked)}
                 onPrint={() => navigate(boardPrintRoute(activeSpace, allTeams, openBoard.id))}
                 onReplace={canEditBoard(openBoard) ? () => setReplacing(true) : undefined}
+                onDelete={canEditBoard(openBoard) ? () => void remove(openBoard.id) : undefined}
               >
                 <CopyToMenu targets={copyTargets(openBoard)} />
                 {personal && openBoard.owner === user.id && targetTeams.length > 0 && (
                   <MoveToMenu teams={targetTeams} onMove={(teamId) => void moveBoard(openBoard, teamId)} />
                 )}
               </BoardActionsMenu>
-              {personal && openBoard.owner === user.id && (
-                <Button variant="ghost" onClick={() => setSharing(true)}>
-                  {openBoard.shared ? "Shared" : "Share"}
-                </Button>
-              )}
               {canEditBoard(openBoard) && (
                 <Button variant="primary" onClick={() => startEdit(openBoard)}>
                   Edit
@@ -663,7 +658,6 @@ export function App(): JSX.Element {
         topic={selectedTopic}
         boards={boards}
         onCancel={() => setEditingTopicId(null)}
-        onDelete={() => removeTopic(selectedTopic.id)}
         onUnfileBoard={(boardId) => unfileBoards([boardId])}
         onDone={async (patch) => {
           const error = await topics.updateTopic(selectedTopic.id, { title: patch.title, blocks: patch.blocks });
@@ -694,6 +688,7 @@ export function App(): JSX.Element {
         onOpenBoard={(id) => navigate(boardRoute(activeSpace, allTeams, id, false))}
         onSelectTopic={(id) => selectTopic({ kind: "topic", id })}
         onEdit={() => setEditingTopicId(selectedTopic.id)}
+        onDelete={() => void removeTopic(selectedTopic.id)}
         onAddSubtopic={() => createTopic(selectedTopic.id)}
         onNewBoard={newBoard}
         canEdit={canEdit}
