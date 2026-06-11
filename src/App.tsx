@@ -452,8 +452,10 @@ export function App(): JSX.Element {
     : [...teams.filter((t) => t.role === "coach"), ...(showcase?.role === "coach" ? [showcase] : [])];
 
   // A copy into the active space is a duplicate: it stays in the open list (with its topic) under a
-  // fresh id and title, and the view moves to the copy. addBoard stamps its timestamps.
-  const duplicateBoard = (board: Board) => {
+  // fresh id and title. The view moves to the copy only after the awaited insert succeeds — navigating
+  // sooner would open a board the list does not hold yet — and a failure stays put and reports back to
+  // the menu item. addBoard stamps its timestamps.
+  const duplicateBoard = async (board: Board): Promise<{ error: string | null }> => {
     const copy: Board = {
       ...board,
       id: crypto.randomUUID(),
@@ -464,8 +466,11 @@ export function App(): JSX.Element {
       teamId: activeSpace.kind === "team" ? activeSpace.teamId : null,
     };
 
-    addBoard(copy);
-    navigate(boardRoute(activeSpace, allTeams, copy.id, false));
+    const error = await addBoard(copy);
+
+    if (error === null) navigate(boardRoute(activeSpace, allTeams, copy.id, false));
+
+    return { error };
   };
 
   // One copy target per writable space, with the active space acting as the duplicate.
@@ -625,17 +630,20 @@ export function App(): JSX.Element {
     // admin moves on and off the roster freely: join with a chosen role, or leave (their reach stays).
     const teamId = findTeamId(allTeams, route.teamSlug);
     const team = allTeams.find((t) => t.teamId === teamId);
-    const membership = teams.find((t) => t.teamId === teamId);
+    // The caller's membership role. A showcase membership lives only on `showcase.role` (the workspace
+    // keeps it out of `teams`), so a curator manages the Inspiration team like any coach.
+    const memberRole =
+      teams.find((t) => t.teamId === teamId)?.role ?? (showcase?.teamId === teamId ? showcase.role : null);
 
     content =
       teamId && team ? (
         <TeamPage
           teamId={teamId}
           teamName={team.teamName}
-          canManage={workspace.isAdmin || membership?.role === "coach"}
+          canManage={workspace.isAdmin || memberRole === "coach"}
           currentUserId={user.id}
-          onJoin={workspace.isAdmin && !membership ? (role) => workspace.joinTeam(teamId, role) : undefined}
-          onLeave={workspace.isAdmin && membership ? () => workspace.leaveTeam(teamId) : undefined}
+          onJoin={workspace.isAdmin && memberRole === null ? (role) => workspace.joinTeam(teamId, role) : undefined}
+          onLeave={workspace.isAdmin && memberRole !== null ? () => workspace.leaveTeam(teamId) : undefined}
         />
       ) : (
         <NotFound onHome={() => navigate(homeRoute())} />

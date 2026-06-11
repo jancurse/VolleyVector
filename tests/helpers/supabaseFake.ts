@@ -22,11 +22,16 @@ const BOARD_AUTHOR = "seed-coach";
 const ISO = "2026-01-01T00:00:00.000Z";
 
 // The test user's standing in the active team. Defaults to an admin coach (full access) with a set
-// display name; a test can lower the role, or clear the name to exercise the first-login prompt, and
-// resetFakeAuthz restores the default.
-type Authz = { isAdmin: boolean; role: "coach" | "player"; displayName: string | null };
+// display name and no showcase membership; a test can lower the role, clear the name to exercise the
+// first-login prompt, or grant a showcase role, and resetFakeAuthz restores the default.
+type Authz = {
+  isAdmin: boolean;
+  role: "coach" | "player";
+  showcaseRole: "coach" | "player" | null;
+  displayName: string | null;
+};
 
-const authz: Authz = { isAdmin: true, role: "coach", displayName: "Coach Casey" };
+const authz: Authz = { isAdmin: true, role: "coach", showcaseRole: null, displayName: "Coach Casey" };
 
 export function setFakeAuthz(next: Partial<Authz>): void {
   Object.assign(authz, next);
@@ -35,6 +40,7 @@ export function setFakeAuthz(next: Partial<Authz>): void {
 export function resetFakeAuthz(): void {
   authz.isAdmin = true;
   authz.role = "coach";
+  authz.showcaseRole = null;
   authz.displayName = "Coach Casey";
 }
 
@@ -128,7 +134,7 @@ const SHOWCASE_BOARD: BoardRow = {
 
 type Row = Record<string, unknown>;
 type Predicate = (row: Row) => boolean;
-type DbResult = { data: unknown; error: { message: string } | null };
+type DbResult = { data: unknown; error: { message: string; code?: string } | null };
 
 const ok = (data: unknown): DbResult => ({ data, error: null });
 
@@ -147,14 +153,16 @@ export const recordedWrites: WriteCall[] = [];
 export const recordedRpcs: RpcCall[] = [];
 export const recordedInvokes: InvokeCall[] = [];
 
-// The next `count` table writes fail with `message`, so a test can exercise the commit path's retry
-// and failure handling. Reset (to zero) by resetRecorded.
+// The next `count` table writes fail with `message` (and an optional Postgres error `code`), so a test
+// can exercise the commit path's retry and failure handling. Reset (to zero) by resetRecorded.
 let failingWrites = 0;
 let failingMessage = "Load failed";
+let failingCode: string | undefined;
 
-export function failWrites(count: number, message = "Load failed"): void {
+export function failWrites(count: number, message = "Load failed", code?: string): void {
   failingWrites = count;
   failingMessage = message;
+  failingCode = code;
 }
 
 export function resetRecorded(): void {
@@ -162,6 +170,7 @@ export function resetRecorded(): void {
   recordedRpcs.length = 0;
   recordedInvokes.length = 0;
   failingWrites = 0;
+  failingCode = undefined;
 }
 
 // A chainable query stub. Filter methods record a predicate and return the same object; awaiting it (or
@@ -228,7 +237,10 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
       if (write && failingWrites > 0) {
         failingWrites--;
 
-        return Promise.resolve({ data: null, error: { message: failingMessage } }).then(onfulfilled, onrejected);
+        return Promise.resolve({ data: null, error: { message: failingMessage, code: failingCode } }).then(
+          onfulfilled,
+          onrejected
+        );
       }
 
       return Promise.resolve(write ? ok(null) : ok(matches())).then(onfulfilled, onrejected);
@@ -279,6 +291,9 @@ function from(table: string): Query {
         [
           { team_id: TEST_TEAM_ID, user_id: TEST_USER.id, role: authz.role },
           { team_id: TEST_TEAM_ID, user_id: OTHER_MEMBER.id, role: "player" },
+          ...(authz.showcaseRole
+            ? [{ team_id: SHOWCASE_TEAM_ID, user_id: TEST_USER.id, role: authz.showcaseRole }]
+            : []),
         ],
         null
       );

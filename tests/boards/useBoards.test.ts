@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { AuthProvider } from "../../src/auth/useAuth";
+import { createBoard } from "../../src/boards/operations";
 import { useBoards } from "../../src/boards/useBoards";
 import type { Space } from "../../src/workspace/space";
 import { failWrites, recordedWrites, resetRecorded, TEST_TEAM_ID, TEST_USER } from "../helpers/supabaseFake";
@@ -68,6 +69,25 @@ describe("useBoards", () => {
     expect(commitError).toBeNull();
     expect(result.current.boards.find((b) => b.id === target.id)?.title).toBe("Retried");
     expect(result.current.error).toBeNull();
+  });
+
+  test("a duplicate-key insert counts as success, being this board's own response-lost earlier attempt", async () => {
+    const { result } = renderBoards();
+
+    await waitFor(() => expect(result.current.boards.length).toBeGreaterThan(0));
+
+    const board = { ...createBoard(Date.now()), owner: TEST_USER.id };
+    let commitError: string | null = "unset";
+
+    failWrites(1, "duplicate key value violates unique constraint", "23505");
+    await act(async () => {
+      commitError = await result.current.addBoard(board);
+    });
+
+    expect(commitError).toBeNull();
+    expect(result.current.boards.some((b) => b.id === board.id)).toBe(true);
+    // The duplicate key already proves the row exists, so no retry is issued.
+    expect(recordedWrites.filter((c) => c.op === "insert")).toHaveLength(1);
   });
 
   test("an exhausted commit reports the error and leaves the list untouched", async () => {

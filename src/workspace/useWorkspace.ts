@@ -46,9 +46,9 @@ export type Workspace = {
   activeRole: TeamRole | null;
   /** Create a team (admins only) and switch to it; returns the new id, or null on failure. */
   createTeam: (name: string) => Promise<string | null>;
-  /** Join one of the other teams with a chosen role (admins only); returns an error message or null. */
+  /** Join an other team or the showcase with a chosen role; returns an error message or null. */
   joinTeam: (teamId: string, role: TeamRole) => Promise<{ error: string | null }>;
-  /** Leave a team's roster (admins only, who keep full reach); the team moves to the other-teams list. */
+  /** Leave a team's roster; an ordinary team moves to the other-teams list, the showcase stays put. */
   leaveTeam: (teamId: string) => Promise<{ error: string | null }>;
 };
 
@@ -188,42 +188,54 @@ export function useWorkspace(): Workspace {
     [user]
   );
 
+  // Join and leave cover the showcase team too, whose membership lives on `showcase.role` rather than
+  // in either team list, so it stays a single switcher row whether or not the caller is on its roster.
   const joinTeam = useCallback(
     async (teamId: string, role: TeamRole): Promise<{ error: string | null }> => {
-      const team = otherTeams.find((t) => t.teamId === teamId);
+      const isShowcase = showcase?.teamId === teamId;
+      const team = isShowcase ? showcase : otherTeams.find((t) => t.teamId === teamId);
 
       if (!user) return { error: "Not signed in" };
-      if (!team) return { error: "Already a member of this team" };
+      if (!team) return { error: "Team not found" };
 
       const { error } = await supabase.from("memberships").insert({ team_id: teamId, user_id: user.id, role });
 
       if (error) return { error: error.message };
 
-      setTeams((prev) => [...prev, { ...team, role }]);
-      setOtherTeams((prev) => prev.filter((t) => t.teamId !== teamId));
+      if (isShowcase) {
+        setShowcase((prev) => prev && { ...prev, role });
+      } else {
+        setTeams((prev) => [...prev, { teamId: team.teamId, teamName: team.teamName, slug: team.slug, role }]);
+        setOtherTeams((prev) => prev.filter((t) => t.teamId !== teamId));
+      }
 
       return { error: null };
     },
-    [user, otherTeams]
+    [user, otherTeams, showcase]
   );
 
   const leaveTeam = useCallback(
     async (teamId: string): Promise<{ error: string | null }> => {
-      const team = teams.find((t) => t.teamId === teamId);
+      const isShowcase = showcase?.teamId === teamId;
+      const team = isShowcase ? showcase : teams.find((t) => t.teamId === teamId);
 
       if (!user) return { error: "Not signed in" };
-      if (!team) return { error: "Not a member of this team" };
+      if (!team) return { error: "Team not found" };
 
       const { error } = await supabase.from("memberships").delete().eq("team_id", teamId).eq("user_id", user.id);
 
       if (error) return { error: error.message };
 
-      setTeams((prev) => prev.filter((t) => t.teamId !== teamId));
-      setOtherTeams((prev) => [...prev, { teamId: team.teamId, teamName: team.teamName, slug: team.slug }]);
+      if (isShowcase) {
+        setShowcase((prev) => prev && { ...prev, role: null });
+      } else {
+        setTeams((prev) => prev.filter((t) => t.teamId !== teamId));
+        setOtherTeams((prev) => [...prev, { teamId: team.teamId, teamName: team.teamName, slug: team.slug }]);
+      }
 
       return { error: null };
     },
-    [user, teams]
+    [user, teams, showcase]
   );
 
   const setDisplayName = useCallback(

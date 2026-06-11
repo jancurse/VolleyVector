@@ -8,28 +8,37 @@ import { MenuItem, SubMenu } from "../ui/Menu";
 // the copy); a cross-space copy stays put and confirms through the item's label. A single target renders
 // as a direct item rather than a one-entry submenu.
 export type CopyTarget = { key: string; label: string } & (
-  | { kind: "duplicate"; onDuplicate: () => void }
+  | { kind: "duplicate"; onDuplicate: () => Promise<{ error: string | null }> }
   | { kind: "copy"; onCopy: () => Promise<{ error: string | null }> }
 );
 
 function CopyItem({ target, flat }: { target: CopyTarget; flat: boolean }): JSX.Element {
   // Transient feedback ("Copied", or the error) overriding the item's label.
   const [status, setStatus] = useState<string | null>(null);
-
-  if (target.kind === "duplicate") {
-    return <MenuItem onClick={target.onDuplicate}>{flat ? "Duplicate" : `${target.label} (duplicate here)`}</MenuItem>;
-  }
+  const duplicate = target.kind === "duplicate";
 
   const run = () => {
-    void target.onCopy().then(({ error }) => {
-      setStatus(error ?? "Copied");
-      if (!error) window.setTimeout(() => setStatus(null), 1500);
+    void (duplicate ? target.onDuplicate() : target.onCopy()).then(({ error }) => {
+      // A successful duplicate navigates to the copy, unmounting the menu — no feedback needed.
+      if (error) setStatus(error);
+      else if (!duplicate) {
+        setStatus("Copied");
+        window.setTimeout(() => setStatus(null), 1500);
+      }
     });
   };
 
+  const label = duplicate
+    ? flat
+      ? "Duplicate"
+      : `${target.label} (duplicate here)`
+    : flat
+      ? `Copy to ${target.label}`
+      : target.label;
+
   return (
     <MenuItem closeOnClick={false} onClick={run}>
-      {status ?? (flat ? `Copy to ${target.label}` : target.label)}
+      {status ?? label}
     </MenuItem>
   );
 }

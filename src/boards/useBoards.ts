@@ -115,9 +115,13 @@ export function useBoards(space: Space | null): BoardsStore {
       // newest-first order even when it carries an older board's timestamps (a duplicate).
       const stamped = { ...board, createdAt: Date.now(), updatedAt: Date.now() };
 
-      const writeError = await writeWithRetries(() =>
-        supabase.from("boards").insert(boardToInsert(stamped, user.id, scope, teamId))
-      );
+      const writeError = await writeWithRetries(async () => {
+        const result = await supabase.from("boards").insert(boardToInsert(stamped, user.id, scope, teamId));
+
+        // The id is a client-minted UUID, so a duplicate key can only be this board's own earlier
+        // attempt whose response was lost in transit — the save already happened, count it a success.
+        return result.error?.code === "23505" ? { error: null } : result;
+      });
 
       if (writeError === null) setBoards((prev) => [stamped, ...prev]);
 

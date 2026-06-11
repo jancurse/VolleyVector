@@ -9,14 +9,14 @@ This file provides guidance to LLM agents when working with code in this reposit
 VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills. Boards and topics persist to a Supabase backend behind invite-only accounts; every access rule is enforced by row-level security, never by the client.
 
 - **Content model.** One `Board` type backs everything: an ordered, non-empty list of steps over a shared set of marker identities. A one-step board is a **Position** (static). Two or more steps make a **Sequence** (animated). Boards are organised into a nestable tree of **Topics** and cut across by free-form **tags**.
-- **Spaces and roles.** Every board and topic lives in one space: a team's shared library, or a user's private personal space. A global admin creates teams and invites; per team, a coach curates the library and a player views it read-only. A personal board can be shared into a team and opened read-only by a share-token link.
+- **Spaces and roles.** Every board and topic lives in one space: a team's shared library, or a user's private personal space. A global admin creates teams and invites; per team, a coach curates the library and a player views it read-only. One flagged team is the **Inspiration** showcase, an example library every user may browse and copy from. A personal board can be shared into a team and opened read-only by a share-token link.
 - **Spine decisions to respect** (do not relitigate). Marker coordinates are normalized 0–1, never pixels. Marker identity is stable across all steps, so playback interpolates by identity and movement arrows derive from step-to-step deltas. One `Court` component serves both static and animated modes. The court renders as SVG, not canvas.
 
 ### Module map
 
 - `src/boards/`: the `Board` model, pure operations, the Supabase-backed store, the playback hook, and derived arrows.
-- `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
-- `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, inspector, step strip, and description/tag editors.
+- `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the drawn-annotation layer and its gestures, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
+- `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, the marker and annotation inspectors, the annotation toolbar, step strip, and description/tag editors.
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
 - `src/topics/`: the topic-tree model, operations, store, sidebar, and topic view/editor.
 - `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle.

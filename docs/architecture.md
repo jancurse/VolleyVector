@@ -28,6 +28,7 @@ type BoardStep = {
   id: string;
   instruction: string; // markdown, shown during playback
   positions: Record<string, NormalizedPoint>; // by marker id
+  annotations?: Annotation[]; // drawn shapes; per step, no cross-step identity
 };
 
 type Board = {
@@ -74,7 +75,7 @@ The client model carries only what a surface renders. The placement and access c
 
 ## The court and its coordinate system
 
-The `court/` module is the rendering core. It owns the coordinate space, the SVG court, the markers, the arrows, and pointer dragging. It is shared unchanged by the editor, the read-only view, and the library thumbnails.
+The `court/` module is the rendering core. It owns the coordinate space, the SVG court, the markers, the arrows, the drawn annotations, and pointer interaction. It is shared unchanged by the editor, the read-only view, and the library thumbnails.
 
 ### Normalized coordinates
 
@@ -107,6 +108,16 @@ The `court/` module is the rendering core. It owns the coordinate space, the SVG
 - `useMarkerDrag` makes the court editable. It maps a pointer event back to normalized coordinates through the SVG's on-screen transform matrix, so dragging is exact regardless of how the court is sized or laid out on the page.
 - The SVG captures the pointer on press, so a drag keeps tracking even when the cursor leaves the court, and every dragged position is clamped to the court plus its reach.
 - Pressing the surface itself deselects. Fine positioning is also possible from the keyboard: with a marker selected, the arrow keys nudge it on the active step (a small step normally, a larger one with Shift).
+
+### Annotations
+
+Annotations are the shapes a coach draws on the court, stored as JSON on each step and rendered by the `Annotations` layer (a sibling of the derived `Arrows`) on every surface: editor, view, share view, and thumbnails.
+
+- The kinds are a `line`, an `arrow` (optionally bent into a quadratic curve through a `via` point), a `rect`, an `ellipse`, a `polygon` (three or more implicitly closed vertices), a `free` freehand stroke, and a `text` label. Every shape carries a colour from the marker palette and a stroke width. The closed shapes (rect, ellipse, polygon) add a fill: `none`, a translucent tint, or a hand-drawn hachure. The stroked shapes can render solid or dashed.
+- Unlike a marker, an annotation has no cross-step identity: it belongs to one step and never interpolates during playback. `copyAnnotationsToNextStep` carries a step's shapes forward when wanted.
+- `useAnnotationDraw` owns the drawing gestures, reusing the same client→normalized mapping as marker dragging. Most kinds draw press-drag-release with magnetic snapping. The polygon is the one multi-click gesture: each click places a vertex, and the shape closes on the first or last vertex, a double-click, or Enter. A freehand stroke is simplified on commit and rendered as a constant-width path that smooths gentle turns while keeping deliberate corners sharp.
+- The editor arms one tool per kind from the `AnnotationToolbar` (with hotkeys), and the `AnnotationInspector` edits the selected shape's style or sets the sticky style the next shape takes, showing the fill and dash controls only where they apply. The select tool moves a shape bodily or reshapes it through per-kind handles, with the handle logic in `boards/operations.ts`.
+- Legacy stored shapes (the retired `area` kind, and closed shapes predating fills) normalize at read time in `boards/normalize.ts`, so old rows load as the current model with no data migration.
 
 ## Authoring a board
 
@@ -191,6 +202,7 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 
 - The schema is six tables: `profiles` (one per account, with a display name and the global-admin flag), `teams`, `memberships` (`(user, team, role)`, role `coach` or `player`), `topics`, `boards`, and `invites` (single-use invite links). Markers and steps are stored as JSON on a board.
 - Every board and topic carries a `scope`: a **team** item belongs to a team's shared library; a **personal** item belongs to one user's private space. The client loads the active space and writes new content into it.
+- At most one team is flagged `is_showcase` (enforced by a partial unique index): the **Inspiration** showcase, an example library every authenticated user may read and copy from. The flag plus widened `select` policies on `teams`, `topics`, and `boards` are the whole mechanism. Write rules are unchanged, so only its coaches (its curators) and admins author it.
 - A board also carries `owner` (its author), `author_locked`, `shared`, a `team_id` (the owning team, or a shared personal board's target), and an unguessable `share_token` minted server-side. The `owner` becomes null when its author's account is deleted, which reassigns their team boards to the team and clears the author lock.
 - Boards, topics, teams, and profiles all carry soft-delete state. A removed board or topic is grace-archived (`deleted_at`/`deleted_by`) rather than dropped, and the every-space read queries filter `deleted_at is null`, so a deleted row is hidden everywhere but admin recovery. See [Deletion and recovery](#deletion-and-recovery).
 
@@ -199,6 +211,7 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 | Action                                  | Player | Coach        | Admin           |
 |-----------------------------------------|--------|--------------|-----------------|
 | View their team's library               | ✓      | ✓            | ✓ (every team)  |
+| View the Inspiration showcase library   | ✓      | ✓            | ✓               |
 | Create or edit team content             | —      | ✓ (own team) | ✓ (every team)  |
 | Edit a team board its author has locked | —      | author only  | ✓               |
 | Their own personal space                | full   | full         | full + god-mode |
@@ -208,7 +221,7 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 | Archive or delete a team                | —      | —            | ✓               |
 | Restore deleted content or an account   | —      | —            | ✓               |
 
-- RLS helper functions (`is_admin`, `is_team_member`, `is_team_coach`) run `security definer` so a policy can check membership without recursing. A `boards` guard trigger keeps `owner` immutable, except that an admin may reassign it and anyone may null it. Nulling orphans the board to the team and auto-clears the author lock. The trigger otherwise limits the author lock to the author and admins.
+- RLS helper functions (`is_admin`, `is_team_member`, `is_team_coach`, `is_showcase_team`) run `security definer` so a policy can check membership or the showcase flag without recursing. A `boards` guard trigger keeps `owner` immutable, except that an admin may reassign it and anyone may null it. Nulling orphans the board to the team and auto-clears the author lock. The trigger otherwise limits the author lock to the author and admins.
 - An admin has full read/write across all teams and all personal content. This god-mode is a deliberate privacy trade-off for a small trusted group, called out in the README.
 
 ### Deletion and recovery
@@ -238,7 +251,7 @@ Removal is a grace-archive, never an immediate hard delete: a removed item is hi
 ### Stores and persistence
 
 - `useBoards` and `useTopics` hold the active space's board list and topic tree in React state and expose the mutations the UI calls. Both load from Supabase when the active space changes, scoped to it (a team's by team, the personal space's by owner), and write each edit through to the database. Edits apply optimistically so the UI stays responsive; a failed write surfaces an error and refetches to reconcile.
-- The active space comes from `workspace/useWorkspace.ts`, which loads the user's teams, role per team, and admin flag, and tracks which space is on screen. The space switcher moves between the personal space and each team. An admin also reaches every remaining team behind a collapsed "Other teams" disclosure, so the switcher stays short as teams grow. Creating a team adds no membership: the new team lands in the admin's other teams. The team page lets an admin join with a chosen role and leave again, since their access never depended on membership.
+- The active space comes from `workspace/useWorkspace.ts`, which loads the user's teams, role per team, and admin flag, and tracks which space is on screen. The space switcher moves between the personal space and each team, and everyone also sees the read-only Inspiration showcase as its own icon-badged row. A showcase membership (a curator) is carried on `showcase.role` rather than in the team list, so the showcase stays one row whether or not the user is on its roster. An admin also reaches every remaining team behind a collapsed "Other teams" disclosure, so the switcher stays short as teams grow. Creating a team adds no membership: the new team lands in the admin's other teams. The team page lets an admin join any reachable team (including the showcase) with a chosen role and leave again, since their access never depended on membership.
 - The stores keep curation honest. Filing or editing a board refreshes its `updatedAt`, so it leads its topic's newest-first order. Structural topic moves, such as reordering siblings or nesting from the sidebar, only touch the topic tree and never a board, so curation never churns the library's order. The first team's library is seeded once, server-side, by the setup seed.
 
 ### Navigation and the app shell

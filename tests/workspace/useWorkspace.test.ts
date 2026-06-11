@@ -139,4 +139,21 @@ describe("useWorkspace", () => {
     expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active"]);
     expect(result.current.otherTeams.map((t) => t.teamId)).toEqual(["team-other"]);
   });
+
+  test("joinTeam and leaveTeam toggle a showcase membership on showcase.role, leaving both lists alone", async () => {
+    isAdmin = true;
+
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(() => result.current.joinTeam("team-showcase", "coach"));
+    expect(result.current.showcase?.role).toBe("coach");
+    expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active"]);
+    expect(result.current.otherTeams.map((t) => t.teamId)).toEqual(["team-other"]);
+
+    await act(() => result.current.leaveTeam("team-showcase"));
+    expect(result.current.showcase?.role).toBeNull();
+    expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active"]);
+  });
 });

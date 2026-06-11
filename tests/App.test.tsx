@@ -806,6 +806,21 @@ describe("sharing", () => {
     expect(screen.getByRole("menuitem", { name: "Copy to My Boards" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Move to" })).not.toBeInTheDocument();
   });
+
+  test("a failed duplicate stays on the original board and reports the error", async () => {
+    const user = await renderApp();
+
+    await openPosition(user);
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await screen.findByRole("menuitem", { name: "Copy to" });
+    await user.keyboard("{ArrowDown}{ArrowRight}");
+    await screen.findByRole("menuitem", { name: "My Team (duplicate here)" });
+    failWrites(3); // outlasts the two automatic retries
+    await user.keyboard("{ArrowDown}{Enter}");
+
+    expect(await screen.findByRole("menuitem", { name: "Load failed" }, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Sample Position/ })).toBeInTheDocument();
+  });
 });
 
 // The Inspiration showcase is a read-only space every user may browse and copy from; only its curators
@@ -833,6 +848,30 @@ describe("inspiration space", () => {
     await user.click(screen.getByRole("button", { name: "Inspiration" }));
 
     expect(await screen.findByRole("button", { name: "New board" })).toBeInTheDocument();
+  });
+
+  test("a non-admin curator manages the Inspiration team through the switcher gear", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player", showcaseRole: "coach" });
+
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Inspiration" }));
+    await user.click(await screen.findByRole("button", { name: "Manage Inspiration" }));
+
+    expect(await screen.findByRole("button", { name: "Invite member" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Join team" })).not.toBeInTheDocument();
+  });
+
+  test("an admin on the showcase roster is offered Leave team, not Join team", async () => {
+    setFakeAuthz({ showcaseRole: "coach" });
+
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Inspiration" }));
+    await user.click(await screen.findByRole("button", { name: "Manage Inspiration" }));
+
+    expect(await screen.findByRole("button", { name: "Leave team" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Join team" })).not.toBeInTheDocument();
   });
 });
 
