@@ -77,6 +77,7 @@ export function createBoard(now: number, mode: CourtMode = "positions", title = 
     shared: false,
     teamId: null,
     autoArrows: true,
+    rotationStrict: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -114,13 +115,14 @@ export function stepMoves(board: Board, index: number): MarkerMove[] {
     .filter(({ from: a, to: b }) => Math.hypot(b.x - a.x, b.y - a.y) > MOVE_EPSILON);
 }
 
-/** Insert a step after `afterIndex`, cloning that step's positions and annotations so the diagram
- *  carries forward and only what changes needs editing. */
+/** Insert a step after `afterIndex`, cloning that step's positions, annotations, and rotation so
+ *  the diagram carries forward and only what changes needs editing. */
 export function insertStep(board: Board, afterIndex: number): { board: Board; stepId: string } {
   const base = board.steps[afterIndex] ?? board.steps[board.steps.length - 1];
   const step = makeStep({ ...base.positions });
 
   if (base.annotations?.length) step.annotations = base.annotations.map((a) => ({ ...a }));
+  if (base.rotation) step.rotation = base.rotation;
 
   const steps = [...board.steps];
 

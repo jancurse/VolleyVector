@@ -8,7 +8,7 @@ import { cx, TOGGLE_PILL } from "./styles";
 // (type filter, mode switch); the pills variant is the wrapped tag filter. Single mode keeps one item
 // pressed at all times (deselecting the active one is ignored); multiple mode is a free intersection.
 // An icon-only item passes the glyph as `label` and names itself via `ariaLabel`.
-type Item = { value: string; label: ReactNode; ariaLabel?: string };
+type Item = { value: string; label: ReactNode; ariaLabel?: string; disabled?: boolean };
 
 type Variant = "segmented" | "pills";
 
@@ -29,7 +29,7 @@ const GROUP: Record<Variant, string> = {
 
 const TOGGLE: Record<Variant, string> = {
   segmented:
-    "cursor-pointer rounded-sm border-0 bg-transparent px-2.5 py-1 font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:text-text data-[pressed]:bg-bg data-[pressed]:text-text",
+    "cursor-pointer rounded-sm border-0 bg-transparent px-2.5 py-1 font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:not-disabled:text-text data-[pressed]:bg-bg data-[pressed]:text-text disabled:cursor-default disabled:opacity-40",
   pills: TOGGLE_PILL,
 };
 
@@ -58,7 +58,13 @@ export function ToggleGroup(props: ToggleGroupProps) {
       className={GROUP[variant]}
     >
       {items.map((item) => (
-        <Toggle key={item.value} value={item.value} aria-label={item.ariaLabel} className={cx(TOGGLE[variant])}>
+        <Toggle
+          key={item.value}
+          value={item.value}
+          aria-label={item.ariaLabel}
+          disabled={item.disabled}
+          className={cx(TOGGLE[variant])}
+        >
           {item.label}
         </Toggle>
       ))}

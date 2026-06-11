@@ -1,11 +1,13 @@
 import { MotionConfig } from "motion/react";
 import { useMemo, useState } from "react";
 import type { JSX, ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
 import { arrowsForStep } from "../boards/arrows";
 import { stepAnnotations, stepMarkers } from "../boards/operations";
-import type { Board } from "../boards/types";
+import { rotationAssignment, rotationLabel, rotationViolations, violationFlags } from "../boards/rotation";
+import type { RotationViolation } from "../boards/rotation";
+import type { Board, StepRotation } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { useBoardPlayback } from "../boards/useBoardPlayback";
 import { Court } from "../court/Court";
@@ -14,6 +16,8 @@ import { CourtFrame } from "../ui/CourtFrame";
 import { Markdown } from "../ui/Markdown";
 import { Toolbar, ToolbarButton } from "../ui/Toolbar";
 import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TITLE, cx } from "../ui/styles";
+import { RotationBoard } from "./RotationBoard";
+import { violationMessages } from "./RotationPanel";
 import { StepStrip } from "./StepStrip";
 
 const PLAY_ICON = <Play size={20} fill="currentColor" aria-hidden="true" />;
@@ -26,6 +30,39 @@ const NEXT_ICON = <ChevronRight size={18} strokeWidth={2.2} aria-hidden="true" /
 
 const VIEW_BODY =
   "grid grid-cols-[min(74vh,560px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]";
+
+// The rotation board and its label, visible whenever the shown step's rotation is active. The label
+// stays visible while the board itself collapses (no hover reveal: hover does not exist on touch).
+function RotationViewPanel({
+  board,
+  rotation,
+  violations,
+}: {
+  board: Board;
+  rotation: StepRotation;
+  violations: readonly RotationViolation[];
+}): JSX.Element {
+  return (
+    <details open className={cx(PANEL, "group min-w-0")}>
+      <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+        <span className={PANEL_TITLE}>{rotationLabel(rotation)}</span>
+        {violationMessages(violations).map((message) => (
+          <span key={message} className="text-sm font-semibold text-warn">
+            {message}
+          </span>
+        ))}
+        <ChevronDown
+          size={16}
+          aria-hidden="true"
+          className="ml-auto text-text-dim transition-transform duration-150 ease-settle group-open:rotate-180"
+        />
+      </summary>
+      <div className="w-full max-w-[260px] self-center">
+        <RotationBoard markers={board.markers} rotation={rotation} />
+      </div>
+    </details>
+  );
+}
 
 function DescriptionPanel({ markdown }: { markdown: string }): JSX.Element {
   return (
@@ -65,6 +102,19 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
   );
   const instruction = board.steps[step]?.instruction ?? "";
 
+  // The shown step's rotation, resolved: when active it drives the rotation panel and the court's
+  // violation flags (shown here too — an illegal arrangement may be deliberately authored).
+  const rotation = board.steps[step]?.rotation;
+  const assignment = useMemo(() => rotationAssignment(board.markers, rotation), [board.markers, rotation]);
+  const violations = useMemo(
+    () => (assignment ? rotationViolations(assignment, board.steps[step].positions, board.markers) : []),
+    [assignment, board, step]
+  );
+  const warnings = assignment && violations.length > 0 ? violationFlags(assignment, violations) : undefined;
+  const rotationPanel = rotation && assignment && (
+    <RotationViewPanel board={board} rotation={rotation} violations={violations} />
+  );
+
   // The instruction changing reads as a move between two notes: the incoming one slides in from the
   // direction of travel. Track the previously shown step in state and adjust the direction during the
   // render where it changes, so no ref is read during render.
@@ -99,6 +149,7 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
                   markers={markers}
                   arrows={arrows}
                   annotations={annotations}
+                  warnings={warnings}
                   label={board.title || "Untitled board"}
                 />
               </CourtFrame>
@@ -139,6 +190,11 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
             </div>
 
             <div className="flex min-w-0 flex-col gap-4">
+              {rotationPanel && (
+                <div key={`rotation-${step}`} className={cx(stepDirection, "motion-reduce:animate-none")}>
+                  {rotationPanel}
+                </div>
+              )}
               <DescriptionPanel markdown={board.description} />
 
               <section className={cx(PANEL, "min-w-0")} aria-label="Step instruction">
@@ -158,9 +214,17 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
         ) : (
           <div className={VIEW_BODY}>
             <CourtFrame className="max-[1040px]:justify-self-center">
-              <Court markers={markers} annotations={annotations} label={board.title || "Untitled board"} />
+              <Court
+                markers={markers}
+                annotations={annotations}
+                warnings={warnings}
+                label={board.title || "Untitled board"}
+              />
             </CourtFrame>
-            <DescriptionPanel markdown={board.description} />
+            <div className="flex min-w-0 flex-col gap-4">
+              {rotationPanel}
+              <DescriptionPanel markdown={board.description} />
+            </div>
           </div>
         )}
       </div>

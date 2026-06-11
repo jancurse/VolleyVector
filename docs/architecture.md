@@ -29,6 +29,7 @@ type BoardStep = {
   instruction: string; // markdown, shown during playback
   positions: Record<string, NormalizedPoint>; // by marker id
   annotations?: Annotation[]; // drawn shapes; per step, no cross-step identity
+  rotation?: StepRotation; // the step's official-position rotation, when set
 };
 
 type Board = {
@@ -44,6 +45,7 @@ type Board = {
   authorLocked: boolean; // a team board only its author and admins may edit
   shared: boolean; // a personal board made visible to its team
   teamId: string | null; // a team board's team, or a shared personal board's target team
+  rotationStrict: boolean; // rotation enforcement: strict clamps illegal drags, loose only flags
   createdAt: number;
   updatedAt: number;
 };
@@ -72,6 +74,16 @@ The client model carries only what a surface renders. The placement and access c
 - **Position edits touch one step.** `setStepPosition` moves a single marker on a single step, leaving the others untouched.
 - **Step edits keep the board valid.** `insertStep` adds a step after a given index, cloning that step's positions so only what changes needs dragging. `moveStep` reorders. `removeStep` deletes a step but always keeps at least one, so a board never drops below a Position. `setStepInstruction` edits a step's note.
 - **Creation.** `createBoard` makes a fresh single-step Position. `makeMarker` labels a new marker, numbering it to keep it distinct from others of its role (e.g. `OH1`, `OH2`), and places it on a "bench" row just below the end line, ready to be dragged onto the court.
+
+### Rotations
+
+A step may carry a rotation: the six players' official positions in the rotational order, shown on a second small court beside the actual one. The legality lives in `boards/rotation.ts`, pure over the model like `operations.ts`.
+
+- A `StepRotation` is either a **5-1 preset** (numbered by the setter's official position) or a **custom** assignment of markers to the six positions. Off is the absent field, so a step without one behaves exactly as before, and `insertStep` clones it alongside the positions.
+- The six official positions (`RotationSlot` 1–6) are fixed canonical points (`OFFICIAL_SPOTS`: front row 4-3-2, back row 5-6-1). `presetAssignment` derives a preset's slot→marker map in 5-1 service order, swapping a libero to the back-row middle slot per rotation. It needs a matching 5-1 roster or returns null; a custom assignment resolves only once all six slots are filled.
+- `rotationViolations` is the legality check: the seven pairwise overlap relations of FIVB Rule 7.4 (front/back on y, adjacent side-by-side on x), plus an assigned player outside the playing area and a libero on a front-row slot. Ties are legal. Only the six assigned players are constrained, never the ball, coach, or extras.
+- `rotationStrict` (per board, default loose) picks enforcement. **Loose** flags violations: `violationFlags` maps them to a warning halo on each marker and a tie per broken pair. **Strict** is loose plus `clampToLegal`, which holds a dragged marker inside the region the others leave legal.
+- `RotationPanel` (the editor) holds the selector, the enforcement toggle, the label, and the rotation board; `RotationBoard` reuses `Court` read-only at thumbnail scale, and is the drag-to-spot assignment surface in custom mode. `BoardView` shows the same panel and flags read-only, following the active step during playback.
 
 ## The court and its coordinate system
 

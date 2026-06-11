@@ -147,6 +147,45 @@
   filter: drop-shadow(0 0 4px var(--accent));
 }
 
+/* The warning halo: the selection halo's grammar in the theme warning token, so it reads as state
+   (an overlap violation) rather than identity. Selection takes precedence while it lasts. */
+.court-halo--warn {
+  stroke: var(--warn);
+  filter: drop-shadow(0 0 4px var(--warn));
+}
+
+/* A violated pair's tie: a thin warning-coloured line between the two markers of a broken overlap
+   relation, beneath the discs. A marker in several bad relations carries several ties. */
+.court-tie {
+  stroke: var(--warn);
+  stroke-width: 5;
+  stroke-dasharray: 14 12;
+  stroke-linecap: round;
+  opacity: 0.85;
+  pointer-events: none;
+  animation: court-fade 0.3s var(--ease-settle) both;
+}
+
+/* An empty official-position spot on the rotation board: a dashed outline carrying its position
+   number, quiet enough to read as a destination rather than a marker. */
+.court-spot {
+  fill: none;
+  stroke: var(--court-line);
+  stroke-width: 3;
+  stroke-dasharray: 10 9;
+  opacity: 0.45;
+}
+
+.court-spot-label {
+  fill: var(--court-line);
+  opacity: 0.6;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 34px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
 /* Derived movement arrows. currentColor is set per arrow to the moving marker's colour. */
 .court-arrows {
   pointer-events: none;

@@ -13,6 +13,16 @@ export type { Annotation, AnnotationKind, AnnotationStyle } from "../court/types
 /** A marker's stable identity, shared across all of a board's steps (everything but its position). */
 export type BoardMarker = Omit<Marker, "position">;
 
+/** One of the six official positions of the rotational order (FIVB Rule 7.4.1):
+ *  front row 4-3-2 (left to right, viewed from behind the team), back row 5-6-1. */
+export type RotationSlot = 1 | 2 | 3 | 4 | 5 | 6;
+
+/** A step's rotation: a 5-1 preset numbered by the setter's official position, or a custom
+ *  assignment of markers to official positions (complete once all six slots are filled). */
+export type StepRotation =
+  | { kind: "preset"; rotation: RotationSlot }
+  | { kind: "custom"; assignment: Partial<Record<RotationSlot, string>> };
+
 /** One step: an instruction shown during playback, where each marker sits, and any drawn annotations. */
 export type BoardStep = {
   id: string;
@@ -21,6 +31,8 @@ export type BoardStep = {
   positions: Record<string, NormalizedPoint>;
   /** Drawings on this step (lines, arrows, shapes, freehand). Optional: a step without any has none. */
   annotations?: Annotation[];
+  /** The step's rotation, when set. Optional: a step without one behaves exactly as before. */
+  rotation?: StepRotation;
 };
 
 export type Board = {
@@ -48,6 +60,8 @@ export type Board = {
   teamId: string | null;
   /** Whether the derived movement arrows are shown. Off hides them entirely; manual arrows are unaffected. */
   autoArrows: boolean;
+  /** Rotation enforcement: strict clamps dragging at the legal boundary; loose (the default) only flags. */
+  rotationStrict: boolean;
   createdAt: number;
   updatedAt: number;
 };
