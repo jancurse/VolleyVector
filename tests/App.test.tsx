@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { App } from "../src/App";
 import { AuthProvider } from "../src/auth/useAuth";
-import { resetFakeAuthz, setFakeAuthz, TEST_USER } from "./helpers/supabaseFake";
+import { SAMPLE_BOARDS } from "./helpers/sampleData";
+import { failWrites, resetFakeAuthz, resetRecorded, setFakeAuthz, TEST_USER } from "./helpers/supabaseFake";
 
 // Mock only the external Supabase client; the real stores, hooks, and components run against it.
 vi.mock("../src/supabase/client", async () => {
@@ -17,6 +18,7 @@ vi.mock("../src/supabase/client", async () => {
 beforeEach(() => {
   localStorage.clear();
   resetFakeAuthz();
+  resetRecorded();
   window.location.hash = "";
   // The path is the source of truth for navigation now, and one happy-dom window is shared across a
   // file's tests, so reset it so each test starts from the landing route.
@@ -318,6 +320,62 @@ describe("the view/edit flow", () => {
     await user.click(screen.getByRole("button", { name: /Library/ }));
 
     expect(screen.getByRole("button", { name: /Sample Position/ })).toBeInTheDocument();
+  });
+});
+
+// A Done commit is awaited with automatic retries; a failure keeps the editor open with the draft, and
+// a localStorage backup recovers a draft a reload would otherwise have destroyed.
+describe("reliable saves", () => {
+  const POSITION_ID = "sample-perimeter-defence";
+  const BACKUP_KEY = `volleycoach-draft-${POSITION_ID}`;
+
+  test("a failed commit keeps the editor open with the draft, and the next Done retries", async () => {
+    const user = await renderApp();
+
+    await openPosition(user);
+    await openEditor(user);
+
+    const title = screen.getByLabelText("Board title");
+
+    await user.clear(title);
+    await user.type(title, "Press defence");
+
+    failWrites(3); // outlasts the two automatic retries
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(await screen.findByRole("alert", {}, { timeout: 4000 })).toHaveTextContent(/Couldn’t save/);
+    expect(screen.getByLabelText("Board title")).toHaveValue("Press defence");
+
+    await user.click(screen.getByRole("button", { name: "Done" })); // the writes succeed again
+
+    expect(await screen.findByRole("heading", { name: "Press defence" })).toBeInTheDocument();
+    expect(localStorage.getItem(BACKUP_KEY)).toBeNull(); // the successful commit cleared the backup
+  });
+
+  test.each([
+    ["Restore", "Recovered work"],
+    ["Discard", "Sample Position (Base Defence)"],
+  ])("the backup prompt's %s opens the editor with the right draft", async (action, expectedTitle) => {
+    localStorage.setItem(
+      BACKUP_KEY,
+      JSON.stringify({ ...SAMPLE_BOARDS[0], title: "Recovered work", updatedAt: Date.now() })
+    );
+
+    const user = userEvent.setup();
+
+    window.history.replaceState(null, "", `/t/my-team/board/${POSITION_ID}/edit`);
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Restore unsaved changes?" });
+
+    await user.click(within(dialog).getByRole("button", { name: action }));
+
+    await waitFor(() => expect(screen.getByLabelText("Board title")).toHaveValue(expectedTitle));
+    if (action === "Discard") expect(localStorage.getItem(BACKUP_KEY)).toBeNull();
   });
 });
 

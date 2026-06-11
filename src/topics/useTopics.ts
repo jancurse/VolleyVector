@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
+import { writeWithRetries } from "../supabase/retry";
 import type { TopicRow } from "../supabase/rows";
 import { topicFromRow, topicToInsert } from "../supabase/rows";
 import { uniqueSlug } from "../routing/slug";
@@ -17,7 +18,9 @@ export type TopicsStore = {
   error: string | null;
   /** Add a topic under `parentId` (`null` for a root) and return its id, so the caller can select it. */
   addTopic: (parentId: string | null) => string;
-  updateTopic: (id: string, patch: Partial<Pick<Topic, "title" | "blocks">>) => void;
+  /** Commit the topic editor's Done: awaited and retried, the tree updates only on success. Resolves
+   *  to null on success, or the error message — the caller owns the failure UI. */
+  updateTopic: (id: string, patch: Partial<Pick<Topic, "title" | "blocks">>) => Promise<string | null>;
   /** Remove a topic and its whole subtree. Unfiling its boards is the caller's job. */
   removeTopic: (id: string) => void;
   /** Re-parent a topic (`null` for a root). */
@@ -155,7 +158,7 @@ export function useTopics(space: Space | null): TopicsStore {
   );
 
   const updateTopic = useCallback(
-    (id: string, patch: Partial<Pick<Topic, "title" | "blocks">>) => {
+    async (id: string, patch: Partial<Pick<Topic, "title" | "blocks">>): Promise<string | null> => {
       // Slugs never change on rename, except the first rename away from the creation placeholder
       // ("New topic"), which mints the real slug. Real renames after that never touch it.
       const current = latest.current.find((t) => t.id === id);
@@ -170,14 +173,13 @@ export function useTopics(space: Space | null): TopicsStore {
             }
           : patch;
 
-      setTopics((prev) => setTopic(prev, id, full));
-      void supabase
-        .from("topics")
-        .update(full)
-        .eq("id", id)
-        .then(({ error: writeError }) => writeError && fail(writeError.message));
+      const writeError = await writeWithRetries(() => supabase.from("topics").update(full).eq("id", id));
+
+      if (writeError === null) setTopics((prev) => setTopic(prev, id, full));
+
+      return writeError;
     },
-    [fail]
+    []
   );
 
   const removeTopic = useCallback(

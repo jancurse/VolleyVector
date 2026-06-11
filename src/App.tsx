@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { boardsInTopic, createBoard } from "./boards/operations";
@@ -6,6 +6,7 @@ import type { Board } from "./boards/types";
 import { useBoards } from "./boards/useBoards";
 import { BoardActionsMenu } from "./editor/BoardActionsMenu";
 import { BoardEditor } from "./editor/BoardEditor";
+import { clearDraftBackup, loadDraftBackup } from "./editor/draftBackup";
 import { BoardView } from "./editor/BoardView";
 import { Library } from "./library/Library";
 import { allTags } from "./library/items";
@@ -106,6 +107,8 @@ export function App(): JSX.Element {
   const { confirm, dialog } = useConfirm();
 
   const [draft, setDraft] = useState<Board | null>(null);
+  // Bumped when a backup restore replaces the draft in place, so the keyed editor remounts on it.
+  const [draftRevision, setDraftRevision] = useState(0);
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [passwordReady, setPasswordReady] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -235,12 +238,65 @@ export function App(): JSX.Element {
     };
   }, [hashRoute, needsBoardLookup, user, boardsLoading, route, activeSpace, allTeams, setActiveSpace, navigate]);
 
-  const commit = (updated: Board) => {
-    if (boards.some((b) => b.id === updated.id)) updateBoard(updated.id, () => updated);
-    else addBoard(updated);
+  // Offer to restore a localStorage draft backup when an edit URL opens. A backup newer than the saved
+  // board — or one for a board no list holds, i.e. a never-committed draft after a reload — is work a
+  // crash or reload would otherwise have lost: restoring seeds the editor from it, declining discards
+  // it. Checked once per edit entry, so the editor's own backup writes never re-prompt mid-session.
+  const backupChecked = useRef<string | null>(null);
 
+  useEffect(() => {
+    if (!editing || route.kind !== "board") {
+      backupChecked.current = null;
+
+      return;
+    }
+
+    if (hashRoute || !user || boardsLoading || !spaceReady || backupChecked.current === route.boardId) return;
+
+    const id = route.boardId;
+
+    backupChecked.current = id;
+
+    const backup = loadDraftBackup(id);
+
+    if (!backup) return;
+
+    const saved = boards.find((b) => b.id === id);
+
+    // A backup no newer than the saved board is a leftover from a committed session — drop it quietly.
+    if (saved && backup.updatedAt <= saved.updatedAt) {
+      clearDraftBackup(id);
+
+      return;
+    }
+
+    void confirm({
+      title: "Restore unsaved changes?",
+      description: "This board has edits from an earlier session that were never saved.",
+      confirmLabel: "Restore",
+      cancelLabel: "Discard",
+    }).then((restore) => {
+      if (restore) {
+        setDraft(backup);
+        setDraftRevision((r) => r + 1);
+      } else {
+        clearDraftBackup(id);
+      }
+    });
+  }, [editing, hashRoute, user, boardsLoading, spaceReady, route, boards, confirm]);
+
+  // Done's commit: awaited, so a failure keeps the draft on screen (the editor shows the returned
+  // error and retries) and only a verified save drops the draft and navigates to the view.
+  const commit = async (updated: Board): Promise<string | null> => {
+    const error = await (boards.some((b) => b.id === updated.id) ? updateBoard(updated) : addBoard(updated));
+
+    if (error !== null) return error;
+
+    clearDraftBackup(updated.id);
     setDraft(null);
     navigate(boardRoute(activeSpace, allTeams, updated.id, false));
+
+    return null;
   };
 
   const remove = async (id: string) => {
@@ -254,6 +310,7 @@ export function App(): JSX.Element {
     if (!ok) return;
 
     deleteBoard(id);
+    clearDraftBackup(id);
     setDraft(null);
     navigate(homeRoute());
   };
@@ -277,6 +334,7 @@ export function App(): JSX.Element {
   const cancelEdit = () => {
     const id = draft?.id;
 
+    if (id) clearDraftBackup(id);
     setDraft(null);
     navigate(id && boards.some((b) => b.id === id) ? boardRoute(activeSpace, allTeams, id, false) : homeRoute());
   };
@@ -453,7 +511,7 @@ export function App(): JSX.Element {
   if (showEditor && draft) {
     content = (
       <BoardEditor
-        key={draft.id}
+        key={`${draft.id}:${draftRevision}`}
         board={draft}
         onDone={commit}
         onCancel={cancelEdit}
@@ -513,8 +571,11 @@ export function App(): JSX.Element {
         onCancel={() => setEditingTopicId(null)}
         onDelete={() => removeTopic(selectedTopic.id)}
         onUnfileBoard={(boardId) => unfileBoards([boardId])}
-        onDone={(patch) => {
-          topics.updateTopic(selectedTopic.id, { title: patch.title, blocks: patch.blocks });
+        onDone={async (patch) => {
+          const error = await topics.updateTopic(selectedTopic.id, { title: patch.title, blocks: patch.blocks });
+
+          if (error !== null) return error;
+
           setEditingTopicId(null);
           // The first rename away from "New topic" re-mints the slug, so the URL's old handle would go
           // stale; re-point it at the id and let the canonicalisation effect rewrite it to the new slug.
@@ -522,6 +583,8 @@ export function App(): JSX.Element {
             { kind: "topic", space: routeSpaceForSpace(activeSpace, allTeams), topicSlug: selectedTopic.id },
             { replace: true }
           );
+
+          return null;
         }}
       />
     );

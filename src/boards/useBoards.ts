@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
+import { writeWithRetries } from "../supabase/retry";
 import type { BoardRow } from "../supabase/rows";
 import { boardFromRow, boardToInsert, boardToUpdate } from "../supabase/rows";
 import type { Space } from "../workspace/space";
@@ -13,11 +14,12 @@ export type BoardsStore = {
   loading: boolean;
   /** The last load or write error, or null. */
   error: string | null;
-  /** Commit a finished board to the front of the list (a new board from the editor). */
-  addBoard: (board: Board) => void;
+  /** Commit a new board (the editor's Done): awaited and retried, the list updates only on success.
+   *  Resolves to null on success, or the error message — the caller owns the failure UI. */
+  addBoard: (board: Board) => Promise<string | null>;
   deleteBoard: (id: string) => void;
-  /** Apply a pure update to one board; its id is preserved and `updatedAt` is refreshed. */
-  updateBoard: (id: string, update: (board: Board) => Board) => void;
+  /** Commit an edited board, refreshing `updatedAt`. Awaited and retried like `addBoard`. */
+  updateBoard: (board: Board) => Promise<string | null>;
   /** Return the given boards to Unfiled (e.g. removed from a topic, or their topic was deleted). */
   unfileBoards: (boardIds: readonly string[]) => void;
   /** Set or clear a team board's author lock. Only its author or an admin may do this (RLS-enforced). */
@@ -40,8 +42,10 @@ function selectSpaceBoards(space: Space, userId: string) {
     : query.eq("scope", "personal").eq("owner", userId);
 }
 
-/** The active space's boards, loaded from Supabase and written through on each edit. Writes apply
- *  optimistically so the UI stays responsive; a failed write surfaces an error and refetches to
+/** The active space's boards, loaded from Supabase and written through on each edit. The editor's
+ *  commits (`addBoard`/`updateBoard`) are awaited with retries and update the list only on success, so
+ *  a failed Done keeps the user's draft as the sole copy of their work. The small writes apply
+ *  optimistically so the UI stays responsive; one failing surfaces an error and refetches to
  *  reconcile. Access (who may read or write) is enforced by row-level security, never here. */
 export function useBoards(space: Space | null): BoardsStore {
   const { user } = useAuth();
@@ -49,14 +53,6 @@ export function useBoards(space: Space | null): BoardsStore {
   const [boards, setBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Read the latest boards outside a state updater, so a write can look up its target without a stale
-  // closure and without a side effect inside setState.
-  const boardsRef = useRef(boards);
-
-  useEffect(() => {
-    boardsRef.current = boards;
-  }, [boards]);
 
   const refetch = useCallback(async () => {
     if (!space || !user) return;
@@ -110,8 +106,8 @@ export function useBoards(space: Space | null): BoardsStore {
   );
 
   const addBoard = useCallback(
-    (board: Board) => {
-      if (!space || !user) return;
+    async (board: Board): Promise<string | null> => {
+      if (!space || !user) return "No active space to save into.";
 
       const scope = space.kind === "team" ? "team" : "personal";
       const teamId = space.kind === "team" ? space.teamId : null;
@@ -119,32 +115,32 @@ export function useBoards(space: Space | null): BoardsStore {
       // newest-first order even when it carries an older board's timestamps (a duplicate).
       const stamped = { ...board, createdAt: Date.now(), updatedAt: Date.now() };
 
-      setBoards((prev) => [stamped, ...prev]);
-      void supabase
-        .from("boards")
-        .insert(boardToInsert(stamped, user.id, scope, teamId))
-        .then(({ error: writeError }) => writeError && fail(writeError.message));
+      const writeError = await writeWithRetries(() =>
+        supabase.from("boards").insert(boardToInsert(stamped, user.id, scope, teamId))
+      );
+
+      if (writeError === null) setBoards((prev) => [stamped, ...prev]);
+
+      return writeError;
     },
-    [space, user, fail]
+    [space, user]
   );
 
-  const updateBoard = useCallback(
-    (id: string, update: (board: Board) => Board) => {
-      const target = boardsRef.current.find((b) => b.id === id);
+  const updateBoard = useCallback(async (board: Board): Promise<string | null> => {
+    const updated = { ...board, updatedAt: Date.now() };
+    const writeError = await writeWithRetries(() =>
+      supabase.from("boards").update(boardToUpdate(updated)).eq("id", board.id)
+    );
 
-      if (!target) return;
+    // Re-add a board the list no longer holds (e.g. a refetch raced the commit), so a saved board
+    // never vanishes from the UI.
+    if (writeError === null)
+      setBoards((prev) =>
+        prev.some((b) => b.id === board.id) ? prev.map((b) => (b.id === board.id ? updated : b)) : [updated, ...prev]
+      );
 
-      const updated = { ...update(target), id: target.id, updatedAt: Date.now() };
-
-      setBoards((prev) => prev.map((b) => (b.id === id ? updated : b)));
-      void supabase
-        .from("boards")
-        .update(boardToUpdate(updated))
-        .eq("id", id)
-        .then(({ error: writeError }) => writeError && fail(writeError.message));
-    },
-    [fail]
-  );
+    return writeError;
+  }, []);
 
   // Deletion is a grace-archive, not a hard delete: the row stays for 3 months of admin recovery, hidden
   // from every normal view. The optimistic removal from the in-memory list is unchanged.

@@ -147,10 +147,21 @@ export const recordedWrites: WriteCall[] = [];
 export const recordedRpcs: RpcCall[] = [];
 export const recordedInvokes: InvokeCall[] = [];
 
+// The next `count` table writes fail with `message`, so a test can exercise the commit path's retry
+// and failure handling. Reset (to zero) by resetRecorded.
+let failingWrites = 0;
+let failingMessage = "Load failed";
+
+export function failWrites(count: number, message = "Load failed"): void {
+  failingWrites = count;
+  failingMessage = message;
+}
+
 export function resetRecorded(): void {
   recordedWrites.length = 0;
   recordedRpcs.length = 0;
   recordedInvokes.length = 0;
+  failingWrites = 0;
 }
 
 // A chainable query stub. Filter methods record a predicate and return the same object; awaiting it (or
@@ -213,7 +224,15 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
     },
     single: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     maybeSingle: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
-    then: (onfulfilled, onrejected) => Promise.resolve(write ? ok(null) : ok(matches())).then(onfulfilled, onrejected),
+    then: (onfulfilled, onrejected) => {
+      if (write && failingWrites > 0) {
+        failingWrites--;
+
+        return Promise.resolve({ data: null, error: { message: failingMessage } }).then(onfulfilled, onrejected);
+      }
+
+      return Promise.resolve(write ? ok(null) : ok(matches())).then(onfulfilled, onrejected);
+    },
   };
 
   return query;

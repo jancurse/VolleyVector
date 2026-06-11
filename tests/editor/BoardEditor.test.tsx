@@ -8,7 +8,7 @@ import { BoardEditor } from "../../src/editor/BoardEditor";
 function setup() {
   const user = userEvent.setup();
 
-  render(<BoardEditor board={createBoard(0)} onDone={vi.fn()} onCancel={vi.fn()} />);
+  render(<BoardEditor board={createBoard(0)} onDone={vi.fn(async () => null)} onCancel={vi.fn()} />);
 
   return user;
 }
