@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { ArrowUpRight, Circle, MousePointer2, Pencil, Slash, Square, Type, Users } from "lucide-react";
+import { ArrowUpRight, Circle, MousePointer2, Pencil, Pentagon, Slash, Square, Type, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import type { AnnotationTool } from "../court/types";
@@ -17,7 +17,8 @@ const TOOLS: { tool: AnnotationTool; label: string; hotkey: string; Icon: Lucide
   { tool: "line", label: "Draw line", hotkey: "L", Icon: Slash },
   { tool: "arrow", label: "Draw arrow", hotkey: "A", Icon: ArrowUpRight },
   { tool: "rect", label: "Draw rectangle", hotkey: "R", Icon: Square },
-  { tool: "area", label: "Draw area", hotkey: "O", Icon: Circle },
+  { tool: "ellipse", label: "Draw ellipse", hotkey: "O", Icon: Circle },
+  { tool: "polygon", label: "Draw polygon", hotkey: "G", Icon: Pentagon },
   { tool: "free", label: "Draw freehand", hotkey: "P", Icon: Pencil },
   { tool: "text", label: "Add text", hotkey: "T", Icon: Type },
 ];
@@ -29,8 +30,10 @@ export const TOOL_HOTKEYS: Record<string, AnnotationTool> = Object.fromEntries(
 
 const GROUP = "inline-flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-control p-0.5";
 const TOOL =
-  "grid size-9 cursor-pointer place-items-center rounded-sm border-0 bg-transparent text-text-dim transition-colors duration-150 ease-settle hover:text-text";
-const TOOL_ON = "bg-bg text-text shadow-sm";
+  "grid size-9 cursor-pointer place-items-center rounded-sm border-0 transition-[color,background-color,filter] duration-150 ease-settle";
+const TOOL_OFF = "bg-transparent text-text-dim hover:text-text";
+// The armed tool takes the full accent fill (the app's primary-action language), unmissable at a glance.
+const TOOL_ON = "bg-accent text-on-accent shadow-sm hover:brightness-[1.08]";
 
 type AnnotationToolbarProps = {
   tool: AnnotationTool;
@@ -43,7 +46,7 @@ export function AnnotationToolbar({ tool, onToolChange }: AnnotationToolbarProps
       {TOOLS.map(({ tool: value, label, hotkey, Icon }) => (
         <ToolbarButton
           key={value}
-          className={cx(TOOL, tool === value && TOOL_ON)}
+          className={cx(TOOL, tool === value ? TOOL_ON : TOOL_OFF)}
           aria-label={label}
           aria-pressed={tool === value}
           aria-keyshortcuts={hotkey}

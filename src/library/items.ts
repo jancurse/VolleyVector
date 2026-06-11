@@ -45,9 +45,18 @@ export function toLibraryItems(boards: readonly Board[]): LibraryItem[] {
   return boards.map(boardToItem).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-/** Every distinct tag across the items, alphabetically — the set the filter offers. */
-export function collectTags(items: readonly LibraryItem[]): string[] {
-  return [...new Set(items.flatMap((i) => i.tags))].sort((a, b) => a.localeCompare(b));
+export type TagCount = { tag: string; count: number };
+
+/** Every distinct tag across the items with its use count, most used first then alphabetical — the
+    set the filter offers, in the order the quick pills surface it. */
+export function collectTags(items: readonly LibraryItem[]): TagCount[] {
+  const counts = new Map<string, number>();
+
+  for (const item of items) for (const tag of item.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+
+  return [...counts]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
 }
 
 /** Every distinct tag across all boards, alphabetically — the set the editors autocomplete from. */

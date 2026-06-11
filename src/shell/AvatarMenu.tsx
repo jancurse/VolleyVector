@@ -4,6 +4,7 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import type { ThemePreference } from "../theme/useTheme";
 import { Menu, MenuItem } from "../ui/Menu";
 import { ToggleGroup } from "../ui/ToggleGroup";
+import { initials } from "../ui/initials";
 import { cx } from "../ui/styles";
 
 // The single top-right account control: an initials avatar opening a menu with account settings, the
@@ -32,14 +33,6 @@ const AVATAR = cx(
 
 const HEADER = "flex flex-col gap-0.5 px-2 pt-1.5 pb-2";
 const DIVIDER = "my-1 h-px bg-border";
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-
-  if (parts.length === 0) return "?";
-
-  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
-}
 
 export function AvatarMenu({
   displayName,

@@ -48,5 +48,6 @@
 - Every control renders through the `src/ui/` wrappers and the shared class strings in `src/ui/styles.ts`. Never style a control with ad-hoc classes.
 - Use one `primary` Button per view: the single main action.
 - Use `ghost` for secondary actions. Use `text` or an `IconButton` for quiet actions.
-- Use `danger` only for destructive actions. Use `dashed` only for "add" affordances.
+- Use `danger` only for destructive actions.
+- Use `dashed` only for an add affordance that stands where its result will appear, shaped like that result (e.g. the new-board tile in the card grid). An add affordance inside a list or nav takes the list's own row style, quiet and borderless, never a dashed button.
 - A destructive row action is an `IconButton` with an `aria-label`, never a bespoke button with its own class string.

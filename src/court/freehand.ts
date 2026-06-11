@@ -1,17 +1,14 @@
-import { getStroke } from "perfect-freehand";
-
 import { toSvgPoint } from "./geometry";
 import type { NormalizedPoint } from "./geometry";
 
-// Freehand stroke geometry, the one place perfect-freehand is used. A captured path is stored as a
-// thin list of normalized points (simplified on commit to keep the board JSON small) and turned into a
-// filled SVG outline only at render time, so it themes and scales with the rest of the court.
+// Freehand stroke geometry. A captured path is stored as a thin list of normalized points (simplified
+// on commit to keep the board JSON small) and rendered as a constant-width stroked SVG path. Vertices
+// smooth selectively: a gentle turn rounds through midpoints, a sharp turn stays a hard corner, so a
+// drawn circle comes out smooth while a zigzag or triangle keeps its points.
 
-// The brush diameter relative to the chosen stroke width, so a freehand line reads as a pen of about
-// the same weight as a straight line at the same width setting.
-const SIZE_SCALE = 2;
-
-const STROKE_OPTIONS = { thinning: 0.55, smoothing: 0.6, streamline: 0.5, simulatePressure: true, last: true };
+// A vertex turning more than this (radians) is a deliberate corner and stays unrounded. A simplified
+// hand-drawn circle turns ~20–30° per vertex; a zigzag or triangle turns 60° or more.
+const CORNER_ANGLE = Math.PI / 3;
 
 /** Perpendicular distance from `p` to the line through `a`–`b` (used by the RDP simplifier). */
 function pointLineDistance(p: NormalizedPoint, a: NormalizedPoint, b: NormalizedPoint): number {
@@ -54,33 +51,40 @@ export function simplifyStroke(points: readonly NormalizedPoint[]): NormalizedPo
   return rdp(points, 0.004);
 }
 
-/** Turn the perfect-freehand outline into a filled SVG path `d`. */
-function svgPathFromStroke(stroke: number[][]): string {
-  if (stroke.length === 0) return "";
+/** The angle (radians) the direction turns at `b`, arriving from `a` and leaving toward `c`. */
+function turnAngle(a: NormalizedPoint, b: NormalizedPoint, c: NormalizedPoint): number {
+  const vx = b.x - a.x;
+  const vy = b.y - a.y;
+  const wx = c.x - b.x;
+  const wy = c.y - b.y;
+  const lengths = Math.hypot(vx, vy) * Math.hypot(wx, wy);
 
-  const d = stroke.reduce<(string | number)[]>(
-    (acc, [x0, y0], i, arr) => {
-      const [x1, y1] = arr[(i + 1) % arr.length];
+  if (lengths === 0) return 0;
 
-      acc.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
-
-      return acc;
-    },
-    ["M", ...stroke[0], "Q"]
-  );
-
-  d.push("Z");
-
-  return d.join(" ");
+  return Math.acos(Math.min(1, Math.max(-1, (vx * wx + vy * wy) / lengths)));
 }
 
-/** The filled SVG outline `d` for a freehand stroke of `width`, from its normalized points. */
-export function freehandPath(points: readonly NormalizedPoint[], width: number): string {
-  const svgPoints = points.map((p) => {
-    const { x, y } = toSvgPoint(p);
+/** The SVG path `d` for a freehand stroke, to be drawn with a constant-width stroke (never filled).
+ *  Each gentle vertex becomes a quadratic curve through its outgoing midpoint; each sharp vertex stays
+ *  a straight-line corner. */
+export function freehandPath(points: readonly NormalizedPoint[]): string {
+  const pts = points.map((p) => toSvgPoint(p));
 
-    return [x, y];
-  });
+  if (pts.length === 0) return "";
 
-  return svgPathFromStroke(getStroke(svgPoints, { ...STROKE_OPTIONS, size: width * SIZE_SCALE }));
+  const d = [`M ${pts[0].x} ${pts[0].y}`];
+
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i];
+
+    if (turnAngle(pts[i - 1], p, pts[i + 1]) > CORNER_ANGLE) {
+      d.push(`L ${p.x} ${p.y}`);
+    } else {
+      d.push(`Q ${p.x} ${p.y} ${(p.x + pts[i + 1].x) / 2} ${(p.y + pts[i + 1].y) / 2}`);
+    }
+  }
+
+  if (pts.length > 1) d.push(`L ${pts[pts.length - 1].x} ${pts[pts.length - 1].y}`);
+
+  return d.join(" ");
 }

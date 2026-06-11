@@ -29,7 +29,9 @@ type TopicEditorProps = {
   topic: Topic;
   /** Every board, so the editor derives this topic's members live (never copying them into the draft). */
   boards: readonly Board[];
-  onDone: (patch: { title: string; blocks: TopicBlock[] }) => void;
+  /** Commit the draft. Resolves to null on success (the editor then closes), or to an error message —
+   *  the editor stays open with the draft intact and Done retries. */
+  onDone: (patch: { title: string; blocks: TopicBlock[] }) => Promise<string | null>;
   onCancel: () => void;
   onDelete: () => void;
   onUnfileBoard: (boardId: string) => void;
@@ -45,8 +47,20 @@ export function TopicEditor({
 }: TopicEditorProps): JSX.Element {
   const [title, setTitle] = useState(topic.title);
   const [blocks, setBlocks] = useState<TopicBlock[]>(topic.blocks);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const members = boardsInTopic(boards, topic.id);
+
+  const done = async () => {
+    setSaving(true);
+    setSaveError(null);
+
+    const error = await onDone({ title, blocks });
+
+    setSaving(false);
+    if (error !== null) setSaveError(error);
+  };
 
   return (
     <section className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-rise motion-reduce:animate-none">
@@ -64,10 +78,16 @@ export function TopicEditor({
         <Button variant="danger" onClick={onDelete}>
           Delete
         </Button>
-        <Button variant="primary" onClick={() => onDone({ title, blocks })}>
-          Done
+        <Button variant="primary" disabled={saving} onClick={() => void done()}>
+          {saving ? "Saving…" : "Done"}
         </Button>
       </div>
+
+      {saveError && (
+        <p role="alert" className="text-sm text-danger">
+          Couldn’t save: {saveError}. Your changes are still here — press Done to retry.
+        </p>
+      )}
 
       <div className="flex w-full max-w-[860px] flex-col gap-4">
         <div className="flex flex-col gap-4">

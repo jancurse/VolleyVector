@@ -18,7 +18,7 @@ export type EditorShortcuts = {
   onDelete?: () => void;
   /** Ctrl/Cmd+D: duplicate the current selection. */
   onDuplicate?: () => void;
-  /** A tool hotkey (V, M, L, A, R, O, P). */
+  /** A tool hotkey (V, M, L, A, R, O, G, P, T). */
   onTool?: (tool: AnnotationTool) => void;
 };
 

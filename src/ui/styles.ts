@@ -74,7 +74,7 @@ export function iconButtonClass(variant: IconButtonVariant, size: IconButtonSize
 /** A pill toggle: quiet by default, accent-tinted when pressed. Shared by the wrapped tag filter and
     the standalone Toggle control. */
 export const TOGGLE_PILL =
-  "cursor-pointer rounded-pill border border-border bg-control px-2.5 py-1 font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:bg-control-hover hover:text-text data-[pressed]:border-[color-mix(in_srgb,var(--accent)_45%,transparent)] data-[pressed]:bg-accent-weak data-[pressed]:text-text";
+  "inline-flex items-center gap-1.5 cursor-pointer rounded-pill border border-border bg-control px-2.5 py-1 font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:bg-control-hover hover:text-text data-[pressed]:border-[color-mix(in_srgb,var(--accent)_45%,transparent)] data-[pressed]:bg-accent-weak data-[pressed]:text-text";
 
 // ---- Panels, fields, overlays -----------------------------------------------------------------
 

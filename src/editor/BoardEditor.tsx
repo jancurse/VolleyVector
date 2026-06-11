@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX, KeyboardEvent } from "react";
 import { Redo2, Undo2 } from "lucide-react";
 
@@ -29,7 +29,8 @@ import { Court } from "../court/Court";
 import { clampToCourt, snapToGrid, toSvg, VIEW_SIZE } from "../court/geometry";
 import { snapAnnotationPoint } from "../court/snapping";
 import type { NormalizedPoint } from "../court/geometry";
-import type { AnnotationStyle, AnnotationTool } from "../court/types";
+import type { AnnotationTool, NewAnnotationStyle } from "../court/types";
+import { hasDash, hasFill, isDashTool, isFillTool } from "../court/types";
 import type { MarkerRole } from "../court/roles";
 import { TopicPicker } from "../topics/TopicPicker";
 import type { Topic } from "../topics/types";
@@ -44,6 +45,7 @@ import { AnnotationToolbar } from "./AnnotationToolbar";
 import { DEFAULT_ANNOTATION_STYLE } from "./annotationStyle";
 import { CourtToolbar } from "./CourtToolbar";
 import { DescriptionEditor } from "./DescriptionEditor";
+import { saveDraftBackup } from "./draftBackup";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
 import { StepStrip } from "./StepStrip";
@@ -83,7 +85,9 @@ const ARROW_DELTAS: Record<string, NormalizedPoint> = {
 // movement is visible while authoring. Nothing leaves the editor until "Done" commits the draft.
 type BoardEditorProps = {
   board: Board;
-  onDone: (board: Board) => void;
+  /** Commit the draft. Resolves to null on success (the editor then navigates away), or to an error
+   *  message — the editor stays open with the draft intact and Done retries. */
+  onDone: (board: Board) => Promise<string | null>;
   onCancel: () => void;
   /** Omitted for a brand-new board that has nothing to delete yet. */
   onDelete?: () => void;
@@ -105,11 +109,13 @@ export function BoardEditor({
     useDraftHistory(board);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<AnnotationTool>("markers");
-  const [annotationStyle, setAnnotationStyle] = useState<AnnotationStyle>(DEFAULT_ANNOTATION_STYLE);
+  const [annotationStyle, setAnnotationStyle] = useState<NewAnnotationStyle>(DEFAULT_ANNOTATION_STYLE);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [grid, setGrid] = useState(0);
   const [snapOn, setSnapOn] = useState(true);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const frameRef = useRef<HTMLElement>(null);
   // Set while Escape is cancelling the text editor, so the following blur undoes instead of keeping.
   const textCancelled = useRef(false);
@@ -140,6 +146,24 @@ export function BoardEditor({
 
     return (p: NormalizedPoint) => snapAnnotationPoint(p, points, divisions);
   }, [draft, stepIndex, grid, snapOn]);
+
+  // Back the working draft up to localStorage on every change, so a reload mid-edit loses nothing.
+  // The untouched initial draft writes no backup, so merely opening the editor never prompts a restore.
+  useEffect(() => {
+    if (draft !== board) saveDraftBackup(draft);
+  }, [draft, board]);
+
+  // Done commits the draft. While the save is in flight the editor stays open and Done cannot be
+  // pressed again; on failure the draft stays fully intact and Done retries.
+  const done = async () => {
+    setSaving(true);
+    setSaveError(null);
+
+    const error = await onDone(draft);
+
+    setSaving(false);
+    if (error !== null) setSaveError(error);
+  };
 
   const select = useCallback((id: string | null) => {
     setSelectedId(id);
@@ -203,7 +227,7 @@ export function BoardEditor({
   );
 
   const styleAnnotation = useCallback(
-    (patch: Partial<AnnotationStyle>) => {
+    (patch: Partial<NewAnnotationStyle>) => {
       setAnnotationStyle((s) => ({ ...s, ...patch }));
       if (selectedAnnotationId) set((d) => updateAnnotation(d, activeStepId, selectedAnnotationId, patch));
     },
@@ -324,10 +348,16 @@ export function BoardEditor({
             Delete
           </Button>
         )}
-        <Button variant="primary" onClick={() => onDone(draft)}>
-          Done
+        <Button variant="primary" disabled={saving} onClick={() => void done()}>
+          {saving ? "Saving…" : "Done"}
         </Button>
       </div>
+
+      {saveError && (
+        <p role="alert" className="text-sm text-danger">
+          Couldn’t save: {saveError}. Your changes are still here — press Done to retry.
+        </p>
+      )}
 
       <div className="grid grid-cols-[min(74vh,560px)_minmax(0,1fr)] items-stretch gap-[clamp(1rem,3vw,2rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
@@ -379,6 +409,15 @@ export function BoardEditor({
               />
             )}
           </CourtFrame>
+
+          {/* The multi-click polygon gesture is the one tool whose finish isn't obvious, so spell it
+              out while it is armed (a hover tooltip would never surface on touch). */}
+          {tool === "polygon" && (
+            <p className="m-0 text-center text-sm text-text-dim">
+              Click to place corners. Finish on the first or last corner, by double-clicking, or with Enter. Esc
+              cancels.
+            </p>
+          )}
 
           {sequence ? (
             <>
@@ -450,8 +489,28 @@ export function BoardEditor({
             <AnnotationInspector
               style={selectedAnnotation ?? annotationStyle}
               selected={Boolean(selectedAnnotation)}
+              fill={
+                selectedAnnotation
+                  ? hasFill(selectedAnnotation)
+                    ? selectedAnnotation.fill
+                    : undefined
+                  : isFillTool(tool)
+                    ? annotationStyle.fill
+                    : undefined
+              }
+              dash={
+                selectedAnnotation
+                  ? hasDash(selectedAnnotation)
+                    ? (selectedAnnotation.dash ?? "solid")
+                    : undefined
+                  : isDashTool(tool)
+                    ? annotationStyle.dash
+                    : undefined
+              }
               onChangeColor={(color) => styleAnnotation({ color })}
               onChangeWidth={(width) => styleAnnotation({ width })}
+              onChangeFill={(fill) => styleAnnotation({ fill })}
+              onChangeDash={(dash) => styleAnnotation({ dash })}
               onRemove={
                 selectedAnnotation
                   ? () => {

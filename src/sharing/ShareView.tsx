@@ -8,7 +8,7 @@ import { CopyJsonButton } from "../editor/CopyJsonButton";
 import { Button } from "../ui/Button";
 import { cx, MUTED } from "../ui/styles";
 import { useWorkspace } from "../workspace/useWorkspace";
-import { boardByToken, copyBoardToPersonal, copyBoardToTeam } from "./share";
+import { boardByToken, copyBoardToSpace } from "./share";
 import { CopyToPersonalButton } from "./CopyToPersonalButton";
 import { PromoteToTeamMenu } from "./PromoteToTeamMenu";
 
@@ -55,9 +55,12 @@ export function ShareView({ token }: { token: string }): JSX.Element {
 
     actions = (
       <>
-        {user && <CopyToPersonalButton onCopy={() => copyBoardToPersonal(board, user.id)} />}
+        {user && <CopyToPersonalButton onCopy={() => copyBoardToSpace(board, user.id, { kind: "personal" })} />}
         {user && coached.length > 0 && (
-          <PromoteToTeamMenu teams={coached} onPromote={(teamId) => copyBoardToTeam(board, user.id, teamId)} />
+          <PromoteToTeamMenu
+            teams={coached}
+            onPromote={(teamId) => copyBoardToSpace(board, user.id, { kind: "team", teamId })}
+          />
         )}
         <CopyJsonButton board={board} />
       </>

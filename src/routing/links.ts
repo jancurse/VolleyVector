@@ -1,6 +1,6 @@
 import type { Topic } from "../topics/types";
 import type { Space } from "../workspace/space";
-import type { TeamMembership } from "../workspace/useWorkspace";
+import type { TeamRef } from "../workspace/useWorkspace";
 import type { Route, RouteSpace } from "./route";
 
 // Resolve the app's entities (spaces, teams, topics, boards) to and from a `Route`, so components never
@@ -14,30 +14,30 @@ export function topicSlugOf(topic: Topic): string {
 }
 
 /** The URL handle for a team: its persisted slug. */
-export function teamSlugOf(membership: TeamMembership): string {
-  return membership.slug;
+export function teamSlugOf(team: TeamRef): string {
+  return team.slug;
 }
 
-/** Map an active `Space` to its URL form, looking the team's handle up in the membership list. */
-export function routeSpaceForSpace(space: Space, teams: readonly TeamMembership[]): RouteSpace {
+/** Map an active `Space` to its URL form, looking the team's handle up in the team list. */
+export function routeSpaceForSpace(space: Space, teams: readonly TeamRef[]): RouteSpace {
   if (space.kind === "personal") return { kind: "personal" };
 
-  const membership = teams.find((t) => t.teamId === space.teamId);
+  const team = teams.find((t) => t.teamId === space.teamId);
 
-  return { kind: "team", teamSlug: membership ? teamSlugOf(membership) : space.teamId };
+  return { kind: "team", teamSlug: team ? teamSlugOf(team) : space.teamId };
 }
 
 /** Map a URL space back to an active `Space`, resolving the team handle to its id. */
-export function spaceForRouteSpace(routeSpace: RouteSpace, teams: readonly TeamMembership[]): Space {
+export function spaceForRouteSpace(routeSpace: RouteSpace, teams: readonly TeamRef[]): Space {
   if (routeSpace.kind === "personal") return { kind: "personal" };
 
-  const membership = teams.find((t) => teamSlugOf(t) === routeSpace.teamSlug || t.teamId === routeSpace.teamSlug);
+  const team = teams.find((t) => teamSlugOf(t) === routeSpace.teamSlug || t.teamId === routeSpace.teamSlug);
 
-  return { kind: "team", teamId: membership ? membership.teamId : routeSpace.teamSlug };
+  return { kind: "team", teamId: team ? team.teamId : routeSpace.teamSlug };
 }
 
-/** The team id behind a URL handle (slug, or an old id link), or null if it names no team the user belongs to. */
-export function findTeamId(teams: readonly TeamMembership[], slug: string): string | null {
+/** The team id behind a URL handle (slug, or an old id link), or null if it names no team the user can reach. */
+export function findTeamId(teams: readonly TeamRef[], slug: string): string | null {
   return teams.find((t) => teamSlugOf(t) === slug || t.teamId === slug)?.teamId ?? null;
 }
 
@@ -48,13 +48,13 @@ export function findTopicId(topics: readonly Topic[], slug: string): string | nu
 
 /** Rebuild a route's URL handles to the current slugs where they resolve (an old id link canonicalises to
  *  its slug form), leaving any unresolvable handle untouched. */
-export function canonicalRoute(route: Route, teams: readonly TeamMembership[], topics: readonly Topic[]): Route {
+export function canonicalRoute(route: Route, teams: readonly TeamRef[], topics: readonly Topic[]): Route {
   const findTeam = (slug: string) => teams.find((t) => teamSlugOf(t) === slug || t.teamId === slug);
 
   const canonicalSpace = (space: RouteSpace): RouteSpace => {
-    const membership = space.kind === "team" ? findTeam(space.teamSlug) : undefined;
+    const team = space.kind === "team" ? findTeam(space.teamSlug) : undefined;
 
-    return membership ? { kind: "team", teamSlug: teamSlugOf(membership) } : space;
+    return team ? { kind: "team", teamSlug: teamSlugOf(team) } : space;
   };
 
   switch (route.kind) {
@@ -67,29 +67,29 @@ export function canonicalRoute(route: Route, teams: readonly TeamMembership[], t
       return { ...route, space: canonicalSpace(route.space), topicSlug: topic ? topicSlugOf(topic) : route.topicSlug };
     }
     case "team": {
-      const membership = findTeam(route.teamSlug);
+      const team = findTeam(route.teamSlug);
 
-      return membership ? { ...route, teamSlug: teamSlugOf(membership) } : route;
+      return team ? { ...route, teamSlug: teamSlugOf(team) } : route;
     }
     default:
       return route;
   }
 }
 
-export function libraryRoute(space: Space, teams: readonly TeamMembership[]): Route {
+export function libraryRoute(space: Space, teams: readonly TeamRef[]): Route {
   return { kind: "library", space: routeSpaceForSpace(space, teams) };
 }
 
-export function topicRoute(space: Space, teams: readonly TeamMembership[], topic: Topic): Route {
+export function topicRoute(space: Space, teams: readonly TeamRef[], topic: Topic): Route {
   return { kind: "topic", space: routeSpaceForSpace(space, teams), topicSlug: topicSlugOf(topic) };
 }
 
-export function boardRoute(space: Space, teams: readonly TeamMembership[], boardId: string, edit: boolean): Route {
+export function boardRoute(space: Space, teams: readonly TeamRef[], boardId: string, edit: boolean): Route {
   return { kind: "board", space: routeSpaceForSpace(space, teams), boardId, edit };
 }
 
-export function teamRoute(teamId: string, teams: readonly TeamMembership[]): Route {
-  const membership = teams.find((t) => t.teamId === teamId);
+export function teamRoute(teamId: string, teams: readonly TeamRef[]): Route {
+  const team = teams.find((t) => t.teamId === teamId);
 
-  return { kind: "team", teamSlug: membership ? teamSlugOf(membership) : teamId };
+  return { kind: "team", teamSlug: team ? teamSlugOf(team) : teamId };
 }

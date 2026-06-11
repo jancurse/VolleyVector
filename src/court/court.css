@@ -197,6 +197,12 @@
   dominant-baseline: central;
 }
 
+/* The hachure fill: quiet diagonal hatching in the shape's own colour, sitting under its full-strength
+   stroke so the zone reads as marked, not painted. */
+.court-annotation-hachure {
+  opacity: 0.6;
+}
+
 .court-annotation--selected {
   filter: drop-shadow(0 0 6px var(--accent));
 }
@@ -211,6 +217,13 @@
   pointer-events: all;
   fill: transparent;
   cursor: move;
+}
+
+/* A hit target that is only its (wide, transparent) stroke — the freehand path — so the implied fill
+   region between the stroke's ends never captures a press. */
+.court-annotation-hit--stroke {
+  pointer-events: stroke;
+  fill: none;
 }
 
 /* Reshape handles on the selected shape: an accent-ringed dot per endpoint/corner, popping in with
@@ -233,7 +246,9 @@
 }
 
 .court-annotation-handle-hit[data-handle="start"],
-.court-annotation-handle-hit[data-handle="end"] {
+.court-annotation-handle-hit[data-handle="end"],
+.court-annotation-handle-hit[data-handle="mid"],
+.court-annotation-handle-hit[data-handle^="v"] {
   cursor: move;
 }
 
@@ -245,6 +260,37 @@
 .court-annotation-handle-hit[data-handle="ne"],
 .court-annotation-handle-hit[data-handle="sw"] {
   cursor: nesw-resize;
+}
+
+/* The armed-tool tip: a swatch in the next shape's colour and weight (currentColor set per style),
+   trailing the crosshair on a court-surface ring so it reads over the lines on either theme. */
+.court-tool-tip {
+  fill: currentColor;
+  stroke: var(--court-surface);
+  stroke-width: 2.5;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: court-pop 0.15s var(--ease-settle) both;
+}
+
+/* The in-progress polygon's close targets: an accent-ringed dot on the first and last placed vertex,
+   in the reshape handles' language. In closing range it fills with the accent and glows — the visible
+   "click here to finish" cue. */
+.court-poly-target {
+  fill: var(--bg);
+  stroke: var(--accent);
+  stroke-width: 4;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: court-pop 0.15s var(--ease-settle) both;
+  transition: r 0.12s var(--ease-settle);
+}
+
+.court-poly-target--hot {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent));
 }
 
 /* The snap indicator: a small accent dot popping in where a drawn point locks onto a target. */
@@ -282,7 +328,9 @@
   .court-arrow,
   .court-annotation,
   .court-annotation-handle,
+  .court-poly-target,
   .court-snap-dot,
+  .court-tool-tip,
   .court-grid {
     animation: none;
   }

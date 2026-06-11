@@ -18,13 +18,15 @@ type Loaded =
   | { status: "ready"; preview: InvitePreview };
 
 // The one no-account entry point besides a share link: an invite link. It opens its team, then either
-// offers an already signed-in visitor a one-click join or lets a newcomer set up an account with their
-// own email and password. Redeeming runs server-side; on success we reload at the root so the workspace
-// loads fresh and lands the new member in the team.
+// offers an already signed-in visitor a one-click join, or lets a signed-out visitor set up an account
+// or sign in to an existing one (signing in lands them on that same one-click join, confirming which
+// account joins). Redeeming runs server-side; on success we reload at the root so the workspace loads
+// fresh and lands the new member in the team.
 export function InviteAccept({ token }: { token: string }): JSX.Element {
   const { user, signIn } = useAuth();
 
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading", preview: null });
+  const [mode, setMode] = useState<"create" | "signin">("create");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +88,18 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
     finish();
   };
 
+  // Signing in is enough here: the auth listener flips this screen to the signed-in branch, whose
+  // one-click Join confirms which account is joining before anything is redeemed.
+  const signInExisting = async () => {
+    setError(null);
+    setBusy(true);
+
+    const { error: failure } = await signIn(email.trim(), password);
+
+    if (failure) setError(failure);
+    setBusy(false);
+  };
+
   const team = loaded.status === "ready" ? loaded.preview.teamName : "";
   const roleLabel = loaded.status === "ready" && loaded.preview.role === "coach" ? "a coach" : "a player";
 
@@ -123,12 +137,14 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              void signUp();
+              void (mode === "create" ? signUp() : signInExisting());
             }}
             className="flex flex-col gap-5"
           >
             <p className={MUTED}>
-              Set up your account to join {team} as {roleLabel}.
+              {mode === "create"
+                ? `Set up your account to join ${team} as ${roleLabel}.`
+                : `Sign in to your account to join ${team} as ${roleLabel}.`}
             </p>
             <Field label="Email">
               <Input
@@ -145,13 +161,24 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                autoComplete="new-password"
+                autoComplete={mode === "create" ? "new-password" : "current-password"}
                 required
               />
             </Field>
             {error && <p className="m-0 text-sm text-danger">{error}</p>}
             <Button type="submit" disabled={busy || email.trim() === "" || password === ""}>
-              {busy ? "Joining…" : `Join ${team}`}
+              {mode === "create" ? (busy ? "Joining…" : `Join ${team}`) : busy ? "Signing in…" : "Sign in"}
+            </Button>
+            <Button
+              variant="text"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                setMode(mode === "create" ? "signin" : "create");
+                setError(null);
+              }}
+            >
+              {mode === "create" ? "Already have an account? Sign in" : "New here? Set up an account"}
             </Button>
           </form>
         )}

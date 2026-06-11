@@ -9,14 +9,14 @@ This file provides guidance to LLM agents when working with code in this reposit
 VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills. Boards and topics persist to a Supabase backend behind invite-only accounts; every access rule is enforced by row-level security, never by the client.
 
 - **Content model.** One `Board` type backs everything: an ordered, non-empty list of steps over a shared set of marker identities. A one-step board is a **Position** (static). Two or more steps make a **Sequence** (animated). Boards are organised into a nestable tree of **Topics** and cut across by free-form **tags**.
-- **Spaces and roles.** Every board and topic lives in one space: a team's shared library, or a user's private personal space. A global admin creates teams and invites; per team, a coach curates the library and a player views it read-only. A personal board can be shared into a team and opened read-only by a share-token link.
+- **Spaces and roles.** Every board and topic lives in one space: a team's shared library, or a user's private personal space. A global admin creates teams and invites; per team, a coach curates the library and a player views it read-only. One flagged team is the **Inspiration** showcase, an example library every user may browse and copy from. A personal board can be shared into a team and opened read-only by a share-token link.
 - **Spine decisions to respect** (do not relitigate). Marker coordinates are normalized 0–1, never pixels. Marker identity is stable across all steps, so playback interpolates by identity and movement arrows derive from step-to-step deltas. One `Court` component serves both static and animated modes. The court renders as SVG, not canvas.
 
 ### Module map
 
 - `src/boards/`: the `Board` model, pure operations, the Supabase-backed store, the playback hook, and derived arrows.
-- `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
-- `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, inspector, step strip, and description/tag editors.
+- `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the drawn-annotation layer and its gestures, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
+- `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, the marker and annotation inspectors, the annotation toolbar, step strip, and description/tag editors.
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
 - `src/topics/`: the topic-tree model, operations, store, sidebar, and topic view/editor.
 - `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle.
@@ -65,7 +65,7 @@ Use the diagnostics skill after code changes to ensure formatting, linting, and 
 The repo enables the following Claude Code tools (binaries to install are in @docs/development.md):
 
 - **`typescript-lsp`** — use the LSP tool for code intelligence (go-to-definition, find references, hover) instead of grepping for symbols.
-- **`playwright`** — drive the running dev server in a browser to verify the UI visually (screenshots, interaction); look and motion are core to this product, so check changes on screen, not just in tests. A dev build auto-logs-in from `~/.config/volleycoach/dev.env`, so the server opens past the login gate; if that file is missing you hit the gate (set it up per @docs/development.md).
+- **`playwright`** — browser automation against the dev server, for verifying UI changes on screen. **The `playwright` skill is mandatory**: load it before driving the browser. It covers when a visual check pays off and how to keep its token cost contained.
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
 - **`supabase`** — two tools serve the backend:
     - The **Supabase MCP server** (read-only) for inspecting schema, running SELECTs, debugging RLS, and reading logs; the **Supabase CLI** for applying migrations and deploying Edge Functions.
@@ -92,6 +92,7 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 ### Git and Shell
 
 - Do not run git write operations (commit, amend, push, rebase, reset, tag, branch changes) unless the user explicitly asks; otherwise leave changes in the working tree for review.
+- **Write clean, concise commit messages**: a short imperative subject line that says what the change does, a body only when the why is not obvious from the diff. No filler, no restating every file touched.
 - Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
 
 ### Workspaces and worktrees
@@ -99,11 +100,11 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - Each feature has its own folder. Inside it, the feature branch's checkout and its worktrees sit side by side, each in its own sibling folder.
 - Work in the feature branch's checkout or a worktree, never on `main`.
 - **When you create a worktree, use the EnterWorktree tool**, not `git` by hand. It runs a custom hook that creates the worktree in a parallel folder and adds it to VS Code.
-- **Name every branch `<issue_number>-<name>`, where `<issue_number>` is the GitHub issue this work belongs to** (matched to its branch and PR). A worktree shares its feature's issue number, so off `11-follow-ups` use `11-redesign`, never `12-...`. A different number means a different issue.
+- **Name every branch `<issue_number>-<name>`, where `<issue_number>` is the GitHub issue this work belongs to** (matched to its branch and PR). A different number means a different issue.
+- **Name every worktree's branch and folder `<issue_number>-worktree-<slug>`.** A worktree shares its feature's issue number, so off `11-follow-ups` use `11-worktree-redesign`, never `12-...`.
 - **Stay in your workspace.** You belong to exactly one workspace, either the feature branch's primary checkout or a worktree. Edit only its files. Never edit, move, copy into, or delete files in another workspace or branch, and never reach around a guard that blocks this (with Bash file ops, by disabling the guard, or otherwise).
 - **Read your own workspace first.** Reach into the feature branch or another worktree only when you genuinely need context missing from yours, and then only to read.
-- **Integrate with git, never by copying or with a merge commit.** Only do this when the user asks: never commit, rebase, or merge without their approval. Rebase the worktree branch onto the feature branch, then fast-forward: `git rebase <feature>` in the worktree, then `git -C <feature-checkout> merge --ff-only <worktree-branch>`. If `--ff-only` is refused, finish the rebase instead of making a merge commit.
-- **Removing a worktree the user asks to exit.** `ExitWorktree` with `action: "remove"` may warn it "could not verify" the worktree, because it checks the branch against its original base, not the feature tip. Once the worktree tip equals the feature branch (after the rebase + `merge --ff-only` above), that warning is safe to ignore: re-invoke with `discard_changes: true`. The remove hook keeps the branch as a backup and refuses on a dirty tree, so only the folder is discarded. Verify the folder is gone afterwards.
+- **Integrate and close a worktree with the `merge-worktree` skill.** It commits, rebases onto the feature branch, fast-forwards (never a merge commit), and removes the worktree folder while keeping the branch. Only do this when the user asks: never commit, rebase, or merge a worktree without their approval.
 - **Wrong place? Stop and ask.** If you suspect you are in the wrong location, for example branched off `main` instead of the feature branch, stop, tell the user, and ask for help. Do not work around it.
 
 ## Package Management

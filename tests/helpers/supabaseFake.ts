@@ -12,6 +12,7 @@ import { SAMPLE_BOARDS, SAMPLE_TOPICS } from "./sampleData";
 // exercised against the real database, not this fake.
 
 export const TEST_TEAM_ID = "test-team";
+export const SHOWCASE_TEAM_ID = "showcase-team";
 export const TEST_USER = { id: "test-user", email: "coach@volley.test" };
 
 // Seed team boards are authored by someone other than the test user, so ownership-based rules (the
@@ -21,11 +22,16 @@ const BOARD_AUTHOR = "seed-coach";
 const ISO = "2026-01-01T00:00:00.000Z";
 
 // The test user's standing in the active team. Defaults to an admin coach (full access) with a set
-// display name; a test can lower the role, or clear the name to exercise the first-login prompt, and
-// resetFakeAuthz restores the default.
-type Authz = { isAdmin: boolean; role: "coach" | "player"; displayName: string | null };
+// display name and no showcase membership; a test can lower the role, clear the name to exercise the
+// first-login prompt, or grant a showcase role, and resetFakeAuthz restores the default.
+type Authz = {
+  isAdmin: boolean;
+  role: "coach" | "player";
+  showcaseRole: "coach" | "player" | null;
+  displayName: string | null;
+};
 
-const authz: Authz = { isAdmin: true, role: "coach", displayName: "Coach Casey" };
+const authz: Authz = { isAdmin: true, role: "coach", showcaseRole: null, displayName: "Coach Casey" };
 
 export function setFakeAuthz(next: Partial<Authz>): void {
   Object.assign(authz, next);
@@ -34,6 +40,7 @@ export function setFakeAuthz(next: Partial<Authz>): void {
 export function resetFakeAuthz(): void {
   authz.isAdmin = true;
   authz.role = "coach";
+  authz.showcaseRole = null;
   authz.displayName = "Coach Casey";
 }
 
@@ -114,9 +121,20 @@ const SHARED_PERSONAL: BoardRow = {
   share_token: "token-shared-1",
 };
 
+// One board in the showcase team, so the read-only Inspiration space shows a distinct library.
+const SHOWCASE_BOARD: BoardRow = {
+  ...PERSONAL_BOARD,
+  id: "showcase-board-1",
+  owner: BOARD_AUTHOR,
+  scope: "team",
+  team_id: SHOWCASE_TEAM_ID,
+  title: "Inspiration Example",
+  share_token: "token-showcase-1",
+};
+
 type Row = Record<string, unknown>;
 type Predicate = (row: Row) => boolean;
-type DbResult = { data: unknown; error: { message: string } | null };
+type DbResult = { data: unknown; error: { message: string; code?: string } | null };
 
 const ok = (data: unknown): DbResult => ({ data, error: null });
 
@@ -135,10 +153,24 @@ export const recordedWrites: WriteCall[] = [];
 export const recordedRpcs: RpcCall[] = [];
 export const recordedInvokes: InvokeCall[] = [];
 
+// The next `count` table writes fail with `message` (and an optional Postgres error `code`), so a test
+// can exercise the commit path's retry and failure handling. Reset (to zero) by resetRecorded.
+let failingWrites = 0;
+let failingMessage = "Load failed";
+let failingCode: string | undefined;
+
+export function failWrites(count: number, message = "Load failed", code?: string): void {
+  failingWrites = count;
+  failingMessage = message;
+  failingCode = code;
+}
+
 export function resetRecorded(): void {
   recordedWrites.length = 0;
   recordedRpcs.length = 0;
   recordedInvokes.length = 0;
+  failingWrites = 0;
+  failingCode = undefined;
 }
 
 // A chainable query stub. Filter methods record a predicate and return the same object; awaiting it (or
@@ -201,7 +233,18 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
     },
     single: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     maybeSingle: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
-    then: (onfulfilled, onrejected) => Promise.resolve(write ? ok(null) : ok(matches())).then(onfulfilled, onrejected),
+    then: (onfulfilled, onrejected) => {
+      if (write && failingWrites > 0) {
+        failingWrites--;
+
+        return Promise.resolve({ data: null, error: { message: failingMessage, code: failingCode } }).then(
+          onfulfilled,
+          onrejected
+        );
+      }
+
+      return Promise.resolve(write ? ok(null) : ok(matches())).then(onfulfilled, onrejected);
+    },
   };
 
   return query;
@@ -239,7 +282,7 @@ export const DELETED_TEAM = { id: "old-team-1", name: "Old Team" };
 function from(table: string): Query {
   switch (table) {
     case "boards":
-      return makeQuery(table, [...SAMPLE_BOARDS.map(toBoardRow), PERSONAL_BOARD, DELETED_BOARD], null);
+      return makeQuery(table, [...SAMPLE_BOARDS.map(toBoardRow), PERSONAL_BOARD, SHOWCASE_BOARD, DELETED_BOARD], null);
     case "topics":
       return makeQuery(table, [...SAMPLE_TOPICS.map(toTopicRow), DELETED_TOPIC], null);
     case "memberships":
@@ -248,6 +291,9 @@ function from(table: string): Query {
         [
           { team_id: TEST_TEAM_ID, user_id: TEST_USER.id, role: authz.role },
           { team_id: TEST_TEAM_ID, user_id: OTHER_MEMBER.id, role: "player" },
+          ...(authz.showcaseRole
+            ? [{ team_id: SHOWCASE_TEAM_ID, user_id: TEST_USER.id, role: authz.showcaseRole }]
+            : []),
         ],
         null
       );
@@ -255,8 +301,30 @@ function from(table: string): Query {
       return makeQuery(
         table,
         [
-          { id: TEST_TEAM_ID, name: "My Team", slug: "my-team", archived_at: null, deleted_at: null },
-          { id: DELETED_TEAM.id, name: DELETED_TEAM.name, slug: "old-team", archived_at: null, deleted_at: ISO },
+          {
+            id: TEST_TEAM_ID,
+            name: "My Team",
+            slug: "my-team",
+            is_showcase: false,
+            archived_at: null,
+            deleted_at: null,
+          },
+          {
+            id: SHOWCASE_TEAM_ID,
+            name: "Inspiration",
+            slug: "inspiration",
+            is_showcase: true,
+            archived_at: null,
+            deleted_at: null,
+          },
+          {
+            id: DELETED_TEAM.id,
+            name: DELETED_TEAM.name,
+            slug: "old-team",
+            is_showcase: false,
+            archived_at: null,
+            deleted_at: ISO,
+          },
         ],
         { id: "new-team" }
       );

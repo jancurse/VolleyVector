@@ -33,3 +33,11 @@ if (!Element.prototype.setPointerCapture) {
 if (!Element.prototype.releasePointerCapture) {
   Element.prototype.releasePointerCapture = () => {};
 }
+
+// happy-dom's DOMPoint lacks matrixTransform, which the court's client→normalized mapping uses;
+// DOMMatrix.transformPoint is implemented, so route through it.
+if (!DOMPoint.prototype.matrixTransform) {
+  DOMPoint.prototype.matrixTransform = function (matrix?: DOMMatrix): DOMPoint {
+    return DOMMatrix.fromMatrix(matrix).transformPoint(this);
+  };
+}

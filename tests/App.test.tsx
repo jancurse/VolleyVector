@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { App } from "../src/App";
 import { AuthProvider } from "../src/auth/useAuth";
-import { resetFakeAuthz, setFakeAuthz, TEST_USER } from "./helpers/supabaseFake";
+import { SAMPLE_BOARDS } from "./helpers/sampleData";
+import { failWrites, resetFakeAuthz, resetRecorded, setFakeAuthz, TEST_USER } from "./helpers/supabaseFake";
 
 // Mock only the external Supabase client; the real stores, hooks, and components run against it.
 vi.mock("../src/supabase/client", async () => {
@@ -17,6 +18,7 @@ vi.mock("../src/supabase/client", async () => {
 beforeEach(() => {
   localStorage.clear();
   resetFakeAuthz();
+  resetRecorded();
   window.location.hash = "";
   // The path is the source of truth for navigation now, and one happy-dom window is shared across a
   // file's tests, so reset it so each test starts from the landing route.
@@ -321,6 +323,62 @@ describe("the view/edit flow", () => {
   });
 });
 
+// A Done commit is awaited with automatic retries; a failure keeps the editor open with the draft, and
+// a localStorage backup recovers a draft a reload would otherwise have destroyed.
+describe("reliable saves", () => {
+  const POSITION_ID = "sample-perimeter-defence";
+  const BACKUP_KEY = `volleycoach-draft-${POSITION_ID}`;
+
+  test("a failed commit keeps the editor open with the draft, and the next Done retries", async () => {
+    const user = await renderApp();
+
+    await openPosition(user);
+    await openEditor(user);
+
+    const title = screen.getByLabelText("Board title");
+
+    await user.clear(title);
+    await user.type(title, "Press defence");
+
+    failWrites(3); // outlasts the two automatic retries
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(await screen.findByRole("alert", {}, { timeout: 4000 })).toHaveTextContent(/Couldn’t save/);
+    expect(screen.getByLabelText("Board title")).toHaveValue("Press defence");
+
+    await user.click(screen.getByRole("button", { name: "Done" })); // the writes succeed again
+
+    expect(await screen.findByRole("heading", { name: "Press defence" })).toBeInTheDocument();
+    expect(localStorage.getItem(BACKUP_KEY)).toBeNull(); // the successful commit cleared the backup
+  });
+
+  test.each([
+    ["Restore", "Recovered work"],
+    ["Discard", "Sample Position (Base Defence)"],
+  ])("the backup prompt's %s opens the editor with the right draft", async (action, expectedTitle) => {
+    localStorage.setItem(
+      BACKUP_KEY,
+      JSON.stringify({ ...SAMPLE_BOARDS[0], title: "Recovered work", updatedAt: Date.now() })
+    );
+
+    const user = userEvent.setup();
+
+    window.history.replaceState(null, "", `/t/my-team/board/${POSITION_ID}/edit`);
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Restore unsaved changes?" });
+
+    await user.click(within(dialog).getByRole("button", { name: action }));
+
+    await waitFor(() => expect(screen.getByLabelText("Board title")).toHaveValue(expectedTitle));
+    if (action === "Discard") expect(localStorage.getItem(BACKUP_KEY)).toBeNull();
+  });
+});
+
 describe("positions and sequences", () => {
   test("adding a step promotes a Position to a Sequence; removing back to one demotes it", async () => {
     const user = await renderApp();
@@ -540,7 +598,7 @@ describe("topics", () => {
   test("a coach creates a topic and explains it in a text block", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "+ New topic" }));
+    await user.click(screen.getByRole("button", { name: "New topic" }));
     await user.click(screen.getByRole("button", { name: "Edit" }));
 
     const title = screen.getByLabelText("Topic title");
@@ -579,7 +637,7 @@ describe("permissions", () => {
     const user = await renderApp();
 
     expect(screen.queryByRole("button", { name: "New board" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "+ New topic" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New topic" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
 
     await openPosition(user);
@@ -690,29 +748,130 @@ describe("sharing", () => {
     expect(within(dialog).getByRole("button", { name: "Stop sharing" })).toBeInTheDocument();
   });
 
-  test("an owner moves their personal board into a team library", async () => {
+  // Submenus open on hover in the browser, but happy-dom's zero-size rects break the hover tracking, so
+  // these tests drive them with the keyboard (which Base UI supports first-class).
+  test("an owner moves their personal board into a team library from the overflow menu, after confirming", async () => {
     const user = await renderApp();
 
     await openMyBoard(user);
-    await user.click(screen.getByRole("button", { name: "Share" }));
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await screen.findByRole("menuitem", { name: "Move to" });
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
+    await screen.findByRole("menuitem", { name: "My Team" });
+    await user.keyboard("{Enter}");
 
-    const dialog = await screen.findByRole("dialog", { name: "Share board" });
+    const dialog = await screen.findByRole("alertdialog", { name: /Move this board to My Team\?/ });
 
-    await user.click(within(dialog).getByRole("button", { name: "Move to library" }));
+    await user.click(within(dialog).getByRole("button", { name: "Move" }));
 
     // The board leaves the personal library; the view returns to My Boards.
     expect(await screen.findByRole("button", { name: "New board" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /My Personal Position/ })).not.toBeInTheDocument();
   });
 
-  test("a viewer copies a team board into My Boards from the overflow menu", async () => {
+  test("a viewer copies a team board into My Boards through the Copy to menu", async () => {
     const user = await renderApp();
 
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await screen.findByRole("menuitem", { name: "Copy to" });
+    await user.keyboard("{ArrowDown}{ArrowRight}");
+    await screen.findByRole("menuitem", { name: "My Boards" });
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByRole("menuitem", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  test("copying to the space the board is in duplicates it there and opens the copy", async () => {
+    const user = await renderApp();
+
+    await openPosition(user);
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await screen.findByRole("menuitem", { name: "Copy to" });
+    await user.keyboard("{ArrowDown}{ArrowRight}");
+    await screen.findByRole("menuitem", { name: "My Team (duplicate here)" });
+    await user.keyboard("{ArrowDown}{Enter}");
+
+    expect(await screen.findByRole("heading", { name: /Copy of Sample Position/ })).toBeInTheDocument();
+  });
+
+  test("a player viewing a team board gets only the flat personal copy, with no move", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+
+    const user = await renderApp();
+
+    await openPosition(user);
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+
+    expect(screen.getByRole("menuitem", { name: "Copy to My Boards" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Move to" })).not.toBeInTheDocument();
+  });
+
+  test("a failed duplicate stays on the original board and reports the error", async () => {
+    const user = await renderApp();
+
+    await openPosition(user);
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
+    await screen.findByRole("menuitem", { name: "Copy to" });
+    await user.keyboard("{ArrowDown}{ArrowRight}");
+    await screen.findByRole("menuitem", { name: "My Team (duplicate here)" });
+    failWrites(3); // outlasts the two automatic retries
+    await user.keyboard("{ArrowDown}{Enter}");
+
+    expect(await screen.findByRole("menuitem", { name: "Load failed" }, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Sample Position/ })).toBeInTheDocument();
+  });
+});
+
+// The Inspiration showcase is a read-only space every user may browse and copy from; only its curators
+// (coaches of the showcase team) and admins may author in it.
+describe("inspiration space", () => {
+  test("a player browses the showcase read-only and copies a board out of it", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Inspiration" }));
+    await user.click(await screen.findByRole("button", { name: /Inspiration Example/ }));
+
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Board actions" }));
     await user.click(screen.getByRole("menuitem", { name: "Copy to My Boards" }));
 
-    expect(await screen.findByRole("menuitem", { name: "Copied to My Boards" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  test("an admin may author in the showcase", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Inspiration" }));
+
+    expect(await screen.findByRole("button", { name: "New board" })).toBeInTheDocument();
+  });
+
+  test("a non-admin curator manages the Inspiration team through the switcher gear", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player", showcaseRole: "coach" });
+
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Inspiration" }));
+    await user.click(await screen.findByRole("button", { name: "Manage Inspiration" }));
+
+    expect(await screen.findByRole("button", { name: "Invite member" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Join team" })).not.toBeInTheDocument();
+  });
+
+  test("an admin on the showcase roster is offered Leave team, not Join team", async () => {
+    setFakeAuthz({ showcaseRole: "coach" });
+
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Inspiration" }));
+    await user.click(await screen.findByRole("button", { name: "Manage Inspiration" }));
+
+    expect(await screen.findByRole("button", { name: "Leave team" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Join team" })).not.toBeInTheDocument();
   });
 });
 

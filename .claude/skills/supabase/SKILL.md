@@ -16,7 +16,9 @@ description: Read before ANY Supabase work — CLI commands, database migrations
 Two hard rules frame everything below:
 
 - Never run `db push` or `functions deploy` without the user's explicit go-ahead.
-- Never ask the user to paste SQL into the dashboard or paste query results back to you. Migrations are reviewed files; reads are yours to run.
+- Schema changes (DDL) are reviewed migration files, never SQL pasted into the dashboard. Reads are yours to run via MCP; never ask the user to paste query results back to you.
+
+For a **simple data fix** (plain DML, like deleting a few rows), ask the user whether they want to run an ad-hoc query rather than adding a migration script. If they do, hand them the exact statement for the dashboard SQL editor, then verify the result with a read. The MCP server stays read-only: never suggest enabling writes on it.
 
 ## Reading the database
 

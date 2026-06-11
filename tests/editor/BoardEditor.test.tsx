@@ -8,7 +8,7 @@ import { BoardEditor } from "../../src/editor/BoardEditor";
 function setup() {
   const user = userEvent.setup();
 
-  render(<BoardEditor board={createBoard(0)} onDone={vi.fn()} onCancel={vi.fn()} />);
+  render(<BoardEditor board={createBoard(0)} onDone={vi.fn(async () => null)} onCancel={vi.fn()} />);
 
   return user;
 }
@@ -91,5 +91,50 @@ describe("BoardEditor undo/redo", () => {
 
     // The app-level undo did not fire: the marker added before is still there.
     expect(court().getByLabelText("Setter")).toBeInTheDocument();
+  });
+});
+
+describe("BoardEditor fill control", () => {
+  // The fill style only applies to closed shapes, so the control follows the armed tool.
+  test.each([
+    ["Draw rectangle", true],
+    ["Draw ellipse", true],
+    ["Draw polygon", true],
+    ["Draw arrow", false],
+    ["Draw freehand", false],
+  ])("arming %s shows the fill control: %s", async (tool, shown) => {
+    const user = setup();
+
+    await user.click(screen.getByRole("button", { name: tool }));
+    expect(screen.queryByText("Fill") !== null).toBe(shown);
+  });
+});
+
+describe("BoardEditor polygon hint", () => {
+  // The multi-click finish gesture gets spelled out under the court while the tool is armed.
+  test.each([
+    ["Draw polygon", true],
+    ["Draw rectangle", false],
+  ])("arming %s shows the finish hint: %s", async (tool, shown) => {
+    const user = setup();
+
+    await user.click(screen.getByRole("button", { name: tool }));
+    expect(screen.queryByText(/Finish on the first or last corner/) !== null).toBe(shown);
+  });
+});
+
+describe("BoardEditor stroke control", () => {
+  // The dash style applies to every stroked shape but not freehand ink or text.
+  test.each([
+    ["Draw line", true],
+    ["Draw arrow", true],
+    ["Draw polygon", true],
+    ["Draw freehand", false],
+    ["Add text", false],
+  ])("arming %s shows the stroke control: %s", async (tool, shown) => {
+    const user = setup();
+
+    await user.click(screen.getByRole("button", { name: tool }));
+    expect(screen.queryByText("Stroke") !== null).toBe(shown);
   });
 });

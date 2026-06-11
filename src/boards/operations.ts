@@ -240,8 +240,14 @@ const shiftPoint = (p: NormalizedPoint, dx: number, dy: number): NormalizedPoint
 export function translateAnnotation(annotation: Annotation, dx: number, dy: number): Annotation {
   switch (annotation.kind) {
     case "arrow":
-      return { ...annotation, from: shiftPoint(annotation.from, dx, dy), to: shiftPoint(annotation.to, dx, dy) };
+      return {
+        ...annotation,
+        from: shiftPoint(annotation.from, dx, dy),
+        to: shiftPoint(annotation.to, dx, dy),
+        ...(annotation.via && { via: shiftPoint(annotation.via, dx, dy) }),
+      };
     case "free":
+    case "polygon":
       return { ...annotation, points: annotation.points.map((p) => shiftPoint(p, dx, dy)) };
     case "text":
       return { ...annotation, at: shiftPoint(annotation.at, dx, dy) };
@@ -274,11 +280,29 @@ export function copyAnnotationsToNextStep(board: Board, index: number): Board {
   };
 }
 
-// Reshaping grabs one handle of a shape: a line/arrow exposes its two endpoints, a rect/area its four
-// box corners (dragging one keeps the opposite corner anchored). Freehand offers no handles — it only
-// translates as a whole.
+// Reshaping grabs one handle of a shape: a line/arrow exposes its two endpoints (an arrow also a
+// `mid` handle that bends it), a rect/ellipse its four box corners (dragging one keeps the opposite
+// corner anchored), a polygon one handle per vertex (`v0`, `v1`, …). Freehand offers no handles — it
+// only translates as a whole.
 
-export type AnnotationHandle = "start" | "end" | "nw" | "ne" | "se" | "sw";
+export type AnnotationHandle = "start" | "end" | "mid" | "nw" | "ne" | "se" | "sw" | `v${number}`;
+
+// Dragging an arrow's mid handle this close (normalized) to the straight from–to line snaps the
+// arrow back to straight (clears `via`).
+const STRAIGHTEN_DISTANCE = 0.02;
+
+const midpoint = (a: NormalizedPoint, b: NormalizedPoint): NormalizedPoint => ({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
+});
+
+/** The distance from `p` to the segment `a`–`b` (normalized space). */
+function distanceToSegment(p: NormalizedPoint, a: NormalizedPoint, b: NormalizedPoint): number {
+  const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / len2));
+
+  return Math.hypot(p.x - (a.x + t * (b.x - a.x)), p.y - (a.y + t * (b.y - a.y)));
+}
 
 /** The four corners of a two-corner shape's bounding box, keyed by compass handle. */
 function boxCorners(a: NormalizedPoint, b: NormalizedPoint): Record<"nw" | "ne" | "se" | "sw", NormalizedPoint> {
@@ -295,7 +319,7 @@ function boxCorners(a: NormalizedPoint, b: NormalizedPoint): Record<"nw" | "ne" 
   };
 }
 
-const OPPOSITE: Record<"nw" | "ne" | "se" | "sw", "nw" | "ne" | "se" | "sw"> = {
+const OPPOSITE: Partial<Record<AnnotationHandle, "nw" | "ne" | "se" | "sw">> = {
   nw: "se",
   ne: "sw",
   se: "nw",
@@ -314,13 +338,16 @@ export function annotationHandles(annotation: Annotation): { handle: AnnotationH
       return [
         { handle: "start", point: annotation.from },
         { handle: "end", point: annotation.to },
+        { handle: "mid", point: annotation.via ?? midpoint(annotation.from, annotation.to) },
       ];
     case "rect":
-    case "area": {
+    case "ellipse": {
       const corners = boxCorners(annotation.a, annotation.b);
 
       return (["nw", "ne", "se", "sw"] as const).map((handle) => ({ handle, point: corners[handle] }));
     }
+    case "polygon":
+      return annotation.points.map((point, i) => ({ handle: `v${i}` as const, point }));
     case "free":
     case "text":
       return [];
@@ -338,13 +365,39 @@ export function reshapeAnnotation(
   switch (annotation.kind) {
     case "line":
       return handle === "start" ? { ...annotation, a: p } : handle === "end" ? { ...annotation, b: p } : annotation;
-    case "arrow":
-      return handle === "start" ? { ...annotation, from: p } : handle === "end" ? { ...annotation, to: p } : annotation;
-    case "rect":
-    case "area": {
-      if (handle === "start" || handle === "end") return annotation;
+    // The mid handle bends the arrow through the dragged point, snapping back to straight near the
+    // from–to line; moving an endpoint carries `via` along by half the delta, so the midpoint bend
+    // keeps its shape relative to the moving chord.
+    case "arrow": {
+      if (handle === "mid") {
+        const { via: _via, ...straight } = annotation;
 
-      return { ...annotation, a: p, b: boxCorners(annotation.a, annotation.b)[OPPOSITE[handle]] };
+        return distanceToSegment(p, annotation.from, annotation.to) < STRAIGHTEN_DISTANCE
+          ? straight
+          : { ...straight, via: p };
+      }
+
+      if (handle !== "start" && handle !== "end") return annotation;
+
+      const old = handle === "start" ? annotation.from : annotation.to;
+      const moved = handle === "start" ? { ...annotation, from: p } : { ...annotation, to: p };
+
+      return annotation.via
+        ? { ...moved, via: shiftPoint(annotation.via, (p.x - old.x) / 2, (p.y - old.y) / 2) }
+        : moved;
+    }
+    case "rect":
+    case "ellipse": {
+      const anchor = OPPOSITE[handle];
+
+      return anchor ? { ...annotation, a: p, b: boxCorners(annotation.a, annotation.b)[anchor] } : annotation;
+    }
+    case "polygon": {
+      const index = handle.startsWith("v") ? Number(handle.slice(1)) : -1;
+
+      if (index < 0 || index >= annotation.points.length) return annotation;
+
+      return { ...annotation, points: annotation.points.map((point, i) => (i === index ? p : point)) };
     }
     case "free":
     case "text":

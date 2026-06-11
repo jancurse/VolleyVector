@@ -28,7 +28,7 @@ function board(id: string, title: string): Board {
 
 function renderEditor(blocks: TopicBlock[], boards: Board[]) {
   const topic: Topic = { id: "t", title: "Topic", slug: "topic", blocks, parentId: null, order: 0 };
-  const onDone = vi.fn();
+  const onDone = vi.fn<(patch: { title: string; blocks: TopicBlock[] }) => Promise<string | null>>(async () => null);
   const onUnfileBoard = vi.fn();
 
   render(
@@ -105,5 +105,19 @@ describe("TopicEditor", () => {
     await user.click(screen.getByRole("button", { name: "Done" }));
 
     expect(lastBlocks(onDone)).toEqual([{ id: "b", kind: "markdown", text: "B" }]);
+  });
+
+  test("a failed Done shows the error and keeps the draft on screen for a retry", async () => {
+    const { user, onDone } = renderEditor([{ id: "a", kind: "markdown", text: "A" }], []);
+
+    onDone.mockResolvedValueOnce("Load failed");
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Load failed");
+    expect(screen.getByLabelText("Topic title")).toHaveValue("Topic");
+
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(onDone).toHaveBeenCalledTimes(2);
   });
 });
