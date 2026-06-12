@@ -5,7 +5,7 @@ A coach lays out players and the ball on a court, writes markdown notes, and eit
 Boards and topics persist to a Supabase backend behind invite-only accounts: accounts are organised into teams, every user also has a private personal space, and every access rule is enforced in the database by row-level security.
 
 This document is the reference for how the client fits together.
-It is organised by system rather than file by file: the data model, the court, the editor, motion, organisation, the backend and access control, and the app shell.
+It is organised by system rather than file by file: the data model, the court, the editor, motion, organisation, bundle exchange and print, the backend and access control, and the app shell.
 
 ## Spine decisions
 
@@ -205,6 +205,29 @@ type Topic = {
 - The card grid splits in two. `CardGrid` is the plain grid of `LibraryCard`s, used by a topic page's board groups and trailing grid. `BoardGrid` wraps it with one row of filter pills and serves the All Boards surface (`Library`) alone. Two kind pills lead the row (Positions / Sequences, mutually exclusive, pressed again to clear), then quick pills for the most-used tags with a searchable picker for the rest; every pressed pill narrows by intersection, and nothing pressed shows everything. Topic pages render through `CardGrid`, so they carry no filters by construction.
 - Each `LibraryCard` is a button showing a small static court thumbnail (a Sequence shows its first step), the board's kind, title, a count (markers for a Position, steps for a Sequence), and its tag chips. `toLibraryItems` folds the boards into these cards newest-first.
 - Opening a card leaves the browse surface entirely for the full-width view. The browse selection is held above the surface, so closing a board returns to the same place.
+
+## Bundle exchange and print
+
+Content leaves and enters the app two ways: a portable JSON **bundle** that round-trips boards and topics, and a print surface that renders them as paper handouts. Both are pure client features and change no access rule.
+
+### The bundle format
+
+- `src/bundle/` owns the format: one versioned JSON object carrying topics and boards with no server-owned fields (owner, team, sharing, tokens, timestamps). `types.ts` is the single source of truth, mirrored by the board-creator skill's `format.md`.
+- Items reference each other through opaque local `ref` strings (`topicRef`, `parentRef`, `boardRefs`) that resolve within the bundle only. Import mints fresh ids and slugs; export uses the real ids as refs.
+- `FORMAT_VERSION` guards compatibility: an older bundle is normalized on parse with a "skill may be out of date" notice, and a newer one is rejected as the app being out of date.
+- `parseBundle` is strict on structure and lenient on content. Malformed JSON, unknown refs, and missing required fields become readable errors; an out-of-range coordinate clamps to the court, a step missing a marker's position benches that marker, and an invalid annotation is dropped, each with a notice rather than a failure.
+
+### Export and import
+
+- Export builds a bundle at three levels: one board (the board's overflow menu and the share view's copy button), one topic with its whole subtree and member boards (the topic page menu), and the entire active space (the library page-bar menu). Each offers **Copy JSON** and **Download JSON**, and viewing rights suffice, so any user can take everything they can see.
+- **Import JSON…** in the library menu (shown only with create rights) parses pasted or file-picked JSON as it arrives and shows either the validation errors or a preview: the topic tree plus each board as a static court thumbnail, with any notices. Confirming creates-only into the active space through the normal store writes, topics parents-first then boards; nothing is written before then, and a failed write surfaces in the dialog.
+- **Replace from JSON…** in the board menu overwrites one board's content from a single-board bundle while keeping its identity (id, topic, owner, sharing), so iterating on a generated board needs no delete-and-reimport.
+- The **board-creator** project skill (`.claude/skills/board-creator/`) authors bundles from prose or documents and validates them with a standalone script; a test feeds its example bundles through the real parser so the two cannot drift. In development a `#/preview` route renders draft bundles live (see the developer guide).
+
+### Print handouts
+
+- `src/print/` renders a board or topic as a chrome-free paper document at the `…/print` routes, reached from the board menu and the topic export menu; the browser does the printing or PDF saving.
+- `PrintView` forces the light theme and titles the document after its content. `BoardPrint` lays out the courts with their derived arrows and instructions, and `TopicPrint` expands the topic document's board groups through it, covering direct members only (unlike the topic JSON export, which carries the subtree).
 
 ## Backend and access control
 
