@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import type { Board } from "../boards/types";
-import type { Topic } from "../topics/types";
+import type { Note } from "../notes/types";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Textarea } from "../ui/Textarea";
@@ -10,25 +10,25 @@ import { BundlePreview } from "./BundlePreview";
 import { parseBundle } from "./parse";
 
 // The import dialog: paste or pick a bundle JSON file, see it parsed live — either the listed errors,
-// or a preview of the topics and boards it would create (each board as a small static court of its
+// or a preview of the notes and boards it would create (each board as a small static court of its
 // first step) with any leniency notices — then confirm to create everything in the active space.
 // Nothing is written until the confirm, and a failed write surfaces here instead of pretending.
 type ImportDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The active space's topics, for minting non-colliding slugs and sibling orders. */
-  topics: readonly Topic[];
-  /** Create the parsed topics (parents first) then boards; resolves null or the error message. */
-  onImport: (topics: Topic[], boards: Board[]) => Promise<string | null>;
+  /** The active space's notes, for minting non-colliding slugs and sibling orders. */
+  notes: readonly Note[];
+  /** Create the parsed notes (parents first) then boards; resolves null or the error message. */
+  onImport: (notes: Note[], boards: Board[]) => Promise<string | null>;
 };
 
-export function ImportDialog({ open, onOpenChange, topics, onImport }: ImportDialogProps): JSX.Element {
+export function ImportDialog({ open, onOpenChange, notes, onImport }: ImportDialogProps): JSX.Element {
   const [text, setText] = useState("");
   const [importing, setImporting] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const result = useMemo(() => (text.trim() ? parseBundle(text, topics) : null), [text, topics]);
+  const result = useMemo(() => (text.trim() ? parseBundle(text, notes) : null), [text, notes]);
 
   const close = (next: boolean) => {
     if (!next) {
@@ -44,7 +44,7 @@ export function ImportDialog({ open, onOpenChange, topics, onImport }: ImportDia
     setImporting(true);
     setWriteError(null);
 
-    const error = await onImport(result.value.topics, result.value.boards);
+    const error = await onImport(result.value.notes, result.value.boards);
 
     setImporting(false);
     if (error !== null) setWriteError(error);
@@ -88,7 +88,7 @@ export function ImportDialog({ open, onOpenChange, topics, onImport }: ImportDia
       )}
 
       {result?.ok && (
-        <BundlePreview topics={result.value.topics} boards={result.value.boards} notices={result.value.notices} />
+        <BundlePreview notes={result.value.notes} boards={result.value.boards} notices={result.value.notices} />
       )}
 
       {writeError && <p className="m-0 text-sm text-danger">{writeError}</p>}

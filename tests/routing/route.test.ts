@@ -9,8 +9,8 @@ const team = { kind: "team", teamSlug: "acme" } as const;
 const cases: { route: Route; path: string }[] = [
   { route: { kind: "library", space: personal }, path: "/personal" },
   { route: { kind: "library", space: team }, path: "/t/acme" },
-  { route: { kind: "topic", space: personal, topicSlug: "serve-receive" }, path: "/personal/topic/serve-receive" },
-  { route: { kind: "topic", space: team, topicSlug: "rotations" }, path: "/t/acme/topic/rotations" },
+  { route: { kind: "note", space: personal, noteSlug: "serve-receive" }, path: "/personal/note/serve-receive" },
+  { route: { kind: "note", space: team, noteSlug: "rotations" }, path: "/t/acme/note/rotations" },
   { route: { kind: "board", space: personal, boardId: "b-1", edit: false }, path: "/personal/board/b-1" },
   { route: { kind: "board", space: personal, boardId: "b-1", edit: true }, path: "/personal/board/b-1/edit" },
   { route: { kind: "board", space: team, boardId: "b-2", edit: false }, path: "/t/acme/board/b-2" },
@@ -18,10 +18,10 @@ const cases: { route: Route; path: string }[] = [
   { route: { kind: "printBoard", space: personal, boardId: "b-1" }, path: "/personal/board/b-1/print" },
   { route: { kind: "printBoard", space: team, boardId: "b-2" }, path: "/t/acme/board/b-2/print" },
   {
-    route: { kind: "printTopic", space: personal, topicSlug: "serve-receive" },
-    path: "/personal/topic/serve-receive/print",
+    route: { kind: "printNote", space: personal, noteSlug: "serve-receive" },
+    path: "/personal/note/serve-receive/print",
   },
-  { route: { kind: "printTopic", space: team, topicSlug: "rotations" }, path: "/t/acme/topic/rotations/print" },
+  { route: { kind: "printNote", space: team, noteSlug: "rotations" }, path: "/t/acme/note/rotations/print" },
   { route: { kind: "team", teamSlug: "acme" }, path: "/t/acme/team" },
   { route: { kind: "settings" }, path: "/settings" },
   { route: { kind: "admin", sub: "teams" }, path: "/admin/teams" },
@@ -41,9 +41,9 @@ describe("parsePath / buildPath", () => {
     expect(buildPath({ kind: "root" })).toBe("/");
   });
 
-  it("keeps a topic URL flat, so it survives re-nesting", () => {
-    // The slug is the whole topic segment: no ancestor path is encoded.
-    expect(parsePath("/t/acme/topic/deep")).toEqual({ kind: "topic", space: team, topicSlug: "deep" });
+  it("keeps a note URL flat, so it survives re-nesting", () => {
+    // The slug is the whole note segment: no ancestor path is encoded.
+    expect(parsePath("/t/acme/note/deep")).toEqual({ kind: "note", space: team, noteSlug: "deep" });
   });
 
   it("treats board view and edit as distinct routes", () => {
@@ -62,7 +62,7 @@ describe("parsePath / buildPath", () => {
   });
 
   it("round-trips a slug that needs URL-encoding", () => {
-    const route: Route = { kind: "topic", space: { kind: "team", teamSlug: "a b" }, topicSlug: "c/d" };
+    const route: Route = { kind: "note", space: { kind: "team", teamSlug: "a b" }, noteSlug: "c/d" };
 
     expect(parsePath(buildPath(route))).toEqual(route);
   });
@@ -88,10 +88,10 @@ describe("parsePath / buildPath", () => {
 describe("routeSpace", () => {
   it("returns the space for space-bearing routes, including team management", () => {
     expect(routeSpace({ kind: "library", space: team })).toEqual(team);
-    expect(routeSpace({ kind: "topic", space: personal, topicSlug: "x" })).toEqual(personal);
+    expect(routeSpace({ kind: "note", space: personal, noteSlug: "x" })).toEqual(personal);
     expect(routeSpace({ kind: "board", space: team, boardId: "b", edit: false })).toEqual(team);
     expect(routeSpace({ kind: "printBoard", space: team, boardId: "b" })).toEqual(team);
-    expect(routeSpace({ kind: "printTopic", space: personal, topicSlug: "x" })).toEqual(personal);
+    expect(routeSpace({ kind: "printNote", space: personal, noteSlug: "x" })).toEqual(personal);
     expect(routeSpace({ kind: "team", teamSlug: "acme" })).toEqual(team);
   });
 

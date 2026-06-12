@@ -1,26 +1,26 @@
 import type { JSX } from "react";
 
 import type { Board } from "../boards/types";
-import type { Topic } from "../topics/types";
+import type { Note } from "../notes/types";
 import { Markdown } from "../ui/Markdown";
 import { EYEBROW } from "../ui/styles";
 import { BoardPrint } from "./BoardPrint";
 
-// A topic as a printable document: its title, then its blocks in order — prose as-is, and each board
-// group's members expanded through BoardPrint. Like TopicView, board blocks are placement hints: each
-// is intersected with the topic's real members, a board never prints twice, and any member no block
-// placed trails at the end.
-type TopicPrintProps = {
-  topic: Topic;
-  /** Boards filed directly in this topic, newest first. */
+// A note as a printable document: its title, then its blocks in order — prose as-is, and each board
+// group's links expanded through BoardPrint. Like NoteView, the block ids are the links themselves: an
+// id the space's list does not hold is dropped, and a board an earlier group already printed is not
+// printed twice.
+type NotePrintProps = {
+  note: Note;
+  /** Every board of the active space, for resolving the blocks' board ids. */
   boards: readonly Board[];
 };
 
-export function TopicPrint({ topic, boards }: TopicPrintProps): JSX.Element {
+export function NotePrint({ note, boards }: NotePrintProps): JSX.Element {
   const byId = new Map(boards.map((b) => [b.id, b]));
   const shown = new Set<string>();
 
-  const rendered = topic.blocks.map((block) => {
+  const rendered = note.blocks.map((block) => {
     if (block.kind === "markdown") {
       return block.text.trim() ? <Markdown key={block.id}>{block.text}</Markdown> : null;
     }
@@ -39,18 +39,13 @@ export function TopicPrint({ topic, boards }: TopicPrintProps): JSX.Element {
     return group.map((board) => <BoardPrint key={board.id} board={board} />);
   });
 
-  const unplaced = boards.filter((b) => !shown.has(b.id));
-
   return (
     <article className="flex flex-col gap-8">
       <header className="break-inside-avoid break-after-avoid">
-        <p className={EYEBROW}>Topic</p>
-        <h1 className="m-0 font-display text-[2.1rem] font-bold leading-[1.05] tracking-[-0.025em]">{topic.title}</h1>
+        <p className={EYEBROW}>Note</p>
+        <h1 className="m-0 font-display text-[2.1rem] font-bold leading-[1.05] tracking-[-0.025em]">{note.title}</h1>
       </header>
       {rendered}
-      {unplaced.map((board) => (
-        <BoardPrint key={board.id} board={board} />
-      ))}
     </article>
   );
 }

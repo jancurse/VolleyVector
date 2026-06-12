@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { JSX } from "react";
 
-import { boardsInTopic } from "../boards/operations";
 import type { Board } from "../boards/types";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
@@ -17,32 +16,28 @@ import {
   setBlockText,
 } from "./operations";
 import { TextBlockEditor } from "./TextBlockEditor";
-import type { Topic, TopicBlock } from "./types";
+import type { Note, NoteBlock } from "./types";
 
-// Editing a topic, mirroring BoardView → BoardEditor: a working draft of the title and the document's
+// Editing a note, mirroring BoardView → BoardEditor: a working draft of the title and the document's
 // blocks, committed on Done. The block list interleaves markdown prose (edited in place) with board
-// groups, each reorderable and removable. Members come from the live boards prop, never copied into
-// the draft, so an immediate unfile drops a board from every picker at once. An unfile commits straight
-// to the board store, so Cancel does not revert it — it only discards the blocks/title draft. Where a
-// topic sits in the tree (its parent) is a structural concern handled in the sidebar, not here.
-type TopicEditorProps = {
-  topic: Topic;
-  /** Every board, so the editor derives this topic's members live (never copying them into the draft). */
+// groups, each reorderable and removable. A board group's ids are the note's board links, so adding
+// and removing boards here is how a board joins or leaves the note — nothing on the board changes.
+// Where a note sits in the tree (its parent) is a structural concern handled in the sidebar, not here.
+type NoteEditorProps = {
+  note: Note;
+  /** Every board of the active space — all of them addable to a board group. */
   boards: readonly Board[];
   /** Commit the draft. Resolves to null on success (the editor then closes), or to an error message —
    *  the editor stays open with the draft intact and Done retries. */
-  onDone: (patch: { title: string; blocks: TopicBlock[] }) => Promise<string | null>;
+  onDone: (patch: { title: string; blocks: NoteBlock[] }) => Promise<string | null>;
   onCancel: () => void;
-  onUnfileBoard: (boardId: string) => void;
 };
 
-export function TopicEditor({ topic, boards, onDone, onCancel, onUnfileBoard }: TopicEditorProps): JSX.Element {
-  const [title, setTitle] = useState(topic.title);
-  const [blocks, setBlocks] = useState<TopicBlock[]>(topic.blocks);
+export function NoteEditor({ note, boards, onDone, onCancel }: NoteEditorProps): JSX.Element {
+  const [title, setTitle] = useState(note.title);
+  const [blocks, setBlocks] = useState<NoteBlock[]>(note.blocks);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  const members = boardsInTopic(boards, topic.id);
 
   const done = async () => {
     setSaving(true);
@@ -60,8 +55,8 @@ export function TopicEditor({ topic, boards, onDone, onCancel, onUnfileBoard }: 
         <Input
           variant="title"
           value={title}
-          placeholder="Untitled topic"
-          aria-label="Topic title"
+          placeholder="Untitled note"
+          aria-label="Note title"
           onChange={(event) => setTitle(event.target.value)}
         />
         <Button variant="text" onClick={onCancel}>
@@ -120,12 +115,11 @@ export function TopicEditor({ topic, boards, onDone, onCancel, onUnfileBoard }: 
               ) : (
                 <BoardGroupBlock
                   boardIds={block.boardIds}
-                  members={members}
+                  boards={boards}
                   reserved={
                     new Set(blocks.flatMap((b) => (b.kind === "boards" && b.id !== block.id ? b.boardIds : [])))
                   }
                   onChange={(boardIds) => setBlocks((prev) => setBlockBoards(prev, block.id, boardIds))}
-                  onUnfile={onUnfileBoard}
                 />
               )}
             </div>

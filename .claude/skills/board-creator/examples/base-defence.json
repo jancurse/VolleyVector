@@ -1,6 +1,6 @@
 {
-  "formatVersion": 2,
-  "topics": [
+  "formatVersion": 3,
+  "notes": [
     {
       "ref": "t-defense",
       "title": "Defense",
@@ -17,7 +17,6 @@
   "boards": [
     {
       "ref": "b-base-defence",
-      "topicRef": "t-defense",
       "title": "Sample Position (Base Defence)",
       "description": "Defensive position against an outside attack.\n\n- Cross Block\n- **Setter:** Foot on side-line. Main target is hard line hit. Ready for tips.\n- **OH2:** Deep inside the block. Main target: Everything high off the block and long line shots\n- **Lib:** Just outside the block shadow. Main target is the cross power hit.\n- **OH1:** Defending sharp hits and/or tips to middle of court",
       "mode": "positions",

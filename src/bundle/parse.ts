@@ -7,20 +7,20 @@ import { COLOR_KEYS, ROLES } from "../court/roles";
 import type { ColorKey, MarkerRole } from "../court/roles";
 import type { AnnotationDash, AnnotationFill, Marker } from "../court/types";
 import { uniqueSlug } from "../routing/slug";
-import type { Topic, TopicBlock } from "../topics/types";
-import type { BundleBoard, BundleStep, BundleTopic } from "./types";
+import type { Note, NoteBlock } from "../notes/types";
+import type { BundleBoard, BundleNote, BundleStep } from "./types";
 import { FORMAT_VERSION } from "./types";
 
-// Parses bundle JSON into ready-to-insert topics and boards. Strict on structure — malformed JSON,
+// Parses bundle JSON into ready-to-insert notes and boards. Strict on structure — malformed JSON,
 // missing required fields, unknown refs, and ref cycles come back as readable errors — and lenient on
 // content: coordinates clamp to the court, a step missing a marker's position benches that marker, an
 // invalid annotation is dropped, and unknown extra fields are ignored, each with a notice. The result
 // carries fresh ids throughout, so importing is always create-only and never collides.
 
 export type BundleImport = {
-  /** Fresh-id topics, parents before children, slugs and orders minted against the existing tree. */
-  topics: Topic[];
-  /** Fresh-id boards, filed into the new topics (or Unfiled). Owner and timestamps are the caller's. */
+  /** Fresh-id notes, parents before children, slugs and orders minted against the existing tree. */
+  notes: Note[];
+  /** Fresh-id boards, linked from the new notes' blocks. Owner and timestamps are the caller's. */
   boards: Board[];
   /** Non-blocking leniency and version notes to surface beside the preview. */
   notices: string[];
@@ -140,9 +140,9 @@ function parseRotation(
   return { rotation: { kind: "custom", assignment }, dropped };
 }
 
-/** Validate one topic entry into the typed shape, pushing errors; refs are cross-checked by the caller. */
-function parseTopicEntry(raw: unknown, index: number, errors: string[]): BundleTopic | null {
-  const where = `Topic ${index + 1}`;
+/** Validate one note entry into the typed shape, pushing errors; refs are cross-checked by the caller. */
+function parseNoteEntry(raw: unknown, index: number, errors: string[]): BundleNote | null {
+  const where = `Note ${index + 1}`;
 
   if (!isRecord(raw)) {
     errors.push(`${where}: must be an object.`);
@@ -155,9 +155,9 @@ function parseTopicEntry(raw: unknown, index: number, errors: string[]): BundleT
   if (typeof raw.ref !== "string" || raw.ref === "") errors.push(`${where}: "ref" must be a non-empty string.`);
   if (typeof raw.title !== "string") errors.push(`${where}: "title" must be a string.`);
   if (raw.parentRef !== undefined && raw.parentRef !== null && typeof raw.parentRef !== "string")
-    errors.push(`${where}: "parentRef" must be a topic ref or null.`);
+    errors.push(`${where}: "parentRef" must be a note ref or null.`);
 
-  const blocks: BundleTopic["blocks"] = [];
+  const blocks: BundleNote["blocks"] = [];
 
   if (raw.blocks !== undefined) {
     if (!Array.isArray(raw.blocks)) errors.push(`${where}: "blocks" must be an array.`);
@@ -183,7 +183,12 @@ function parseTopicEntry(raw: unknown, index: number, errors: string[]): BundleT
 
 /** Validate one board entry into the typed shape, pushing errors; refs are cross-checked by the caller.
  *  An unusable step rotation is dropped with a notice, like an invalid annotation. */
-function parseBoardEntry(raw: unknown, index: number, errors: string[], notices: string[]): BundleBoard | null {
+function parseBoardEntry(
+  raw: unknown,
+  index: number,
+  errors: string[],
+  notices: string[]
+): (BundleBoard & { topicRef?: string | null }) | null {
   if (!isRecord(raw)) {
     errors.push(`Board ${index + 1}: must be an object.`);
 
@@ -196,8 +201,9 @@ function parseBoardEntry(raw: unknown, index: number, errors: string[], notices:
   if (typeof raw.ref !== "string" || raw.ref === "") errors.push(`${where}: "ref" must be a non-empty string.`);
   if (typeof raw.title !== "string") errors.push(`${where}: "title" must be a string.`);
   if (raw.mode !== "positions" && raw.mode !== "basic") errors.push(`${where}: "mode" must be "positions" or "basic".`);
+  // `topicRef` is the retired version-2 home-topic field, read only to normalize an older bundle.
   if (raw.topicRef !== undefined && raw.topicRef !== null && typeof raw.topicRef !== "string")
-    errors.push(`${where}: "topicRef" must be a topic ref or null.`);
+    errors.push(`${where}: "topicRef" must be a note ref or null.`);
   if (raw.description !== undefined && typeof raw.description !== "string")
     errors.push(`${where}: "description" must be a string.`);
   if (raw.tags !== undefined && !isStringArray(raw.tags)) errors.push(`${where}: "tags" must be a string array.`);
@@ -315,25 +321,29 @@ function parseBoardEntry(raw: unknown, index: number, errors: string[], notices:
 }
 
 /** Check every cross-reference resolves within the bundle and parent refs form no cycle. */
-function checkRefs(topics: readonly BundleTopic[], boards: readonly BundleBoard[], errors: string[]): void {
-  const topicRefs = new Set(topics.map((t) => t.ref));
+function checkRefs(
+  notes: readonly BundleNote[],
+  boards: readonly (BundleBoard & { topicRef?: string | null })[],
+  errors: string[]
+): void {
+  const noteRefs = new Set(notes.map((t) => t.ref));
   const boardRefs = new Set(boards.map((b) => b.ref));
-  const parentOf = new Map(topics.map((t) => [t.ref, t.parentRef ?? null]));
+  const parentOf = new Map(notes.map((t) => [t.ref, t.parentRef ?? null]));
 
-  for (const topic of topics) {
-    if (topic.parentRef != null && !topicRefs.has(topic.parentRef))
-      errors.push(`Topic "${topic.ref}": unknown parentRef "${topic.parentRef}".`);
-    for (const block of topic.blocks ?? [])
+  for (const note of notes) {
+    if (note.parentRef != null && !noteRefs.has(note.parentRef))
+      errors.push(`Note "${note.ref}": unknown parentRef "${note.parentRef}".`);
+    for (const block of note.blocks ?? [])
       if (block.kind === "boards")
         for (const ref of block.boardRefs)
-          if (!boardRefs.has(ref)) errors.push(`Topic "${topic.ref}": unknown board ref "${ref}" in a boards block.`);
+          if (!boardRefs.has(ref)) errors.push(`Note "${note.ref}": unknown board ref "${ref}" in a boards block.`);
 
     const seen = new Set<string>();
-    let current: string | null = topic.ref;
+    let current: string | null = note.ref;
 
-    while (current !== null && topicRefs.has(current)) {
+    while (current !== null && noteRefs.has(current)) {
       if (seen.has(current)) {
-        errors.push(`Topic "${topic.ref}": its parent refs form a cycle.`);
+        errors.push(`Note "${note.ref}": its parent refs form a cycle.`);
         break;
       }
       seen.add(current);
@@ -342,58 +352,58 @@ function checkRefs(topics: readonly BundleTopic[], boards: readonly BundleBoard[
   }
 
   for (const board of boards)
-    if (board.topicRef != null && !topicRefs.has(board.topicRef))
+    if (board.topicRef != null && !noteRefs.has(board.topicRef))
       errors.push(`Board "${board.ref}": unknown topicRef "${board.topicRef}".`);
 }
 
-/** Mint the import: fresh ids, slugs, and orders for topics (parents first), then the boards. */
+/** Mint the import: fresh ids, slugs, and orders for notes (parents first), then the boards. */
 function materialize(
-  topics: readonly BundleTopic[],
+  notes: readonly BundleNote[],
   boards: readonly BundleBoard[],
-  existingTopics: readonly Topic[],
+  existingNotes: readonly Note[],
   notices: string[]
 ): BundleImport {
   const boardIdByRef = new Map(boards.map((b) => [b.ref, crypto.randomUUID()]));
-  const topicIdByRef = new Map<string, string>();
-  const slugs = existingTopics.map((t) => t.slug);
-  // Imported roots append after the existing roots; children of imported topics start at 0.
+  const noteIdByRef = new Map<string, string>();
+  const slugs = existingNotes.map((t) => t.slug);
+  // Imported roots append after the existing roots; children of imported notes start at 0.
   const nextOrder = new Map<string | null, number>([
-    [null, existingTopics.filter((t) => t.parentId === null).reduce((max, t) => Math.max(max, t.order), -1) + 1],
+    [null, existingNotes.filter((t) => t.parentId === null).reduce((max, t) => Math.max(max, t.order), -1) + 1],
   ]);
 
-  const byParent = new Map<string | null, BundleTopic[]>();
+  const byParent = new Map<string | null, BundleNote[]>();
 
-  for (const topic of topics) {
-    const key = topic.parentRef ?? null;
+  for (const note of notes) {
+    const key = note.parentRef ?? null;
 
-    byParent.set(key, [...(byParent.get(key) ?? []), topic]);
+    byParent.set(key, [...(byParent.get(key) ?? []), note]);
   }
 
-  const walk = (parentRef: string | null): BundleTopic[] =>
+  const walk = (parentRef: string | null): BundleNote[] =>
     (byParent.get(parentRef) ?? []).flatMap((t) => [t, ...walk(t.ref)]);
 
-  const newTopics = walk(null).map((topic): Topic => {
+  const newNotes = walk(null).map((note): Note => {
     const id = crypto.randomUUID();
 
-    topicIdByRef.set(topic.ref, id);
+    noteIdByRef.set(note.ref, id);
 
-    const parentId = topic.parentRef != null ? (topicIdByRef.get(topic.parentRef) ?? null) : null;
+    const parentId = note.parentRef != null ? (noteIdByRef.get(note.parentRef) ?? null) : null;
     const order = nextOrder.get(parentId) ?? 0;
 
     nextOrder.set(parentId, order + 1);
 
-    const slug = uniqueSlug(topic.title, slugs);
+    const slug = uniqueSlug(note.title, slugs);
 
     slugs.push(slug);
 
-    const blocks = (topic.blocks ?? []).map(
-      (block): TopicBlock =>
+    const blocks = (note.blocks ?? []).map(
+      (block): NoteBlock =>
         block.kind === "markdown"
           ? { id: crypto.randomUUID(), kind: "markdown", text: block.text }
           : { id: crypto.randomUUID(), kind: "boards", boardIds: block.boardRefs.map((r) => boardIdByRef.get(r)!) }
     );
 
-    return { id, title: topic.title, slug, blocks, parentId, order };
+    return { id, title: note.title, slug, blocks, parentId, order };
   });
 
   const newBoards = boards.map((board): Board => {
@@ -440,7 +450,6 @@ function materialize(
       markers: board.markers,
       steps,
       tags: board.tags ?? [],
-      topicId: board.topicRef != null ? (topicIdByRef.get(board.topicRef) ?? null) : null,
       owner: null,
       authorLocked: false,
       shared: false,
@@ -452,11 +461,11 @@ function materialize(
     };
   });
 
-  return { topics: newTopics, boards: newBoards, notices };
+  return { notes: newNotes, boards: newBoards, notices };
 }
 
-/** Parse bundle JSON into ready-to-insert content, against the active space's existing topics. */
-export function parseBundle(text: string, existingTopics: readonly Topic[]): ParseResult {
+/** Parse bundle JSON into ready-to-insert content, against the active space's existing notes. */
+export function parseBundle(text: string, existingNotes: readonly Note[]): ParseResult {
   const errors: string[] = [];
   const notices: string[] = [];
 
@@ -484,26 +493,40 @@ export function parseBundle(text: string, existingTopics: readonly Topic[]): Par
   if (version < FORMAT_VERSION)
     notices.push(`This bundle uses an older format (version ${version}); whatever wrote it may be out of date.`);
 
-  if (!Array.isArray(root.topics)) errors.push('"topics" must be an array.');
+  // Version 2 carried the notes under a "topics" key; either key parses, version 3 writes "notes".
+  const rawNotes = Array.isArray(root.notes) ? root.notes : root.topics;
+
+  if (!Array.isArray(rawNotes)) errors.push(version < 3 ? '"topics" must be an array.' : '"notes" must be an array.');
   if (!Array.isArray(root.boards)) errors.push('"boards" must be an array.');
   if (errors.length > 0) return { ok: false, errors };
 
-  const topics = (root.topics as unknown[]).map((raw, i) => parseTopicEntry(raw, i, errors));
-  const boards = (root.boards as unknown[]).map((raw, i) => parseBoardEntry(raw, i, errors, notices));
+  const notes = (rawNotes as unknown[]).map((raw, i) => parseNoteEntry(raw, i, errors));
+  const boards = ((root.boards as unknown[]) ?? []).map((raw, i) => parseBoardEntry(raw, i, errors, notices));
 
   const seenRefs = new Set<string>();
 
-  for (const entry of [...topics, ...boards]) {
+  for (const entry of [...notes, ...boards]) {
     if (!entry) continue;
     if (seenRefs.has(entry.ref)) errors.push(`Duplicate ref "${entry.ref}".`);
     seenRefs.add(entry.ref);
   }
 
-  const cleanTopics = topics.filter((t) => t !== null);
+  const cleanNotes = notes.filter((t) => t !== null);
   const cleanBoards = boards.filter((b) => b !== null);
 
-  if (errors.length === 0) checkRefs(cleanTopics, cleanBoards, errors);
+  if (errors.length === 0) checkRefs(cleanNotes, cleanBoards, errors);
   if (errors.length > 0) return { ok: false, errors };
 
-  return { ok: true, value: materialize(cleanTopics, cleanBoards, existingTopics, notices) };
+  // A version-2 board's home-topic membership becomes a note link: a board no block of its note
+  // already references is appended in one trailing board group, like the server-side backfill.
+  const normalized = cleanNotes.map((note) => {
+    const referenced = new Set((note.blocks ?? []).flatMap((b) => (b.kind === "boards" ? b.boardRefs : [])));
+    const filed = cleanBoards.filter((b) => b.topicRef === note.ref && !referenced.has(b.ref)).map((b) => b.ref);
+
+    return filed.length > 0
+      ? { ...note, blocks: [...(note.blocks ?? []), { kind: "boards" as const, boardRefs: filed }] }
+      : note;
+  });
+
+  return { ok: true, value: materialize(normalized, cleanBoards, existingNotes, notices) };
 }

@@ -1,10 +1,9 @@
 {
-  "formatVersion": 2,
-  "topics": [],
+  "formatVersion": 3,
+  "notes": [],
   "boards": [
     {
       "ref": "b-r1-receive",
-      "topicRef": null,
       "title": "Serve Reception: Rotation 1 (5-1)",
       "description": "Standard 5-1 receive formation with the setter in zone 1.\n\n- The setter stacks just right of OH1, no deeper than the overlap needs, with a free lane to the net.\n- OH2, the libero, and OH1 form the three-player receive line, left to right.\n- MB1 and OPP start at the attack line, ready to approach after the serve.\n- Overlap: OH1 stays right of MB1 and in front of the setter. OH2 stays left of the libero.",
       "mode": "positions",

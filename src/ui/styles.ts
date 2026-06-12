@@ -78,7 +78,7 @@ export const TOGGLE_PILL =
 
 // ---- Panels, fields, overlays -----------------------------------------------------------------
 
-/** The bordered card the inspector, description, tag editor, and topic picker share. */
+/** The bordered card the inspector, description, tag editor, and note picker share. */
 export const PANEL =
   "flex flex-col gap-[0.9rem] rounded-xl border border-border bg-panel pt-[1.1rem] px-[1.15rem] pb-[1.25rem]";
 
@@ -98,10 +98,10 @@ export const TAG_CHIP =
 /** The spaced mono uppercase eyebrow above a title. */
 export const EYEBROW = "m-0 mb-[0.4rem] font-mono text-xs font-medium uppercase tracking-[0.28em] text-text-dim";
 
-/** The large display title shared by the board view, library, and topic pages. */
+/** The large display title shared by the board view, library, and note pages. */
 export const TITLE = "m-0 font-display text-[clamp(1.7rem,3.5vw,2.6rem)] font-bold leading-[1.05] tracking-[-0.025em]";
 
-/** The centred, max-width column the library and topic pages share. */
+/** The centred, max-width column the library and note pages share. */
 export const PAGE =
   "mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(1rem,3vh,1.6rem)] animate-rise motion-reduce:animate-none";
 

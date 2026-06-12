@@ -211,6 +211,7 @@ describe("tags", () => {
     await openPosition(user);
     await openEditor(user);
 
+    await user.click(screen.getByRole("button", { name: "Add tag" })); // arm the ghost chip
     await user.type(screen.getByLabelText("Add tag"), "Press{enter}");
     await user.click(screen.getByRole("button", { name: "Done" }));
     await user.click(screen.getByRole("button", { name: /Library/ }));
@@ -224,6 +225,7 @@ describe("tags", () => {
     await openSequence(user); // the Sequence has no "defense" tag; the sample Position does
     await openEditor(user);
 
+    await user.click(screen.getByRole("button", { name: "Add tag" })); // arm the ghost chip
     await user.type(screen.getByLabelText("Add tag"), "Def");
     await user.click(await screen.findByRole("option", { name: "defense" }));
 
@@ -578,23 +580,23 @@ describe("avatar menu", () => {
 
 // The flat seed files "Sample Position (Base Defence)" under Defense and "Sample Drill (Serve Receive
 // & Sideout)" under Drills, so the sidebar opens populated. A board card's title is an h3, queried by heading role to stay
-// distinct from the topic-page curation controls.
-describe("topics", () => {
-  test("the sidebar navigates All Boards and a topic", async () => {
+// distinct from the note-page curation controls.
+describe("notes", () => {
+  test("the sidebar navigates All Boards and a note", async () => {
     const user = await renderApp();
 
     expect(screen.getByRole("button", { name: "All Boards" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
-    expect(screen.getByText(/who digs cross-court/i)).toBeInTheDocument(); // the topic's markdown explanation
+    expect(screen.getByText(/who digs cross-court/i)).toBeInTheDocument(); // the note's markdown explanation
     expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Sample Drill (Serve Receive & Sideout)", level: 3 })
     ).not.toBeInTheDocument();
   });
 
-  test("nesting a topic, the parent page still lists only its directly-filed boards", async () => {
+  test("nesting a note, the parent page still lists only its directly-filed boards", async () => {
     const user = await renderApp();
 
     // Nest Drills under Defense from the sidebar menu; "Sample Drill" stays filed in Drills, now a descendant.
@@ -606,7 +608,7 @@ describe("topics", () => {
     expect(screen.queryByRole("heading", { name: "Sample Drill (Serve Receive & Sideout)" })).not.toBeInTheDocument(); // descendant
   });
 
-  test("a new board is unfiled: listed in All Boards but under no topic", async () => {
+  test("a new board is unfiled: listed in All Boards but under no note", async () => {
     const user = await renderApp();
 
     await user.click(screen.getByRole("button", { name: "New board" }));
@@ -618,50 +620,50 @@ describe("topics", () => {
     expect(screen.getByRole("heading", { name: "Loose ball", level: 3 })).toBeInTheDocument(); // in All Boards
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
-    expect(screen.queryByRole("heading", { name: "Loose ball" })).not.toBeInTheDocument(); // filed under no topic
+    expect(screen.queryByRole("heading", { name: "Loose ball" })).not.toBeInTheDocument(); // filed under no note
   });
 
-  test("filing a board under a topic from the editor moves it there", async () => {
+  test("adding a board to a note from its view links it there", async () => {
     const user = await renderApp();
 
     await openSequence(user);
-    await openEditor(user);
 
-    await user.click(screen.getByRole("combobox", { name: "Filed under" }));
-    await user.click(screen.getByRole("option", { name: "Rotations" }));
-    await user.click(screen.getByRole("button", { name: "Done" }));
+    // The view's quiet backlinks row: the drill already appears in Drills; add it to Rotations too.
+    const appearsIn = screen.getByRole("navigation", { name: "Appears in" });
+
+    expect(within(appearsIn).getByRole("button", { name: "Drills" })).toBeInTheDocument();
+    await user.click(within(appearsIn).getByRole("button", { name: "Add to note" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Rotations" }));
+
     await user.click(screen.getByRole("button", { name: /Library/ }));
-
     await user.click(screen.getByRole("button", { name: "Rotations" }));
     expect(
       screen.getByRole("heading", { name: "Sample Drill (Serve Receive & Sideout)", level: 3 })
     ).toBeInTheDocument();
   });
 
-  test("unfiling a board from the topic editor returns it to All Boards", async () => {
+  test("removing a board from a note's group drops it from the page, not the library", async () => {
     const user = await renderApp();
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
     await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByRole("button", { name: "+ Board group" }));
-    await user.click(screen.getByRole("button", { name: "Add Sample Position (Base Defence)" }));
-    await user.click(screen.getByRole("button", { name: "Unfile Sample Position (Base Defence)" }));
+    await user.click(screen.getByRole("button", { name: "Remove Sample Position (Base Defence) from group" }));
     await user.click(screen.getByRole("button", { name: "Done" }));
 
-    // The unfiled board has left the Defense page entirely...
+    // The board has left the Defense page entirely...
     expect(screen.queryByRole("heading", { name: "Sample Position (Base Defence)" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "All Boards" }));
     expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument();
   });
 
-  test("a coach creates a topic and explains it in a text block", async () => {
+  test("a coach creates a note and explains it in a text block", async () => {
     const user = await renderApp();
 
-    await user.click(screen.getByRole("button", { name: "New topic" }));
+    await user.click(screen.getByRole("button", { name: "New note" }));
     await user.click(screen.getByRole("button", { name: "Edit" }));
 
-    const title = screen.getByLabelText("Topic title");
+    const title = screen.getByLabelText("Note title");
 
     await user.clear(title);
     await user.type(title, "Transition");
@@ -673,17 +675,17 @@ describe("topics", () => {
     expect(screen.getByText("Out of system play.")).toBeInTheDocument();
   });
 
-  test("deleting a topic unfiles its boards and drops it from the sidebar", async () => {
+  test("deleting a note drops it from the sidebar, leaving its boards in the library", async () => {
     const user = await renderApp();
 
     await user.click(screen.getByRole("button", { name: "Defense" }));
-    await user.click(screen.getByRole("button", { name: "Topic actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Delete topic…" }));
-    const dialog = await screen.findByRole("alertdialog", { name: /Delete this topic/ });
+    await user.click(screen.getByRole("button", { name: "Note actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete note…" }));
+    const dialog = await screen.findByRole("alertdialog", { name: /Delete this note/ });
 
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
-    // Deleting the topic returns to All Boards; its board survives there, just no longer filed.
+    // Deleting the note returns to All Boards; the boards it referenced survive there.
     expect(screen.queryByRole("button", { name: "Defense" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Sample Position (Base Defence)", level: 3 })).toBeInTheDocument();
   });
@@ -697,7 +699,7 @@ describe("permissions", () => {
     const user = await renderApp();
 
     expect(screen.queryByRole("button", { name: "New board" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "New topic" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New note" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
 
     await openPosition(user);
@@ -761,7 +763,7 @@ describe("team management", () => {
   });
 });
 
-// Every user has a private personal space (My Boards / My Topics) alongside the teams they belong to,
+// Every user has a private personal space (My Boards / My Notes) alongside the teams they belong to,
 // reached from the sidebar space switcher. It is the owner's alone, so it always allows authoring but
 // never team management.
 describe("personal space", () => {

@@ -4,20 +4,20 @@ import { breadcrumbs, collapseCrumbs } from "../../src/shell/breadcrumb";
 import type { Crumb } from "../../src/shell/breadcrumb";
 import type { Board } from "../../src/boards/types";
 import type { Route } from "../../src/routing/route";
-import type { Topic } from "../../src/topics/types";
+import type { Note } from "../../src/notes/types";
 import type { TeamMembership } from "../../src/workspace/useWorkspace";
 
 const teams: TeamMembership[] = [{ teamId: "team-1", teamName: "Falcons", slug: "falcons", role: "coach" }];
 
 // A three-level chain: Attack > Tempo > Quick.
-function topic(id: string, parentId: string | null, title: string): Topic {
+function note(id: string, parentId: string | null, title: string): Note {
   return { id, parentId, title, slug: id, blocks: [], order: 0 };
 }
 
-const base: Topic[] = [
-  topic("t-attack", null, "Attack"),
-  topic("t-tempo", "t-attack", "Tempo"),
-  topic("t-quick", "t-tempo", "Quick"),
+const base: Note[] = [
+  note("t-attack", null, "Attack"),
+  note("t-tempo", "t-attack", "Tempo"),
+  note("t-quick", "t-tempo", "Quick"),
 ];
 
 const teamSpace = { kind: "team", teamSlug: "team-1" } as const;
@@ -29,8 +29,8 @@ describe("breadcrumbs", () => {
     expect(breadcrumbs(route, teams, base, []).map((c) => c.label)).toEqual(["Falcons"]);
   });
 
-  it("walks the live topic ancestor chain, root first", () => {
-    const route: Route = { kind: "topic", space: teamSpace, topicSlug: "t-quick" };
+  it("walks the live note ancestor chain, root first", () => {
+    const route: Route = { kind: "note", space: teamSpace, noteSlug: "t-quick" };
 
     expect(breadcrumbs(route, teams, base, []).map((c) => c.label)).toEqual(["Falcons", "Attack", "Tempo", "Quick"]);
   });
@@ -38,28 +38,16 @@ describe("breadcrumbs", () => {
   it("re-derives the chain after a re-nest, since the path is never encoded", () => {
     // Re-nest Quick directly under Attack (Tempo drops out of its chain).
     const renested = base.map((t) => (t.id === "t-quick" ? { ...t, parentId: "t-attack" } : t));
-    const route: Route = { kind: "topic", space: teamSpace, topicSlug: "t-quick" };
+    const route: Route = { kind: "note", space: teamSpace, noteSlug: "t-quick" };
 
     expect(breadcrumbs(route, teams, renested, []).map((c) => c.label)).toEqual(["Falcons", "Attack", "Quick"]);
   });
 
-  it("ends a board route with the board title, under its home topic's chain", () => {
-    const board = { id: "b-1", title: "Quick set", topicId: "t-tempo" } as Board;
+  it("ends a board route with the board title under the space alone (a board has no home note)", () => {
+    const board = { id: "b-1", title: "Quick set" } as Board;
     const route: Route = { kind: "board", space: teamSpace, boardId: "b-1", edit: false };
 
-    expect(breadcrumbs(route, teams, base, [board]).map((c) => c.label)).toEqual([
-      "Falcons",
-      "Attack",
-      "Tempo",
-      "Quick set",
-    ]);
-  });
-
-  it("shows an unfiled board under the space alone", () => {
-    const board = { id: "b-2", title: "Loose ball", topicId: null } as Board;
-    const route: Route = { kind: "board", space: { kind: "personal" }, boardId: "b-2", edit: false };
-
-    expect(breadcrumbs(route, teams, base, [board]).map((c) => c.label)).toEqual(["Personal", "Loose ball"]);
+    expect(breadcrumbs(route, teams, base, [board]).map((c) => c.label)).toEqual(["Falcons", "Quick set"]);
   });
 
   it("trails a team's management page under its library", () => {

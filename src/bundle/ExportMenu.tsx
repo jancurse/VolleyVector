@@ -6,7 +6,7 @@ import { Menu, MenuItem } from "../ui/Menu";
 import type { Bundle } from "./types";
 import { useBundleExport } from "./useBundleExport";
 
-// The page-bar overflow menu of the library and topic pages: Copy JSON and Download JSON export the
+// The page-bar overflow menu of the library and note pages: Copy JSON and Download JSON export the
 // surface's bundle, and the library appends its Import JSON… item through `children`. Export needs no
 // edit rights — anyone who can view the content may take it with them.
 type ExportMenuProps = {

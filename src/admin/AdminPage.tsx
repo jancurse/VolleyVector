@@ -27,7 +27,7 @@ import { useAdmin } from "./useAdmin";
 // The admin area: concerns that span teams rather than living inside one. A dedicated sidebar entry,
 // visible only to a global admin, opens it. Three sub-pages share one `useAdmin` snapshot and render as
 // tables: Teams (create, archive, delete), Accounts (delete non-admin accounts), and Recovery (restore
-// grace-archived teams, accounts, boards, and topics). RLS has the final say on every write.
+// grace-archived teams, accounts, boards, and notes). RLS has the final say on every write.
 type AdminPageProps = {
   sub: AdminSub;
   onNavigateSub: (sub: AdminSub) => void;
@@ -145,7 +145,7 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
     deletedTeams.length > 0 ||
     deletedProfiles.length > 0 ||
     admin.deletedBoards.length > 0 ||
-    admin.deletedTopics.length > 0;
+    admin.deletedNotes.length > 0;
 
   return (
     <section className={PAGE}>
@@ -289,9 +289,9 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
                 onRestore={(id) => void act(admin.restoreBoard(id))}
               />
               <RecoveryGroup
-                title="Topics"
-                items={admin.deletedTopics.map((i) => ({ id: i.id, label: i.title || "Untitled" }))}
-                onRestore={(id) => void act(admin.restoreTopic(id))}
+                title="Notes"
+                items={admin.deletedNotes.map((i) => ({ id: i.id, label: i.title || "Untitled" }))}
+                onRestore={(id) => void act(admin.restoreNote(id))}
               />
             </div>
           )}

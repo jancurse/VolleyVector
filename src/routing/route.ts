@@ -1,7 +1,7 @@
 // Path-based routing for the authenticated app. The URL is the single source of truth for the active
 // space, the browse selection, and the open board. This module is pure: `parsePath` reads a pathname
 // into a `Route`, `buildPath` writes one back, and the two round-trip. `useRoute` holds the live route
-// and `links.ts` resolves app entities (spaces, topics, boards) to and from a `Route`.
+// and `links.ts` resolves app entities (spaces, notes, boards) to and from a `Route`.
 //
 // The share and invite links keep their own hash routes (`#/share/...`, `#/invite/...`). They are
 // orthogonal to this path router: `App` checks them first, and this module never touches the hash.
@@ -17,11 +17,11 @@ export type Route =
   // loads and `replaceState`s to a concrete library route.
   | { kind: "root" }
   | { kind: "library"; space: RouteSpace }
-  | { kind: "topic"; space: RouteSpace; topicSlug: string }
+  | { kind: "note"; space: RouteSpace; noteSlug: string }
   | { kind: "board"; space: RouteSpace; boardId: string; edit: boolean }
-  // The chrome-free print/handout surfaces: a board or a topic rendered as a paper document.
+  // The chrome-free print/handout surfaces: a board or a note rendered as a paper document.
   | { kind: "printBoard"; space: RouteSpace; boardId: string }
-  | { kind: "printTopic"; space: RouteSpace; topicSlug: string }
+  | { kind: "printNote"; space: RouteSpace; noteSlug: string }
   | { kind: "settings" }
   | { kind: "team"; teamSlug: string }
   | { kind: "admin"; sub: AdminSub }
@@ -72,10 +72,12 @@ export function parsePath(pathname: string): Route {
     return space.kind === "team" ? { kind: "team", teamSlug: space.teamSlug } : notFound;
   }
 
-  if (rest[0] === "topic" && rest.length === 2) return { kind: "topic", space, topicSlug: rest[1] };
+  // "topic" is the segment's legacy name; an old link parses, then canonicalises to its /note/ form.
+  if ((rest[0] === "note" || rest[0] === "topic") && rest.length === 2)
+    return { kind: "note", space, noteSlug: rest[1] };
 
-  if (rest[0] === "topic" && rest.length === 3 && rest[2] === "print") {
-    return { kind: "printTopic", space, topicSlug: rest[1] };
+  if ((rest[0] === "note" || rest[0] === "topic") && rest.length === 3 && rest[2] === "print") {
+    return { kind: "printNote", space, noteSlug: rest[1] };
   }
 
   if (rest[0] === "board" && rest.length === 2) return { kind: "board", space, boardId: rest[1], edit: false };
@@ -99,14 +101,14 @@ export function buildPath(route: Route): string {
       return "/";
     case "library":
       return spacePrefix(route.space);
-    case "topic":
-      return `${spacePrefix(route.space)}/topic/${encodeURIComponent(route.topicSlug)}`;
+    case "note":
+      return `${spacePrefix(route.space)}/note/${encodeURIComponent(route.noteSlug)}`;
     case "board":
       return `${spacePrefix(route.space)}/board/${encodeURIComponent(route.boardId)}${route.edit ? "/edit" : ""}`;
     case "printBoard":
       return `${spacePrefix(route.space)}/board/${encodeURIComponent(route.boardId)}/print`;
-    case "printTopic":
-      return `${spacePrefix(route.space)}/topic/${encodeURIComponent(route.topicSlug)}/print`;
+    case "printNote":
+      return `${spacePrefix(route.space)}/note/${encodeURIComponent(route.noteSlug)}/print`;
     case "team":
       return `/t/${encodeURIComponent(route.teamSlug)}/team`;
     case "settings":
@@ -123,10 +125,10 @@ export function buildPath(route: Route): string {
 export function routeSpace(route: Route): RouteSpace | null {
   switch (route.kind) {
     case "library":
-    case "topic":
+    case "note":
     case "board":
     case "printBoard":
-    case "printTopic":
+    case "printNote":
       return route.space;
     case "team":
       return { kind: "team", teamSlug: route.teamSlug };

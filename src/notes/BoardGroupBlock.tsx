@@ -1,41 +1,41 @@
+import { useState } from "react";
 import type { JSX } from "react";
 
 import { stepMarkers } from "../boards/operations";
 import type { Board } from "../boards/types";
 import { Court } from "../court/Court";
-import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
+import { Input } from "../ui/Input";
 import { cx, FIELD_LABEL, MUTED, PANEL_TITLE } from "../ui/styles";
 
-// The editor for one board-group block. Boards are picked visually: the topic's members assigned to
-// this group show as ordered thumbnails with reorder, remove, and unfile actions, and every unplaced
-// member shows below as a clickable thumbnail that adds it to the group. A board sits in at most one
-// group, so boards reserved by another group are not offered, and an assigned id that is no longer a
-// member is dropped. Unfiling commits to the board store immediately, bypassing the topic draft.
+// The editor for one board-group block. The block's ids are the note's board links themselves: the
+// assigned boards show as ordered thumbnails with reorder and remove actions, and any board of the
+// space can be added from the picker below, narrowed by a title filter. A board sits in at most one
+// group per note, so boards held by another group of this note are not offered, and an assigned id
+// that no longer resolves (deleted, or moved away) is dropped.
 type BoardGroupBlockProps = {
   boardIds: readonly string[];
-  /** This topic's members, newest first — the only boards a group may hold. */
-  members: readonly Board[];
-  /** Board ids placed in other groups of this topic, so this group never offers them. */
+  /** Every board of the active space, newest first — all of them addable. */
+  boards: readonly Board[];
+  /** Board ids placed in other groups of this note, so this group never offers them. */
   reserved: ReadonlySet<string>;
   onChange: (boardIds: string[]) => void;
-  onUnfile: (boardId: string) => void;
 };
 
 const CHIP = "m-0 flex w-[168px] flex-none flex-col overflow-hidden rounded-xl border border-border bg-panel text-left";
 const THUMB = "aspect-square w-full border-b border-border bg-court-surface";
 const CHIP_TITLE = "truncate px-2 pt-1.5 font-display text-sm font-bold tracking-[-0.01em]";
 
-export function BoardGroupBlock({
-  boardIds,
-  members,
-  reserved,
-  onChange,
-  onUnfile,
-}: BoardGroupBlockProps): JSX.Element {
-  const byId = new Map(members.map((b) => [b.id, b]));
+const MAX_OFFERED = 18;
+
+export function BoardGroupBlock({ boardIds, boards, reserved, onChange }: BoardGroupBlockProps): JSX.Element {
+  const [query, setQuery] = useState("");
+
+  const byId = new Map(boards.map((b) => [b.id, b]));
   const assigned = boardIds.filter((id) => byId.has(id));
-  const available = members.filter((b) => !assigned.includes(b.id) && !reserved.has(b.id));
+  const candidates = boards.filter((b) => !assigned.includes(b.id) && !reserved.has(b.id));
+  const matching = candidates.filter((b) => b.title.toLowerCase().includes(query.trim().toLowerCase()));
+  const offered = matching.slice(0, MAX_OFFERED);
 
   const move = (id: string, dir: -1 | 1) => {
     const index = assigned.indexOf(id);
@@ -91,15 +91,6 @@ export function BoardGroupBlock({
                   >
                     ✕
                   </IconButton>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    className="ml-auto"
-                    aria-label={`Unfile ${board.title}`}
-                    onClick={() => onUnfile(id)}
-                  >
-                    Unfile
-                  </Button>
                 </div>
               </figure>
             );
@@ -107,11 +98,19 @@ export function BoardGroupBlock({
         </div>
       )}
 
-      {available.length > 0 && (
+      {candidates.length > 0 ? (
         <div className="flex flex-col gap-2">
           <span className={FIELD_LABEL}>{assigned.length > 0 ? "Add another board" : "Pick boards"}</span>
+          <div className="max-w-72">
+            <Input
+              value={query}
+              placeholder="Filter boards…"
+              aria-label="Filter boards"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
           <div className="flex flex-wrap gap-3">
-            {available.map((board) => (
+            {offered.map((board) => (
               <button
                 key={board.id}
                 type="button"
@@ -135,11 +134,15 @@ export function BoardGroupBlock({
               </button>
             ))}
           </div>
+          {matching.length > MAX_OFFERED && (
+            <p className={MUTED}>
+              Showing {MAX_OFFERED} of {matching.length} boards — type to narrow.
+            </p>
+          )}
+          {matching.length === 0 && <p className={MUTED}>No boards match the filter.</p>}
         </div>
-      )}
-
-      {assigned.length === 0 && available.length === 0 && (
-        <p className={MUTED}>No boards are filed in this topic yet.</p>
+      ) : (
+        assigned.length === 0 && <p className={MUTED}>No boards in this library yet.</p>
       )}
     </div>
   );

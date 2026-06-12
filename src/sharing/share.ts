@@ -9,10 +9,10 @@ import type { Space } from "../workspace/space";
 // the link itself. The single-space edits (sharing, unsharing, an owner moving their own board) live on
 // useBoards, which holds the optimistic list they mutate.
 
-// A deep copy under a new id, authored by the copier and filed nowhere (its source topic lives in the
-// other space). The server mints a fresh share token and clears the shared flag by default.
+// A deep copy under a new id, authored by the copier. The server mints a fresh share token and clears
+// the shared flag by default.
 function deepCopy(board: Board, userId: string): Board {
-  return { ...board, id: crypto.randomUUID(), owner: userId, topicId: null, shared: false, teamId: null };
+  return { ...board, id: crypto.randomUUID(), owner: userId, shared: false, teamId: null };
 }
 
 /** Deep-copy a readable board into a space the caller may write: their personal space, or the library of

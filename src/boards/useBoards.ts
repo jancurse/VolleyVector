@@ -20,8 +20,6 @@ export type BoardsStore = {
   deleteBoard: (id: string) => void;
   /** Commit an edited board, refreshing `updatedAt`. Awaited and retried like `addBoard`. */
   updateBoard: (board: Board) => Promise<string | null>;
-  /** Return the given boards to Unfiled (e.g. removed from a topic, or their topic was deleted). */
-  unfileBoards: (boardIds: readonly string[]) => void;
   /** Set or clear a team board's author lock. Only its author or an admin may do this (RLS-enforced). */
   setBoardLock: (id: string, locked: boolean) => void;
   /** Share a personal board into a team: visible to its members and link-resolvable. Owner-only (RLS). */
@@ -162,22 +160,6 @@ export function useBoards(space: Space | null): BoardsStore {
     [user, fail]
   );
 
-  const unfileBoards = useCallback(
-    (boardIds: readonly string[]) => {
-      if (boardIds.length === 0) return;
-
-      const ids = new Set(boardIds);
-
-      setBoards((prev) => prev.map((b) => (ids.has(b.id) ? { ...b, topicId: null } : b)));
-      void supabase
-        .from("boards")
-        .update({ topic_id: null })
-        .in("id", [...boardIds])
-        .then(({ error: writeError }) => writeError && fail(writeError.message));
-    },
-    [fail]
-  );
-
   const setBoardLock = useCallback(
     (id: string, locked: boolean) => {
       setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, authorLocked: locked } : b)));
@@ -215,13 +197,13 @@ export function useBoards(space: Space | null): BoardsStore {
   );
 
   // A move relocates the board into the team library, so it leaves the personal space the list holds.
-  // The owner stays the author; topic_id is dropped because it referenced a personal topic.
+  // The owner stays the author. Any personal notes referencing it simply stop resolving the id.
   const moveBoardToTeam = useCallback(
     (id: string, teamId: string) => {
       setBoards((prev) => prev.filter((b) => b.id !== id));
       void supabase
         .from("boards")
-        .update({ scope: "team", team_id: teamId, shared: false, topic_id: null })
+        .update({ scope: "team", team_id: teamId, shared: false })
         .eq("id", id)
         .then(({ error: writeError }) => writeError && fail(writeError.message));
     },
@@ -235,7 +217,6 @@ export function useBoards(space: Space | null): BoardsStore {
     addBoard,
     deleteBoard,
     updateBoard,
-    unfileBoards,
     setBoardLock,
     shareBoard,
     unshareBoard,

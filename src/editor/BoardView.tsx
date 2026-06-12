@@ -85,9 +85,11 @@ type BoardViewProps = {
   backLabel?: string;
   /** Action buttons for the title row (the app's edit/share cluster, or the share page's copying). */
   actions?: ReactNode;
+  /** Quiet metadata under the tags (the app injects the appears-in note links; the share page has none). */
+  meta?: ReactNode;
 };
 
-export function BoardView({ board, onBack, backLabel = "← Library", actions }: BoardViewProps): JSX.Element {
+export function BoardView({ board, onBack, backLabel = "← Library", actions, meta }: BoardViewProps): JSX.Element {
   const sequence = isSequence(board);
   const playback = useBoardPlayback(board.steps.length);
   const { step, playing, atEnd } = playback;
@@ -145,6 +147,7 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
                 ))}
               </div>
             )}
+            {meta}
           </div>
           {actions && <div className="flex flex-none items-center gap-2">{actions}</div>}
         </div>

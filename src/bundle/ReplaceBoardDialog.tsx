@@ -8,8 +8,8 @@ import { Textarea } from "../ui/Textarea";
 import { BundlePreview } from "./BundlePreview";
 import { parseBundle } from "./parse";
 
-// Replaces one board's content from a pasted single-board bundle, keeping its identity (id, topic,
-// owner, sharing, timestamps), so iterating on a board with externally authored JSON needs no
+// Replaces one board's content from a pasted single-board bundle, keeping its identity (id, owner,
+// sharing, timestamps), so iterating on a board with externally authored JSON needs no
 // delete-and-reimport. Parses live like the import dialog; nothing is written until the confirm.
 type ReplaceBoardDialogProps = {
   open: boolean;
@@ -27,11 +27,10 @@ export function ReplaceBoardDialog({ open, onOpenChange, board, onReplace }: Rep
 
   const result = useMemo(() => (text.trim() ? parseBundle(text, []) : null), [text]);
   const replacement =
-    result?.ok && result.value.topics.length === 0 && result.value.boards.length === 1
+    result?.ok && result.value.notes.length === 0 && result.value.boards.length === 1
       ? {
           ...result.value.boards[0],
           id: board.id,
-          topicId: board.topicId,
           owner: board.owner,
           authorLocked: board.authorLocked,
           shared: board.shared,
@@ -74,7 +73,7 @@ export function ReplaceBoardDialog({ open, onOpenChange, board, onReplace }: Rep
       />
 
       {result?.ok && !replacement && (
-        <p className="m-0 text-sm text-danger">The bundle must carry exactly one board and no topics.</p>
+        <p className="m-0 text-sm text-danger">The bundle must carry exactly one board and no notes.</p>
       )}
 
       {errors.length > 0 && (
@@ -85,7 +84,7 @@ export function ReplaceBoardDialog({ open, onOpenChange, board, onReplace }: Rep
         </ul>
       )}
 
-      {result?.ok && replacement && <BundlePreview topics={[]} boards={[replacement]} notices={result.value.notices} />}
+      {result?.ok && replacement && <BundlePreview notes={[]} boards={[replacement]} notices={result.value.notices} />}
 
       {writeError && <p className="m-0 text-sm text-danger">{writeError}</p>}
 

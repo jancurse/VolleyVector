@@ -46,7 +46,6 @@ function board(rotation?: StepRotation): Board {
     markers: FIVE_ONE,
     steps: [{ id: "s1", instruction: "", positions: onSpots(ROTATION_1), ...(rotation && { rotation }) }],
     tags: [],
-    topicId: null,
     owner: "",
     authorLocked: false,
     shared: false,

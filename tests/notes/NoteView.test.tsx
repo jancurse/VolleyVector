@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 import type { Board } from "../../src/boards/types";
-import { TopicView } from "../../src/topics/TopicView";
-import type { Topic, TopicBlock } from "../../src/topics/types";
+import { NoteView } from "../../src/notes/NoteView";
+import type { Note, NoteBlock } from "../../src/notes/types";
 
 function board(id: string, title: string): Board {
   return {
@@ -14,7 +14,6 @@ function board(id: string, title: string): Board {
     markers: [{ id: "m", role: "setter", label: "S" }],
     steps: [{ id: "s", instruction: "", positions: { m: { x: 0.5, y: 0.5 } } }],
     tags: [],
-    topicId: "t",
     owner: "",
     authorLocked: false,
     shared: false,
@@ -29,19 +28,18 @@ function board(id: string, title: string): Board {
 const ONE = board("b1", "Board One");
 const TWO = board("b2", "Board Two");
 
-function renderView(blocks: TopicBlock[], boards: Board[]) {
-  const topic: Topic = { id: "t", title: "Topic", slug: "topic", blocks, parentId: null, order: 0 };
+function renderView(blocks: NoteBlock[], boards: Board[]) {
+  const note: Note = { id: "t", title: "Note", slug: "note", blocks, parentId: null, order: 0 };
 
   render(
-    <TopicView
-      topic={topic}
-      topics={[topic]}
+    <NoteView
+      note={note}
+      notes={[note]}
       boards={boards}
       onOpenBoard={vi.fn()}
-      onSelectTopic={vi.fn()}
+      onSelectNote={vi.fn()}
       onEdit={vi.fn()}
-      onDelete={vi.fn()}
-      onAddSubtopic={vi.fn()}
+      onAddSubnote={vi.fn()}
       onNewBoard={vi.fn()}
       canEdit
     />
@@ -50,7 +48,7 @@ function renderView(blocks: TopicBlock[], boards: Board[]) {
 
 const heading = (name: string) => screen.queryByRole("heading", { name, level: 3 });
 
-describe("TopicView", () => {
+describe("NoteView", () => {
   test("interleaves markdown prose and board groups in block order", () => {
     renderView(
       [
@@ -68,8 +66,8 @@ describe("TopicView", () => {
     expect(note.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  test("a board group renders only its members, dropping ids filed elsewhere", () => {
-    renderView([{ id: "g", kind: "boards", boardIds: ["b2", "b1"] }], [ONE]); // b2 is not a member here
+  test("a board group drops an id the space's list does not hold", () => {
+    renderView([{ id: "g", kind: "boards", boardIds: ["b2", "b1"] }], [ONE]); // b2 resolves to no board
 
     expect(heading("Board One")).toBeInTheDocument();
     expect(heading("Board Two")).not.toBeInTheDocument();
@@ -87,11 +85,11 @@ describe("TopicView", () => {
     expect(screen.getAllByRole("heading", { name: "Board One", level: 3 })).toHaveLength(1);
   });
 
-  test("members no block placed trail in a final grid", () => {
+  test("a board the blocks never reference does not appear", () => {
     renderView([{ id: "g", kind: "boards", boardIds: ["b1"] }], [ONE, TWO]);
 
-    expect(heading("Board One")).toBeInTheDocument(); // placed in the group
-    expect(heading("Board Two")).toBeInTheDocument(); // trailing, unplaced
+    expect(heading("Board One")).toBeInTheDocument(); // referenced by the group
+    expect(heading("Board Two")).not.toBeInTheDocument(); // in the library, not in this note
   });
 
   test("carries no type or tag filter controls", () => {

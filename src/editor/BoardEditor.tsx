@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX, KeyboardEvent } from "react";
-import { Redo2, Tag, Undo2 } from "lucide-react";
+import { Redo2, Undo2 } from "lucide-react";
 
 import { arrowsForStep } from "../boards/arrows";
 import {
@@ -41,8 +41,6 @@ import type { NormalizedPoint } from "../court/geometry";
 import type { AnnotationTool, NewAnnotationStyle } from "../court/types";
 import { hasDash, hasFill, isDashTool, isFillTool } from "../court/types";
 import type { MarkerRole } from "../court/roles";
-import { TopicPicker } from "../topics/TopicPicker";
-import type { Topic } from "../topics/types";
 import { Button } from "../ui/Button";
 import { Combobox } from "../ui/Combobox";
 import { CourtFrame } from "../ui/CourtFrame";
@@ -95,8 +93,6 @@ type BoardEditorProps = {
   onCancel: () => void;
   /** Existing tags across the library, for the tag editor's autocomplete. */
   tagSuggestions?: readonly string[];
-  /** The topic tree, for the home-topic picker. */
-  topics?: readonly Topic[];
   /** Label for the commit button; the draft preview relabels it "Save & copy JSON". */
   doneLabel?: string;
 };
@@ -106,7 +102,6 @@ export function BoardEditor({
   onDone,
   onCancel,
   tagSuggestions,
-  topics = [],
   doneLabel = "Done",
 }: BoardEditorProps): JSX.Element {
   const { draft, activeStepId, setActiveStepId, set, replace, commit, undo, redo, canUndo, canRedo } =
@@ -409,22 +404,9 @@ export function BoardEditor({
         </Button>
       </div>
 
-      {/* The board's filing, quiet and out of the way under the title: its one home topic (a quiet
-          folder control) and its free-form tags inline. */}
-      <div className="-mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <TopicPicker
-          variant="quiet"
-          topics={topics}
-          value={draft.topicId}
-          onChange={(topicId) => set((d) => ({ ...d, topicId }))}
-          label="Filed under"
-          noneLabel="Unfiled"
-        />
-        <span className="h-4 w-px flex-none bg-border" aria-hidden="true" />
-        <Tag size={14} className="flex-none text-text-dim" aria-hidden="true" />
-        <div className="min-w-56 flex-1">
-          <Combobox value={draft.tags} onChange={(tags) => set((d) => ({ ...d, tags }))} suggestions={tagSuggestions} />
-        </div>
+      {/* The board's tags, quiet and out of the way under the title. */}
+      <div className="-mt-1">
+        <Combobox value={draft.tags} onChange={(tags) => set((d) => ({ ...d, tags }))} suggestions={tagSuggestions} />
       </div>
 
       {saveError && (

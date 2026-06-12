@@ -5,7 +5,7 @@ import { restoreAccount } from "../supabase/restoreAccount";
 import { supabase } from "../supabase/client";
 
 // The data and actions behind the admin panel. An admin reads every team, profile, and grace-archived
-// board/topic through RLS god-mode; the writes (team archive/restore, account delete, content restore) all
+// board/note through RLS god-mode; the writes (team archive/restore, account delete, content restore) all
 // hold under the existing admin policies, RPC, or Edge Function. Kept deliberately simple: every action
 // reloads the whole snapshot rather than reconciling locally, and the panel only loads while it is open.
 
@@ -19,7 +19,7 @@ export type AdminData = {
   teams: AdminTeam[];
   profiles: AdminProfile[];
   deletedBoards: DeletedItem[];
-  deletedTopics: DeletedItem[];
+  deletedNotes: DeletedItem[];
   loading: boolean;
   error: string | null;
   reload: () => void;
@@ -30,7 +30,7 @@ export type AdminData = {
   removeAccount: (userId: string) => Promise<{ error: string | null }>;
   recoverAccount: (userId: string) => Promise<{ error: string | null }>;
   restoreBoard: (id: string) => Promise<{ error: string | null }>;
-  restoreTopic: (id: string) => Promise<{ error: string | null }>;
+  restoreNote: (id: string) => Promise<{ error: string | null }>;
 };
 
 type TeamRow = { id: string; name: string; archived_at: string | null; deleted_at: string | null };
@@ -48,7 +48,7 @@ export function useAdmin(open: boolean): AdminData {
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [profiles, setProfiles] = useState<AdminProfile[]>([]);
   const [deletedBoards, setDeletedBoards] = useState<DeletedItem[]>([]);
-  const [deletedTopics, setDeletedTopics] = useState<DeletedItem[]>([]);
+  const [deletedNotes, setDeletedNotes] = useState<DeletedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -64,10 +64,10 @@ export function useAdmin(open: boolean): AdminData {
       setLoading(true);
       setError(null);
 
-      // Grace-archived boards/topics in the recovery list are only items deleted individually: those keep a
+      // Grace-archived boards/notes in the recovery list are only items deleted individually: those keep a
       // non-null owner. Team-deletion flags only the team, and account deletion detaches team content
       // (owner -> null) rather than stamping it, so neither floods this list.
-      const [teamsR, profilesR, boardsR, topicsR] = await Promise.all([
+      const [teamsR, profilesR, boardsR, notesR] = await Promise.all([
         supabase.from("teams").select("id, name, archived_at, deleted_at"),
         supabase.from("profiles").select("id, email, is_admin, deleted_at"),
         supabase.from("boards").select("id, title, deleted_at").not("deleted_at", "is", null).not("owner", "is", null),
@@ -76,7 +76,7 @@ export function useAdmin(open: boolean): AdminData {
 
       if (!active) return;
 
-      const failed = teamsR.error ?? profilesR.error ?? boardsR.error ?? topicsR.error;
+      const failed = teamsR.error ?? profilesR.error ?? boardsR.error ?? notesR.error;
 
       if (failed) {
         setError(failed.message);
@@ -95,7 +95,7 @@ export function useAdmin(open: boolean): AdminData {
         }))
       );
       setDeletedBoards((boardsR.data ?? []) as ItemRow[]);
-      setDeletedTopics((topicsR.data ?? []) as ItemRow[]);
+      setDeletedNotes((notesR.data ?? []) as ItemRow[]);
       setLoading(false);
     })();
 
@@ -165,7 +165,7 @@ export function useAdmin(open: boolean): AdminData {
     [run]
   );
 
-  const restoreTopic = useCallback(
+  const restoreNote = useCallback(
     (id: string) => run(supabase.from("topics").update({ deleted_at: null, deleted_by: null }).eq("id", id)),
     [run]
   );
@@ -174,7 +174,7 @@ export function useAdmin(open: boolean): AdminData {
     teams,
     profiles,
     deletedBoards,
-    deletedTopics,
+    deletedNotes,
     loading,
     error,
     reload,
@@ -185,6 +185,6 @@ export function useAdmin(open: boolean): AdminData {
     removeAccount,
     recoverAccount,
     restoreBoard,
-    restoreTopic,
+    restoreNote,
   };
 }

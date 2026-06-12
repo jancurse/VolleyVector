@@ -5,7 +5,7 @@ import { Markdown } from "../ui/Markdown";
 import { MUTED } from "../ui/styles";
 import { Textarea } from "../ui/Textarea";
 
-// One topic text block, edited in place. It shows rendered markdown until clicked, then becomes a raw
+// One note text block, edited in place. It shows rendered markdown until clicked, then becomes a raw
 // textarea (auto-focused) that snaps back to rendered on blur — so only the block you are in is raw,
 // and the rest read as prose. An empty block starts in edit mode, so a freshly added block is ready
 // to type into. Commit still flows through the parent's draft via onChange.

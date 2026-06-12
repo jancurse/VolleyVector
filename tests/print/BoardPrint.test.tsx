@@ -13,7 +13,6 @@ function board(steps: BoardStep[]): Board {
     markers: [{ id: "m", role: "setter", label: "S" }],
     steps,
     tags: [],
-    topicId: null,
     owner: null,
     authorLocked: false,
     shared: false,

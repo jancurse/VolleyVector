@@ -5,7 +5,7 @@
 
 import { readFileSync } from "node:fs";
 
-const FORMAT_VERSION = 2;
+const FORMAT_VERSION = 3;
 const ROLES = ["setter", "outside", "middle", "opposite", "libero", "ball", "coach", "player"];
 const COLORS = ["blue", "red", "green", "amber", "violet", "slate"];
 const ANNOTATION_KINDS = ["line", "arrow", "rect", "ellipse", "polygon", "free", "text"];
@@ -133,15 +133,17 @@ else {
   else if (version > FORMAT_VERSION) errors.push(`formatVersion ${version} is newer than this validator (${FORMAT_VERSION}).`);
   else if (version < FORMAT_VERSION) warnings.push(`formatVersion ${version} is older than current (${FORMAT_VERSION}).`);
 
-  const topics = Array.isArray(bundle.topics) ? bundle.topics : (errors.push('"topics" must be an array.'), []);
+  // Version 2 named the notes "topics"; either key validates, the skill always writes "notes".
+  const rawNotes = Array.isArray(bundle.notes) ? bundle.notes : bundle.topics;
+  const notes = Array.isArray(rawNotes) ? rawNotes : (errors.push('"notes" must be an array.'), []);
   const boards = Array.isArray(bundle.boards) ? bundle.boards : (errors.push('"boards" must be an array.'), []);
 
   const refs = new Set();
-  const topicRefs = new Set();
+  const noteRefs = new Set();
   const boardRefs = new Set();
 
   for (const [list, set] of [
-    [topics, topicRefs],
+    [notes, noteRefs],
     [boards, boardRefs],
   ])
     for (const entry of list)
@@ -151,18 +153,18 @@ else {
         set.add(entry.ref);
       }
 
-  topics.forEach((topic, i) => {
-    const where = isRecord(topic) && typeof topic.ref === "string" ? `Topic "${topic.ref}"` : `Topic ${i + 1}`;
+  notes.forEach((note, i) => {
+    const where = isRecord(note) && typeof note.ref === "string" ? `Note "${note.ref}"` : `Note ${i + 1}`;
 
-    if (!isRecord(topic)) return errors.push(`${where}: must be an object.`);
-    if (typeof topic.ref !== "string" || topic.ref === "") errors.push(`${where}: "ref" must be a non-empty string.`);
-    if (typeof topic.title !== "string") errors.push(`${where}: "title" must be a string.`);
-    if (topic.parentRef != null && !topicRefs.has(topic.parentRef))
-      errors.push(`${where}: unknown parentRef "${topic.parentRef}".`);
+    if (!isRecord(note)) return errors.push(`${where}: must be an object.`);
+    if (typeof note.ref !== "string" || note.ref === "") errors.push(`${where}: "ref" must be a non-empty string.`);
+    if (typeof note.title !== "string") errors.push(`${where}: "title" must be a string.`);
+    if (note.parentRef != null && !noteRefs.has(note.parentRef))
+      errors.push(`${where}: unknown parentRef "${note.parentRef}".`);
 
-    if (topic.blocks !== undefined) {
-      if (!Array.isArray(topic.blocks)) return errors.push(`${where}: "blocks" must be an array.`);
-      topic.blocks.forEach((block, j) => {
+    if (note.blocks !== undefined) {
+      if (!Array.isArray(note.blocks)) return errors.push(`${where}: "blocks" must be an array.`);
+      note.blocks.forEach((block, j) => {
         const ok =
           isRecord(block) &&
           ((block.kind === "markdown" && typeof block.text === "string") ||
@@ -177,15 +179,15 @@ else {
   });
 
   // Cycle check over the parent refs.
-  const parentOf = new Map(topics.filter(isRecord).map((t) => [t.ref, t.parentRef ?? null]));
+  const parentOf = new Map(notes.filter(isRecord).map((t) => [t.ref, t.parentRef ?? null]));
 
-  for (const ref of topicRefs) {
+  for (const ref of noteRefs) {
     const seen = new Set();
     let current = ref;
 
-    while (current !== null && topicRefs.has(current)) {
+    while (current !== null && noteRefs.has(current)) {
       if (seen.has(current)) {
-        errors.push(`Topic "${ref}": its parent refs form a cycle.`);
+        errors.push(`Note "${ref}": its parent refs form a cycle.`);
         break;
       }
       seen.add(current);
@@ -201,8 +203,8 @@ else {
     if (typeof board.title !== "string") errors.push(`${where}: "title" must be a string.`);
     if (board.mode !== "positions" && board.mode !== "basic")
       errors.push(`${where}: "mode" must be "positions" or "basic".`);
-    if (board.topicRef != null && !topicRefs.has(board.topicRef))
-      errors.push(`${where}: unknown topicRef "${board.topicRef}".`);
+    if (board.topicRef != null && !noteRefs.has(board.topicRef))
+      errors.push(`${where}: unknown topicRef "${board.topicRef}" (a retired version-2 field).`);
     if (board.tags !== undefined && !(Array.isArray(board.tags) && board.tags.every((t) => typeof t === "string")))
       errors.push(`${where}: "tags" must be a string array.`);
     if (board.rotationStrict !== undefined && typeof board.rotationStrict !== "boolean")

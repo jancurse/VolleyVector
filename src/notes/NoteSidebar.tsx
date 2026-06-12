@@ -5,23 +5,23 @@ import type { Selection } from "../library/selection";
 import { Collapsible, CollapsibleCaret, CollapsiblePanel } from "../ui/Collapsible";
 import { cx } from "../ui/styles";
 import { childrenOf } from "./operations";
-import { TopicRowMenu } from "./TopicRowMenu";
-import type { Topic } from "./types";
+import { NoteRowMenu } from "./NoteRowMenu";
+import type { Note } from "./types";
 
-// The persistent table of contents for the browse surface: All Boards on top, then the topic tree
-// with disclosure controls, plus a quiet affordance to add a root topic. Each row carries a quiet
+// The persistent table of contents for the browse surface: All Boards on top, then the note tree
+// with disclosure controls, plus a quiet affordance to add a root note. Each row carries a quiet
 // organise menu (reorder and nesting) that stays hidden until the row is hovered or focused, so the
 // sidebar reads as quiet and typographic rather than as app chrome. Nesting lives here, not in the
-// topic editor.
-type TopicSidebarProps = {
-  topics: readonly Topic[];
+// note editor.
+type NoteSidebarProps = {
+  notes: readonly Note[];
   selection: Selection;
   onSelect: (selection: Selection) => void;
-  onNewTopic: () => void;
+  onNewNote: () => void;
   onReorder: (id: string, dir: -1 | 1) => void;
-  /** Re-parent a topic — nesting and un-nesting live here, not in the topic editor. */
+  /** Re-parent a note — nesting and un-nesting live here, not in the note editor. */
   onNest: (id: string, parentId: string | null) => void;
-  /** Whether to offer the new-topic and per-row organise actions (a coach of this team, or an admin). */
+  /** Whether to offer the new-note and per-row organise actions (a coach of this team, or an admin). */
   canEdit: boolean;
 };
 
@@ -33,29 +33,29 @@ const LINK =
   "flex-1 min-w-0 cursor-pointer truncate border-0 bg-transparent px-[0.2rem] py-[0.36rem] text-left font-ui text-base font-semibold text-text-dim transition-colors group-hover:text-text";
 const CONTROLS =
   "flex pr-[0.2rem] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100";
-// The add affordance is a ghost topic row, not a button: it shares the rows' anatomy (caret spacer,
+// The add affordance is a ghost note row, not a button: it shares the rows' anatomy (caret spacer,
 // then label), with a plus at the title anchor and a dimmer weight marking it as an action.
 const ADD_ROW =
   "flex w-full cursor-pointer items-center gap-[0.05rem] rounded-md border-0 bg-transparent p-0 text-left font-ui text-base font-medium text-text-dim transition-colors duration-150 ease-settle hover:bg-control hover:text-text";
 
-export function TopicSidebar({
-  topics,
+export function NoteSidebar({
+  notes,
   selection,
   onSelect,
-  onNewTopic,
+  onNewNote,
   onReorder,
   onNest,
   canEdit,
-}: TopicSidebarProps): JSX.Element {
-  const renderRow = (topic: Topic, depth: number, hasChildren: boolean): JSX.Element => {
-    const on = selection.kind === "topic" && selection.id === topic.id;
-    const siblings = childrenOf(topics, topic.parentId);
-    const index = siblings.findIndex((s) => s.id === topic.id);
+}: NoteSidebarProps): JSX.Element {
+  const renderRow = (note: Note, depth: number, hasChildren: boolean): JSX.Element => {
+    const on = selection.kind === "note" && selection.id === note.id;
+    const siblings = childrenOf(notes, note.parentId);
+    const index = siblings.findIndex((s) => s.id === note.id);
 
     return (
       <div className={cx(ROW, on && "bg-accent-weak")} style={{ paddingLeft: `${depth * 0.9}rem` }}>
         {hasChildren ? (
-          <CollapsibleCaret label={`Toggle ${topic.title} subtopics`} />
+          <CollapsibleCaret label={`Toggle ${note.title} subnotes`} />
         ) : (
           <span className="w-5 flex-none" />
         )}
@@ -63,41 +63,41 @@ export function TopicSidebar({
           type="button"
           className={cx(LINK, on && "text-text")}
           aria-current={on}
-          onClick={() => onSelect({ kind: "topic", id: topic.id })}
+          onClick={() => onSelect({ kind: "note", id: note.id })}
         >
-          {topic.title}
+          {note.title}
         </button>
         <span className={cx(CONTROLS, !canEdit && "hidden")}>
-          <TopicRowMenu
-            title={topic.title}
+          <NoteRowMenu
+            title={note.title}
             canMoveUp={index > 0}
             canMoveDown={index < siblings.length - 1}
             nestUnder={index > 0 ? siblings[index - 1].title : null}
-            isNested={topic.parentId !== null}
-            onMove={(dir) => onReorder(topic.id, dir)}
-            onNest={() => onNest(topic.id, siblings[index - 1].id)}
-            onMoveToTop={() => onNest(topic.id, null)}
+            isNested={note.parentId !== null}
+            onMove={(dir) => onReorder(note.id, dir)}
+            onNest={() => onNest(note.id, siblings[index - 1].id)}
+            onMoveToTop={() => onNest(note.id, null)}
           />
         </span>
       </div>
     );
   };
 
-  const renderTopic = (topic: Topic, depth: number): JSX.Element => {
-    const children = childrenOf(topics, topic.id);
+  const renderNote = (note: Note, depth: number): JSX.Element => {
+    const children = childrenOf(notes, note.id);
 
-    if (children.length === 0) return <div key={topic.id}>{renderRow(topic, depth, false)}</div>;
+    if (children.length === 0) return <div key={note.id}>{renderRow(note, depth, false)}</div>;
 
     return (
-      <Collapsible key={topic.id} defaultOpen>
-        {renderRow(topic, depth, true)}
-        <CollapsiblePanel>{children.map((child) => renderTopic(child, depth + 1))}</CollapsiblePanel>
+      <Collapsible key={note.id} defaultOpen>
+        {renderRow(note, depth, true)}
+        <CollapsiblePanel>{children.map((child) => renderNote(child, depth + 1))}</CollapsiblePanel>
       </Collapsible>
     );
   };
 
   return (
-    <nav className="flex flex-col gap-[0.1rem]" aria-label="Topics">
+    <nav className="flex flex-col gap-[0.1rem]" aria-label="Notes">
       <button
         type="button"
         className={cx(NAV_ITEM, selection.kind === "all" && "bg-accent-weak text-text")}
@@ -108,16 +108,16 @@ export function TopicSidebar({
       </button>
 
       <p className="mt-4 mb-[0.35rem] px-[0.55rem] font-mono text-2xs font-medium uppercase tracking-[0.22em] text-text-dim">
-        Topics
+        Notes
       </p>
       <div className="flex flex-col gap-[0.05rem]">
-        {childrenOf(topics, null).map((topic) => renderTopic(topic, 0))}
+        {childrenOf(notes, null).map((note) => renderNote(note, 0))}
         {canEdit && (
-          <button type="button" className={ADD_ROW} onClick={onNewTopic}>
+          <button type="button" className={ADD_ROW} onClick={onNewNote}>
             <span className="w-5 flex-none" />
             <span className="flex items-center gap-1.5 px-[0.2rem] py-[0.36rem]">
               <Plus size={13} aria-hidden="true" />
-              New topic
+              New note
             </span>
           </button>
         )}

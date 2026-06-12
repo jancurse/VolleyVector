@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { parseBundle } from "../../src/bundle/parse";
-import type { Topic } from "../../src/topics/types";
+import type { Note } from "../../src/notes/types";
 
 // A minimal valid board entry the cases below mutate.
 function board(patch: Record<string, unknown> = {}): Record<string, unknown> {
@@ -16,7 +16,7 @@ function board(patch: Record<string, unknown> = {}): Record<string, unknown> {
 }
 
 function bundle(patch: Record<string, unknown> = {}): string {
-  return JSON.stringify({ formatVersion: 2, topics: [], boards: [board()], ...patch });
+  return JSON.stringify({ formatVersion: 3, notes: [], boards: [board()], ...patch });
 }
 
 function errorsOf(text: string): string[] {
@@ -29,9 +29,9 @@ describe("parseBundle rejects", () => {
   test.each([
     ["malformed JSON", "{nope", /Not valid JSON/],
     ["a non-object root", "[]", /must be a JSON object/],
-    ["a missing formatVersion", JSON.stringify({ topics: [], boards: [] }), /"formatVersion"/],
-    ["a newer formatVersion", bundle({ formatVersion: 3 }), /newer than this app supports/],
-    ["missing arrays", JSON.stringify({ formatVersion: 2 }), /"topics" must be an array/],
+    ["a missing formatVersion", JSON.stringify({ notes: [], boards: [] }), /"formatVersion"/],
+    ["a newer formatVersion", bundle({ formatVersion: 4 }), /newer than this app supports/],
+    ["missing arrays", JSON.stringify({ formatVersion: 3 }), /"notes" must be an array/],
     ["a board without steps", bundle({ boards: [board({ steps: [] })] }), /"steps" must be a non-empty array/],
     ["a board without a mode", bundle({ boards: [board({ mode: "3d" })] }), /"mode" must be/],
     ["an unknown role", bundle({ boards: [board({ markers: [{ id: "s", role: "keeper" }] })] }), /unknown role/],
@@ -49,23 +49,23 @@ describe("parseBundle rejects", () => {
       }),
       /duplicate marker id/,
     ],
-    ["an unknown topicRef", bundle({ boards: [board({ topicRef: "missing" })] }), /unknown topicRef/],
     [
-      "an unknown parentRef",
-      bundle({ topics: [{ ref: "t1", title: "T", parentRef: "missing" }] }),
-      /unknown parentRef/,
+      "an unknown topicRef in a version-2 bundle",
+      JSON.stringify({ formatVersion: 2, topics: [], boards: [board({ topicRef: "missing" })] }),
+      /unknown topicRef/,
     ],
+    ["an unknown parentRef", bundle({ notes: [{ ref: "t1", title: "T", parentRef: "missing" }] }), /unknown parentRef/],
     [
       "a parent cycle",
       bundle({
-        topics: [
+        notes: [
           { ref: "t1", title: "A", parentRef: "t2" },
           { ref: "t2", title: "B", parentRef: "t1" },
         ],
       }),
       /form a cycle/,
     ],
-    ["a duplicate ref", bundle({ topics: [{ ref: "b1", title: "Clashes with the board" }] }), /Duplicate ref "b1"/],
+    ["a duplicate ref", bundle({ notes: [{ ref: "b1", title: "Clashes with the board" }] }), /Duplicate ref "b1"/],
     [
       "a malformed position",
       bundle({ boards: [board({ steps: [{ positions: { s: { x: "left", y: 0 } } }] })] }),
@@ -155,11 +155,11 @@ describe("parseBundle leniency", () => {
     expect(result.value.notices.join("\n")).toMatch(/2 custom rotation entries/);
   });
 
-  test("topic slugs and orders mint against the existing tree", () => {
-    const existing: Topic[] = [{ id: "x", title: "Defense", slug: "defense", blocks: [], parentId: null, order: 3 }];
+  test("note slugs and orders mint against the existing tree", () => {
+    const existing: Note[] = [{ id: "x", title: "Defense", slug: "defense", blocks: [], parentId: null, order: 3 }];
     const result = parseBundle(
       bundle({
-        topics: [
+        notes: [
           { ref: "t1", title: "Defense" },
           { ref: "t2", title: "Blocking", parentRef: "t1" },
         ],
@@ -170,9 +170,26 @@ describe("parseBundle leniency", () => {
 
     if (!result.ok) throw new Error(result.errors.join("\n"));
 
-    const [parent, child] = result.value.topics;
+    const [parent, child] = result.value.notes;
 
     expect(parent).toMatchObject({ title: "Defense", slug: "defense-2", parentId: null, order: 4 });
     expect(child).toMatchObject({ title: "Blocking", parentId: parent.id, order: 0 });
+  });
+
+  test("a version-2 board's home topic becomes a trailing board link on its note", () => {
+    const text = JSON.stringify({
+      formatVersion: 2,
+      topics: [{ ref: "t1", title: "Defense", blocks: [{ kind: "markdown", text: "Base defence." }] }],
+      boards: [board({ topicRef: "t1" })],
+    });
+    const result = parseBundle(text, []);
+
+    if (!result.ok) throw new Error(result.errors.join("\n"));
+
+    const [note] = result.value.notes;
+    const [imported] = result.value.boards;
+
+    expect(note.blocks.map((b) => b.kind)).toEqual(["markdown", "boards"]);
+    expect(note.blocks[1]).toMatchObject({ kind: "boards", boardIds: [imported.id] });
   });
 });

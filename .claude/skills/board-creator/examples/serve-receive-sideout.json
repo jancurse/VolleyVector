@@ -1,6 +1,6 @@
 {
-  "formatVersion": 2,
-  "topics": [
+  "formatVersion": 3,
+  "notes": [
     {
       "ref": "t-drills",
       "title": "Drills",
@@ -17,7 +17,6 @@
   "boards": [
     {
       "ref": "b-sr-sideout",
-      "topicRef": "t-drills",
       "title": "Sample Drill (Serve Receive & Sideout)",
       "description": "### Serve Reception & Sideout",
       "mode": "positions",

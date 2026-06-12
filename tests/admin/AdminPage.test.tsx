@@ -67,7 +67,7 @@ describe("AdminPage", () => {
 
     await goTab(user, "Recovery");
     expect(screen.getByText("Archived Board")).toBeInTheDocument();
-    expect(screen.getByText("Archived Topic")).toBeInTheDocument();
+    expect(screen.getByText("Archived Note")).toBeInTheDocument();
   });
 
   test("archiving a team issues the archive write", async () => {

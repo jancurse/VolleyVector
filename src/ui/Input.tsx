@@ -5,7 +5,7 @@ import { Input as BaseInput } from "@base-ui/react/input";
 import { cx, INPUT } from "./styles";
 
 // The box variant is the standard mono text input; the title variant is the large display-font field
-// that heads the board and topic editors. Both connect to a surrounding Field for labelling.
+// that heads the board and note editors. Both connect to a surrounding Field for labelling.
 type InputProps = ComponentPropsWithoutRef<"input"> & {
   variant?: "box" | "title";
 };

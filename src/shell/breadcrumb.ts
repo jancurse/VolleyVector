@@ -1,13 +1,14 @@
 import type { Board } from "../boards/types";
-import { boardRoute, findTopicId, libraryRoute, spaceForRouteSpace, topicRoute } from "../routing/links";
+import { boardRoute, findNoteId, libraryRoute, spaceForRouteSpace, noteRoute } from "../routing/links";
 import { routeSpace, type Route } from "../routing/route";
-import type { Topic } from "../topics/types";
+import type { Note } from "../notes/types";
 import type { TeamRef } from "../workspace/useWorkspace";
 
-// The top bar's breadcrumb, derived purely from the route plus the loaded teams, topics, and boards: the
-// space, then the live topic ancestor chain (walked from `parentId` at render, never encoded in the URL,
-// so it survives re-nesting), then the board title as a terminal crumb. The last crumb is the current
-// page; earlier ones link back up the hierarchy.
+// The top bar's breadcrumb, derived purely from the route plus the loaded teams, notes, and boards: the
+// space, then on a note page the live note ancestor chain (walked from `parentId` at render, never
+// encoded in the URL, so it survives re-nesting), or the board title as a terminal crumb. A board has
+// no home note — any number of notes may reference it — so its trail is just space / title. The last
+// crumb is the current page; earlier ones link back up the hierarchy.
 
 export type Crumb = { label: string; route: Route };
 
@@ -34,12 +35,12 @@ const ADMIN_LABELS: Record<"teams" | "accounts" | "recovery", string> = {
   recovery: "Recovery",
 };
 
-/** A topic's ancestor chain, root first, ending at the topic itself. Walks `parentId` live. */
-function topicChain(topics: readonly Topic[], topicId: string): Topic[] {
-  const byId = new Map(topics.map((t) => [t.id, t]));
-  const chain: Topic[] = [];
+/** A note's ancestor chain, root first, ending at the note itself. Walks `parentId` live. */
+function noteChain(notes: readonly Note[], noteId: string): Note[] {
+  const byId = new Map(notes.map((t) => [t.id, t]));
+  const chain: Note[] = [];
 
-  let current = byId.get(topicId);
+  let current = byId.get(noteId);
 
   while (current) {
     chain.unshift(current);
@@ -52,7 +53,7 @@ function topicChain(topics: readonly Topic[], topicId: string): Topic[] {
 export function breadcrumbs(
   route: Route,
   teams: readonly TeamRef[],
-  topics: readonly Topic[],
+  notes: readonly Note[],
   boards: readonly Board[]
 ): Crumb[] {
   const crumbs: Crumb[] = [];
@@ -65,18 +66,14 @@ export function breadcrumbs(
 
     crumbs.push({ label, route: libraryRoute(resolved, teams) });
 
-    if (route.kind === "topic") {
-      const id = findTopicId(topics, route.topicSlug);
+    if (route.kind === "note") {
+      const id = findNoteId(notes, route.noteSlug);
 
-      for (const topic of id ? topicChain(topics, id) : []) {
-        crumbs.push({ label: topic.title, route: topicRoute(resolved, teams, topic) });
+      for (const note of id ? noteChain(notes, id) : []) {
+        crumbs.push({ label: note.title, route: noteRoute(resolved, teams, note) });
       }
     } else if (route.kind === "board") {
       const board = boards.find((b) => b.id === route.boardId);
-
-      for (const topic of board?.topicId ? topicChain(topics, board.topicId) : []) {
-        crumbs.push({ label: topic.title, route: topicRoute(resolved, teams, topic) });
-      }
 
       crumbs.push({ label: board?.title || "Board", route: boardRoute(resolved, teams, route.boardId, false) });
     } else if (route.kind === "team") {
