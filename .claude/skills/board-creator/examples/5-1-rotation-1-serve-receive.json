@@ -1,0 +1,38 @@
+{
+  "formatVersion": 2,
+  "topics": [],
+  "boards": [
+    {
+      "ref": "b-r1-receive",
+      "topicRef": null,
+      "title": "Serve Reception: Rotation 1 (5-1)",
+      "description": "Standard 5-1 receive formation with the setter in zone 1.\n\n- The setter stacks just right of OH1, no deeper than the overlap needs, with a free lane to the net.\n- OH2, the libero, and OH1 form the three-player receive line, left to right.\n- MB1 and OPP start at the attack line, ready to approach after the serve.\n- Overlap: OH1 stays right of MB1 and in front of the setter. OH2 stays left of the libero.",
+      "mode": "positions",
+      "markers": [
+        { "id": "s", "role": "setter" },
+        { "id": "oh1", "role": "outside", "label": "OH1" },
+        { "id": "oh2", "role": "outside", "label": "OH2" },
+        { "id": "mb1", "role": "middle", "label": "MB1" },
+        { "id": "opp", "role": "opposite" },
+        { "id": "lib", "role": "libero" },
+        { "id": "ball", "role": "ball" }
+      ],
+      "steps": [
+        {
+          "instruction": "",
+          "positions": {
+            "s": { "x": 0.85, "y": 0.72 },
+            "oh1": { "x": 0.78, "y": 0.69 },
+            "lib": { "x": 0.5, "y": 0.67 },
+            "oh2": { "x": 0.21, "y": 0.63 },
+            "mb1": { "x": 0.5, "y": 0.25 },
+            "opp": { "x": 0.15, "y": 0.25 },
+            "ball": { "x": 0.5, "y": -0.05 }
+          },
+          "rotation": { "kind": "preset", "rotation": 1 }
+        }
+      ],
+      "tags": ["serve receive", "5-1", "rotation 1"]
+    }
+  ]
+}

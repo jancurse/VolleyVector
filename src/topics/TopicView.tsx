@@ -1,4 +1,4 @@
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 import type { Board } from "../boards/types";
 import { CardGrid } from "../library/CardGrid";
@@ -27,6 +27,8 @@ type TopicViewProps = {
   onNewBoard: () => void;
   /** Whether to offer the new-board, edit, and subtopic actions (a coach of this team, or an admin). */
   canEdit: boolean;
+  /** The page-bar overflow menu (the topic's JSON export), offered to viewers and editors alike. */
+  menu?: ReactNode;
 };
 
 const SUBTOPIC =
@@ -42,6 +44,7 @@ export function TopicView({
   onAddSubtopic,
   onNewBoard,
   canEdit,
+  menu,
 }: TopicViewProps): JSX.Element {
   const subtopics = childrenOf(topics, topic.id);
   const byId = new Map(boards.map((b) => [b.id, b]));
@@ -78,16 +81,19 @@ export function TopicView({
           <p className={EYEBROW}>Topic</p>
           <h1 className={TITLE}>{topic.title}</h1>
         </div>
-        {canEdit && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={onAddSubtopic}>
-              + Subtopic
-            </Button>
-            <Button variant="ghost" onClick={onEdit}>
-              Edit
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit && (
+            <>
+              <Button variant="ghost" onClick={onAddSubtopic}>
+                + Subtopic
+              </Button>
+              <Button variant="ghost" onClick={onEdit}>
+                Edit
+              </Button>
+            </>
+          )}
+          {menu}
+        </div>
       </div>
 
       {subtopics.length > 0 && (

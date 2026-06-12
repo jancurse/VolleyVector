@@ -19,6 +19,9 @@ export type Route =
   | { kind: "library"; space: RouteSpace }
   | { kind: "topic"; space: RouteSpace; topicSlug: string }
   | { kind: "board"; space: RouteSpace; boardId: string; edit: boolean }
+  // The chrome-free print/handout surfaces: a board or a topic rendered as a paper document.
+  | { kind: "printBoard"; space: RouteSpace; boardId: string }
+  | { kind: "printTopic"; space: RouteSpace; topicSlug: string }
   | { kind: "settings" }
   | { kind: "team"; teamSlug: string }
   | { kind: "admin"; sub: AdminSub }
@@ -71,10 +74,18 @@ export function parsePath(pathname: string): Route {
 
   if (rest[0] === "topic" && rest.length === 2) return { kind: "topic", space, topicSlug: rest[1] };
 
+  if (rest[0] === "topic" && rest.length === 3 && rest[2] === "print") {
+    return { kind: "printTopic", space, topicSlug: rest[1] };
+  }
+
   if (rest[0] === "board" && rest.length === 2) return { kind: "board", space, boardId: rest[1], edit: false };
 
   if (rest[0] === "board" && rest.length === 3 && rest[2] === "edit") {
     return { kind: "board", space, boardId: rest[1], edit: true };
+  }
+
+  if (rest[0] === "board" && rest.length === 3 && rest[2] === "print") {
+    return { kind: "printBoard", space, boardId: rest[1] };
   }
 
   return notFound;
@@ -92,6 +103,10 @@ export function buildPath(route: Route): string {
       return `${spacePrefix(route.space)}/topic/${encodeURIComponent(route.topicSlug)}`;
     case "board":
       return `${spacePrefix(route.space)}/board/${encodeURIComponent(route.boardId)}${route.edit ? "/edit" : ""}`;
+    case "printBoard":
+      return `${spacePrefix(route.space)}/board/${encodeURIComponent(route.boardId)}/print`;
+    case "printTopic":
+      return `${spacePrefix(route.space)}/topic/${encodeURIComponent(route.topicSlug)}/print`;
     case "team":
       return `/t/${encodeURIComponent(route.teamSlug)}/team`;
     case "settings":
@@ -110,6 +125,8 @@ export function routeSpace(route: Route): RouteSpace | null {
     case "library":
     case "topic":
     case "board":
+    case "printBoard":
+    case "printTopic":
       return route.space;
     case "team":
       return { kind: "team", teamSlug: route.teamSlug };

@@ -1,9 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { boardsInTopic, createBoard } from "./boards/operations";
 import type { Board } from "./boards/types";
 import { useBoards } from "./boards/useBoards";
+import { ExportMenu } from "./bundle/ExportMenu";
+import { ImportDialog } from "./bundle/ImportDialog";
+import { ReplaceBoardDialog } from "./bundle/ReplaceBoardDialog";
+import { bundleFilename, toBundle } from "./bundle/serialize";
+import { useDraftPreviewRoute } from "./bundle/useDraftPreviewRoute";
 import { BoardActionsMenu } from "./editor/BoardActionsMenu";
 import { BoardEditor } from "./editor/BoardEditor";
 import { clearDraftBackup, loadDraftBackup } from "./editor/draftBackup";
@@ -16,6 +21,7 @@ import { TopicEditor } from "./topics/TopicEditor";
 import { TopicView } from "./topics/TopicView";
 import { useTopics } from "./topics/useTopics";
 import { useTheme } from "./theme/useTheme";
+import { MenuItem } from "./ui/Menu";
 import { TooltipProvider } from "./ui/Tooltip";
 import { useConfirm } from "./ui/useConfirm";
 import { useAuth } from "./auth/useAuth";
@@ -24,6 +30,7 @@ import { SetPassword } from "./auth/SetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
 import { Button } from "./ui/Button";
 import { cx, MUTED } from "./ui/styles";
+import type { Topic } from "./topics/types";
 import { TeamPage } from "./team/TeamPage";
 import { AdminPage } from "./admin/AdminPage";
 import { SettingsPage } from "./account/SettingsPage";
@@ -45,6 +52,7 @@ import { useRoute } from "./routing/useRoute";
 import { buildPath, routeSpace } from "./routing/route";
 import { NotFound } from "./routing/NotFound";
 import {
+  boardPrintRoute,
   boardRoute,
   canonicalRoute,
   findTeamId,
@@ -53,8 +61,12 @@ import {
   routeSpaceForSpace,
   spaceForRouteSpace,
   teamRoute,
+  topicPrintRoute,
   topicRoute,
 } from "./routing/links";
+import { BoardPrint } from "./print/BoardPrint";
+import { PrintView } from "./print/PrintView";
+import { TopicPrint } from "./print/TopicPrint";
 import { AppShell } from "./shell/AppShell";
 import { Sidebar } from "./shell/Sidebar";
 import { SidebarRail } from "./shell/SidebarRail";
@@ -69,6 +81,12 @@ import { SidePanel } from "./ui/SidePanel";
 const BG =
   "flex min-h-[100dvh] flex-col [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)] transition-[background-color] duration-[400ms]";
 
+// The dev-only draft preview (`#/preview`) lazy-loads behind the DEV check, so its drafts/ glob — and
+// every draft's contents — tree-shakes out of the production bundle entirely.
+const DraftPreview = import.meta.env.DEV
+  ? lazy(() => import("./bundle/DraftPreview").then((m) => ({ default: m.DraftPreview })))
+  : null;
+
 // The URL is the single source of truth for navigation: the active space, the browse selection, and the
 // open board are all derived from the path-based route. A draft (the editor's working copy) and the
 // topic-editing toggle are the only navigation state not in the URL. App wires the stores together and
@@ -80,11 +98,13 @@ export function App(): JSX.Element {
   const workspace = useWorkspace();
   const shareToken = useShareRoute();
   const inviteToken = useInviteRoute();
+  const draftPreviewOpen = useDraftPreviewRoute() && import.meta.env.DEV;
   const { route, navigate } = useRoute();
 
   // A share or invite link rides the hash and owns the whole screen (it opens with or without an account),
-  // so the path router stays dormant while one is active: its effects must not navigate and clear the hash.
-  const hashRoute = shareToken !== null || inviteToken !== null;
+  // and the dev-only draft preview rides it inside the shell, so the path router stays dormant while one
+  // is active: its effects must not navigate and clear the hash.
+  const hashRoute = shareToken !== null || inviteToken !== null || draftPreviewOpen;
 
   // Hold content loads until the workspace has resolved the landing space, so the app does not fetch the
   // personal space and then immediately re-fetch the defaulted team.
@@ -112,6 +132,8 @@ export function App(): JSX.Element {
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [passwordReady, setPasswordReady] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const [missingBoardId, setMissingBoardId] = useState<string | null>(null);
 
   // Below the full-sidebar width the navigation lives in an overlay: expanded from the rail's Topics
@@ -443,6 +465,43 @@ export function App(): JSX.Element {
   if (workspace.loading || (boardsLoading && boards.length === 0) || (topics.loading && topics.topics.length === 0))
     return loader;
 
+  const printNotFound = (
+    <div className={cx(BG, "px-[clamp(1.1rem,4vw,2.75rem)] py-10")}>
+      <NotFound onHome={() => navigate(homeRoute())} />
+    </div>
+  );
+
+  // The print routes render their handout chrome-free, outside the shell. The space-sync effect above
+  // aligns the active space to the URL, so the document just reads the loaded lists; a board id or
+  // topic slug the space does not hold is treated as not found once the space has settled.
+  if (route.kind === "printBoard") {
+    const board = boards.find((b) => b.id === route.boardId);
+
+    if (!board) return !spaceReady || boardsLoading ? loader : printNotFound;
+
+    return (
+      <PrintView
+        title={board.title || "Untitled board"}
+        onBack={() => navigate(boardRoute(activeSpace, allTeams, board.id, false))}
+      >
+        <BoardPrint board={board} />
+      </PrintView>
+    );
+  }
+
+  if (route.kind === "printTopic") {
+    const topicId = findTopicId(topics.topics, route.topicSlug);
+    const topic = topics.topics.find((t) => t.id === topicId);
+
+    if (!topic) return !spaceReady || topics.loading ? loader : printNotFound;
+
+    return (
+      <PrintView title={topic.title} onBack={() => navigate(topicRoute(activeSpace, allTeams, topic))}>
+        <TopicPrint topic={topic} boards={boardsInTopic(boards, topic.id)} />
+      </PrintView>
+    );
+  }
+
   const selectedTopic = selection.kind === "topic" ? topics.topics.find((t) => t.id === selection.id) : undefined;
 
   // The teams whose library the viewer may write to, as copy/move targets: an admin reaches every team;
@@ -496,6 +555,28 @@ export function App(): JSX.Element {
     ),
   ];
 
+  // An import creates everything anew in the active space: topics first (parents before children, the
+  // order the parser returns), then boards, each write awaited so a failure reports back to the dialog.
+  const importBundle = async (newTopics: Topic[], newBoards: Board[]): Promise<string | null> => {
+    const topicError = await topics.insertTopics(newTopics);
+
+    if (topicError !== null) return topicError;
+
+    for (const board of newBoards) {
+      const boardError = await addBoard({ ...board, owner: user.id });
+
+      if (boardError !== null) return boardError;
+    }
+
+    return null;
+  };
+
+  // The space's JSON export (and, for its curators, import) on the All Boards page bar, and the
+  // topic's subtree export on its page bar. Export needs no edit rights, matching viewing.
+  const spaceName = personal
+    ? "My boards"
+    : (allTeams.find((t) => activeSpace.kind === "team" && t.teamId === activeSpace.teamId)?.teamName ?? "Team");
+
   // Moving relocates the original into a team library, so it is confirmed, unlike a copy.
   const moveBoard = async (board: Board, teamId: string) => {
     const name = targetTeams.find((t) => t.teamId === teamId)?.teamName ?? "the team";
@@ -513,7 +594,13 @@ export function App(): JSX.Element {
 
   let content: JSX.Element;
 
-  if (showEditor && draft) {
+  if (DraftPreview && draftPreviewOpen) {
+    content = (
+      <Suspense fallback={<p className={MUTED}>Loading…</p>}>
+        <DraftPreview topics={topics.topics} canEdit={canEdit} onImport={importBundle} />
+      </Suspense>
+    );
+  } else if (showEditor && draft) {
     content = (
       <BoardEditor
         key={`${draft.id}:${draftRevision}`}
@@ -541,6 +628,8 @@ export function App(): JSX.Element {
                 board={openBoard}
                 canLock={!personal && (workspace.isAdmin || openBoard.owner === user.id)}
                 onToggleLock={() => setBoardLock(openBoard.id, !openBoard.authorLocked)}
+                onPrint={() => navigate(boardPrintRoute(activeSpace, allTeams, openBoard.id))}
+                onReplace={canEditBoard(openBoard) ? () => setReplacing(true) : undefined}
               >
                 <CopyToMenu targets={copyTargets(openBoard)} />
                 {personal && openBoard.owner === user.id && targetTeams.length > 0 && (
@@ -594,6 +683,9 @@ export function App(): JSX.Element {
       />
     );
   } else if (selectedTopic) {
+    // The topic export carries the whole subtree and every board filed under any topic in it.
+    const subtree = subtreeIds(topics.topics, selectedTopic.id);
+
     content = (
       <TopicView
         topic={selectedTopic}
@@ -605,6 +697,20 @@ export function App(): JSX.Element {
         onAddSubtopic={() => createTopic(selectedTopic.id)}
         onNewBoard={newBoard}
         canEdit={canEdit}
+        menu={
+          <ExportMenu
+            label="Topic actions"
+            bundle={() =>
+              toBundle(
+                boards.filter((b) => b.topicId !== null && subtree.includes(b.topicId)),
+                topics.topics.filter((t) => subtree.includes(t.id))
+              )
+            }
+            filename={bundleFilename(selectedTopic.title)}
+          >
+            <MenuItem onClick={() => navigate(topicPrintRoute(activeSpace, allTeams, selectedTopic))}>Print…</MenuItem>
+          </ExportMenu>
+        }
       />
     );
   } else if (route.kind === "library" || route.kind === "topic") {
@@ -614,6 +720,18 @@ export function App(): JSX.Element {
         onOpen={(id) => navigate(boardRoute(activeSpace, allTeams, id, false))}
         onNew={newBoard}
         canEdit={canEdit}
+        menu={
+          <ExportMenu
+            label="Library actions"
+            bundle={() => toBundle(boards, topics.topics)}
+            filename={bundleFilename(spaceName)}
+          >
+            {canEdit && <MenuItem onClick={() => setImporting(true)}>Import JSON…</MenuItem>}
+            {import.meta.env.DEV && (
+              <MenuItem onClick={() => (window.location.hash = "#/preview")}>Draft preview…</MenuItem>
+            )}
+          </ExportMenu>
+        }
       />
     );
   } else if (route.kind === "settings") {
@@ -749,6 +867,12 @@ export function App(): JSX.Element {
         </SidePanel>
       )}
       {dialog}
+      {canEdit && (
+        <ImportDialog open={importing} onOpenChange={setImporting} topics={topics.topics} onImport={importBundle} />
+      )}
+      {openBoard && canEditBoard(openBoard) && (
+        <ReplaceBoardDialog open={replacing} onOpenChange={setReplacing} board={openBoard} onReplace={updateBoard} />
+      )}
       {openBoard && (
         <ShareDialog
           open={sharing}

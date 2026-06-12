@@ -35,7 +35,8 @@ const BENCH_X0 = 0.1;
 const BENCH_GAP = 0.11;
 const BENCH_SLOTS = 8;
 
-function benchPosition(markers: readonly Marker[]): NormalizedPoint {
+/** The leftmost free bench slot among `markers` — where a marker without a court position lands. */
+export function benchPosition(markers: readonly Marker[]): NormalizedPoint {
   const taken = markers.filter((m) => m.position.y > 1).map((m) => m.position.x);
 
   for (let slot = 0; slot < BENCH_SLOTS; slot++) {
