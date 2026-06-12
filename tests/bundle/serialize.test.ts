@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import type { Board } from "../../src/boards/types";
 import { parseBundle } from "../../src/bundle/parse";
 import { bundleFilename, toBundle } from "../../src/bundle/serialize";
 import { SAMPLE_BOARDS, SAMPLE_TOPICS } from "../helpers/sampleData";
@@ -67,6 +68,27 @@ describe("export → import round-trip", () => {
 
   test("imported boards carry no server state", () => {
     expect(boards.every((b) => b.owner === null && b.teamId === null && !b.shared && !b.authorLocked)).toBe(true);
+  });
+
+  test("rotations and rotationStrict survive the round-trip", () => {
+    const [position] = SAMPLE_BOARDS;
+    const withRotations: Board = {
+      ...position,
+      rotationStrict: true,
+      steps: [
+        { ...position.steps[0], rotation: { kind: "preset", rotation: 3 } },
+        { ...position.steps[0], id: "step-2", rotation: { kind: "custom", assignment: { 1: "s", 4: "oh1" } } },
+      ],
+    };
+    const result = parseBundle(JSON.stringify(toBundle([withRotations], [])), []);
+
+    if (!result.ok) throw new Error(result.errors.join("\n"));
+
+    const imported = result.value.boards[0];
+
+    expect(result.value.notices).toEqual([]);
+    expect(imported.rotationStrict).toBe(true);
+    expect(imported.steps.map((s) => s.rotation)).toEqual(withRotations.steps.map((s) => s.rotation));
   });
 });
 

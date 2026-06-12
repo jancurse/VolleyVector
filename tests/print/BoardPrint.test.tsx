@@ -19,6 +19,7 @@ function board(steps: BoardStep[]): Board {
     shared: false,
     teamId: null,
     autoArrows: true,
+    rotationStrict: false,
     createdAt: 0,
     updatedAt: 0,
   };

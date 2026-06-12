@@ -5,7 +5,7 @@
 
 import { readFileSync } from "node:fs";
 
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2;
 const ROLES = ["setter", "outside", "middle", "opposite", "libero", "ball", "coach", "player"];
 const COLORS = ["blue", "red", "green", "amber", "violet", "slate"];
 const ANNOTATION_KINDS = ["line", "arrow", "rect", "ellipse", "polygon", "free", "text"];
@@ -24,6 +24,89 @@ function isPoint(value) {
 
 function inReach(point) {
   return point.x >= -REACH && point.x <= 1 + REACH && point.y >= -REACH && point.y <= 1 + REACH;
+}
+
+// Rotation legality, mirroring src/boards/rotation.ts.
+const ROTATION_SLOTS = [1, 2, 3, 4, 5, 6];
+const FRONT_ROW = [2, 3, 4];
+const PLAYER_ROLES = ["setter", "outside", "middle", "opposite", "libero", "player"];
+const Y_PAIRS = [
+  [1, 2],
+  [6, 3],
+  [5, 4],
+]; // [back, front]
+const X_PAIRS = [
+  [4, 3],
+  [3, 2],
+  [5, 6],
+  [6, 1],
+]; // [left, right]
+
+// The 5-1 service order S → OH1 → MB1 → OPP → OH2 → MB2, with a libero standing in for MB2 on the
+// back-row middle slot, or null when the roster is not a 5-1.
+function presetAssignment(markers, rotation) {
+  const players = markers.filter((m) => isRecord(m) && PLAYER_ROLES.includes(m.role));
+
+  if (players.length !== 6) return null;
+
+  const of = (role) =>
+    players.filter((p) => p.role === role).sort((a, b) => (a.label ?? "").localeCompare(b.label ?? ""));
+  const [setters, outsides, middles, opposites, liberos] = ["setter", "outside", "middle", "opposite", "libero"].map(of);
+
+  if (setters.length !== 1 || outsides.length !== 2 || opposites.length !== 1) return null;
+  if (middles.length + liberos.length !== 2 || middles.length === 0) return null;
+
+  const order = [setters[0], outsides[0], middles[0], opposites[0], outsides[1], middles[1] ?? liberos[0]];
+  const slotAt = (i) => ((rotation - 1 + i) % 6) + 1;
+  const assignment = {};
+
+  order.forEach((p, i) => (assignment[slotAt(i)] = p.id));
+
+  if (liberos.length === 1) {
+    const middleSlot = slotAt(2);
+    const otherSlot = slotAt(5);
+    const frontSlot = FRONT_ROW.includes(middleSlot) ? middleSlot : otherSlot;
+
+    assignment[frontSlot] = order[2].id;
+    assignment[frontSlot === middleSlot ? otherSlot : middleSlot] = liberos[0].id;
+  }
+
+  return assignment;
+}
+
+// A complete custom assignment (six slots, six distinct known markers), or null while inactive.
+function customAssignment(entries, markerIds) {
+  const ids = ROTATION_SLOTS.map((slot) => entries[slot]).filter((id) => typeof id === "string" && markerIds.has(id));
+
+  if (new Set(ids).size !== 6) return null;
+
+  return Object.fromEntries(ROTATION_SLOTS.map((slot) => [slot, entries[slot]]));
+}
+
+// The overlap checks of FIVB Rule 7.4 (ties are legal), an assigned player outside the playing
+// area, and a libero on a front-row slot. Skipped when an assigned marker has no valid position.
+function rotationViolations(assignment, positions, markers) {
+  const at = (slot) => positions[assignment[slot]];
+
+  if (ROTATION_SLOTS.some((slot) => !isPoint(at(slot)))) return [];
+
+  const name = (slot) => `"${assignment[slot]}" (slot ${slot})`;
+  const messages = [];
+
+  for (const [back, front] of Y_PAIRS)
+    if (at(back).y < at(front).y) messages.push(`rotation overlap — ${name(back)} must stay behind ${name(front)}.`);
+  for (const [left, right] of X_PAIRS)
+    if (at(left).x > at(right).x) messages.push(`rotation overlap — ${name(left)} must stay left of ${name(right)}.`);
+  for (const slot of ROTATION_SLOTS) {
+    const p = at(slot);
+
+    if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1)
+      messages.push(`rotation — ${name(slot)} is outside the playing area.`);
+    if (FRONT_ROW.includes(slot) && markers.find((m) => isRecord(m) && m.id === assignment[slot])?.role === "libero")
+      messages.push(`rotation — libero ${name(slot)} cannot take a front-row slot.`);
+  }
+
+  return messages;
 }
 
 const file = process.argv[2];
@@ -122,6 +205,8 @@ else {
       errors.push(`${where}: unknown topicRef "${board.topicRef}".`);
     if (board.tags !== undefined && !(Array.isArray(board.tags) && board.tags.every((t) => typeof t === "string")))
       errors.push(`${where}: "tags" must be a string array.`);
+    if (board.rotationStrict !== undefined && typeof board.rotationStrict !== "boolean")
+      errors.push(`${where}: "rotationStrict" must be a boolean.`);
 
     const markerIds = new Set();
 
@@ -156,6 +241,36 @@ else {
         if (!markerIds.has(id)) warnings.push(`${at}: position for unknown marker id "${id}" is ignored.`);
         else if (!isPoint(position)) errors.push(`${at}: position of marker "${id}" must be an { x, y } point.`);
         else if (!inReach(position)) warnings.push(`${at}: marker "${id}" is off the court — the app clamps it.`);
+      }
+
+      if (step.rotation !== undefined) {
+        const isSlot = (value) => Number.isInteger(value) && value >= 1 && value <= 6;
+        const rotation = step.rotation;
+
+        if (!isRecord(rotation) || (rotation.kind !== "preset" && rotation.kind !== "custom"))
+          warnings.push(`${at}: unreadable rotation — the app drops it on import.`);
+        else if (rotation.kind === "preset" && !isSlot(rotation.rotation))
+          warnings.push(`${at}: preset rotation must be a slot 1–6 — the app drops it on import.`);
+        else if (rotation.kind === "custom" && !isRecord(rotation.assignment))
+          warnings.push(`${at}: custom rotation needs an "assignment" map — the app drops it on import.`);
+        else {
+          if (rotation.kind === "custom")
+            for (const [slot, id] of Object.entries(rotation.assignment))
+              if (!isSlot(Number(slot)) || typeof id !== "string" || !markerIds.has(id))
+                warnings.push(`${at}: custom rotation entry "${slot}" — the app drops it on import.`);
+
+          const markers = Array.isArray(board.markers) ? board.markers : [];
+          const assignment =
+            rotation.kind === "preset"
+              ? presetAssignment(markers, rotation.rotation)
+              : customAssignment(rotation.assignment, markerIds);
+
+          if (rotation.kind === "preset" && !assignment)
+            warnings.push(`${at}: preset rotation needs a 5-1 roster — it stays inactive in the app.`);
+          if (assignment)
+            for (const message of rotationViolations(assignment, step.positions, markers))
+              warnings.push(`${at}: ${message}`);
+        }
       }
 
       if (step.annotations !== undefined) {

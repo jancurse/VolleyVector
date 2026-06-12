@@ -1,4 +1,5 @@
 import type { StoredAnnotation } from "../boards/normalize";
+import type { StepRotation } from "../boards/types";
 import type { NormalizedPoint } from "../court/geometry";
 import type { ColorKey, CourtMode, MarkerRole } from "../court/roles";
 
@@ -9,7 +10,7 @@ import type { ColorKey, CourtMode, MarkerRole } from "../court/roles";
 // skill's format.md mirrors it.
 
 /** Bump when the format changes shape. Parsing normalizes an older bundle and rejects a newer one. */
-export const FORMAT_VERSION = 1;
+export const FORMAT_VERSION = 2;
 
 /** One block of a topic's document. A `boards` block's refs are placement hints, like `boardIds`. */
 export type BundleBlock = { kind: "markdown"; text: string } | { kind: "boards"; boardRefs: string[] };
@@ -30,6 +31,8 @@ export type BundleStep = {
   /** Position per marker id. A marker a step omits is benched (placed just off-court) on import. */
   positions: Record<string, NormalizedPoint>;
   annotations?: StoredAnnotation[];
+  /** The step's rotation, carried verbatim from the model (custom-assignment slot keys are strings in JSON). */
+  rotation?: StepRotation;
 };
 
 export type BundleBoard = {
@@ -44,6 +47,7 @@ export type BundleBoard = {
   description?: string;
   tags?: string[];
   autoArrows?: boolean;
+  rotationStrict?: boolean;
 };
 
 export type Bundle = {

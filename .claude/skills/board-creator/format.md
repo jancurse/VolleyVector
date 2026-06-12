@@ -1,11 +1,11 @@
-# The bundle format (formatVersion 1)
+# The bundle format (formatVersion 2)
 
 A bundle is one JSON object carrying topics and boards.
 It mirrors `src/bundle/types.ts`, the format's source of truth; keep this file in lockstep with it.
 
 ```jsonc
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "topics": [
     {
       "ref": "t1", // opaque local id, unique across the bundle
@@ -31,10 +31,12 @@ It mirrors `src/bundle/types.ts`, the format's source of truth; keep this file i
       "steps": [
         {
           "instruction": "Markdown shown during playback.",
-          "positions": { "s": { "x": 0.7, "y": 0.85 }, "oh1": { "x": 0.25, "y": 0.6 } }
+          "positions": { "s": { "x": 0.7, "y": 0.85 }, "oh1": { "x": 0.25, "y": 0.6 } },
+          "rotation": { "kind": "preset", "rotation": 1 } // the step's official-position rotation, when set
         }
       ],
-      "tags": ["serve receive"]
+      "tags": ["serve receive"],
+      "rotationStrict": false // strict clamps illegal drags in the editor; loose (the default) only flags
     }
   ]
 }
@@ -48,7 +50,8 @@ It mirrors `src/bundle/types.ts`, the format's source of truth; keep this file i
 - **Steps are ordered and non-empty.** One step renders a static Position; two or more an animated Sequence.
 - **Roles**: `setter`, `outside`, `middle`, `opposite`, `libero`, `ball`, `coach`, `player`. Use the volleyball roles in `positions` mode and `coach`/`player` in `basic` mode; every board with a ball gets one `ball` marker.
 - **Marker `label`** overrides the role's default code (`S`, `OH`, `MB`, `OPP`, `L`, `C`, `P`). Number repeated roles (`OH1`, `OH2`). **Marker `color`** (basic mode): `blue`, `red`, `green`, `amber`, `violet`, `slate`.
-- **Optional with defaults**: a board's `description` (empty), `tags` (empty), `topicRef` (null → Unfiled), `autoArrows` (true); a step's `instruction` (empty) and `annotations` (none); a topic's `parentRef` (null) and `blocks` (none).
+- **Optional with defaults**: a board's `description` (empty), `tags` (empty), `topicRef` (null → Unfiled), `autoArrows` (true), `rotationStrict` (false); a step's `instruction` (empty), `annotations` (none), and `rotation` (off); a topic's `parentRef` (null) and `blocks` (none).
+- **Rotations**: a step's `rotation` is `{ "kind": "preset", "rotation": 1–6 }` (a 5-1 preset numbered by the setter's official position; needs a 5-1 roster) or `{ "kind": "custom", "assignment": { "1": "<marker id>", … } }` mapping slots 1–6 to markers. An unreadable rotation is dropped on import with a notice. The validator warns where an active rotation's positions break the overlap rules (FIVB 7.4), which the app flags on screen.
 - **Coordinates** are normalized fractions of the half-court; see [court.md](court.md). Out-of-range values are clamped on import; a marker missing from a step's `positions` is benched. Both produce import notices, so position everything deliberately.
 
 ## Annotations (only when asked)

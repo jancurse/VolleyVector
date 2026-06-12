@@ -16,7 +16,7 @@ function board(patch: Record<string, unknown> = {}): Record<string, unknown> {
 }
 
 function bundle(patch: Record<string, unknown> = {}): string {
-  return JSON.stringify({ formatVersion: 1, topics: [], boards: [board()], ...patch });
+  return JSON.stringify({ formatVersion: 2, topics: [], boards: [board()], ...patch });
 }
 
 function errorsOf(text: string): string[] {
@@ -30,8 +30,8 @@ describe("parseBundle rejects", () => {
     ["malformed JSON", "{nope", /Not valid JSON/],
     ["a non-object root", "[]", /must be a JSON object/],
     ["a missing formatVersion", JSON.stringify({ topics: [], boards: [] }), /"formatVersion"/],
-    ["a newer formatVersion", bundle({ formatVersion: 2 }), /newer than this app supports/],
-    ["missing arrays", JSON.stringify({ formatVersion: 1 }), /"topics" must be an array/],
+    ["a newer formatVersion", bundle({ formatVersion: 3 }), /newer than this app supports/],
+    ["missing arrays", JSON.stringify({ formatVersion: 2 }), /"topics" must be an array/],
     ["a board without steps", bundle({ boards: [board({ steps: [] })] }), /"steps" must be a non-empty array/],
     ["a board without a mode", bundle({ boards: [board({ mode: "3d" })] }), /"mode" must be/],
     ["an unknown role", bundle({ boards: [board({ markers: [{ id: "s", role: "keeper" }] })] }), /unknown role/],
@@ -71,6 +71,11 @@ describe("parseBundle rejects", () => {
       bundle({ boards: [board({ steps: [{ positions: { s: { x: "left", y: 0 } } }] })] }),
       /must be an \{ x, y \} point/,
     ],
+    [
+      "a non-boolean rotationStrict",
+      bundle({ boards: [board({ rotationStrict: "yes" })] }),
+      /"rotationStrict" must be a boolean/,
+    ],
   ])("%s", (_name, text, expected) => {
     expect(errorsOf(text).join("\n")).toMatch(expected);
   });
@@ -78,7 +83,7 @@ describe("parseBundle rejects", () => {
 
 describe("parseBundle leniency", () => {
   test("an older formatVersion imports with an out-of-date notice", () => {
-    const result = parseBundle(bundle({ formatVersion: 0 }), []);
+    const result = parseBundle(bundle({ formatVersion: 1 }), []);
 
     if (!result.ok) throw new Error(result.errors.join("\n"));
     expect(result.value.notices.join("\n")).toMatch(/older format/);
@@ -127,6 +132,27 @@ describe("parseBundle leniency", () => {
       expect.objectContaining({ kind: "ellipse", fill: "tint", color: "red", width: 6 }),
     ]);
     expect(result.value.notices.join("\n")).toMatch(/dropped an annotation/);
+  });
+
+  test("an unreadable rotation drops with a notice and a custom one keeps only usable entries", () => {
+    const steps = [
+      { positions: { s: { x: 0.5, y: 0.5 } }, rotation: { kind: "preset", rotation: 9 } },
+      {
+        positions: { s: { x: 0.5, y: 0.5 } },
+        rotation: { kind: "custom", assignment: { 1: "s", 9: "s", 2: "ghost" } },
+      },
+    ];
+    const result = parseBundle(bundle({ boards: [board({ steps })] }), []);
+
+    if (!result.ok) throw new Error(result.errors.join("\n"));
+
+    const [first, second] = result.value.boards[0].steps;
+
+    expect(first.rotation).toBeUndefined();
+    expect(second.rotation).toEqual({ kind: "custom", assignment: { 1: "s" } });
+    expect(result.value.boards[0].rotationStrict).toBe(false);
+    expect(result.value.notices.join("\n")).toMatch(/dropped a rotation/);
+    expect(result.value.notices.join("\n")).toMatch(/2 custom rotation entries/);
   });
 
   test("topic slugs and orders mint against the existing tree", () => {

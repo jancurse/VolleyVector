@@ -1,0 +1,50 @@
+{
+  "formatVersion": 2,
+  "topics": [
+    {
+      "ref": "t-defense",
+      "title": "Defense",
+      "parentRef": null,
+      "blocks": [
+        {
+          "kind": "markdown",
+          "text": "Our base defence and how we read the attack: who takes the line, who digs cross-court."
+        },
+        { "kind": "boards", "boardRefs": ["b-base-defence"] }
+      ]
+    }
+  ],
+  "boards": [
+    {
+      "ref": "b-base-defence",
+      "topicRef": "t-defense",
+      "title": "Sample Position (Base Defence)",
+      "description": "Defensive position against an outside attack.\n\n- Cross Block\n- **Setter:** Foot on side-line. Main target is hard line hit. Ready for tips.\n- **OH2:** Deep inside the block. Main target: Everything high off the block and long line shots\n- **Lib:** Just outside the block shadow. Main target is the cross power hit.\n- **OH1:** Defending sharp hits and/or tips to middle of court",
+      "mode": "positions",
+      "markers": [
+        { "id": "opp", "role": "opposite", "label": "OPP" },
+        { "id": "mb1", "role": "middle", "label": "MB1" },
+        { "id": "oh1", "role": "outside", "label": "OH1" },
+        { "id": "s", "role": "setter", "label": "S" },
+        { "id": "l", "role": "libero", "label": "L" },
+        { "id": "oh2", "role": "outside", "label": "OH2" },
+        { "id": "ball", "role": "ball" }
+      ],
+      "steps": [
+        {
+          "instruction": "",
+          "positions": {
+            "l": { "x": 0.18, "y": 0.72 },
+            "s": { "x": 0.95, "y": 0.6 },
+            "mb1": { "x": 0.82, "y": 0.05 },
+            "oh1": { "x": 0.14, "y": 0.31 },
+            "oh2": { "x": 0.72, "y": 0.92 },
+            "opp": { "x": 0.89, "y": 0.05 },
+            "ball": { "x": 0.95, "y": -0.09 }
+          }
+        }
+      ],
+      "tags": ["sample", "defense"]
+    }
+  ]
+}

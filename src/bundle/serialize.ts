@@ -50,11 +50,13 @@ export function toBundle(boards: readonly Board[], topics: readonly Topic[]): Bu
       instruction: s.instruction,
       positions: s.positions,
       ...(s.annotations?.length ? { annotations: s.annotations } : {}),
+      ...(s.rotation && { rotation: s.rotation }),
     })),
     topicRef: b.topicId !== null && topicIds.has(b.topicId) ? b.topicId : null,
     description: b.description,
     tags: b.tags,
     autoArrows: b.autoArrows,
+    rotationStrict: b.rotationStrict,
   }));
 
   return { formatVersion: FORMAT_VERSION, topics: bundleTopics, boards: bundleBoards };

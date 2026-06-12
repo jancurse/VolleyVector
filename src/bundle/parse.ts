@@ -1,6 +1,6 @@
 import { normalizeAnnotation } from "../boards/normalize";
 import { benchPosition } from "../boards/operations";
-import type { Annotation, Board, BoardStep } from "../boards/types";
+import type { Annotation, Board, BoardStep, RotationSlot, StepRotation } from "../boards/types";
 import { clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
 import { COLOR_KEYS, ROLES } from "../court/roles";
@@ -112,6 +112,34 @@ function parseAnnotation(raw: unknown): Annotation | null {
   }
 }
 
+function isSlot(value: unknown): value is RotationSlot {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 6;
+}
+
+/** Validate and clean one step's rotation, or null when unusable. A custom assignment keeps only
+ *  entries with a valid slot and a known marker id, counting what it drops. */
+function parseRotation(
+  raw: unknown,
+  markerIds: ReadonlySet<string>
+): { rotation: StepRotation; dropped: number } | null {
+  if (!isRecord(raw)) return null;
+  if (raw.kind === "preset")
+    return isSlot(raw.rotation) ? { rotation: { kind: "preset", rotation: raw.rotation }, dropped: 0 } : null;
+  if (raw.kind !== "custom" || !isRecord(raw.assignment)) return null;
+
+  const assignment: Partial<Record<RotationSlot, string>> = {};
+  let dropped = 0;
+
+  for (const [slot, id] of Object.entries(raw.assignment)) {
+    const number = Number(slot);
+
+    if (isSlot(number) && typeof id === "string" && markerIds.has(id)) assignment[number] = id;
+    else dropped += 1;
+  }
+
+  return { rotation: { kind: "custom", assignment }, dropped };
+}
+
 /** Validate one topic entry into the typed shape, pushing errors; refs are cross-checked by the caller. */
 function parseTopicEntry(raw: unknown, index: number, errors: string[]): BundleTopic | null {
   const where = `Topic ${index + 1}`;
@@ -153,8 +181,9 @@ function parseTopicEntry(raw: unknown, index: number, errors: string[]): BundleT
   };
 }
 
-/** Validate one board entry into the typed shape, pushing errors; refs are cross-checked by the caller. */
-function parseBoardEntry(raw: unknown, index: number, errors: string[]): BundleBoard | null {
+/** Validate one board entry into the typed shape, pushing errors; refs are cross-checked by the caller.
+ *  An unusable step rotation is dropped with a notice, like an invalid annotation. */
+function parseBoardEntry(raw: unknown, index: number, errors: string[], notices: string[]): BundleBoard | null {
   if (!isRecord(raw)) {
     errors.push(`Board ${index + 1}: must be an object.`);
 
@@ -174,6 +203,8 @@ function parseBoardEntry(raw: unknown, index: number, errors: string[]): BundleB
   if (raw.tags !== undefined && !isStringArray(raw.tags)) errors.push(`${where}: "tags" must be a string array.`);
   if (raw.autoArrows !== undefined && typeof raw.autoArrows !== "boolean")
     errors.push(`${where}: "autoArrows" must be a boolean.`);
+  if (raw.rotationStrict !== undefined && typeof raw.rotationStrict !== "boolean")
+    errors.push(`${where}: "rotationStrict" must be a boolean.`);
 
   const markers: BundleBoard["markers"] = [];
   const markerIds = new Set<string>();
@@ -245,10 +276,19 @@ function parseBoardEntry(raw: unknown, index: number, errors: string[]): BundleB
         else errors.push(`${at}: position of marker "${id}" must be an { x, y } point.`);
       }
 
+      const rotation = step.rotation === undefined ? null : parseRotation(step.rotation, markerIds);
+
+      if (step.rotation !== undefined && !rotation) notices.push(`${at}: dropped a rotation it could not read.`);
+      if (rotation && rotation.dropped > 0)
+        notices.push(
+          `${at}: dropped ${rotation.dropped} custom rotation entr${rotation.dropped === 1 ? "y" : "ies"} with an unknown slot or marker.`
+        );
+
       steps.push({
         ...(typeof step.instruction === "string" && { instruction: step.instruction }),
         positions,
         ...(Array.isArray(step.annotations) && { annotations: step.annotations }),
+        ...(rotation && { rotation: rotation.rotation }),
       });
     });
 
@@ -270,6 +310,7 @@ function parseBoardEntry(raw: unknown, index: number, errors: string[]): BundleB
     ...(typeof raw.description === "string" && { description: raw.description }),
     ...(isStringArray(raw.tags) && { tags: raw.tags }),
     ...(typeof raw.autoArrows === "boolean" && { autoArrows: raw.autoArrows }),
+    ...(typeof raw.rotationStrict === "boolean" && { rotationStrict: raw.rotationStrict }),
   };
 }
 
@@ -387,6 +428,7 @@ function materialize(
         instruction: step.instruction ?? "",
         positions,
         ...(annotations.length > 0 && { annotations }),
+        ...(step.rotation && { rotation: step.rotation }),
       };
     });
 
@@ -404,6 +446,7 @@ function materialize(
       shared: false,
       teamId: null,
       autoArrows: board.autoArrows ?? true,
+      rotationStrict: board.rotationStrict ?? false,
       createdAt: 0,
       updatedAt: 0,
     };
@@ -446,7 +489,7 @@ export function parseBundle(text: string, existingTopics: readonly Topic[]): Par
   if (errors.length > 0) return { ok: false, errors };
 
   const topics = (root.topics as unknown[]).map((raw, i) => parseTopicEntry(raw, i, errors));
-  const boards = (root.boards as unknown[]).map((raw, i) => parseBoardEntry(raw, i, errors));
+  const boards = (root.boards as unknown[]).map((raw, i) => parseBoardEntry(raw, i, errors, notices));
 
   const seenRefs = new Set<string>();
 

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { App } from "../src/App";
 import { AuthProvider } from "../src/auth/useAuth";
+import { FORMAT_VERSION } from "../src/bundle/types";
 import { SAMPLE_BOARDS } from "./helpers/sampleData";
 import { failWrites, resetFakeAuthz, resetRecorded, setFakeAuthz, TEST_USER } from "./helpers/supabaseFake";
 
@@ -476,7 +477,10 @@ describe("board JSON export", () => {
     await user.click(screen.getByRole("button", { name: "Board actions" }));
     await user.click(screen.getByRole("menuitem", { name: "Copy JSON" }));
 
-    expect(JSON.parse(writeText.mock.calls[0][0])).toMatchObject({ formatVersion: 1, boards: [{ title }] });
+    expect(JSON.parse(writeText.mock.calls[0][0])).toMatchObject({
+      formatVersion: FORMAT_VERSION,
+      boards: [{ title }],
+    });
     // The item stays put and confirms in place, so the menu does not snap shut on the feedback.
     expect(await screen.findByRole("menuitem", { name: "Copied" })).toBeInTheDocument();
   });
@@ -488,7 +492,7 @@ describe("bundle import", () => {
   test("pasting a bundle previews it and confirming creates its topic and board", async () => {
     const user = await renderApp();
     const bundle = JSON.stringify({
-      formatVersion: 1,
+      formatVersion: FORMAT_VERSION,
       topics: [{ ref: "t1", title: "Imported topic" }],
       boards: [
         {

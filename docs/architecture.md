@@ -212,7 +212,7 @@ Content leaves and enters the app two ways: a portable JSON **bundle** that roun
 
 ### The bundle format
 
-- `src/bundle/` owns the format: one versioned JSON object carrying topics and boards with no server-owned fields (owner, team, sharing, tokens, timestamps). `types.ts` is the single source of truth, mirrored by the board-creator skill's `format.md`.
+- `src/bundle/` owns the format: one versioned JSON object carrying topics and boards in full, rotations included, with no server-owned fields (owner, team, sharing, tokens, timestamps). `types.ts` is the single source of truth, mirrored by the board-creator skill's `format.md`.
 - Items reference each other through opaque local `ref` strings (`topicRef`, `parentRef`, `boardRefs`) that resolve within the bundle only. Import mints fresh ids and slugs; export uses the real ids as refs.
 - `FORMAT_VERSION` guards compatibility: an older bundle is normalized on parse with a "skill may be out of date" notice, and a newer one is rejected as the app being out of date.
 - `parseBundle` is strict on structure and lenient on content. Malformed JSON, unknown refs, and missing required fields become readable errors; an out-of-range coordinate clamps to the court, a step missing a marker's position benches that marker, and an invalid annotation is dropped, each with a notice rather than a failure.

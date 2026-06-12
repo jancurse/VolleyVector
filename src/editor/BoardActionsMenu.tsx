@@ -37,7 +37,7 @@ export function BoardActionsMenu({
     <Menu
       tooltip="More actions"
       trigger={
-        <IconButton variant="plain" aria-label="Board actions">
+        <IconButton variant="control" aria-label="Board actions">
           <Ellipsis size={16} aria-hidden="true" />
         </IconButton>
       }

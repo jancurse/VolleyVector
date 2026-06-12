@@ -26,7 +26,7 @@ export function ExportMenu({ label, bundle, filename, children }: ExportMenuProp
     <Menu
       tooltip="More actions"
       trigger={
-        <IconButton variant="plain" aria-label={label}>
+        <IconButton variant="control" aria-label={label}>
           <Ellipsis size={16} aria-hidden="true" />
         </IconButton>
       }

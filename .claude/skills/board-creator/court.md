@@ -14,23 +14,23 @@ Every position is a normalized fraction of that playing area (derived from `src/
 |-----------------------------|--------------------------------------|
 | Ball hanging over the net   | `{ "x": 0.5, "y": -0.05 }`           |
 | Server behind the end line  | `{ "x": 0.83, "y": 1.05 }`           |
-| Setter target at the net    | `{ "x": 0.65, "y": 0.08 }`           |
+| Setter target at the net    | `{ "x": 0.55, "y": 0.08 }`           |
 | Bench row (waiting markers) | `y = 1.07`, `x = 0.1, 0.21, 0.32, …` |
 
 ## Rotation zones
 
 Numbered as the players see them facing the net; zone 1 is back-right, counting counter-clockwise.
 
-| Zone | Court area   | x range   | y range | Centre                 |
-|------|--------------|-----------|---------|------------------------|
-| 1    | back right   | 2/3 – 1   | 2/3 – 1 | `{ x: 0.83, y: 0.83 }` |
-| 2    | front right  | 2/3 – 1   | 0 – 1/3 | `{ x: 0.83, y: 0.17 }` |
-| 3    | front middle | 1/3 – 2/3 | 0 – 1/3 | `{ x: 0.5, y: 0.17 }`  |
-| 4    | front left   | 0 – 1/3   | 0 – 1/3 | `{ x: 0.17, y: 0.17 }` |
-| 5    | back left    | 0 – 1/3   | 2/3 – 1 | `{ x: 0.17, y: 0.83 }` |
-| 6    | back middle  | 1/3 – 2/3 | 2/3 – 1 | `{ x: 0.5, y: 0.83 }`  |
+| Zone | Court area   | x range   | y range | Centre                 | Official spot         |
+|------|--------------|-----------|---------|------------------------|-----------------------|
+| 1    | back right   | 2/3 – 1   | 2/3 – 1 | `{ x: 0.83, y: 0.83 }` | `{ x: 0.8, y: 0.72 }` |
+| 2    | front right  | 2/3 – 1   | 0 – 1/3 | `{ x: 0.83, y: 0.17 }` | `{ x: 0.8, y: 0.22 }` |
+| 3    | front middle | 1/3 – 2/3 | 0 – 1/3 | `{ x: 0.5, y: 0.17 }`  | `{ x: 0.5, y: 0.22 }` |
+| 4    | front left   | 0 – 1/3   | 0 – 1/3 | `{ x: 0.17, y: 0.17 }` | `{ x: 0.2, y: 0.22 }` |
+| 5    | back left    | 0 – 1/3   | 2/3 – 1 | `{ x: 0.17, y: 0.83 }` | `{ x: 0.2, y: 0.72 }` |
+| 6    | back middle  | 1/3 – 2/3 | 2/3 – 1 | `{ x: 0.5, y: 0.83 }`  | `{ x: 0.5, y: 0.72 }` |
 
-A typical three-player serve-receive line sits around `y ≈ 0.55–0.65` at `x ≈ 0.2 / 0.5 / 0.8`.
+A three-player serve-receive line sits at roughly `y ≈ 2/3`. The base splits the width in thirds (`x ≈ 1/6, 3/6, 5/6`), usually shifted toward the side of the front-court OH receiver, e.g. `x ≈ 0.1 / 0.4 / 0.8`. Treat both as rough guides, not exact spots.
 
 ## Roles (from `src/court/roles.ts`)
 

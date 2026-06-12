@@ -1,0 +1,81 @@
+{
+  "formatVersion": 2,
+  "topics": [
+    {
+      "ref": "t-drills",
+      "title": "Drills",
+      "parentRef": null,
+      "blocks": [
+        {
+          "kind": "markdown",
+          "text": "Repeatable **drills** for training: serve receive, transition, and out-of-system reps."
+        },
+        { "kind": "boards", "boardRefs": ["b-sr-sideout"] }
+      ]
+    }
+  ],
+  "boards": [
+    {
+      "ref": "b-sr-sideout",
+      "topicRef": "t-drills",
+      "title": "Sample Drill (Serve Receive & Sideout)",
+      "description": "### Serve Reception & Sideout",
+      "mode": "positions",
+      "markers": [
+        { "id": "s", "role": "setter", "label": "S" },
+        { "id": "mb1", "role": "middle", "label": "MB1" },
+        { "id": "oh1", "role": "outside", "label": "OH1" },
+        { "id": "oh2", "role": "outside", "label": "OH2" },
+        { "id": "l", "role": "libero", "label": "L" },
+        { "id": "ball", "role": "ball" }
+      ],
+      "steps": [
+        {
+          "instruction": "- Serve receive\n- L and OH2 each cover 40% of the court\n- OH1 covers the remaining 20%",
+          "positions": {
+            "l": { "x": 0.4, "y": 0.72 },
+            "s": { "x": 0.72, "y": 0.18 },
+            "mb1": { "x": 0.4, "y": 0.15 },
+            "oh1": { "x": 0.1, "y": 0.66 },
+            "oh2": { "x": 0.8, "y": 0.72 },
+            "ball": { "x": 0.6, "y": -0.09 }
+          }
+        },
+        {
+          "instruction": "- Pass to the middle, close to the net\n- OH1 kicks out wide for the approach",
+          "positions": {
+            "l": { "x": 0.58, "y": 0.72 },
+            "s": { "x": 0.52, "y": 0.13 },
+            "mb1": { "x": 0.42, "y": 0.15 },
+            "oh1": { "x": 0, "y": 0.48 },
+            "oh2": { "x": 0.78, "y": 0.62 },
+            "ball": { "x": 0.6, "y": 0.72 }
+          }
+        },
+        {
+          "instruction": "- Set to the antenna\n- MB1 jumps with the set",
+          "positions": {
+            "l": { "x": 0.35, "y": 0.52 },
+            "s": { "x": 0.5, "y": 0.11 },
+            "mb1": { "x": 0.38, "y": 0.06 },
+            "oh1": { "x": -0.1, "y": 0.3 },
+            "oh2": { "x": 0.5, "y": 0.6 },
+            "ball": { "x": 0.5, "y": 0.13 }
+          }
+        },
+        {
+          "instruction": "- OH1 attacks\n- Everyone covers: libero, MB1 and setter tight, OH2 deep in the middle",
+          "positions": {
+            "l": { "x": 0.1, "y": 0.3 },
+            "s": { "x": 0.45, "y": 0.15 },
+            "mb1": { "x": 0.25, "y": 0.12 },
+            "oh1": { "x": 0.06, "y": 0.13 },
+            "oh2": { "x": 0.45, "y": 0.55 },
+            "ball": { "x": 0.06, "y": 0.05 }
+          }
+        }
+      ],
+      "tags": ["sample", "reception"]
+    }
+  ]
+}
