@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
 import { X } from "lucide-react";
 
-import { cx, OVERLAY, OVERLAY_ITEM, OVERLAY_MOTION } from "./styles";
+import { cx, OVERLAY, OVERLAY_ITEM, OVERLAY_MOTION, TAG_CHIP } from "./styles";
 
 // A multi-select, creatable tag input. Existing tags are offered as suggestions (accepted by click or
 // keyboard); a brand-new tag commits immediately on Enter, comma, or blur with no confirmation step.
@@ -20,8 +20,6 @@ const MAX_SUGGESTIONS = 8;
 
 const norm = (s: string) => s.trim().toLowerCase();
 
-const CHIP =
-  "inline-flex items-center gap-1 rounded-pill border border-border bg-control px-2 py-0.5 text-xs font-semibold text-text";
 const CHIP_REMOVE =
   "flex cursor-pointer items-center border-0 bg-transparent p-0 leading-none text-text-dim transition-colors hover:text-danger";
 const INPUT =
@@ -121,7 +119,7 @@ export function Combobox({
             {(tags: string[]) => (
               <>
                 {tags.map((tag) => (
-                  <BaseCombobox.Chip key={tag} className={CHIP} aria-label={tag}>
+                  <BaseCombobox.Chip key={tag} className={TAG_CHIP} aria-label={tag}>
                     {tag}
                     <BaseCombobox.ChipRemove className={CHIP_REMOVE} aria-label={`Remove ${tag}`}>
                       <X size={12} aria-hidden="true" className="block" />

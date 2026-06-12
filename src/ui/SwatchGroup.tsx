@@ -1,19 +1,23 @@
+import type { ReactNode } from "react";
 import { RadioGroup } from "@base-ui/react/radio-group";
 import { Radio } from "@base-ui/react/radio";
 
-import { cx, SWATCH_BASE } from "./styles";
+import { cx, SWATCH_BASE, SWATCH_FLAT } from "./styles";
 
 // A single-choice picker rendered as coloured swatches: exactly one is selected, shown by an accent
-// ring. Used for the marker role and (in basic mode) colour pickers. Each swatch's fill/ring/text are
-// the role or colour palette, applied inline so they stay theme-independent.
+// ring. Used for the marker role/colour and annotation colour pickers. A swatch either carries `art`
+// filling the disc (the court's own marker/ball glyphs), or renders as a flat CSS disc from its
+// fill/ring/text — the role or colour palette applied inline so it stays theme-independent.
 export type Swatch = {
   value: string;
   label: string;
-  fill: string;
-  ring: string;
+  fill?: string;
+  ring?: string;
   text?: string;
-  /** Optional glyph shown inside the swatch (a role code); colours render as blank discs. */
+  /** Optional glyph shown inside a flat swatch (a role code); colours render as blank discs. */
   code?: string;
+  /** Custom artwork filling the disc instead of the flat look (the marker and ball swatches). */
+  art?: ReactNode;
 };
 
 type SwatchGroupProps = {
@@ -41,10 +45,10 @@ export function SwatchGroup({ value, onValueChange, items, ariaLabel }: SwatchGr
           key={swatch.value}
           value={swatch.value}
           aria-label={swatch.label}
-          className={SWATCH}
-          style={{ background: swatch.fill, borderColor: swatch.ring, color: swatch.text }}
+          className={cx(SWATCH, !swatch.art && SWATCH_FLAT)}
+          style={swatch.art ? undefined : { background: swatch.fill, borderColor: swatch.ring, color: swatch.text }}
         >
-          {swatch.code}
+          {swatch.art ?? swatch.code}
         </Radio.Root>
       ))}
     </RadioGroup>

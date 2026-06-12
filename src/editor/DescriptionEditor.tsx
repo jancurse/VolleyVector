@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { Markdown } from "../ui/Markdown";
-import { MUTED, PANEL, PANEL_TITLE, cx } from "../ui/styles";
+import { MUTED, PANEL, PANEL_TITLE } from "../ui/styles";
 import { Tab, TabList, TabPanel, Tabs } from "../ui/Tabs";
 import { Textarea } from "../ui/Textarea";
 
@@ -25,10 +25,10 @@ export function DescriptionEditor({
   compact = false,
 }: DescriptionEditorProps): JSX.Element {
   const [mode, setMode] = useState("write");
-  const preview = compact ? "min-h-[96px]" : "min-h-[190px] flex-1";
+  const preview = compact ? "min-h-[96px]" : "min-h-[190px]";
 
   return (
-    <Tabs value={mode} onValueChange={setMode} className={cx(PANEL, !compact && "min-h-0 flex-1")}>
+    <Tabs value={mode} onValueChange={setMode} className={PANEL}>
       <div className="flex items-center justify-between">
         <span className={PANEL_TITLE}>{title}</span>
         <TabList ariaLabel={`${title} mode`}>
@@ -37,7 +37,7 @@ export function DescriptionEditor({
         </TabList>
       </div>
 
-      <TabPanel value="write" className={cx("flex", !compact && "flex-1")}>
+      <TabPanel value="write" className="flex">
         <Textarea
           value={value}
           placeholder={placeholder}

@@ -15,7 +15,7 @@ import { Button } from "../ui/Button";
 import { CourtFrame } from "../ui/CourtFrame";
 import { Markdown } from "../ui/Markdown";
 import { Toolbar, ToolbarButton } from "../ui/Toolbar";
-import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TITLE, cx } from "../ui/styles";
+import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TAG_CHIP, TITLE, cx } from "../ui/styles";
 import { RotationBoard } from "./RotationBoard";
 import { violationMessages } from "./RotationPanel";
 import { StepStrip } from "./StepStrip";
@@ -29,7 +29,7 @@ const PREV_ICON = <ChevronLeft size={18} strokeWidth={2.2} aria-hidden="true" />
 const NEXT_ICON = <ChevronRight size={18} strokeWidth={2.2} aria-hidden="true" />;
 
 const VIEW_BODY =
-  "grid grid-cols-[min(74vh,560px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]";
+  "grid grid-cols-[min(74vh,620px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]";
 
 // The rotation board and its label, visible whenever the shown step's rotation is active. The label
 // stays visible while the board itself collapses (no hover reveal: hover does not exist on touch).
@@ -136,6 +136,15 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
           <div>
             <p className={EYEBROW}>{sequence ? "Sequence" : "Position"}</p>
             <h1 className={TITLE}>{board.title || "Untitled board"}</h1>
+            {board.tags.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                {board.tags.map((tag) => (
+                  <span key={tag} className={TAG_CHIP}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           {actions && <div className="flex flex-none items-center gap-2">{actions}</div>}
         </div>

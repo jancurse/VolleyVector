@@ -165,6 +165,7 @@ describe("court mode", () => {
     await openEditor(user);
     expect(screen.getByRole("button", { name: "Add setter" })).toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: "Court settings" }));
     await user.click(screen.getByRole("button", { name: "Basic" }));
 
     expect(screen.getByRole("button", { name: "Add coach" })).toBeInTheDocument();
@@ -180,6 +181,7 @@ describe("court mode", () => {
     await user.click(screen.getByRole("img", { name: "Setter" }));
     expect(screen.queryByRole("radiogroup", { name: "Colour" })).not.toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: "Court settings" }));
     await user.click(screen.getByRole("button", { name: "Basic" }));
     await user.click(screen.getByRole("button", { name: "Add player" }));
     expect(screen.getByRole("radio", { name: "Blue", checked: true })).toBeInTheDocument();
@@ -625,7 +627,7 @@ describe("topics", () => {
     await openSequence(user);
     await openEditor(user);
 
-    await user.click(screen.getByRole("combobox", { name: "Topic" }));
+    await user.click(screen.getByRole("combobox", { name: "Filed under" }));
     await user.click(screen.getByRole("option", { name: "Rotations" }));
     await user.click(screen.getByRole("button", { name: "Done" }));
     await user.click(screen.getByRole("button", { name: /Library/ }));

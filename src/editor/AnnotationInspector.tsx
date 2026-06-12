@@ -6,7 +6,7 @@ import { COLOR_KEYS, MARKER_COLORS } from "../court/roles";
 import { Button } from "../ui/Button";
 import { SwatchGroup } from "../ui/SwatchGroup";
 import { ToggleGroup } from "../ui/ToggleGroup";
-import { FIELD_LABEL, PANEL, PANEL_TITLE, cx } from "../ui/styles";
+import { FIELD_LABEL, PANEL, PANEL_TITLE } from "../ui/styles";
 import { ANNOTATION_DASHES, ANNOTATION_FILLS, ANNOTATION_WIDTHS, widthForValue, widthValue } from "./annotationStyle";
 
 // Edits a drawing's style: its colour (from the marker palette), stroke width, and — where they
@@ -40,10 +40,7 @@ export function AnnotationInspector({
   onRemove,
 }: AnnotationInspectorProps): JSX.Element {
   return (
-    <section
-      className={cx(PANEL, "w-[360px] max-w-full self-start max-[1040px]:w-full max-[1040px]:max-w-[440px]")}
-      aria-label="Drawing style"
-    >
+    <section className={PANEL} aria-label="Drawing style">
       <div className="flex items-center justify-between">
         <span className={PANEL_TITLE}>{selected ? "Drawing" : "New drawing"}</span>
         {selected && onRemove && (

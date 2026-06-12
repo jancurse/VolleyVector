@@ -91,6 +91,10 @@ export const FIELD_LABEL = "font-mono text-2xs font-medium uppercase tracking-[0
 /** Quiet italic placeholder copy (empty states). */
 export const MUTED = "m-0 italic text-text-dim";
 
+/** A tag chip, shared by the tag input's removable chips and the board view's read-only tags. */
+export const TAG_CHIP =
+  "inline-flex items-center gap-1 rounded-pill border border-border bg-control px-2 py-0.5 text-xs font-semibold text-text";
+
 /** The spaced mono uppercase eyebrow above a title. */
 export const EYEBROW = "m-0 mb-[0.4rem] font-mono text-xs font-medium uppercase tracking-[0.28em] text-text-dim";
 
@@ -143,9 +147,12 @@ export const TABLE_CELL = "border-b border-border px-4 py-3 align-middle";
 
 // ---- Swatches and domain composites -----------------------------------------------------------
 
-/** The coloured role/colour disc, shared by the inspector's swatch picker and the palette legend. */
-export const SWATCH_BASE =
-  "grid size-7.5 flex-none place-items-center rounded-full border-2 font-mono text-2xs font-bold";
+/** The swatch disc's box, shared by the inspector's swatch pickers and the palette legend. Marker
+    swatches fill it with court SVG art; SWATCH_FLAT adds the plain CSS disc for ink-colour chips. */
+export const SWATCH_BASE = "grid size-7.5 flex-none place-items-center rounded-full";
+
+/** The flat coloured-disc look for swatches that show an ink colour rather than a marker. */
+export const SWATCH_FLAT = "border-2 font-mono text-2xs font-bold";
 
 /** The palette's "add a marker" pill: a ghost pill carrying a leading role swatch and the role name. */
 export const LEGEND_BUTTON =

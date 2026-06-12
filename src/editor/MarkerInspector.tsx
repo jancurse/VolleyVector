@@ -1,5 +1,7 @@
 import type { JSX } from "react";
 
+import { BallSwatch } from "../court/BallArt";
+import { MarkerSwatch } from "../court/MarkerSwatch";
 import type { ColorKey, CourtMode, MarkerRole } from "../court/roles";
 import { COLOR_KEYS, MARKER_COLORS, MODE_ROLES, ROLES } from "../court/roles";
 import type { Marker } from "../court/types";
@@ -7,7 +9,7 @@ import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
 import { SwatchGroup } from "../ui/SwatchGroup";
-import { FIELD_LABEL, PANEL, PANEL_TITLE, cx } from "../ui/styles";
+import { FIELD_LABEL, PANEL, PANEL_TITLE } from "../ui/styles";
 
 // Edits the one selected marker: pick its role (within the active mode's family), recolour it (basic
 // mode), rename its label, or remove it. Position is edited on the court (drag or arrow keys).
@@ -32,10 +34,7 @@ export function MarkerInspector({
   const colorKey = COLOR_KEYS.find((key) => MARKER_COLORS[key].fill === fill) ?? "";
 
   return (
-    <section
-      className={cx(PANEL, "w-[360px] max-w-full self-start max-[1040px]:w-full max-[1040px]:max-w-[440px]")}
-      aria-label="Selected marker"
-    >
+    <section className={PANEL} aria-label="Selected marker">
       <div className="flex items-center justify-between">
         <span className={PANEL_TITLE}>Marker</span>
         <Button variant="text" size="sm" onClick={onDelete}>
@@ -52,10 +51,17 @@ export function MarkerInspector({
           items={MODE_ROLES[mode].map((role) => ({
             value: role,
             label: ROLES[role].name,
-            fill: ROLES[role].fill,
-            ring: ROLES[role].ring,
-            text: ROLES[role].text,
-            code: ROLES[role].code,
+            art:
+              role === "ball" ? (
+                <BallSwatch />
+              ) : (
+                <MarkerSwatch
+                  fill={ROLES[role].fill}
+                  ring={ROLES[role].ring}
+                  text={ROLES[role].text}
+                  code={ROLES[role].code}
+                />
+              ),
           }))}
         />
       </div>
@@ -70,8 +76,7 @@ export function MarkerInspector({
             items={COLOR_KEYS.map((key) => ({
               value: key,
               label: MARKER_COLORS[key].name,
-              fill: MARKER_COLORS[key].fill,
-              ring: MARKER_COLORS[key].ring,
+              art: <MarkerSwatch fill={MARKER_COLORS[key].fill} ring={MARKER_COLORS[key].ring} />,
             }))}
           />
         </div>
