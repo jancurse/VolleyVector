@@ -5,7 +5,7 @@ import type { RotationViolation } from "../boards/rotation";
 import type { Board, RotationSlot, StepRotation } from "../boards/types";
 import { Select } from "../ui/Select";
 import { ToggleGroup } from "../ui/ToggleGroup";
-import { FIELD_LABEL, PANEL, PANEL_TITLE, cx } from "../ui/styles";
+import { FIELD_LABEL, PANEL, PANEL_TITLE } from "../ui/styles";
 import { RotationBoard } from "./RotationBoard";
 
 const ENFORCEMENT_ITEMS = [
@@ -103,7 +103,7 @@ export function RotationPanel({
 
       {rotation && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <div className={cx("w-full", rotation.kind === "custom" ? "max-w-[300px]" : "max-w-[240px]")}>
+          <div className="w-full max-w-[260px]">
             <RotationBoard
               markers={draft.markers}
               rotation={rotation}

@@ -184,18 +184,32 @@ export function violationFlags(
   return { markerIds: [...markerIds], ties };
 }
 
-/** Clamp a dragged marker to the region strict mode allows, relative to the other assigned players'
- *  current positions: inside the playing area and level with or behind/beside each constraining
- *  neighbour. An unassigned marker (ball, coach, extras) passes through untouched. */
-export function clampToLegal(
-  assignment: Record<RotationSlot, string>,
-  positions: Record<string, NormalizedPoint>,
-  markerId: string,
-  desired: NormalizedPoint
-): NormalizedPoint {
+/** The bounds an assigned player may legally occupy, in normalized coordinates. */
+export type LegalRegion = { loX: number; hiX: number; loY: number; hiY: number };
+
+/** The markers whose overlap relations constrain `markerId`: its front/back counterpart and the
+ *  adjacent players in its row. Empty for an unassigned marker. */
+export function constrainingNeighbours(assignment: Record<RotationSlot, string>, markerId: string): string[] {
   const slot = ROTATION_SLOTS.find((s) => assignment[s] === markerId);
 
-  if (!slot) return desired;
+  if (!slot) return [];
+
+  return [...Y_PAIRS, ...X_PAIRS]
+    .filter(([a, b]) => a === slot || b === slot)
+    .map(([a, b]) => assignment[a === slot ? b : a]);
+}
+
+/** The region the overlap rules leave `markerId`, relative to the other assigned players' current
+ *  positions: inside the playing area and level with or behind/beside each constraining neighbour.
+ *  Null for an unassigned marker (ball, coach, extras). */
+export function legalRegion(
+  assignment: Record<RotationSlot, string>,
+  positions: Record<string, NormalizedPoint>,
+  markerId: string
+): LegalRegion | null {
+  const slot = ROTATION_SLOTS.find((s) => assignment[s] === markerId);
+
+  if (!slot) return null;
 
   const at = (s: RotationSlot) => positions[assignment[s]];
   let [loX, hiX, loY, hiY] = [0, 1, 0, 1];
@@ -209,6 +223,23 @@ export function clampToLegal(
     if (slot === left) hiX = Math.min(hiX, at(right).x);
     if (slot === right) loX = Math.max(loX, at(left).x);
   }
+
+  return { loX, hiX, loY, hiY };
+}
+
+/** Clamp a dragged marker to the region strict mode allows ({@link legalRegion}). An unassigned
+ *  marker passes through untouched. */
+export function clampToLegal(
+  assignment: Record<RotationSlot, string>,
+  positions: Record<string, NormalizedPoint>,
+  markerId: string,
+  desired: NormalizedPoint
+): NormalizedPoint {
+  const region = legalRegion(assignment, positions, markerId);
+
+  if (!region) return desired;
+
+  const { loX, hiX, loY, hiY } = region;
 
   return { x: Math.min(hiX, Math.max(loX, desired.x)), y: Math.min(hiY, Math.max(loY, desired.y)) };
 }
@@ -229,19 +260,26 @@ export function setStepRotation(board: Board, stepId: string, rotation: StepRota
   };
 }
 
-/** Place a marker on one official position in a step's custom rotation (displacing the slot's
- *  previous occupant to the bench), or back on the bench with `slot: null`. */
+/** Place a marker on one official position in a step's custom rotation, or back on the bench with
+ *  `slot: null`. An occupied position swaps: its occupant takes the position the marker came from,
+ *  or the bench when the marker came from the bench. */
 export function placeRotationMarker(board: Board, stepId: string, markerId: string, slot: RotationSlot | null): Board {
   return {
     ...board,
     steps: board.steps.map((s) => {
       if (s.id !== stepId || s.rotation?.kind !== "custom") return s;
 
-      const assignment = Object.fromEntries(
-        Object.entries(s.rotation.assignment).filter(([, id]) => id !== markerId)
-      ) as Partial<Record<RotationSlot, string>>;
+      const assignment = { ...s.rotation.assignment };
+      const from = ROTATION_SLOTS.find((sl) => assignment[sl] === markerId);
 
-      if (slot) assignment[slot] = markerId;
+      if (from) delete assignment[from];
+
+      if (slot) {
+        const occupant = assignment[slot];
+
+        assignment[slot] = markerId;
+        if (occupant && from) assignment[from] = occupant;
+      }
 
       return { ...s, rotation: { kind: "custom", assignment } };
     }),

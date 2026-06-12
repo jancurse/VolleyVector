@@ -140,6 +140,17 @@ describe("BoardEditor court settings", () => {
   });
 });
 
+describe("BoardEditor aside", () => {
+  test("orders the rotation panel above the description", () => {
+    setup();
+
+    const rotation = screen.getByRole("region", { name: "Rotation" });
+    const description = screen.getByText("Description");
+
+    expect(rotation.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 describe("BoardEditor rotation panel", () => {
   test("off keeps the card to its header row, with the options disabled and a caption until six players", async () => {
     const user = setup();

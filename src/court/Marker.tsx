@@ -18,7 +18,7 @@ export function labelFontSize(label: string): number {
 }
 
 // "OH1" -> "Outside hitter 1"; "S" -> "Setter". Used as the marker's accessible name.
-function accessibleName(role: MarkerData["role"], label: string): string {
+export function markerName(role: MarkerData["role"], label: string): string {
   const number = label.match(/\d+$/)?.[0];
 
   return number ? `${ROLES[role].name} ${number}` : ROLES[role].name;
@@ -31,6 +31,8 @@ type MarkerProps = {
   selected?: boolean;
   /** Marks an overlap violation: the selection halo's grammar in the warning token. */
   warning?: boolean;
+  /** Steps the marker back while another marker's cue is showing. */
+  dimmed?: boolean;
   dragging?: boolean;
   /** When true the marker glides to new positions (drill playback) instead of jumping there. */
   animated?: boolean;
@@ -43,6 +45,7 @@ export function Marker({
   index = 0,
   selected = false,
   warning = false,
+  dimmed = false,
   dragging = false,
   animated = false,
   onPointerDown,
@@ -94,7 +97,10 @@ export function Marker({
     </>
   );
 
-  const name = isBall ? "Ball" : accessibleName(marker.role, label);
+  const name = isBall ? "Ball" : markerName(marker.role, label);
+
+  const outerClass =
+    [onPointerDown && "court-marker-hit", dimmed && "court-marker--dim"].filter(Boolean).join(" ") || undefined;
 
   // Playback: the outer group carries position as an animated CSS transform, so a step change glides.
   if (animated) {
@@ -102,9 +108,11 @@ export function Marker({
       <motion.g
         role="img"
         aria-label={name}
+        className={outerClass}
         initial={false}
         animate={{ x, y }}
         transition={{ duration: STEP_TRAVEL_S, ease: EASE_SETTLE }}
+        onPointerDown={onPointerDown && ((event) => onPointerDown(marker.id, event))}
       >
         {body}
       </motion.g>
@@ -117,7 +125,7 @@ export function Marker({
       transform={`translate(${x} ${y})`}
       role="img"
       aria-label={name}
-      className={onPointerDown ? "court-marker-hit" : undefined}
+      className={outerClass}
       onPointerDown={onPointerDown && ((event) => onPointerDown(marker.id, event))}
     >
       {body}

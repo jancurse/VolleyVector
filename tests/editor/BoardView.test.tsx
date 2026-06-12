@@ -1,19 +1,30 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
-import { addMarker, createBoard } from "../../src/boards/operations";
+import { addMarker, createBoard, insertStep } from "../../src/boards/operations";
 import type { Board } from "../../src/boards/types";
 import type { MarkerRole } from "../../src/court/roles";
 import { BoardView } from "../../src/editor/BoardView";
 
-const ROSTER: MarkerRole[] = ["setter", "outside", "outside", "middle", "libero", "opposite"];
+const ROSTER: MarkerRole[] = ["setter", "outside", "outside", "middle", "libero", "opposite", "ball"];
 
-function makeBoard({ rotation = false, tags = [] }: { rotation?: boolean; tags?: string[] } = {}): Board {
-  const base = ROSTER.reduce((b, role) => addMarker(b, role, 0).board, createBoard(0));
-  const steps = rotation ? [{ ...base.steps[0], rotation: { kind: "preset", rotation: 1 } as const }] : base.steps;
+function makeBoard({
+  rotation = false,
+  tags = [],
+  steps = 1,
+}: { rotation?: boolean; tags?: string[]; steps?: number } = {}): Board {
+  let board = ROSTER.reduce((b, role) => addMarker(b, role, 0).board, createBoard(0));
 
-  return { ...base, steps, tags };
+  if (rotation)
+    board = { ...board, steps: [{ ...board.steps[0], rotation: { kind: "preset", rotation: 1 } as const }] };
+  for (let i = 1; i < steps; i++) board = insertStep(board, 0).board;
+
+  return { ...board, tags };
 }
+
+// Marker queries scope to the main court, since the rotation panel carries the same accessible names.
+const court = () => within(screen.getByLabelText("Untitled board"));
 
 describe("BoardView", () => {
   test("a step with an active rotation shows the rotation panel beside the court", () => {
@@ -35,5 +46,60 @@ describe("BoardView", () => {
     render(<BoardView board={makeBoard({ tags })} onBack={vi.fn()} />);
 
     expect(screen.queryByText("serve receive") !== null).toBe(shown);
+  });
+
+  // In a Sequence the description scrolls internally so the panels beside the court stay visible; a
+  // Position leaves it unbounded.
+  test.each([
+    [2, true],
+    [1, false],
+  ])("with %i steps the description caps its height: %s", (steps, capped) => {
+    render(<BoardView board={makeBoard({ steps })} onBack={vi.fn()} />);
+
+    const description = screen.getByRole("region", { name: "Description" });
+
+    expect(description.querySelector(".overflow-y-auto") !== null).toBe(capped);
+  });
+});
+
+describe("BoardView tap cue", () => {
+  // Tapping an assigned player on either surface draws the same ties on both: the main court and the
+  // rotation board mirror one cue.
+  test.each([["Untitled board"], ["Rotation board"]])(
+    "tapping an assigned player on %j ties them to their neighbours on both boards; tapping the surface clears it",
+    async (surface) => {
+      const user = userEvent.setup();
+
+      render(<BoardView board={makeBoard({ rotation: true })} onBack={vi.fn()} />);
+
+      const main = screen.getByLabelText("Untitled board");
+
+      await user.click(within(screen.getByLabelText(surface)).getByLabelText("Setter"));
+      // In rotation 1 the setter keys off their front counterpart and their in-row neighbour.
+      expect(main.querySelectorAll(".court-cue-tie")).toHaveLength(2);
+      expect(screen.getByLabelText("Rotation board").querySelectorAll(".court-cue-tie")).toHaveLength(2);
+      // On the main court the other three players and the ball step back.
+      expect(main.querySelectorAll(".court-marker--dim")).toHaveLength(4);
+
+      fireEvent.pointerDown(screen.getByLabelText(surface));
+      expect(document.querySelectorAll(".court-cue-tie")).toHaveLength(0);
+      expect(document.querySelectorAll(".court-marker--dim")).toHaveLength(0);
+    }
+  );
+
+  test("tapping an unassigned marker (the ball) shows nothing", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<BoardView board={makeBoard({ rotation: true })} onBack={vi.fn()} />);
+
+    await user.click(court().getByLabelText("Ball"));
+    expect(container.querySelectorAll(".court-cue-tie")).toHaveLength(0);
+  });
+
+  test("without an active rotation the markers are inert", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<BoardView board={makeBoard()} onBack={vi.fn()} />);
+
+    await user.click(court().getByLabelText("Setter"));
+    expect(container.querySelectorAll(".court-cue-tie")).toHaveLength(0);
   });
 });

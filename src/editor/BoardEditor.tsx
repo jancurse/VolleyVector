@@ -577,6 +577,14 @@ export function BoardEditor({
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4 max-[1040px]:w-full">
+          <RotationPanel
+            draft={draft}
+            stepIndex={stepIndex}
+            violations={violations}
+            onChangeRotation={changeRotation}
+            onPlace={place}
+            onChangeStrict={(rotationStrict) => set((d) => ({ ...d, rotationStrict }))}
+          />
           <DescriptionEditor
             value={draft.description}
             onChange={(description) => replace((d) => ({ ...d, description }))}
@@ -590,14 +598,6 @@ export function BoardEditor({
               placeholder="What happens on this step? (markdown)"
             />
           )}
-          <RotationPanel
-            draft={draft}
-            stepIndex={stepIndex}
-            violations={violations}
-            onChangeRotation={changeRotation}
-            onPlace={place}
-            onChangeStrict={(rotationStrict) => set((d) => ({ ...d, rotationStrict }))}
-          />
         </aside>
       </div>
     </div>

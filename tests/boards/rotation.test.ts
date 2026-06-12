@@ -5,6 +5,8 @@ import {
   OFFICIAL_SPOTS,
   ROTATION_SLOTS,
   clampToLegal,
+  constrainingNeighbours,
+  legalRegion,
   placeRotationMarker,
   presetAssignment,
   rotationAssignment,
@@ -142,6 +144,31 @@ describe("rotationViolations", () => {
 
 type RotationViolationLike = { kind: string; a?: RotationSlot; b?: RotationSlot; slot?: RotationSlot };
 
+describe("constrainingNeighbours", () => {
+  test.each<[string, string, string[]]>([
+    ["a corner back player", "s", ["oh1", "mb2"]],
+    ["the front middle", "mb1", ["mb2", "opp", "oh1"]],
+    ["an unassigned marker", "ball", []],
+  ])("derives %s's neighbours", (_name, id, expected) => {
+    expect(constrainingNeighbours(ROTATION_1, id)).toEqual(expected);
+  });
+});
+
+describe("legalRegion", () => {
+  const positions = onSpots(ROTATION_1);
+
+  test.each<[string, string, { loX: number; hiX: number; loY: number; hiY: number }]>([
+    ["a corner back player", "s", { loX: 0.5, hiX: 1, loY: 0.22, hiY: 1 }],
+    ["the front middle", "mb1", { loX: 0.2, hiX: 0.8, loY: 0, hiY: 0.72 }],
+  ])("bounds %s by their neighbours and the playing area", (_name, id, expected) => {
+    expect(legalRegion(ROTATION_1, positions, id)).toEqual(expected);
+  });
+
+  test("is null for an unassigned marker", () => {
+    expect(legalRegion(ROTATION_1, positions, "ball")).toBeNull();
+  });
+});
+
 describe("clampToLegal", () => {
   const positions = onSpots(ROTATION_1);
 
@@ -182,18 +209,25 @@ describe("step rotation edits", () => {
     expect(setStepRotation(withRotation, "s1", undefined).steps[0].rotation).toBeUndefined();
   });
 
-  test("placeRotationMarker assigns, displaces the previous occupant, and benches", () => {
+  test("placeRotationMarker assigns, swaps placed players, benches a bench drop's occupant, and benches", () => {
     const start = board({ kind: "custom", assignment: {} });
     const placed = placeRotationMarker(start, "s1", "s", 1);
 
     expect(placed.steps[0].rotation).toEqual({ kind: "custom", assignment: { 1: "s" } });
 
+    // A drop from the bench benches the occupant…
     const displaced = placeRotationMarker(placed, "s1", "oh1", 1);
 
     expect(displaced.steps[0].rotation).toEqual({ kind: "custom", assignment: { 1: "oh1" } });
-    expect(placeRotationMarker(displaced, "s1", "oh1", null).steps[0].rotation).toEqual({
+
+    // …while a drop from another position swaps the two.
+    const two = placeRotationMarker(displaced, "s1", "s", 2);
+    const swapped = placeRotationMarker(two, "s1", "s", 1);
+
+    expect(swapped.steps[0].rotation).toEqual({ kind: "custom", assignment: { 1: "s", 2: "oh1" } });
+    expect(placeRotationMarker(swapped, "s1", "s", null).steps[0].rotation).toEqual({
       kind: "custom",
-      assignment: {},
+      assignment: { 2: "oh1" },
     });
   });
 
