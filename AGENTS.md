@@ -68,7 +68,7 @@ Use the diagnostics skill after code changes to ensure formatting, linting, and 
 The repo enables the following Claude Code tools (binaries to install are in @docs/development.md):
 
 - **`typescript-lsp`** — use the LSP tool for code intelligence (go-to-definition, find references, hover) instead of grepping for symbols.
-- **`playwright`** — browser automation against the dev server, for verifying UI changes on screen. **The `playwright` skill is mandatory**: load it before driving the browser. It covers when a visual check pays off and how to keep its token cost contained.
+- **`playwright`** — browser automation against the dev server, for verifying UI changes on screen. **The `playwright` skill is mandatory**: load it before driving the browser, and before planning or prescribing any browser check â it decides when a visual check pays off, and the default is no browser at all.
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
 - **`supabase`** — two tools serve the backend:
     - The **Supabase MCP server** (read-only) for inspecting schema, running SELECTs, debugging RLS, and reading logs; the **Supabase CLI** for applying migrations and deploying Edge Functions.
