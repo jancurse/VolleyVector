@@ -24,6 +24,16 @@ You never write to the database or drive a browser; the app's import path is the
 - **One step is a Position (static), two or more a Sequence (animated).** Use a Position for an arrangement, a Sequence for a play or drill. Keep sequences readable: one tactical beat per step, described in its `instruction`.
 - **Mode picks the vocabulary.** `positions` for volleyball roles (setter, outside, middle, opposite, libero), `basic` for a coach and generic numbered players.
 
+## Writing titles and text
+
+Titles, descriptions, and step instructions render in the app. Avoid AI-sounding prose:
+
+- **Plain, direct sentences.** Subject-verb-object. Split compound thoughts into separate sentences.
+- **No em dashes or semicolons.** Use a period or a colon instead. Avoid stacked commas.
+- **Every sentence carries concrete content.** Cut filler that only asserts importance ("This is a crucial drill for…").
+- **Titles are short and factual** ("Rotation 1 serve receive", not "Mastering the Art of Rotation 1"). No hype words, no title-colon-subtitle patterns.
+- **Prefer bullet lists in descriptions.** Descriptions are markdown: structure coaching points as bullets, not paragraphs.
+
 ## Annotations
 
 **Do not add annotations unless the user explicitly asks for them.**
