@@ -6,6 +6,7 @@ import type { Board } from "./boards/types";
 import { useBoards } from "./boards/useBoards";
 import { ExportMenu } from "./bundle/ExportMenu";
 import { ImportDialog } from "./bundle/ImportDialog";
+import { ReplaceBoardDialog } from "./bundle/ReplaceBoardDialog";
 import { bundleFilename, toBundle } from "./bundle/serialize";
 import { useDraftPreviewRoute } from "./bundle/useDraftPreviewRoute";
 import { BoardActionsMenu } from "./editor/BoardActionsMenu";
@@ -132,6 +133,7 @@ export function App(): JSX.Element {
   const [passwordReady, setPasswordReady] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const [missingBoardId, setMissingBoardId] = useState<string | null>(null);
 
   // Below the full-sidebar width the navigation lives in an overlay: expanded from the rail's Topics
@@ -627,6 +629,7 @@ export function App(): JSX.Element {
                 canLock={!personal && (workspace.isAdmin || openBoard.owner === user.id)}
                 onToggleLock={() => setBoardLock(openBoard.id, !openBoard.authorLocked)}
                 onPrint={() => navigate(boardPrintRoute(activeSpace, allTeams, openBoard.id))}
+                onReplace={canEditBoard(openBoard) ? () => setReplacing(true) : undefined}
               >
                 <CopyToMenu targets={copyTargets(openBoard)} />
                 {personal && openBoard.owner === user.id && targetTeams.length > 0 && (
@@ -866,6 +869,9 @@ export function App(): JSX.Element {
       {dialog}
       {canEdit && (
         <ImportDialog open={importing} onOpenChange={setImporting} topics={topics.topics} onImport={importBundle} />
+      )}
+      {openBoard && canEditBoard(openBoard) && (
+        <ReplaceBoardDialog open={replacing} onOpenChange={setReplacing} board={openBoard} onReplace={updateBoard} />
       )}
       {openBoard && (
         <ShareDialog

@@ -17,6 +17,8 @@ type BoardActionsMenuProps = {
   onToggleLock: () => void;
   /** Opens the board's print/handout view. */
   onPrint: () => void;
+  /** Opens the replace-from-JSON dialog; absent when the viewer may not edit the board. */
+  onReplace?: () => void;
   /** The leading menu items (the Copy to and Move to actions), separated from the rest. */
   children?: ReactNode;
 };
@@ -26,6 +28,7 @@ export function BoardActionsMenu({
   canLock,
   onToggleLock,
   onPrint,
+  onReplace,
   children,
 }: BoardActionsMenuProps): JSX.Element {
   const { copied, copy, download } = useBundleExport(() => toBundle([board], []), bundleFilename(board.title));
@@ -47,6 +50,7 @@ export function BoardActionsMenu({
         {copied ? "Copied" : "Copy JSON"}
       </MenuItem>
       <MenuItem onClick={download}>Download JSON</MenuItem>
+      {onReplace && <MenuItem onClick={onReplace}>Replace from JSON…</MenuItem>}
     </Menu>
   );
 }

@@ -128,10 +128,7 @@ Add or update unit tests to cover the changed behavior — no more than the chan
 
 ## Follow-ups
 
-- Dev-only file-watched preview route: a `#/preview` route reading a gitignored JSON file the skill writes, so iteration needs no pasting. **Implemented** (see `docs/development.md` → "Previewing board-creator drafts"): `src/bundle/DraftPreview.tsx` globs `drafts/*.json` (eager, raw) so Vite lists and hot-reloads the files, and renders the shared `BundlePreview` (extracted from the import dialog). Cards open the normal `BoardView`, Edit opens the normal `BoardEditor` whose commit ("Save & copy JSON") keeps the edit on the page and copies the bundle for pasting back to the skill, and Import writes the file plus any local edits through the dialog's write path. The route is DEV-gated and lazy-loaded in `App.tsx` (reached via the hash or the library menu's Draft preview… item), so nothing ships to production.
-- Update-in-place re-import: matching boards/topics by ref or title to update instead of duplicating.
-
-The print/handout half of the original "presentation-grade exports" follow-up is implemented; see the notes below.
+_None._
 
 ## Implementation Notes
 
@@ -143,6 +140,14 @@ The print/handout half of the original "presentation-grade exports" follow-up is
 - `useTopics` gained `insertTopics(topics)`: sequential awaited inserts (parents first) with retries, updating local state per success; a mid-list failure returns the error and keeps the already-inserted topics. `useBoards.addBoard` is reused unchanged for the boards.
 - The skill's examples were authored by hand to match the export shape exactly (no live space had exportable content to harvest); `tests/bundle/examples.test.ts` proves they parse through `src/bundle` with zero notices and pass `scripts/validate.mjs` with zero warnings, which is the drift guard the plan asked for.
 
+### Draft preview route (follow-up, implemented)
+
+The dev-only file-watched preview route shipped (see `docs/development.md` → "Previewing board-creator drafts"), so iteration needs no pasting.
+
+- `src/bundle/DraftPreview.tsx` globs `drafts/*.json` (eager, raw) so Vite lists and hot-reloads the files, and renders the shared `BundlePreview` (extracted from the import dialog).
+- Cards open the normal `BoardView`. Edit opens the normal `BoardEditor`, whose commit ("Save & copy JSON") keeps the edit on the page and copies the bundle for pasting back to the skill. Import writes the file plus any local edits through the dialog's write path.
+- The route is DEV-gated and lazy-loaded in `App.tsx` (reached via the hash or the library menu's Draft preview… item), so nothing ships to production.
+
 ### Print/handout exports (follow-up, implemented)
 
 The handout rendering shipped as a print stylesheet surface, not a PDF library, so the same React components serve screen and paper.
@@ -151,6 +156,14 @@ The handout rendering shipped as a print stylesheet surface, not a PDF library, 
 - `src/print/` holds the surface. `PrintView` forces the light theme and sets the document title while open (so the saved PDF is named after the board or topic), with a screen-only toolbar carrying Back and Print. `BoardPrint` renders one board: kind and title header, description, then a Position's single court or a Sequence's two-column step cards, each a static court with the derived arrows previewing its upcoming move and its instruction, kept whole across page breaks. `TopicPrint` renders the topic document with each board group expanded through `BoardPrint`, using the same placement-hint semantics as `TopicView`.
 - The topic print covers the topic's direct members only, not its subtree. The printed artefact is the one topic document, unlike the topic JSON export, which carries the whole subtree.
 - A stale print deep link whose board or topic the URL's space does not hold shows the not-found surface once the space settles; it does not self-heal to the board's real space the way the board view route does.
+
+### Replace a board from JSON (follow-up, implemented)
+
+A board-menu action overwrites one board's content from a pasted single-board bundle, so iterating with the skill needs no delete-and-reimport.
+
+- `src/bundle/ReplaceBoardDialog.tsx` parses the paste live through `parseBundle`, requires exactly one board and no topics, and previews the result through `BundlePreview`. Confirming writes through `useBoards.updateBoard`, keeping the board's identity (id, topic, owner, sharing, timestamps) and replacing its content.
+- The **Replace from JSON…** item sits in `BoardActionsMenu` below the JSON export items, offered only when the viewer may edit the board (`canEditBoard`). RLS still has the final say on the write.
+- The skill's iterate step now points reworks of an imported board at this action instead of telling the user to delete and reimport.
 
 ### Critical Issues
 
