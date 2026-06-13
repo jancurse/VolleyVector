@@ -76,13 +76,13 @@ The client model carries only what a surface renders. The placement and access c
 
 ### Rotations
 
-A step may carry a rotation: the six players' official positions in the rotational order, shown on a second small court beside the actual one. The legality lives in `boards/rotation.ts`, pure over the model like `operations.ts`.
+A step may carry a rotation: the six players' official positions in the rotational order, shown on a small zone diagram beside the actual court. The legality lives in `boards/rotation.ts`, pure over the model like `operations.ts`.
 
 - A `StepRotation` is either a **5-1 preset** (numbered by the setter's official position) or a **custom** assignment of markers to the six positions. Off is the absent field, so a step without one behaves exactly as before, and `insertStep` clones it alongside the positions.
 - The six official positions (`RotationSlot` 1–6) are fixed canonical points (`OFFICIAL_SPOTS`: front row 4-3-2, back row 5-6-1). `presetAssignment` derives a preset's slot→marker map in 5-1 service order, swapping a libero to the back-row middle slot per rotation. It needs a matching 5-1 roster or returns null; a custom assignment resolves only once all six slots are filled.
 - `rotationViolations` is the legality check: the seven pairwise overlap relations of FIVB Rule 7.4 (front/back on y, adjacent side-by-side on x), plus an assigned player outside the playing area and a libero on a front-row slot. Ties are legal. Only the six assigned players are constrained, never the ball, coach, or extras.
 - `rotationStrict` (per board, default loose) picks enforcement. **Loose** flags violations: `violationFlags` maps them to a warning halo on each marker and a tie per broken pair. **Strict** is loose plus `clampToLegal`, which holds a dragged marker inside the region the others leave legal.
-- `RotationPanel` (the editor) holds the selector, the enforcement toggle, the label, and the rotation board; `RotationBoard` reuses `Court` read-only at thumbnail scale, and is the drag-to-spot assignment surface in custom mode. `BoardView` shows the same panel and flags read-only, following the active step during playback.
+- `RotationPanel` (the editor) holds the selector, the enforcement toggle, the faults, and the rotation board; `RotationBoard` resolves the step's rotation onto `RotationDiagram` (`src/court/`), a 3×2 grid of the six official zones — a sketch of the rotation, not a miniature court — with a bench row for drag-to-zone assignment in custom mode. `BoardView` shows its own collapsible card of the same board and flags read-only, following the shown step during playback; while the rotation is active, tapping an assigned player on the court or the diagram cues its constraining neighbours (`constrainingNeighbours`) on both surfaces.
 
 ## The court and its coordinate system
 

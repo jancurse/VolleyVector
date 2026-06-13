@@ -590,7 +590,7 @@ export function App(): JSX.Element {
   };
 
   // The space's JSON export (and, for its curators, import) on the All Boards page bar, and the
-  // topic's subtree export on its page bar. Export needs no edit rights, matching viewing.
+  // note's subtree export on its page bar. Export needs no edit rights, matching viewing.
   const spaceName = personal
     ? "My boards"
     : (allTeams.find((t) => activeSpace.kind === "team" && t.teamId === activeSpace.teamId)?.teamName ?? "Team");

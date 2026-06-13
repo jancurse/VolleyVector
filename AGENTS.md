@@ -15,8 +15,8 @@ VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, brow
 ### Module map
 
 - `src/boards/`: the `Board` model, pure operations, the Supabase-backed store, the playback hook, and derived arrows.
-- `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the drawn-annotation layer and its gestures, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
-- `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, the marker and annotation inspectors, the annotation toolbar, step strip, the rotation panel and board, and description/tag editors.
+- `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the drawn-annotation layer and its gestures, the rotation zone diagram, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
+- `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, the marker and annotation inspectors, the annotation toolbar, step strip, court settings, the rotation panel and board, and the description editor.
 - `src/bundle/`: the portable JSON bundle format (types, serialize, parse), the export menu, the import and replace-from-JSON dialogs, and the dev-only draft preview.
 - `src/print/`: the chrome-free print surface that renders a board or note as a paper handout.
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
@@ -68,7 +68,7 @@ Use the diagnostics skill after code changes to ensure formatting, linting, and 
 The repo enables the following Claude Code tools (binaries to install are in @docs/development.md):
 
 - **`typescript-lsp`** — use the LSP tool for code intelligence (go-to-definition, find references, hover) instead of grepping for symbols.
-- **`playwright`** — browser automation against the dev server, for verifying UI changes on screen. **The `playwright` skill is mandatory**: load it before driving the browser, and before planning or prescribing any browser check â it decides when a visual check pays off, and the default is no browser at all.
+- **`playwright`** — browser automation against the dev server, for verifying UI changes on screen. **The `playwright` skill is mandatory**: load it before driving the browser, and before planning or prescribing any browser check — it decides when a visual check pays off, and the default is no browser at all.
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
 - **`supabase`** — two tools serve the backend:
     - The **Supabase MCP server** (read-only) for inspecting schema, running SELECTs, debugging RLS, and reading logs; the **Supabase CLI** for applying migrations and deploying Edge Functions.
