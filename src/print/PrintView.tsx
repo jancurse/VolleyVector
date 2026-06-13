@@ -4,7 +4,7 @@ import { Printer } from "lucide-react";
 
 import { Button } from "../ui/Button";
 
-// The chrome-free shell around a printable document (a board or topic handout). On screen it shows the
+// The chrome-free shell around a printable document (a board or note handout). On screen it shows the
 // paper sheet under a slim toolbar; printing (or Save as PDF) emits just the document, with the browser
 // handling pagination. The toolbar is the only interactive surface, so it alone is hidden in print.
 type PrintViewProps = {

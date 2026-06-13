@@ -7,7 +7,7 @@ import type { Space } from "./space";
 
 // A user's workspace: the teams they belong to (and as what), the global-admin flag, and which space
 // is active. The active space is either one of the user's teams or their private personal space, and
-// content loads (boards, topics) are scoped to it.
+// content loads (boards, notes) are scoped to it.
 
 export type TeamRole = "coach" | "player";
 

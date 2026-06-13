@@ -47,8 +47,6 @@ export type Board = {
   steps: BoardStep[];
   /** Free-form organising tags the library filters by. */
   tags: string[];
-  /** The board's home topic, or `null` when Unfiled. The one source of truth for topic membership. */
-  topicId: string | null;
   /** The account that created the board (its author), or null when authored by the team after the author's
    *  account was deleted. Set server-side; the source of truth for the lock. */
   owner: string | null;

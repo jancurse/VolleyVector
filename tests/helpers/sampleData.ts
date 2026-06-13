@@ -1,7 +1,7 @@
 import type { Board } from "../../src/boards/types";
-import type { Topic } from "../../src/topics/types";
+import type { Note } from "../../src/notes/types";
 
-// The fixture content the Supabase fake serves: one board of each kind plus a small flat topic tree,
+// The fixture content the Supabase fake serves: one board of each kind plus a small flat note tree,
 // mirroring what the server-side setup seed gives a first team. "Sample Position (Base Defence)" is a
 // Position (one step); "Sample Drill (Serve Receive & Sideout)" is a Sequence (four steps) whose marker
 // ids stay stable across the steps, so playback glides each one by identity and the movement arrows
@@ -19,7 +19,6 @@ const SAMPLE_POSITION: Board = {
     "- **OH1:** Defending sharp hits and/or tips to middle of court",
   mode: "positions",
   tags: ["sample", "defense"],
-  topicId: "topic-defense",
   owner: "",
   authorLocked: false,
   shared: false,
@@ -60,7 +59,6 @@ const SAMPLE_SEQUENCE: Board = {
   description: "### Serve Reception & Sideout",
   mode: "positions",
   tags: ["sample", "reception"],
-  topicId: "topic-drills",
   owner: "",
   authorLocked: false,
   shared: false,
@@ -131,14 +129,14 @@ const SAMPLE_SEQUENCE: Board = {
 
 export const SAMPLE_BOARDS: Board[] = [SAMPLE_POSITION, SAMPLE_SEQUENCE];
 
-export const SAMPLE_TOPICS: Topic[] = [
+export const SAMPLE_NOTES: Note[] = [
   {
-    id: "topic-rotations",
+    id: "note-rotations",
     title: "Rotations",
     slug: "rotations",
     blocks: [
       {
-        id: "topic-rotations-intro",
+        id: "note-rotations-intro",
         kind: "markdown",
         text: "How we line up and rotate — serve-receive and base positions through each rotation.",
       },
@@ -147,29 +145,31 @@ export const SAMPLE_TOPICS: Topic[] = [
     order: 0,
   },
   {
-    id: "topic-defense",
+    id: "note-defense",
     title: "Defense",
     slug: "defense",
     blocks: [
       {
-        id: "topic-defense-intro",
+        id: "note-defense-intro",
         kind: "markdown",
         text: "Our base defence and how we read the attack — who takes the line, who digs cross-court.",
       },
+      { id: "note-defense-boards", kind: "boards", boardIds: ["sample-perimeter-defence"] },
     ],
     parentId: null,
     order: 1,
   },
   {
-    id: "topic-drills",
+    id: "note-drills",
     title: "Drills",
     slug: "drills",
     blocks: [
       {
-        id: "topic-drills-intro",
+        id: "note-drills-intro",
         kind: "markdown",
         text: "Repeatable **drills** for training: serve receive, transition, and out-of-system reps.",
       },
+      { id: "note-drills-boards", kind: "boards", boardIds: ["sample-outside-attack"] },
     ],
     parentId: null,
     order: 2,

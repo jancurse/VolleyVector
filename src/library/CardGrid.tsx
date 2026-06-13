@@ -7,7 +7,7 @@ import { LibraryCard } from "./LibraryCard";
 
 // The plain grid of board cards, in the order it is given. It carries no filters and no per-card
 // controls — just the cards or a plain empty label — so it is shared by the All Boards grid (wrapped
-// in BoardGrid's filters) and by a topic page's board groups and trailing grid. Passing `onNew`
+// in BoardGrid's filters) and by a note page's board groups and trailing grid. Passing `onNew`
 // prepends a dashed add tile, so creation lives where the new card will appear.
 type CardGridProps = {
   items: readonly LibraryItem[];

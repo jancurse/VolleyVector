@@ -1,7 +1,7 @@
 import type { Board } from "../../src/boards/types";
-import type { BoardRow, TopicRow } from "../../src/supabase/rows";
-import type { Topic } from "../../src/topics/types";
-import { SAMPLE_BOARDS, SAMPLE_TOPICS } from "./sampleData";
+import type { BoardRow, NoteRow } from "../../src/supabase/rows";
+import type { Note } from "../../src/notes/types";
+import { SAMPLE_BOARDS, SAMPLE_NOTES } from "./sampleData";
 
 // A tiny in-memory stand-in for the Supabase client, used to test surfaces that read through the data
 // layer. It mocks only the external dependency (per the style guide), so the real stores, hooks, and
@@ -56,7 +56,6 @@ function toBoardRow(board: Board): BoardRow {
     markers: board.markers,
     steps: board.steps,
     tags: board.tags,
-    topic_id: board.topicId,
     shared: false,
     author_locked: false,
     auto_arrows: true,
@@ -69,17 +68,17 @@ function toBoardRow(board: Board): BoardRow {
   };
 }
 
-function toTopicRow(topic: Topic): TopicRow {
+function toNoteRow(note: Note): NoteRow {
   return {
-    id: topic.id,
+    id: note.id,
     owner: TEST_USER.id,
     scope: "team",
     team_id: TEST_TEAM_ID,
-    title: topic.title,
-    slug: topic.slug,
-    blocks: topic.blocks,
-    parent_id: topic.parentId,
-    sort_order: topic.order,
+    title: note.title,
+    slug: note.slug,
+    blocks: note.blocks,
+    parent_id: note.parentId,
+    sort_order: note.order,
     created_at: ISO,
     updated_at: ISO,
     deleted_at: null,
@@ -99,7 +98,6 @@ const PERSONAL_BOARD: BoardRow = {
   markers: [],
   steps: [{ id: "personal-step-1", instruction: "", positions: {} }],
   tags: [],
-  topic_id: null,
   shared: false,
   author_locked: false,
   auto_arrows: true,
@@ -253,7 +251,7 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
 }
 
 // A second team member (a player who is not the test user), so member removal can target someone else, and
-// a grace-archived board and topic, so the deleted_at filter and the admin recovery list can be exercised.
+// a grace-archived board and note, so the deleted_at filter and the admin recovery list can be exercised.
 export const OTHER_MEMBER = { id: "player-2", email: "player@volley.test" };
 
 const DELETED_BOARD: BoardRow = {
@@ -268,10 +266,10 @@ const DELETED_BOARD: BoardRow = {
   deleted_by: TEST_USER.id,
 };
 
-const DELETED_TOPIC: TopicRow = {
-  ...toTopicRow(SAMPLE_TOPICS[0]),
-  id: "deleted-topic-1",
-  title: "Archived Topic",
+const DELETED_TOPIC: NoteRow = {
+  ...toNoteRow(SAMPLE_NOTES[0]),
+  id: "deleted-note-1",
+  title: "Archived Note",
   deleted_at: ISO,
   deleted_by: TEST_USER.id,
 };
@@ -286,7 +284,7 @@ function from(table: string): Query {
     case "boards":
       return makeQuery(table, [...SAMPLE_BOARDS.map(toBoardRow), PERSONAL_BOARD, SHOWCASE_BOARD, DELETED_BOARD], null);
     case "topics":
-      return makeQuery(table, [...SAMPLE_TOPICS.map(toTopicRow), DELETED_TOPIC], null);
+      return makeQuery(table, [...SAMPLE_NOTES.map(toNoteRow), DELETED_TOPIC], null);
     case "memberships":
       return makeQuery(
         table,

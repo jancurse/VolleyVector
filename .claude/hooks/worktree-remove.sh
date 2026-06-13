@@ -21,6 +21,9 @@ fi
 changes=$(git -C "$dir" status --porcelain 2>/dev/null \
   | grep -vE '^\?\? \.claude/settings\.local\.json$' || true)
 if [ -z "$changes" ]; then
+  # Kill any dev server still running inside the worktree, or it recreates the
+  # folder after deletion by rewriting its .vite cache.
+  pkill -f "$dir/node_modules/.bin/vite" 2>/dev/null || true
   git -C "$repo" worktree remove --force "$dir" >&2 2>&1 || true
 else
   echo "worktree-remove: $dir has uncommitted changes; left in place" >&2

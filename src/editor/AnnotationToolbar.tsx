@@ -1,4 +1,4 @@
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 import { ArrowUpRight, Circle, MousePointer2, Pencil, Pentagon, Slash, Square, Type, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -28,34 +28,60 @@ export const TOOL_HOTKEYS: Record<string, AnnotationTool> = Object.fromEntries(
   TOOLS.map(({ hotkey, tool }) => [hotkey.toLowerCase(), tool])
 );
 
-const GROUP = "inline-flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-control p-0.5";
+const GROUP = "inline-flex items-center gap-0.5 rounded-md border border-border bg-control p-0.5";
 const TOOL =
   "grid size-9 cursor-pointer place-items-center rounded-sm border-0 transition-[color,background-color,filter] duration-150 ease-settle";
 const TOOL_OFF = "bg-transparent text-text-dim hover:text-text";
 // The armed tool takes the full accent fill (the app's primary-action language), unmissable at a glance.
 const TOOL_ON = "bg-accent text-on-accent shadow-sm hover:brightness-[1.08]";
 
+/** The rail's quiet tool-button look, for extra controls a caller slots into the rail. */
+export const TOOL_BUTTON = cx(TOOL, TOOL_OFF);
+
 type AnnotationToolbarProps = {
   tool: AnnotationTool;
   onToolChange: (tool: AnnotationTool) => void;
+  /** Vertical renders the rail beside the court, with tooltips opening away from it. */
+  orientation?: "horizontal" | "vertical";
+  /** An extra control rendered after the tools, behind a thin divider (the court-settings gear). */
+  settings?: ReactNode;
 };
 
-export function AnnotationToolbar({ tool, onToolChange }: AnnotationToolbarProps): JSX.Element {
+export function AnnotationToolbar({
+  tool,
+  onToolChange,
+  orientation = "horizontal",
+  settings,
+}: AnnotationToolbarProps): JSX.Element {
   return (
-    <Toolbar ariaLabel="Drawing tools" className={GROUP}>
+    <Toolbar
+      ariaLabel="Drawing tools"
+      orientation={orientation}
+      className={cx(GROUP, orientation === "horizontal" && "flex-wrap")}
+    >
       {TOOLS.map(({ tool: value, label, hotkey, Icon }) => (
         <ToolbarButton
           key={value}
-          className={cx(TOOL, tool === value ? TOOL_ON : TOOL_OFF)}
+          className={tool === value ? cx(TOOL, TOOL_ON) : TOOL_BUTTON}
           aria-label={label}
           aria-pressed={tool === value}
           aria-keyshortcuts={hotkey}
           tooltip={`${label} (${hotkey})`}
+          tooltipSide={orientation === "vertical" ? "right" : "top"}
           onClick={() => onToolChange(value)}
         >
           <Icon size={17} aria-hidden="true" />
         </ToolbarButton>
       ))}
+      {settings && (
+        <>
+          <span
+            aria-hidden="true"
+            className={orientation === "vertical" ? "my-0.5 h-px w-5 bg-border" : "mx-0.5 h-5 w-px bg-border"}
+          />
+          {settings}
+        </>
+      )}
     </Toolbar>
   );
 }

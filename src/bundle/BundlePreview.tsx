@@ -3,14 +3,14 @@ import type { JSX } from "react";
 import { stepMarkers } from "../boards/operations";
 import type { Board } from "../boards/types";
 import { Court } from "../court/Court";
-import type { Topic } from "../topics/types";
+import type { Note } from "../notes/types";
 import { cx, FIELD_LABEL } from "../ui/styles";
 
-// The preview of a parsed bundle: any leniency notices, the topic tree to be created (indented by
+// The preview of a parsed bundle: any leniency notices, the note tree to be created (indented by
 // depth), and each board as a small static court of its first step. Shared by the import dialog and
 // the dev-only draft preview route, which makes the cards clickable to inspect one board in full.
 type BundlePreviewProps = {
-  topics: readonly Topic[];
+  notes: readonly Note[];
   boards: readonly Board[];
   notices: readonly string[];
   /** When given, each board card becomes a button opening that board (by its index in `boards`). */
@@ -19,20 +19,20 @@ type BundlePreviewProps = {
 
 const CARD = "overflow-hidden rounded-lg border border-border bg-panel";
 
-/** Each topic with its depth in the new tree, in the parents-first order the parser returns. */
-function withDepths(topics: readonly Topic[]): { topic: Topic; depth: number }[] {
+/** Each note with its depth in the new tree, in the parents-first order the parser returns. */
+function withDepths(notes: readonly Note[]): { note: Note; depth: number }[] {
   const depths = new Map<string | null, number>([[null, -1]]);
 
-  return topics.map((topic) => {
-    const depth = (depths.get(topic.parentId) ?? -1) + 1;
+  return notes.map((note) => {
+    const depth = (depths.get(note.parentId) ?? -1) + 1;
 
-    depths.set(topic.id, depth);
+    depths.set(note.id, depth);
 
-    return { topic, depth };
+    return { note, depth };
   });
 }
 
-export function BundlePreview({ topics, boards, notices, onOpenBoard }: BundlePreviewProps): JSX.Element {
+export function BundlePreview({ notes, boards, notices, onOpenBoard }: BundlePreviewProps): JSX.Element {
   return (
     <>
       {notices.length > 0 && (
@@ -43,12 +43,12 @@ export function BundlePreview({ topics, boards, notices, onOpenBoard }: BundlePr
         </ul>
       )}
 
-      {topics.length > 0 && (
+      {notes.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <p className={FIELD_LABEL}>Topics</p>
-          {withDepths(topics).map(({ topic, depth }) => (
-            <p key={topic.id} className="m-0 text-sm font-semibold" style={{ paddingLeft: `${depth}rem` }}>
-              {topic.title}
+          <p className={FIELD_LABEL}>Notes</p>
+          {withDepths(notes).map(({ note, depth }) => (
+            <p key={note.id} className="m-0 text-sm font-semibold" style={{ paddingLeft: `${depth}rem` }}>
+              {note.title}
             </p>
           ))}
         </div>

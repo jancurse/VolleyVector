@@ -12,7 +12,7 @@ import { TagFilter } from "./TagFilter";
 // The All Boards surface's grid: one row of filter pills above a plain CardGrid of the matches. Every
 // pill narrows the grid the same way — the two kind pills (mutually exclusive, pressed again to clear;
 // nothing pressed means every kind) lead the row, the tag pills and picker follow. The filters live
-// here alone, so the topic surfaces — which render through CardGrid directly — carry none. Callers
+// here alone, so the note surfaces — which render through CardGrid directly — carry none. Callers
 // decide the card order (newest first for All Boards).
 type BoardGridProps = {
   items: readonly LibraryItem[];

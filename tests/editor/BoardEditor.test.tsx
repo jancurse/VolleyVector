@@ -123,6 +123,51 @@ describe("BoardEditor polygon hint", () => {
   });
 });
 
+describe("BoardEditor court settings", () => {
+  test("the popover holds the mode, grid, and snap controls; auto arrows only on a sequence", async () => {
+    const user = setup();
+
+    await user.click(screen.getByRole("button", { name: "Court settings" }));
+    expect(screen.getByRole("button", { name: "Basic" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "27" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Snap to grid" })).toBeInTheDocument();
+    expect(screen.queryByText("Auto arrows")).not.toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "Add step" }));
+    await user.click(screen.getByRole("button", { name: "Court settings" }));
+    expect(screen.getByText("Auto arrows")).toBeInTheDocument();
+  });
+});
+
+describe("BoardEditor aside", () => {
+  test("orders the rotation panel above the description", () => {
+    setup();
+
+    const rotation = screen.getByRole("region", { name: "Rotation" });
+    const description = screen.getByText("Description");
+
+    expect(rotation.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("BoardEditor rotation panel", () => {
+  test("off keeps the card to its header row, with the options disabled and a caption until six players", async () => {
+    const user = setup();
+
+    const card = within(screen.getByRole("region", { name: "Rotation" }));
+    const select = card.getByRole("combobox", { name: "Rotation" });
+
+    expect(select).toHaveTextContent("Off");
+    expect(card.queryByText("Enforcement")).not.toBeInTheDocument();
+
+    await user.click(select);
+    expect(screen.getByText("Rotation needs six players on the board.")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Rotation 1" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("option", { name: "Custom" })).toHaveAttribute("aria-disabled", "true");
+  });
+});
+
 describe("BoardEditor stroke control", () => {
   // The dash style applies to every stroked shape but not freehand ink or text.
   test.each([

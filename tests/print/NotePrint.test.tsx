@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 
 import type { Board } from "../../src/boards/types";
-import { TopicPrint } from "../../src/print/TopicPrint";
-import type { Topic } from "../../src/topics/types";
+import type { Note } from "../../src/notes/types";
+import { NotePrint } from "../../src/print/NotePrint";
 
 function board(id: string, title: string): Board {
   return {
@@ -14,7 +14,6 @@ function board(id: string, title: string): Board {
     markers: [{ id: "m", role: "setter", label: "S" }],
     steps: [{ id: "s", instruction: "", positions: { m: { x: 0.5, y: 0.5 } } }],
     tags: [],
-    topicId: "t",
     owner: null,
     authorLocked: false,
     shared: false,
@@ -26,9 +25,9 @@ function board(id: string, title: string): Board {
   };
 }
 
-describe("TopicPrint", () => {
-  test("prints the title, prose, placed boards once, and unplaced members trailing", () => {
-    const topic: Topic = {
+describe("NotePrint", () => {
+  test("prints the title, the prose, and each linked board once", () => {
+    const note: Note = {
       id: "t",
       title: "Serve receive",
       slug: "serve-receive",
@@ -40,13 +39,13 @@ describe("TopicPrint", () => {
       ],
     };
 
-    render(<TopicPrint topic={topic} boards={[board("b1", "Rotation 1"), board("b2", "Rotation 2")]} />);
+    render(<NotePrint note={note} boards={[board("b1", "Rotation 1"), board("b2", "Rotation 2")]} />);
 
     expect(screen.getByRole("heading", { name: "Serve receive", level: 1 })).toBeInTheDocument();
     expect(screen.getByText("Read the server")).toBeInTheDocument();
-    // The placed board prints once despite the duplicate hint; the unfiled hint is dropped; the
-    // unplaced member trails.
+    // The linked board prints once despite the duplicate id; the unresolvable id is dropped; a board
+    // no block links does not print.
     expect(screen.getAllByRole("heading", { name: "Rotation 1", level: 2 })).toHaveLength(1);
-    expect(screen.getByRole("heading", { name: "Rotation 2", level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Rotation 2", level: 2 })).not.toBeInTheDocument();
   });
 });

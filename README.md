@@ -1,8 +1,8 @@
 # VolleyCoach
 
-VolleyCoach is a single-page web app for building, browsing, organising, and animating volleyball tactics and drills. A coach lays out players and the ball on a court and writes a markdown description. A single arrangement is a static **Position**. Chaining several steps makes a **Sequence** that plays back as a smooth animation, and its movement arrows are derived from the steps. Boards are organised into a coach-curated tree of topics and filtered by tags.
+VolleyCoach is a single-page web app for building, browsing, organising, and animating volleyball tactics and drills. A coach lays out players and the ball on a court and writes a markdown description. A single arrangement is a static **Position**. Chaining several steps makes a **Sequence** that plays back as a smooth animation, and its movement arrows are derived from the steps. Boards are filtered by tags and embedded in notes, a coach-curated tree of written documents.
 
-> **Status:** in development. The full interactive app runs in the browser, and boards and topics persist to a Supabase backend behind invite-only accounts. Accounts are organised into teams, each user also has a private personal space, and a board can be opened read-only from a share link. Access is enforced in the database by row-level security. The static front end is deployed to Cloudflare Pages.
+> **Status:** in development. The full interactive app runs in the browser, and boards and notes persist to a Supabase backend behind invite-only accounts. Accounts are organised into teams, each user also has a private personal space, and a board can be opened read-only from a share link. Access is enforced in the database by row-level security. The static front end is deployed to Cloudflare Pages.
 
 ## Features
 
@@ -10,11 +10,11 @@ VolleyCoach is a single-page web app for building, browsing, organising, and ani
 - **Positions and Sequences:** every board is one court diagram. A single step is a static Position. Adding steps promotes it in place to an animated Sequence.
 - **Playback:** step through a Sequence, or play it back as a smooth animation. Movement arrows are derived automatically from how markers move between steps.
 - **Markdown:** each board carries a markdown description, and each step its own markdown instruction. Both use a Write/Preview toggle.
-- **Topics:** organise boards into a nestable, coach-curated tree, each with its own markdown explanation. A board has one home topic or sits Unfiled.
+- **Notes:** nestable written documents that mix markdown prose with embedded groups of boards. Any number of notes may reference the same board, and a board lists the notes it appears in.
 - **Library:** browse every board as a grid of court thumbnails. Filter by type (All, Positions, Sequences) and by tags.
-- **Accounts and teams:** invite-only sign-in, with a display name shown on the boards and topics you share. A global admin creates teams; a coach grows their team by sharing single-use invite links. Per team, coaches curate the library and players view it read-only.
-- **Account and team lifecycle:** anyone can delete their own account, and an admin can archive or delete a team. Deleted boards, topics, teams, and accounts are kept for a three-month recovery window before they are purged.
-- **Two spaces:** each team has a shared library, and every user has a private personal space (My Boards / My Topics) only they can see.
+- **Accounts and teams:** invite-only sign-in, with a display name shown on the boards and notes you share. A global admin creates teams; a coach grows their team by sharing single-use invite links. Per team, coaches curate the library and players view it read-only.
+- **Account and team lifecycle:** anyone can delete their own account, and an admin can archive or delete a team. Deleted boards, notes, teams, and accounts are kept for a three-month recovery window before they are purged.
+- **Two spaces:** each team has a shared library, and every user has a private personal space only they can see.
 - **Sharing:** share a personal board into a team and open any board read-only from an unguessable link. A coach can copy or move a shared board into the team library, and anyone can copy one into their own space.
 - **Light and dark themes:** the interface follows the system preference and can be toggled.
 
@@ -29,7 +29,7 @@ A global admin can read all content, including users' personal boards. This is a
 - **SVG** renders the court, markers, and arrows as React components.
 - **[Motion](https://motion.dev)** animates marker movement during playback.
 - **[react-markdown](https://github.com/remarkjs/react-markdown)** renders descriptions and instructions.
-- **[Supabase](https://supabase.com)** holds the database and auth. Boards and topics persist there, and every access rule is enforced by row-level security.
+- **[Supabase](https://supabase.com)** holds the database and auth. Boards and notes persist there, and every access rule is enforced by row-level security.
 - **[Cloudflare Pages](https://pages.cloudflare.com)** serves the static build, published automatically once CI passes on `main`.
 
 ## Development

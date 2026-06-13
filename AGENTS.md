@@ -6,21 +6,21 @@ This file provides guidance to LLM agents when working with code in this reposit
 
 ## Repository Overview
 
-VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills. Boards and topics persist to a Supabase backend behind invite-only accounts; every access rule is enforced by row-level security, never by the client.
+VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills. Boards and notes persist to a Supabase backend behind invite-only accounts; every access rule is enforced by row-level security, never by the client.
 
-- **Content model.** One `Board` type backs everything: an ordered, non-empty list of steps over a shared set of marker identities. A one-step board is a **Position** (static). Two or more steps make a **Sequence** (animated). Boards are organised into a nestable tree of **Topics** and cut across by free-form **tags**.
-- **Spaces and roles.** Every board and topic lives in one space: a team's shared library, or a user's private personal space. A global admin creates teams and invites; per team, a coach curates the library and a player views it read-only. One flagged team is the **Inspiration** showcase, an example library every user may browse and copy from. A personal board can be shared into a team and opened read-only by a share-token link.
+- **Content model.** One `Board` type backs everything: an ordered, non-empty list of steps over a shared set of marker identities. A one-step board is a **Position** (static). Two or more steps make a **Sequence** (animated). Boards carry free-form **tags** for filtering. **Notes** are nestable written documents (think Obsidian) whose blocks embed boards by id: a note references any boards it likes, any number of notes may reference the same board, and a board referenced by no note simply lives in All Boards. A note is a document, not a folder or a tag — boards are never "filed into" notes.
+- **Spaces and roles.** Every board and note lives in one space: a team's shared library, or a user's private personal space. A global admin creates teams and invites; per team, a coach curates the library and a player views it read-only. One flagged team is the **Inspiration** showcase, an example library every user may browse and copy from. A personal board can be shared into a team and opened read-only by a share-token link.
 - **Spine decisions to respect** (do not relitigate). Marker coordinates are normalized 0–1, never pixels. Marker identity is stable across all steps, so playback interpolates by identity and movement arrows derive from step-to-step deltas. One `Court` component serves both static and animated modes. The court renders as SVG, not canvas.
 
 ### Module map
 
 - `src/boards/`: the `Board` model, pure operations, the Supabase-backed store, the playback hook, and derived arrows.
-- `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the drawn-annotation layer and its gestures, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
-- `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, the marker and annotation inspectors, the annotation toolbar, step strip, the rotation panel and board, and description/tag editors.
+- `src/court/`: the SVG `Court`, `Marker`, and `Arrows`, the drawn-annotation layer and its gestures, the rotation zone diagram, the normalized-coordinate geometry, the role/colour palette, and pointer dragging.
+- `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, the marker and annotation inspectors, the annotation toolbar, step strip, court settings, the rotation panel and board, and the description editor.
 - `src/bundle/`: the portable JSON bundle format (types, serialize, parse), the export menu, the import and replace-from-JSON dialogs, and the dev-only draft preview.
-- `src/print/`: the chrome-free print surface that renders a board or topic as a paper handout.
+- `src/print/`: the chrome-free print surface that renders a board or note as a paper handout.
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
-- `src/topics/`: the topic-tree model, operations, store, sidebar, and topic view/editor.
+- `src/notes/`: the note-tree model, operations, store, sidebar, the note view/editor, and the board view's appears-in backlinks. (Server-side, notes live in the legacy-named `topics` table.)
 - `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle.
 - `src/supabase/`, `src/auth/`, `src/account/`, `src/workspace/`, `src/team/`, `src/admin/`, `src/invites/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the account panel and display-name setup, the active-space and team membership state, team management (roles, invite links), admin management (teams, accounts, deleted-content recovery), the invite-link flow (preview, accept, set-password), and the sharing flows (share dialog, copy/promote, the share-token route and read-only viewer).
 - `src/App.tsx`: the top-level shell that owns navigation and wires the stores together.
@@ -68,7 +68,7 @@ Use the diagnostics skill after code changes to ensure formatting, linting, and 
 The repo enables the following Claude Code tools (binaries to install are in @docs/development.md):
 
 - **`typescript-lsp`** — use the LSP tool for code intelligence (go-to-definition, find references, hover) instead of grepping for symbols.
-- **`playwright`** — browser automation against the dev server, for verifying UI changes on screen. **The `playwright` skill is mandatory**: load it before driving the browser. It covers when a visual check pays off and how to keep its token cost contained.
+- **`playwright`** — browser automation against the dev server, for verifying UI changes on screen. **The `playwright` skill is mandatory**: load it before driving the browser, and before planning or prescribing any browser check — it decides when a visual check pays off, and the default is no browser at all.
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
 - **`supabase`** — two tools serve the backend:
     - The **Supabase MCP server** (read-only) for inspecting schema, running SELECTs, debugging RLS, and reading logs; the **Supabase CLI** for applying migrations and deploying Edge Functions.

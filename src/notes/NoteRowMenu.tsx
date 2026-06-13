@@ -4,17 +4,17 @@ import { Ellipsis } from "lucide-react";
 import { IconButton } from "../ui/IconButton";
 import { Menu, MenuItem } from "../ui/Menu";
 
-// The per-row organise menu for a sidebar topic: one quiet "⋯" button that opens reorder and nesting
+// The per-row organise menu for a sidebar note: one quiet "⋯" button that opens reorder and nesting
 // actions, replacing the row of cryptic arrows. The Menu primitive handles keyboard navigation and
 // escape/outside-click dismissal. Only the actions that apply to this row are shown (e.g. no "Move to
 // top level" on a root).
-type TopicRowMenuProps = {
+type NoteRowMenuProps = {
   title: string;
   canMoveUp: boolean;
   canMoveDown: boolean;
-  /** The sibling above, which this topic would nest under — or null when there is none. */
+  /** The sibling above, which this note would nest under — or null when there is none. */
   nestUnder: string | null;
-  /** Whether this topic is nested, so it can be moved back to the top level. */
+  /** Whether this note is nested, so it can be moved back to the top level. */
   isNested: boolean;
   onMove: (dir: -1 | 1) => void;
   onNest: () => void;
@@ -23,7 +23,7 @@ type TopicRowMenuProps = {
 
 const DOTS = <Ellipsis size={16} aria-hidden="true" />;
 
-export function TopicRowMenu({
+export function NoteRowMenu({
   title,
   canMoveUp,
   canMoveDown,
@@ -32,7 +32,7 @@ export function TopicRowMenu({
   onMove,
   onNest,
   onMoveToTop,
-}: TopicRowMenuProps): JSX.Element {
+}: NoteRowMenuProps): JSX.Element {
   return (
     <Menu
       tooltip={`Organize ${title}`}

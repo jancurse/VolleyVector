@@ -39,10 +39,10 @@ async function renderApp(width: number): Promise<UserEvent> {
 }
 
 describe("drawer mode (below 960px)", () => {
-  test("the top-bar toggle opens the navigation and picking a topic closes it", async () => {
+  test("the top-bar toggle opens the navigation and picking a note closes it", async () => {
     const user = await renderApp(800);
 
-    expect(screen.queryByRole("button", { name: "Topics" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Notes" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Open navigation" }));
 
@@ -56,14 +56,14 @@ describe("drawer mode (below 960px)", () => {
 });
 
 describe("rail mode (960 to 1400px)", () => {
-  test("spaces show as named badges and the Topics toggle expands the sidebar overlay", async () => {
+  test("spaces show as named badges and the Notes toggle expands the sidebar overlay", async () => {
     const user = await renderApp(1200);
 
     expect(screen.queryByRole("button", { name: "Open navigation" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Personal" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "My Team" })).toBeInTheDocument();
 
-    const toggle = screen.getByRole("button", { name: "Topics" });
+    const toggle = screen.getByRole("button", { name: "Notes" });
 
     expect(toggle).toHaveAttribute("aria-expanded", "false");
 

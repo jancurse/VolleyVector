@@ -1,10 +1,9 @@
 {
-  "formatVersion": 2,
-  "topics": [],
+  "formatVersion": 3,
+  "notes": [],
   "boards": [
     {
       "ref": "b-pepper",
-      "topicRef": null,
       "title": "Pepper warm-up",
       "description": "Classic two-player pepper: pass, set, controlled hit, repeat. The coach watches platform angles.",
       "mode": "basic",

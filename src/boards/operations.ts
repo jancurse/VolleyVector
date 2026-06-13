@@ -72,7 +72,6 @@ export function createBoard(now: number, mode: CourtMode = "positions", title = 
     markers: [],
     steps: [makeStep()],
     tags: [],
-    topicId: null,
     owner: "",
     authorLocked: false,
     shared: false,
@@ -82,11 +81,6 @@ export function createBoard(now: number, mode: CourtMode = "positions", title = 
     createdAt: now,
     updatedAt: now,
   };
-}
-
-/** Boards filed directly under `topicId`, newest-edited first (matching the library order). */
-export function boardsInTopic(boards: readonly Board[], topicId: string): Board[] {
-  return boards.filter((b) => b.topicId === topicId).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 /** Step `index`'s markers as full `Marker`s (identity plus that step's position), ready for the Court. */

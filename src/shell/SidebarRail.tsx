@@ -21,7 +21,7 @@ type SidebarRailProps = {
   /** The showcase space everyone may browse, or null if none exists. */
   showcase: TeamRef | null;
   onSwitchSpace: (space: Space) => void;
-  /** Whether the expanded-sidebar overlay is open; the Topics toggle stays highlighted while it is. */
+  /** Whether the expanded-sidebar overlay is open; the Notes toggle stays highlighted while it is. */
   expanded: boolean;
   onExpand: () => void;
   isAdmin: boolean;
@@ -120,7 +120,7 @@ export function SidebarRail({
       </div>
 
       <RailButton
-        label="Topics"
+        label="Notes"
         expanded={expanded}
         className={cx(ITEM, "mt-2", expanded ? TOGGLE_ON : TOGGLE_OFF)}
         onClick={onExpand}

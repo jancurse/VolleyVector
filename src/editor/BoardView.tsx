@@ -5,17 +5,24 @@ import { ChevronDown, ChevronLeft, ChevronRight, Pause, Play } from "lucide-reac
 
 import { arrowsForStep } from "../boards/arrows";
 import { stepAnnotations, stepMarkers } from "../boards/operations";
-import { rotationAssignment, rotationLabel, rotationViolations, violationFlags } from "../boards/rotation";
+import {
+  constrainingNeighbours,
+  rotationAssignment,
+  rotationLabel,
+  rotationViolations,
+  violationFlags,
+} from "../boards/rotation";
 import type { RotationViolation } from "../boards/rotation";
 import type { Board, StepRotation } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { useBoardPlayback } from "../boards/useBoardPlayback";
 import { Court } from "../court/Court";
+import type { CourtCue } from "../court/Court";
 import { Button } from "../ui/Button";
 import { CourtFrame } from "../ui/CourtFrame";
 import { Markdown } from "../ui/Markdown";
 import { Toolbar, ToolbarButton } from "../ui/Toolbar";
-import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TITLE, cx } from "../ui/styles";
+import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TAG_CHIP, TITLE, cx } from "../ui/styles";
 import { RotationBoard } from "./RotationBoard";
 import { violationMessages } from "./RotationPanel";
 import { StepStrip } from "./StepStrip";
@@ -29,18 +36,23 @@ const PREV_ICON = <ChevronLeft size={18} strokeWidth={2.2} aria-hidden="true" />
 const NEXT_ICON = <ChevronRight size={18} strokeWidth={2.2} aria-hidden="true" />;
 
 const VIEW_BODY =
-  "grid grid-cols-[min(74vh,560px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]";
+  "grid grid-cols-[min(74vh,620px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]";
 
 // The rotation board and its label, visible whenever the shown step's rotation is active. The label
 // stays visible while the board itself collapses (no hover reveal: hover does not exist on touch).
+// The diagram shares the court's tap cue: tapping a disc here keys it off too.
 function RotationViewPanel({
   board,
   rotation,
   violations,
+  cue,
+  onSelect,
 }: {
   board: Board;
   rotation: StepRotation;
   violations: readonly RotationViolation[];
+  cue?: CourtCue;
+  onSelect?: (id: string | null) => void;
 }): JSX.Element {
   return (
     <details open className={cx(PANEL, "group min-w-0")}>
@@ -58,17 +70,21 @@ function RotationViewPanel({
         />
       </summary>
       <div className="w-full max-w-[260px] self-center">
-        <RotationBoard markers={board.markers} rotation={rotation} />
+        <RotationBoard markers={board.markers} rotation={rotation} cue={cue} onSelect={onSelect} />
       </div>
     </details>
   );
 }
 
-function DescriptionPanel({ markdown }: { markdown: string }): JSX.Element {
+// In a Sequence the description caps its height and scrolls internally, so the rotation card and the
+// step instruction stay beside the court however long it grows; a Position leaves it unbounded.
+function DescriptionPanel({ markdown, capped = false }: { markdown: string; capped?: boolean }): JSX.Element {
   return (
     <section className={cx(PANEL, "min-w-0")} aria-label="Description">
       <span className={PANEL_TITLE}>Description</span>
-      {markdown.trim() ? <Markdown>{markdown}</Markdown> : <p className={MUTED}>No description yet.</p>}
+      <div className={cx("min-w-0", capped && "max-h-60 overflow-y-auto")}>
+        {markdown.trim() ? <Markdown>{markdown}</Markdown> : <p className={MUTED}>No description yet.</p>}
+      </div>
     </section>
   );
 }
@@ -77,7 +93,7 @@ function DescriptionPanel({ markdown }: { markdown: string }): JSX.Element {
 // single static court and its description; a Sequence renders the animated court with a transport and
 // a step scrubber, plus the current step's instruction (markdown) below the description. The board's
 // actions sit beside the title, like every other surface's content header: the app injects the overflow
-// menu, share/copy, and Edit; the share page injects its copy and promote affordances.
+// menu and Edit; the share page injects its copy and promote affordances.
 type BoardViewProps = {
   board: Board;
   onBack: () => void;
@@ -85,9 +101,11 @@ type BoardViewProps = {
   backLabel?: string;
   /** Action buttons for the title row (the app's edit/share cluster, or the share page's copying). */
   actions?: ReactNode;
+  /** Quiet metadata under the tags (the app injects the appears-in note links; the share page has none). */
+  meta?: ReactNode;
 };
 
-export function BoardView({ board, onBack, backLabel = "← Library", actions }: BoardViewProps): JSX.Element {
+export function BoardView({ board, onBack, backLabel = "← Library", actions, meta }: BoardViewProps): JSX.Element {
   const sequence = isSequence(board);
   const playback = useBoardPlayback(board.steps.length);
   const { step, playing, atEnd } = playback;
@@ -111,8 +129,29 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
     [assignment, board, step]
   );
   const warnings = assignment && violations.length > 0 ? violationFlags(assignment, violations) : undefined;
+
+  // The "who do I key off" cue: while the shown step's rotation is active, tapping an assigned player
+  // (on the court or the rotation board) ties them to their constraining neighbours on both surfaces
+  // while everyone else steps back; tapping either surface clears it, and an unassigned marker (ball,
+  // coach, extras) is inert. The cue follows the shown step — a step whose assignment no longer
+  // includes the player simply shows nothing.
+  const [cueId, setCueId] = useState<string | null>(null);
+  const tap = assignment
+    ? (id: string | null) => {
+        if (id === null) setCueId(null);
+        else if (Object.values(assignment).includes(id)) setCueId(id);
+      }
+    : undefined;
+  const cue = useMemo(() => {
+    if (!cueId || !assignment) return undefined;
+
+    const neighbourIds = constrainingNeighbours(assignment, cueId);
+
+    return neighbourIds.length > 0 ? { markerId: cueId, neighbourIds } : undefined;
+  }, [cueId, assignment]);
+
   const rotationPanel = rotation && assignment && (
-    <RotationViewPanel board={board} rotation={rotation} violations={violations} />
+    <RotationViewPanel board={board} rotation={rotation} violations={violations} cue={cue} onSelect={tap} />
   );
 
   // The instruction changing reads as a move between two notes: the incoming one slides in from the
@@ -136,6 +175,16 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
           <div>
             <p className={EYEBROW}>{sequence ? "Sequence" : "Position"}</p>
             <h1 className={TITLE}>{board.title || "Untitled board"}</h1>
+            {board.tags.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                {board.tags.map((tag) => (
+                  <span key={tag} className={TAG_CHIP}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            {meta}
           </div>
           {actions && <div className="flex flex-none items-center gap-2">{actions}</div>}
         </div>
@@ -150,6 +199,9 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
                   arrows={arrows}
                   annotations={annotations}
                   warnings={warnings}
+                  cue={cue}
+                  selectedId={cue?.markerId ?? null}
+                  onSelect={tap}
                   label={board.title || "Untitled board"}
                 />
               </CourtFrame>
@@ -195,7 +247,7 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
                   {rotationPanel}
                 </div>
               )}
-              <DescriptionPanel markdown={board.description} />
+              <DescriptionPanel markdown={board.description} capped />
 
               <section className={cx(PANEL, "min-w-0")} aria-label="Step instruction">
                 <span className={PANEL_TITLE}>Step {step + 1}</span>
@@ -218,6 +270,9 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions }:
                 markers={markers}
                 annotations={annotations}
                 warnings={warnings}
+                cue={cue}
+                selectedId={cue?.markerId ?? null}
+                onSelect={tap}
                 label={board.title || "Untitled board"}
               />
             </CourtFrame>

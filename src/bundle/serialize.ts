@@ -1,34 +1,32 @@
 import type { Board } from "../boards/types";
+import { childrenOf } from "../notes/operations";
+import type { Note } from "../notes/types";
 import { slugify } from "../routing/slug";
-import { childrenOf } from "../topics/operations";
-import type { Topic } from "../topics/types";
-import type { Bundle, BundleBoard, BundleTopic } from "./types";
+import type { Bundle, BundleBoard, BundleNote } from "./types";
 import { FORMAT_VERSION } from "./types";
 
-// Builds a bundle from a set of boards and topics — one board, a topic subtree with its members, or a
-// whole space. Real ids become the ref values, server-owned fields are dropped, and references leaving
-// the set (a subtree root's parent, a stale board hint) are nulled or filtered so every ref resolves.
+// Builds a bundle from a set of boards and notes — one board, a note subtree with the boards it
+// references, or a whole space. Real ids become the ref values, server-owned fields are dropped, and
+// references leaving the set (a subtree root's parent, a board ref outside it) are nulled or filtered
+// so every ref resolves.
 
-/** The included topics parents-first, siblings in manual order — the order a reader (and import) wants. */
-function orderedTopics(topics: readonly Topic[]): Topic[] {
-  const included = new Set(topics.map((t) => t.id));
-  const roots = topics
-    .filter((t) => t.parentId === null || !included.has(t.parentId))
-    .sort((a, b) => a.order - b.order);
-  const walk = (list: readonly Topic[]): Topic[] => list.flatMap((t) => [t, ...walk(childrenOf(topics, t.id))]);
+/** The included notes parents-first, siblings in manual order — the order a reader (and import) wants. */
+function orderedNotes(notes: readonly Note[]): Note[] {
+  const included = new Set(notes.map((t) => t.id));
+  const roots = notes.filter((t) => t.parentId === null || !included.has(t.parentId)).sort((a, b) => a.order - b.order);
+  const walk = (list: readonly Note[]): Note[] => list.flatMap((t) => [t, ...walk(childrenOf(notes, t.id))]);
 
   return walk(roots);
 }
 
-/** Serialize boards and topics into a portable bundle. */
-export function toBundle(boards: readonly Board[], topics: readonly Topic[]): Bundle {
-  const topicIds = new Set(topics.map((t) => t.id));
+/** Serialize boards and notes into a portable bundle. */
+export function toBundle(boards: readonly Board[], notes: readonly Note[]): Bundle {
   const boardIds = new Set(boards.map((b) => b.id));
 
-  const bundleTopics: BundleTopic[] = orderedTopics(topics).map((t) => ({
+  const bundleNotes: BundleNote[] = orderedNotes(notes).map((t) => ({
     ref: t.id,
     title: t.title,
-    parentRef: t.parentId !== null && topicIds.has(t.parentId) ? t.parentId : null,
+    parentRef: t.parentId !== null && notes.some((p) => p.id === t.parentId) ? t.parentId : null,
     blocks: t.blocks.map((block) =>
       block.kind === "markdown"
         ? { kind: "markdown", text: block.text }
@@ -52,14 +50,13 @@ export function toBundle(boards: readonly Board[], topics: readonly Topic[]): Bu
       ...(s.annotations?.length ? { annotations: s.annotations } : {}),
       ...(s.rotation && { rotation: s.rotation }),
     })),
-    topicRef: b.topicId !== null && topicIds.has(b.topicId) ? b.topicId : null,
     description: b.description,
     tags: b.tags,
     autoArrows: b.autoArrows,
     rotationStrict: b.rotationStrict,
   }));
 
-  return { formatVersion: FORMAT_VERSION, topics: bundleTopics, boards: bundleBoards };
+  return { formatVersion: FORMAT_VERSION, notes: bundleNotes, boards: bundleBoards };
 }
 
 /** The download filename for a bundle exported under `title`, e.g. "serve-receive.json". */

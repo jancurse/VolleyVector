@@ -6,7 +6,7 @@ import { BoardEditor } from "../editor/BoardEditor";
 import { BoardView } from "../editor/BoardView";
 import { clearDraftBackup } from "../editor/draftBackup";
 import { allTags } from "../library/items";
-import type { Topic } from "../topics/types";
+import type { Note } from "../notes/types";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { EYEBROW, MUTED, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
@@ -28,15 +28,15 @@ const names = [...byName.keys()].sort();
 const STORAGE_KEY = "volleycoach-draft-preview-file";
 
 type DraftPreviewProps = {
-  /** The active space's topics, for minting non-colliding slugs and sibling orders. */
-  topics: readonly Topic[];
+  /** The active space's notes, for minting non-colliding slugs and sibling orders. */
+  notes: readonly Note[];
   /** Whether the user may create content in the active space; without it the import button is hidden. */
   canEdit: boolean;
-  /** Create the parsed topics (parents first) then boards; resolves null or the error message. */
-  onImport: (topics: Topic[], boards: Board[]) => Promise<string | null>;
+  /** Create the parsed notes (parents first) then boards; resolves null or the error message. */
+  onImport: (notes: Note[], boards: Board[]) => Promise<string | null>;
 };
 
-export function DraftPreview({ topics, canEdit, onImport }: DraftPreviewProps): JSX.Element {
+export function DraftPreview({ notes, canEdit, onImport }: DraftPreviewProps): JSX.Element {
   const [picked, setPicked] = useState(() => localStorage.getItem(STORAGE_KEY));
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
@@ -52,7 +52,7 @@ export function DraftPreview({ topics, canEdit, onImport }: DraftPreviewProps): 
   // the skill rewriting the already-selected file — needs no selection at all.
   const selected = names.length === 1 ? names[0] : picked !== null && byName.has(picked) ? picked : (names[0] ?? null);
   const text = selected !== null ? byName.get(selected) : undefined;
-  const result = useMemo(() => (text !== undefined ? parseBundle(text, topics) : null), [text, topics]);
+  const result = useMemo(() => (text !== undefined ? parseBundle(text, notes) : null), [text, notes]);
 
   // A change to the file's text means the skill rewrote it (or another file was picked below); drop
   // the local edits and any open editor so the file shows. Adjusting state during render, as App does.
@@ -88,7 +88,6 @@ export function DraftPreview({ topics, canEdit, onImport }: DraftPreviewProps): 
       <BoardEditor
         key={openIndex}
         board={openBoard}
-        topics={result.value.topics}
         tagSuggestions={allTags(boards)}
         doneLabel="Save & copy JSON"
         onCancel={() => {
@@ -99,7 +98,7 @@ export function DraftPreview({ topics, canEdit, onImport }: DraftPreviewProps): 
           const merged = boards.map((b, i) => (i === openIndex ? updated : b));
 
           try {
-            await navigator.clipboard.writeText(JSON.stringify(toBundle(merged, result.value.topics), null, 2));
+            await navigator.clipboard.writeText(JSON.stringify(toBundle(merged, result.value.notes), null, 2));
           } catch {
             return "the clipboard copy was blocked";
           }
@@ -136,7 +135,7 @@ export function DraftPreview({ topics, canEdit, onImport }: DraftPreviewProps): 
     setImporting(true);
     setWriteError(null);
 
-    const error = await onImport(result.value.topics, boards);
+    const error = await onImport(result.value.notes, boards);
 
     setImporting(false);
     if (error !== null) setWriteError(error);
@@ -189,7 +188,7 @@ export function DraftPreview({ topics, canEdit, onImport }: DraftPreviewProps): 
 
           {result?.ok && (
             <BundlePreview
-              topics={result.value.topics}
+              notes={result.value.notes}
               boards={boards}
               notices={result.value.notices}
               onOpenBoard={setOpenIndex}

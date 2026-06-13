@@ -4,7 +4,6 @@ import {
   addAnnotation,
   addMarker,
   annotationHandles,
-  boardsInTopic,
   copyAnnotationsToNextStep,
   createBoard,
   duplicateAnnotation,
@@ -50,7 +49,6 @@ const SEQUENCE: Board = {
     { id: "s2", instruction: "two", positions: { a: { x: 0.2, y: 0.2 }, b: { x: 0.8, y: 0.5 } } },
   ],
   tags: [],
-  topicId: null,
   owner: "",
   authorLocked: false,
   shared: false,
@@ -60,30 +58,6 @@ const SEQUENCE: Board = {
   createdAt: 0,
   updatedAt: 0,
 };
-
-// Three Positions filed under one topic, edited at distinct times, plus one Unfiled.
-function filed(id: string, topicId: string | null, updatedAt: number): Board {
-  return {
-    id,
-    title: id,
-    description: "",
-    mode: "positions",
-    markers: [],
-    steps: [{ id: "s1", instruction: "", positions: {} }],
-    tags: [],
-    topicId,
-    owner: "",
-    authorLocked: false,
-    shared: false,
-    teamId: null,
-    autoArrows: true,
-    rotationStrict: false,
-    createdAt: 0,
-    updatedAt,
-  };
-}
-
-const FILED: Board[] = [filed("c", "t1", 2), filed("a", "t1", 0), filed("b", "t1", 1), filed("x", null, 0)];
 
 const LINE: Annotation = {
   id: "ann1",
@@ -139,7 +113,7 @@ describe("createBoard", () => {
     const board = createBoard(1234, "basic", "Press");
 
     expect(board).toMatchObject({ title: "Press", mode: "basic", markers: [], createdAt: 1234, updatedAt: 1234 });
-    expect(board).toMatchObject({ topicId: null, autoArrows: true }); // a fresh board is Unfiled, auto arrows on
+    expect(board).toMatchObject({ autoArrows: true });
     expect(board.steps).toHaveLength(1);
     expect(board.steps[0]).toMatchObject({ instruction: "", positions: {} });
     expect(isSequence(board)).toBe(false);
@@ -268,13 +242,6 @@ describe("removeMarker", () => {
       expect(step.positions).not.toHaveProperty("a");
       expect(step.positions).toHaveProperty("b");
     }
-  });
-});
-
-describe("boardsInTopic", () => {
-  test("returns a topic's boards newest-edited first, ignoring the rest", () => {
-    expect(boardsInTopic(FILED, "t1").map((b) => b.id)).toEqual(["c", "b", "a"]); // updatedAt 2, 1, 0
-    expect(boardsInTopic(FILED, "missing")).toEqual([]);
   });
 });
 

@@ -41,32 +41,24 @@ import type { NormalizedPoint } from "../court/geometry";
 import type { AnnotationTool, NewAnnotationStyle } from "../court/types";
 import { hasDash, hasFill, isDashTool, isFillTool } from "../court/types";
 import type { MarkerRole } from "../court/roles";
-import { TopicPicker } from "../topics/TopicPicker";
-import type { Topic } from "../topics/types";
 import { Button } from "../ui/Button";
+import { Combobox } from "../ui/Combobox";
 import { CourtFrame } from "../ui/CourtFrame";
 import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
-import { ToggleGroup } from "../ui/ToggleGroup";
-import { FIELD_LABEL } from "../ui/styles";
 import { AnnotationInspector } from "./AnnotationInspector";
 import { AnnotationToolbar } from "./AnnotationToolbar";
 import { DEFAULT_ANNOTATION_STYLE } from "./annotationStyle";
-import { CourtToolbar } from "./CourtToolbar";
+import { CourtSettings } from "./CourtSettings";
 import { DescriptionEditor } from "./DescriptionEditor";
 import { saveDraftBackup } from "./draftBackup";
 import { MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
 import { RotationPanel } from "./RotationPanel";
 import { StepStrip } from "./StepStrip";
-import { TagEditor } from "./TagEditor";
 import { useDraftHistory } from "./useDraftHistory";
 import { useEditorShortcuts } from "./useEditorShortcuts";
-
-const AUTO_ARROW_ITEMS = [
-  { value: "on", label: "On" },
-  { value: "off", label: "Off" },
-];
+import { useWideEditor } from "./useWideEditor";
 
 const NUDGE = 0.01;
 const NUDGE_LARGE = 0.05;
@@ -99,12 +91,8 @@ type BoardEditorProps = {
    *  message — the editor stays open with the draft intact and Done retries. */
   onDone: (board: Board) => Promise<string | null>;
   onCancel: () => void;
-  /** Omitted for a brand-new board that has nothing to delete yet. */
-  onDelete?: () => void;
   /** Existing tags across the library, for the tag editor's autocomplete. */
   tagSuggestions?: readonly string[];
-  /** The topic tree, for the home-topic picker. */
-  topics?: readonly Topic[];
   /** Label for the commit button; the draft preview relabels it "Save & copy JSON". */
   doneLabel?: string;
 };
@@ -113,9 +101,7 @@ export function BoardEditor({
   board,
   onDone,
   onCancel,
-  onDelete,
   tagSuggestions,
-  topics = [],
   doneLabel = "Done",
 }: BoardEditorProps): JSX.Element {
   const { draft, activeStepId, setActiveStepId, set, replace, commit, undo, redo, canUndo, canRedo } =
@@ -132,6 +118,7 @@ export function BoardEditor({
   const frameRef = useRef<HTMLElement>(null);
   // Set while Escape is cancelling the text editor, so the following blur undoes instead of keeping.
   const textCancelled = useRef(false);
+  const wide = useWideEditor();
 
   const snap = useMemo(
     () => (grid > 0 && snapOn ? (p: NormalizedPoint) => snapToGrid(p, grid) : undefined),
@@ -373,15 +360,29 @@ export function BoardEditor({
     onTool: changeTool,
   });
 
+  // The gear lives in whichever tool rail is on screen: opening rightward off the wide vertical
+  // rail, or downward from the narrow horizontal toolbar.
+  const courtSettings = (side: "right" | "bottom") => (
+    <CourtSettings
+      side={side}
+      mode={draft.mode}
+      onModeChange={(mode) => set((d) => ({ ...d, mode }))}
+      grid={grid}
+      onGridChange={setGrid}
+      snap={snapOn}
+      onSnapChange={setSnapOn}
+      autoArrows={
+        sequence ? { value: draft.autoArrows, onChange: (on) => set((d) => ({ ...d, autoArrows: on })) } : undefined
+      }
+    />
+  );
+
   return (
     <div
       className="mx-auto flex w-full min-w-0 max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-[rise_0.6s_0.05s_var(--ease-settle)_both] motion-reduce:animate-none"
       onBlur={commit}
     >
       <div className="flex items-center gap-4">
-        <Button variant="text" onClick={onCancel}>
-          Cancel
-        </Button>
         <Input
           variant="title"
           value={draft.title}
@@ -395,14 +396,17 @@ export function BoardEditor({
         <IconButton aria-label="Redo" tooltip="Redo (Ctrl+Shift+Z)" disabled={!canRedo} onClick={redo}>
           <Redo2 size={16} aria-hidden="true" />
         </IconButton>
-        {onDelete && (
-          <Button variant="danger" onClick={onDelete}>
-            Delete
-          </Button>
-        )}
+        <Button variant="text" onClick={onCancel}>
+          Cancel
+        </Button>
         <Button variant="primary" disabled={saving} onClick={() => void done()}>
           {saving ? "Saving…" : doneLabel}
         </Button>
+      </div>
+
+      {/* The board's tags, quiet and out of the way under the title. */}
+      <div className="-mt-1">
+        <Combobox value={draft.tags} onChange={(tags) => set((d) => ({ ...d, tags }))} suggestions={tagSuggestions} />
       </div>
 
       {saveError && (
@@ -411,69 +415,141 @@ export function BoardEditor({
         </p>
       )}
 
-      <div className="grid grid-cols-[min(74vh,560px)_minmax(0,1fr)] items-stretch gap-[clamp(1rem,3vw,2rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
-          <CourtFrame
-            ref={frameRef}
-            tabIndex={0}
-            aria-label="Court editor"
-            className="relative"
-            onKeyDown={onKeyDown}
-            onKeyUp={commit}
-          >
-            <Court
-              markers={markers}
-              arrows={arrows}
-              annotations={annotations}
-              warnings={warnings}
-              grid={grid}
-              snap={snap}
-              label={draft.title || "Untitled board"}
-              selectedId={selectedId}
-              onSelect={select}
-              onMove={move}
+      <div className="grid grid-cols-[minmax(0,calc(min(74vh,620px)_+_54px))_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]">
+        <div className="flex min-w-0 items-start justify-center gap-3">
+          {wide && (
+            <AnnotationToolbar
               tool={tool}
-              annotationStyle={annotationStyle}
-              selectedAnnotationId={selectedAnnotationId}
-              onSelectAnnotation={setSelectedAnnotationId}
-              onDrawAnnotation={drawAnnotation}
-              onTranslateAnnotation={translate}
-              onReshapeAnnotation={reshape}
-              annotationSnap={annotationSnap}
-              onGestureEnd={commit}
+              onToolChange={changeTool}
+              orientation="vertical"
+              settings={courtSettings("right")}
             />
-            {editingText?.kind === "text" && (
-              <input
-                className={TEXT_OVERLAY}
-                style={{ left: framePercent(editingText.at.x), top: framePercent(editingText.at.y) }}
-                value={editingText.text}
-                placeholder="Label"
-                aria-label="Text label"
-                autoFocus
-                onChange={(event) =>
-                  replace((d) => updateAnnotation(d, activeStepId, editingText.id, { text: event.target.value }))
-                }
-                onKeyDown={(event) => {
-                  event.stopPropagation();
-                  if (event.key === "Escape") textCancelled.current = true;
-                  if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur();
-                }}
-                onBlur={() => finishTextEdit(editingText.text)}
-              />
-            )}
-          </CourtFrame>
-
-          {/* The multi-click polygon gesture is the one tool whose finish isn't obvious, so spell it
-              out while it is armed (a hover tooltip would never surface on touch). */}
-          {tool === "polygon" && (
-            <p className="m-0 text-center text-sm text-text-dim">
-              Click to place corners. Finish on the first or last corner, by double-clicking, or with Enter. Esc
-              cancels.
-            </p>
           )}
 
-          {sequence ? (
-            <>
+          <div className="flex w-full min-w-0 max-w-[min(74vh,620px)] flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
+            <div className="relative w-full">
+              <CourtFrame
+                ref={frameRef}
+                tabIndex={0}
+                aria-label="Court editor"
+                className="relative"
+                width="w-full"
+                onKeyDown={onKeyDown}
+                onKeyUp={commit}
+              >
+                <Court
+                  markers={markers}
+                  arrows={arrows}
+                  annotations={annotations}
+                  warnings={warnings}
+                  grid={grid}
+                  snap={snap}
+                  label={draft.title || "Untitled board"}
+                  selectedId={selectedId}
+                  onSelect={select}
+                  onMove={move}
+                  tool={tool}
+                  annotationStyle={annotationStyle}
+                  selectedAnnotationId={selectedAnnotationId}
+                  onSelectAnnotation={setSelectedAnnotationId}
+                  onDrawAnnotation={drawAnnotation}
+                  onTranslateAnnotation={translate}
+                  onReshapeAnnotation={reshape}
+                  annotationSnap={annotationSnap}
+                  onGestureEnd={commit}
+                />
+                {editingText?.kind === "text" && (
+                  <input
+                    className={TEXT_OVERLAY}
+                    style={{ left: framePercent(editingText.at.x), top: framePercent(editingText.at.y) }}
+                    value={editingText.text}
+                    placeholder="Label"
+                    aria-label="Text label"
+                    autoFocus
+                    onChange={(event) =>
+                      replace((d) => updateAnnotation(d, activeStepId, editingText.id, { text: event.target.value }))
+                    }
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                      if (event.key === "Escape") textCancelled.current = true;
+                      if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur();
+                    }}
+                    onBlur={() => finishTextEdit(editingText.text)}
+                  />
+                )}
+              </CourtFrame>
+
+              {/* The contextual inspector floats over the court's top-right corner at wide widths, so
+                  selecting a marker or arming a tool never reflows the page; below the breakpoint it
+                  drops back into the flow under the court. It sits outside the focusable figure so
+                  typing in it never nudges a marker. */}
+              {(selected || tool !== "markers" || selectedAnnotation) && (
+                <div className="absolute right-3 top-3 z-20 w-[300px] rounded-xl shadow-overlay max-[1040px]:static max-[1040px]:mt-[clamp(0.75rem,2vh,1.25rem)] max-[1040px]:w-full max-[1040px]:shadow-none">
+                  {selected && (
+                    <MarkerInspector
+                      marker={selected}
+                      mode={draft.mode}
+                      onChangeRole={(role) => set((d) => setMarker(d, selected.id, { role }))}
+                      onChangeColor={(color) => set((d) => setMarker(d, selected.id, { color }))}
+                      onChangeLabel={(label) =>
+                        replace((d) => setMarker(d, selected.id, { label: label.trim() === "" ? undefined : label }))
+                      }
+                      onDelete={() => {
+                        set((d) => removeMarker(d, selected.id));
+                        setSelectedId(null);
+                      }}
+                    />
+                  )}
+                  {(tool !== "markers" || selectedAnnotation) && (
+                    <AnnotationInspector
+                      style={selectedAnnotation ?? annotationStyle}
+                      selected={Boolean(selectedAnnotation)}
+                      fill={
+                        selectedAnnotation
+                          ? hasFill(selectedAnnotation)
+                            ? selectedAnnotation.fill
+                            : undefined
+                          : isFillTool(tool)
+                            ? annotationStyle.fill
+                            : undefined
+                      }
+                      dash={
+                        selectedAnnotation
+                          ? hasDash(selectedAnnotation)
+                            ? (selectedAnnotation.dash ?? "solid")
+                            : undefined
+                          : isDashTool(tool)
+                            ? annotationStyle.dash
+                            : undefined
+                      }
+                      onChangeColor={(color) => styleAnnotation({ color })}
+                      onChangeWidth={(width) => styleAnnotation({ width })}
+                      onChangeFill={(fill) => styleAnnotation({ fill })}
+                      onChangeDash={(dash) => styleAnnotation({ dash })}
+                      onRemove={
+                        selectedAnnotation
+                          ? () => {
+                              set((d) => removeAnnotation(d, activeStepId, selectedAnnotation.id));
+                              setSelectedAnnotationId(null);
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* The multi-click polygon gesture is the one tool whose finish isn't obvious, so spell it
+                out while it is armed (a hover tooltip would never surface on touch). */}
+            {tool === "polygon" && (
+              <p className="m-0 text-center text-sm text-text-dim">
+                Click to place corners. Finish on the first or last corner, by double-clicking, or with Enter. Esc
+                cancels.
+              </p>
+            )}
+
+            {sequence ? (
               <StepStrip
                 steps={draft.steps}
                 current={stepIndex}
@@ -482,98 +558,25 @@ export function BoardEditor({
                 onRemove={deleteStep}
                 onMove={(from, to) => set((d) => moveStep(d, from, to))}
               />
-              {stepIndex < draft.steps.length - 1 && annotations.length > 0 && (
-                <Button variant="text" size="sm" onClick={() => set((d) => copyAnnotationsToNextStep(d, stepIndex))}>
-                  Copy drawings to next step
-                </Button>
-              )}
-            </>
-          ) : (
-            <div className="flex flex-wrap items-center justify-center gap-[0.4rem]">
+            ) : (
               <Button variant="dashed" onClick={appendStep} aria-label="Add step">
                 + Add step
               </Button>
-            </div>
-          )}
+            )}
 
-          {sequence && (
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className={FIELD_LABEL}>Auto arrows</span>
-              <ToggleGroup
-                ariaLabel="Auto arrows"
-                items={AUTO_ARROW_ITEMS}
-                value={draft.autoArrows ? "on" : "off"}
-                onValueChange={(value) => set((d) => ({ ...d, autoArrows: value === "on" }))}
-              />
-            </div>
-          )}
+            {sequence && stepIndex < draft.steps.length - 1 && annotations.length > 0 && (
+              <Button variant="text" size="sm" onClick={() => set((d) => copyAnnotationsToNextStep(d, stepIndex))}>
+                Copy drawings to next step
+              </Button>
+            )}
 
-          <CourtToolbar
-            mode={draft.mode}
-            onModeChange={(mode) => set((d) => ({ ...d, mode }))}
-            grid={grid}
-            onGridChange={setGrid}
-            snap={snapOn}
-            onSnapChange={setSnapOn}
-          />
+            {!wide && <AnnotationToolbar tool={tool} onToolChange={changeTool} settings={courtSettings("bottom")} />}
 
-          <AnnotationToolbar tool={tool} onToolChange={changeTool} />
-
-          <MarkerPalette mode={draft.mode} onAdd={add} />
+            <MarkerPalette mode={draft.mode} onAdd={add} />
+          </div>
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4 max-[1040px]:w-full">
-          {selected && (
-            <MarkerInspector
-              marker={selected}
-              mode={draft.mode}
-              onChangeRole={(role) => set((d) => setMarker(d, selected.id, { role }))}
-              onChangeColor={(color) => set((d) => setMarker(d, selected.id, { color }))}
-              onChangeLabel={(label) =>
-                replace((d) => setMarker(d, selected.id, { label: label.trim() === "" ? undefined : label }))
-              }
-              onDelete={() => {
-                set((d) => removeMarker(d, selected.id));
-                setSelectedId(null);
-              }}
-            />
-          )}
-          {(tool !== "markers" || selectedAnnotation) && (
-            <AnnotationInspector
-              style={selectedAnnotation ?? annotationStyle}
-              selected={Boolean(selectedAnnotation)}
-              fill={
-                selectedAnnotation
-                  ? hasFill(selectedAnnotation)
-                    ? selectedAnnotation.fill
-                    : undefined
-                  : isFillTool(tool)
-                    ? annotationStyle.fill
-                    : undefined
-              }
-              dash={
-                selectedAnnotation
-                  ? hasDash(selectedAnnotation)
-                    ? (selectedAnnotation.dash ?? "solid")
-                    : undefined
-                  : isDashTool(tool)
-                    ? annotationStyle.dash
-                    : undefined
-              }
-              onChangeColor={(color) => styleAnnotation({ color })}
-              onChangeWidth={(width) => styleAnnotation({ width })}
-              onChangeFill={(fill) => styleAnnotation({ fill })}
-              onChangeDash={(dash) => styleAnnotation({ dash })}
-              onRemove={
-                selectedAnnotation
-                  ? () => {
-                      set((d) => removeAnnotation(d, activeStepId, selectedAnnotation.id));
-                      setSelectedAnnotationId(null);
-                    }
-                  : undefined
-              }
-            />
-          )}
           <RotationPanel
             draft={draft}
             stepIndex={stepIndex}
@@ -593,17 +596,8 @@ export function BoardEditor({
               value={activeStep.instruction}
               onChange={(value) => replace((d) => setStepInstruction(d, activeStepId, value))}
               placeholder="What happens on this step? (markdown)"
-              compact
             />
           )}
-          <TagEditor tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => set((d) => ({ ...d, tags }))} />
-          <TopicPicker
-            topics={topics}
-            value={draft.topicId}
-            onChange={(topicId) => set((d) => ({ ...d, topicId }))}
-            label="Topic"
-            noneLabel="Unfiled"
-          />
         </aside>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { Bundle } from "./types";
 
 // Offers one bundle two ways: Copy JSON puts it on the clipboard with a brief "copied" confirmation,
-// Download JSON saves it as a file. Shared by the board, topic, and space export surfaces.
+// Download JSON saves it as a file. Shared by the board, note, and space export surfaces.
 export function useBundleExport(
   bundle: () => Bundle,
   filename: string

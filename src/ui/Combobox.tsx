@@ -1,13 +1,16 @@
 import { useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { ComponentProps } from "react";
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
-import { cx, OVERLAY, OVERLAY_ITEM, OVERLAY_MOTION } from "./styles";
+import { cx, OVERLAY, OVERLAY_ITEM, OVERLAY_MOTION, TAG_CHIP } from "./styles";
 
-// A multi-select, creatable tag input. Existing tags are offered as suggestions (accepted by click or
-// keyboard); a brand-new tag commits immediately on Enter, comma, or blur with no confirmation step.
-// Backspace on an empty input removes the last tag. Duplicates are ignored case-insensitively.
+// A multi-select, creatable tag input built around a ghost chip: the tags render as chips, followed
+// by a dashed "+ Tag" chip that morphs into a chip-shaped input right where the new chip will appear.
+// Existing tags are offered as suggestions (accepted by click or keyboard); a brand-new tag commits on
+// Enter, comma, or blur with no confirmation step, and the input stays armed for the next tag.
+// Escape (or leaving the empty input) collapses back to the ghost chip. Backspace on an empty input
+// removes the last tag. Duplicates are ignored case-insensitively.
 type ComboboxProps = {
   value: readonly string[];
   onChange: (tags: string[]) => void;
@@ -20,12 +23,16 @@ const MAX_SUGGESTIONS = 8;
 
 const norm = (s: string) => s.trim().toLowerCase();
 
-const CHIP =
-  "inline-flex items-center gap-1 rounded-pill border border-border bg-control px-2 py-0.5 text-xs font-semibold text-text";
 const CHIP_REMOVE =
   "flex cursor-pointer items-center border-0 bg-transparent p-0 leading-none text-text-dim transition-colors hover:text-danger";
+// The add affordance: a ghost of the chip it will become, dashed and dim until engaged.
+const ADD_CHIP =
+  "inline-flex cursor-pointer items-center gap-1 rounded-pill border border-dashed border-border bg-transparent px-2 py-0.5 text-xs font-semibold text-text-dim transition-colors duration-150 ease-settle hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))] hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+// The armed state: the same chip shape as a committed tag, now holding the input.
+const INPUT_CHIP =
+  "inline-flex items-center rounded-pill border border-border bg-control px-2 py-0.5 transition-[border-color] duration-150 ease-settle focus-within:border-accent";
 const INPUT =
-  "min-w-[7rem] flex-1 border-0 bg-transparent px-0.5 py-1 font-ui text-base text-text focus:outline-none placeholder:text-text-dim";
+  "w-28 min-w-0 border-0 bg-transparent p-0 font-ui text-xs font-semibold text-text focus:outline-none placeholder:font-medium placeholder:text-text-dim";
 
 export function Combobox({
   value,
@@ -34,9 +41,12 @@ export function Combobox({
   placeholder = "Add a tag…",
   inputLabel = "Add tag",
 }: ComboboxProps) {
+  const [active, setActive] = useState(false);
   const [query, setQuery] = useState("");
   const queryRef = useRef("");
   const highlightedRef = useRef<string | null>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const chipRef = useRef<HTMLSpanElement>(null);
 
   const setInput = (next: string) => {
     queryRef.current = next;
@@ -74,7 +84,24 @@ export function Combobox({
     onChange(cleaned);
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown: NonNullable<ComponentProps<typeof BaseCombobox.Input>["onKeyDown"]> = (event) => {
+    if (event.key === "Escape") {
+      // Base UI's own Escape clears the whole multi-select value (every committed chip), so swallow
+      // it. First Escape clears a part-typed tag; on an empty input it disarms back to the ghost
+      // chip, handing focus back so the keyboard never lands in a void.
+      event.preventBaseUIHandler();
+      if (q !== "") {
+        setInput("");
+
+        return;
+      }
+
+      setActive(false);
+      window.setTimeout(() => addRef.current?.focus(), 0);
+
+      return;
+    }
+
     if (event.key === "Backspace" && q === "" && value.length > 0) {
       onChange(value.slice(0, -1));
 
@@ -94,11 +121,13 @@ export function Combobox({
     }
   };
 
-  // Commit the typed text when focus truly leaves. Deferring lets a click-selection clear the query
-  // first (handleValueChange empties it), so selecting a suggestion never also adds the typed text.
+  // Commit the typed text when focus truly leaves, then disarm. Deferring lets a click-selection
+  // clear the query first (handleValueChange empties it), so selecting a suggestion never also adds
+  // the typed text — and a selection click that returns focus to the input stays armed.
   const onBlur = () => {
     window.setTimeout(() => {
       if (queryRef.current.trim() !== "") commitText(queryRef.current);
+      if (!document.activeElement?.closest("[data-tag-input]")) setActive(false);
     }, 0);
   };
 
@@ -115,37 +144,53 @@ export function Combobox({
         highlightedRef.current = (item as string | undefined) ?? null;
       }}
     >
-      <BaseCombobox.InputGroup className="flex w-full flex-wrap items-center gap-1.5">
+      <BaseCombobox.InputGroup data-tag-input className="flex w-full flex-wrap items-center gap-1.5">
         <BaseCombobox.Chips className="flex w-full flex-wrap items-center gap-1.5">
           <BaseCombobox.Value>
             {(tags: string[]) => (
               <>
                 {tags.map((tag) => (
-                  <BaseCombobox.Chip key={tag} className={CHIP} aria-label={tag}>
+                  <BaseCombobox.Chip key={tag} className={TAG_CHIP} aria-label={tag}>
                     {tag}
                     <BaseCombobox.ChipRemove className={CHIP_REMOVE} aria-label={`Remove ${tag}`}>
                       <X size={12} aria-hidden="true" className="block" />
                     </BaseCombobox.ChipRemove>
                   </BaseCombobox.Chip>
                 ))}
-                <BaseCombobox.Input
-                  className={INPUT}
-                  placeholder={tags.length > 0 ? "" : placeholder}
-                  aria-label={inputLabel}
-                  onKeyDown={onKeyDown}
-                  onBlur={onBlur}
-                />
+                {active ? (
+                  <span ref={chipRef} className={INPUT_CHIP}>
+                    <BaseCombobox.Input
+                      autoFocus
+                      className={INPUT}
+                      placeholder={placeholder}
+                      aria-label={inputLabel}
+                      onKeyDown={onKeyDown}
+                      onBlur={onBlur}
+                    />
+                  </span>
+                ) : (
+                  <button
+                    ref={addRef}
+                    type="button"
+                    className={ADD_CHIP}
+                    aria-label={inputLabel}
+                    onClick={() => setActive(true)}
+                  >
+                    <Plus size={12} aria-hidden="true" className="block" />
+                    Tag
+                  </button>
+                )}
               </>
             )}
           </BaseCombobox.Value>
         </BaseCombobox.Chips>
       </BaseCombobox.InputGroup>
       <BaseCombobox.Portal>
-        <BaseCombobox.Positioner sideOffset={6} className="z-30 outline-none">
+        <BaseCombobox.Positioner anchor={chipRef} sideOffset={6} align="start" className="z-30 outline-none">
           <BaseCombobox.Popup
             className={cx(
               OVERLAY,
-              "max-h-[220px] w-[var(--anchor-width)] flex-col gap-px overflow-y-auto",
+              "max-h-[220px] w-max min-w-44 max-w-72 flex-col gap-px overflow-y-auto",
               OVERLAY_MOTION
             )}
           >

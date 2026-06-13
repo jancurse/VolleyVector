@@ -2,8 +2,8 @@ import type { JSX } from "react";
 import { ShieldCheck } from "lucide-react";
 
 import type { Selection } from "../library/selection";
-import { TopicSidebar } from "../topics/TopicSidebar";
-import type { Topic } from "../topics/types";
+import { NoteSidebar } from "../notes/NoteSidebar";
+import type { Note } from "../notes/types";
 import { cx } from "../ui/styles";
 import type { Space } from "../workspace/space";
 import type { TeamMembership, TeamRef } from "../workspace/useWorkspace";
@@ -11,7 +11,7 @@ import { BrandMark } from "./BrandMark";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 
 // The persistent left column, present on every authenticated surface including board view and edit. Top
-// to bottom: the brand, the space switcher, the scrolling topic navigation, and an admin entry pinned at
+// to bottom: the brand, the space switcher, the scrolling note navigation, and an admin entry pinned at
 // the foot for admins. The board view and editor keep the full content width; only this column is fixed.
 type SidebarProps = {
   activeSpace: Space;
@@ -21,12 +21,12 @@ type SidebarProps = {
   onSwitchSpace: (space: Space) => void;
   canManageActiveTeam: boolean;
   onManageTeam: (teamId: string) => void;
-  topics: readonly Topic[];
+  notes: readonly Note[];
   selection: Selection;
-  onSelectTopic: (selection: Selection) => void;
-  onNewTopic: () => void;
-  onReorderTopic: (id: string, dir: -1 | 1) => void;
-  onNestTopic: (id: string, parentId: string | null) => void;
+  onSelectNote: (selection: Selection) => void;
+  onNewNote: () => void;
+  onReorderNote: (id: string, dir: -1 | 1) => void;
+  onNestNote: (id: string, parentId: string | null) => void;
   canEdit: boolean;
   isAdmin: boolean;
   adminActive: boolean;
@@ -44,12 +44,12 @@ export function Sidebar({
   onSwitchSpace,
   canManageActiveTeam,
   onManageTeam,
-  topics,
+  notes,
   selection,
-  onSelectTopic,
-  onNewTopic,
-  onReorderTopic,
-  onNestTopic,
+  onSelectNote,
+  onNewNote,
+  onReorderNote,
+  onNestNote,
   canEdit,
   isAdmin,
   adminActive,
@@ -75,13 +75,13 @@ export function Sidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-        <TopicSidebar
-          topics={topics}
+        <NoteSidebar
+          notes={notes}
           selection={selection}
-          onSelect={onSelectTopic}
-          onNewTopic={onNewTopic}
-          onReorder={onReorderTopic}
-          onNest={onNestTopic}
+          onSelect={onSelectNote}
+          onNewNote={onNewNote}
+          onReorder={onReorderNote}
+          onNest={onNestNote}
           canEdit={canEdit}
         />
       </div>

@@ -166,8 +166,8 @@
   animation: court-fade 0.3s var(--ease-settle) both;
 }
 
-/* An empty official-position spot on the rotation board: a dashed outline carrying its position
-   number, quiet enough to read as a destination rather than a marker. */
+/* An empty official zone's drop destination on the rotation diagram: a dashed disc-sized outline,
+   quiet enough to read as a destination rather than a marker. */
 .court-spot {
   fill: none;
   stroke: var(--court-line);
@@ -176,14 +176,61 @@
   opacity: 0.45;
 }
 
-.court-spot-label {
+/* The rotation diagram (RotationDiagram): a square 3×2 grid of the six official zones rather than a
+   miniature court. It reuses the court's surface, boundary, net-tape, and marker classes at the
+   court's own disc size; only the zone dividers and corner numerals are its own. Height follows the
+   viewBox (the custom-mode bench adds a band below the grid). */
+.court-rotation {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.court-rotation--editable {
+  touch-action: none;
+}
+
+/* The hairline dividers between the six zones. */
+.court-rotation-line {
+  stroke: var(--court-line);
+  stroke-width: 2;
+  opacity: 0.4;
+  transition: stroke 0.4s ease;
+}
+
+/* The quiet numeral in each zone's corner. */
+.court-rotation-num {
   fill: var(--court-line);
-  opacity: 0.6;
+  opacity: 0.55;
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 34px;
+  font-size: 30px;
   text-anchor: middle;
   dominant-baseline: central;
+}
+
+/* The view's "who do I key off" cue, in the accent language so it reads as guidance, not a fault: a
+   solid tie from the tapped player to each constraining neighbour, while everyone else steps back. */
+.court-cue-tie {
+  stroke: var(--accent);
+  stroke-width: 5;
+  stroke-linecap: round;
+  opacity: 0.8;
+  pointer-events: none;
+  animation: court-fade 0.3s var(--ease-settle) both;
+}
+
+/* While the cue shows, uninvolved markers step back so the tapped player and their neighbours lead. */
+.court-marker--dim {
+  opacity: 0.3;
+  transition: opacity 0.18s ease;
+}
+
+/* A tap-only surface (the view's cue, on the court or the rotation diagram): markers invite a tap,
+   not a grab. */
+.court--tap .court-marker-hit,
+.court-rotation--tap .court-marker-hit {
+  cursor: pointer;
 }
 
 /* Derived movement arrows. currentColor is set per arrow to the moving marker's colour. */

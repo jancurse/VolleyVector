@@ -2,9 +2,9 @@ import type { CourtMode } from "../court/roles";
 import { normalizeSteps } from "../boards/normalize";
 import type { StoredStep } from "../boards/normalize";
 import type { Board, BoardMarker, BoardStep } from "../boards/types";
-import type { Topic, TopicBlock } from "../topics/types";
+import type { Note, NoteBlock } from "../notes/types";
 
-// The bridge between the client model and the database. A board/topic lives server-side as a row with
+// The bridge between the client model and the database. A board/note lives server-side as a row with
 // extra placement and access columns (owner, scope, team, lock, token, timestamps); the client model
 // carries only the content. These functions map a row to the model on read, and build the column
 // subset a client may write on insert/update. The owner, scope, lock, token, and timestamps are set or
@@ -23,7 +23,6 @@ export type BoardRow = {
   markers: BoardMarker[];
   steps: StoredStep[];
   tags: string[];
-  topic_id: string | null;
   shared: boolean;
   author_locked: boolean;
   auto_arrows: boolean;
@@ -35,14 +34,14 @@ export type BoardRow = {
   deleted_by: string | null;
 };
 
-export type TopicRow = {
+export type NoteRow = {
   id: string;
   owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;
   slug: string;
-  blocks: TopicBlock[];
+  blocks: NoteBlock[];
   parent_id: string | null;
   sort_order: number;
   created_at: string;
@@ -62,21 +61,20 @@ export type BoardInsert = {
   markers: BoardMarker[];
   steps: BoardStep[];
   tags: string[];
-  topic_id: string | null;
   auto_arrows: boolean;
   rotation_strict: boolean;
 };
 
 export type BoardUpdate = Omit<BoardInsert, "id" | "owner" | "scope" | "team_id">;
 
-export type TopicInsert = {
+export type NoteInsert = {
   id: string;
   owner: string | null;
   scope: Scope;
   team_id: string | null;
   title: string;
   slug: string;
-  blocks: TopicBlock[];
+  blocks: NoteBlock[];
   parent_id: string | null;
   sort_order: number;
 };
@@ -90,7 +88,6 @@ export function boardFromRow(row: BoardRow): Board {
     markers: row.markers,
     steps: normalizeSteps(row.steps),
     tags: row.tags,
-    topicId: row.topic_id,
     owner: row.owner,
     authorLocked: row.author_locked,
     shared: row.shared,
@@ -114,7 +111,6 @@ export function boardToInsert(board: Board, owner: string, scope: Scope, teamId:
     markers: board.markers,
     steps: board.steps,
     tags: board.tags,
-    topic_id: board.topicId,
     auto_arrows: board.autoArrows,
     rotation_strict: board.rotationStrict,
   };
@@ -128,13 +124,12 @@ export function boardToUpdate(board: Board): BoardUpdate {
     markers: board.markers,
     steps: board.steps,
     tags: board.tags,
-    topic_id: board.topicId,
     auto_arrows: board.autoArrows,
     rotation_strict: board.rotationStrict,
   };
 }
 
-export function topicFromRow(row: TopicRow): Topic {
+export function noteFromRow(row: NoteRow): Note {
   return {
     id: row.id,
     title: row.title,
@@ -145,16 +140,16 @@ export function topicFromRow(row: TopicRow): Topic {
   };
 }
 
-export function topicToInsert(topic: Topic, owner: string, scope: Scope, teamId: string | null): TopicInsert {
+export function noteToInsert(note: Note, owner: string, scope: Scope, teamId: string | null): NoteInsert {
   return {
-    id: topic.id,
+    id: note.id,
     owner,
     scope,
     team_id: teamId,
-    title: topic.title,
-    slug: topic.slug,
-    blocks: topic.blocks,
-    parent_id: topic.parentId,
-    sort_order: topic.order,
+    title: note.title,
+    slug: note.slug,
+    blocks: note.blocks,
+    parent_id: note.parentId,
+    sort_order: note.order,
   };
 }

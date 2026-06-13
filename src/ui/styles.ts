@@ -78,7 +78,7 @@ export const TOGGLE_PILL =
 
 // ---- Panels, fields, overlays -----------------------------------------------------------------
 
-/** The bordered card the inspector, description, tag editor, and topic picker share. */
+/** The bordered card the inspector, description, tag editor, and note picker share. */
 export const PANEL =
   "flex flex-col gap-[0.9rem] rounded-xl border border-border bg-panel pt-[1.1rem] px-[1.15rem] pb-[1.25rem]";
 
@@ -91,13 +91,17 @@ export const FIELD_LABEL = "font-mono text-2xs font-medium uppercase tracking-[0
 /** Quiet italic placeholder copy (empty states). */
 export const MUTED = "m-0 italic text-text-dim";
 
+/** A tag chip, shared by the tag input's removable chips and the board view's read-only tags. */
+export const TAG_CHIP =
+  "inline-flex items-center gap-1 rounded-pill border border-border bg-control px-2 py-0.5 text-xs font-semibold text-text";
+
 /** The spaced mono uppercase eyebrow above a title. */
 export const EYEBROW = "m-0 mb-[0.4rem] font-mono text-xs font-medium uppercase tracking-[0.28em] text-text-dim";
 
-/** The large display title shared by the board view, library, and topic pages. */
+/** The large display title shared by the board view, library, and note pages. */
 export const TITLE = "m-0 font-display text-[clamp(1.7rem,3.5vw,2.6rem)] font-bold leading-[1.05] tracking-[-0.025em]";
 
-/** The centred, max-width column the library and topic pages share. */
+/** The centred, max-width column the library and note pages share. */
 export const PAGE =
   "mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(1rem,3vh,1.6rem)] animate-rise motion-reduce:animate-none";
 
@@ -143,9 +147,12 @@ export const TABLE_CELL = "border-b border-border px-4 py-3 align-middle";
 
 // ---- Swatches and domain composites -----------------------------------------------------------
 
-/** The coloured role/colour disc, shared by the inspector's swatch picker and the palette legend. */
-export const SWATCH_BASE =
-  "grid size-7.5 flex-none place-items-center rounded-full border-2 font-mono text-2xs font-bold";
+/** The swatch disc's box, shared by the inspector's swatch pickers and the palette legend. Marker
+    swatches fill it with court SVG art; SWATCH_FLAT adds the plain CSS disc for ink-colour chips. */
+export const SWATCH_BASE = "grid size-7.5 flex-none place-items-center rounded-full";
+
+/** The flat coloured-disc look for swatches that show an ink colour rather than a marker. */
+export const SWATCH_FLAT = "border-2 font-mono text-2xs font-bold";
 
 /** The palette's "add a marker" pill: a ghost pill carrying a leading role swatch and the role name. */
 export const LEGEND_BUTTON =

@@ -3,10 +3,10 @@ import { describe, expect, test } from "vitest";
 import type { Board } from "../../src/boards/types";
 import { parseBundle } from "../../src/bundle/parse";
 import { bundleFilename, toBundle } from "../../src/bundle/serialize";
-import { SAMPLE_BOARDS, SAMPLE_TOPICS } from "../helpers/sampleData";
+import { SAMPLE_BOARDS, SAMPLE_NOTES } from "../helpers/sampleData";
 
 describe("toBundle", () => {
-  const json = JSON.stringify(toBundle(SAMPLE_BOARDS, SAMPLE_TOPICS));
+  const json = JSON.stringify(toBundle(SAMPLE_BOARDS, SAMPLE_NOTES));
 
   test.each(["owner", "teamId", "shared", "authorLocked", "createdAt", "updatedAt", "share_token", "slug"])(
     "carries no server-owned field %s",
@@ -15,32 +15,38 @@ describe("toBundle", () => {
     }
   );
 
-  test("a subtree root's outside parent and a stale board hint are dropped", () => {
-    const topic = SAMPLE_TOPICS[0];
-    const child = { ...SAMPLE_TOPICS[1], id: "child", parentId: topic.id };
+  test("a subtree root's outside parent and a board ref outside the set are dropped", () => {
+    const note = SAMPLE_NOTES[0];
+    const child = { ...SAMPLE_NOTES[1], id: "child", parentId: note.id };
     const bundle = toBundle([], [{ ...child, blocks: [{ id: "b1", kind: "boards", boardIds: ["gone"] }] }]);
 
-    expect(bundle.topics).toEqual([
+    expect(bundle.notes).toEqual([
       { ref: "child", title: child.title, parentRef: null, blocks: [{ kind: "boards", boardRefs: [] }] },
     ]);
   });
 });
 
 describe("export → import round-trip", () => {
-  const json = JSON.stringify(toBundle(SAMPLE_BOARDS, SAMPLE_TOPICS));
+  const json = JSON.stringify(toBundle(SAMPLE_BOARDS, SAMPLE_NOTES));
   const result = parseBundle(json, []);
 
   if (!result.ok) throw new Error(result.errors.join("\n"));
 
-  const { topics, boards, notices } = result.value;
+  const { notes, boards, notices } = result.value;
 
-  test("recreates the topics with fresh ids and the same content", () => {
+  test("recreates the notes with fresh ids and the same content", () => {
     expect(notices).toEqual([]);
-    expect(topics.map((t) => t.title)).toEqual(SAMPLE_TOPICS.map((t) => t.title));
-    expect(topics.map((t) => t.blocks.map((b) => (b.kind === "markdown" ? b.text : b.boardIds)))).toEqual(
-      SAMPLE_TOPICS.map((t) => t.blocks.map((b) => (b.kind === "markdown" ? b.text : b.boardIds)))
+    expect(notes.map((t) => t.title)).toEqual(SAMPLE_NOTES.map((t) => t.title));
+    // Board links follow across the id minting: each boards block resolves to the same board titles.
+    const importedTitle = (id: string) => boards.find((b) => b.id === id)?.title;
+    const sampleTitle = (id: string) => SAMPLE_BOARDS.find((b) => b.id === id)?.title;
+
+    expect(
+      notes.map((t) => t.blocks.map((b) => (b.kind === "markdown" ? b.text : b.boardIds.map(importedTitle))))
+    ).toEqual(
+      SAMPLE_NOTES.map((t) => t.blocks.map((b) => (b.kind === "markdown" ? b.text : b.boardIds.map(sampleTitle))))
     );
-    expect(topics.every((t, i) => t.id !== SAMPLE_TOPICS[i].id)).toBe(true);
+    expect(notes.every((t, i) => t.id !== SAMPLE_NOTES[i].id)).toBe(true);
   });
 
   test.each(SAMPLE_BOARDS.map((board, index) => ({ board, index })))(
@@ -59,10 +65,6 @@ describe("export → import round-trip", () => {
       });
       expect(imported.steps.map((s) => s.instruction)).toEqual(board.steps.map((s) => s.instruction));
       expect(imported.steps.map((s) => s.positions)).toEqual(board.steps.map((s) => s.positions));
-      // The home topic follows across the id minting: it points at the new topic with the same title.
-      const homeTitle = SAMPLE_TOPICS.find((t) => t.id === board.topicId)?.title;
-
-      expect(topics.find((t) => t.id === imported.topicId)?.title).toBe(homeTitle);
     }
   );
 

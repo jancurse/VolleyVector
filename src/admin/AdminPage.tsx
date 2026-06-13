@@ -27,7 +27,7 @@ import { useAdmin } from "./useAdmin";
 // The admin area: concerns that span teams rather than living inside one. A dedicated sidebar entry,
 // visible only to a global admin, opens it. Three sub-pages share one `useAdmin` snapshot and render as
 // tables: Teams (create, archive, delete), Accounts (delete non-admin accounts), and Recovery (restore
-// grace-archived teams, accounts, boards, and topics). RLS has the final say on every write.
+// grace-archived teams, accounts, boards, and notes). RLS has the final say on every write.
 type AdminPageProps = {
   sub: AdminSub;
   onNavigateSub: (sub: AdminSub) => void;
@@ -64,7 +64,7 @@ function RecoveryGroup({
   if (items.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex max-w-2xl flex-col gap-2">
       <span className={PANEL_TITLE}>{title}</span>
       <div className={TABLE_FRAME}>
         <table className={TABLE}>
@@ -145,7 +145,7 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
     deletedTeams.length > 0 ||
     deletedProfiles.length > 0 ||
     admin.deletedBoards.length > 0 ||
-    admin.deletedTopics.length > 0;
+    admin.deletedNotes.length > 0;
 
   return (
     <section className={PAGE}>
@@ -164,7 +164,7 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
         </TabList>
 
         <TabPanel value="teams" className="flex flex-col gap-6">
-          <div className={cx(PANEL, "gap-4")}>
+          <div className={cx(PANEL, "max-w-2xl gap-4")}>
             <span className={PANEL_TITLE}>New team</span>
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Team name" className="max-w-xs flex-1">
@@ -182,7 +182,7 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
           ) : liveTeams.length === 0 ? (
             <p className={MUTED}>No teams yet.</p>
           ) : (
-            <div className={TABLE_FRAME}>
+            <div className={cx(TABLE_FRAME, "max-w-2xl")}>
               <table className={TABLE}>
                 <thead>
                   <tr>
@@ -230,7 +230,7 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
           ) : activeProfiles.length === 0 ? (
             <p className={MUTED}>No accounts.</p>
           ) : (
-            <div className={TABLE_FRAME}>
+            <div className={cx(TABLE_FRAME, "max-w-2xl")}>
               <table className={TABLE}>
                 <thead>
                   <tr>
@@ -289,9 +289,9 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
                 onRestore={(id) => void act(admin.restoreBoard(id))}
               />
               <RecoveryGroup
-                title="Topics"
-                items={admin.deletedTopics.map((i) => ({ id: i.id, label: i.title || "Untitled" }))}
-                onRestore={(id) => void act(admin.restoreTopic(id))}
+                title="Notes"
+                items={admin.deletedNotes.map((i) => ({ id: i.id, label: i.title || "Untitled" }))}
+                onRestore={(id) => void act(admin.restoreNote(id))}
               />
             </div>
           )}

@@ -5,7 +5,7 @@ import { EYEBROW, MUTED, PAGE, TITLE } from "../ui/styles";
 
 // The in-app not-found surface for an unrecognised path or an unreadable board. RLS hides rows it does
 // not return rather than answering 403, so "wrong space" and "no permission" are indistinguishable and
-// both land here. It reuses the library/topic page scaffolding so it reads as part of the app, not a
+// both land here. It reuses the library/note page scaffolding so it reads as part of the app, not a
 // dead end.
 export function NotFound({ onHome }: { onHome: () => void }): JSX.Element {
   return (

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 
-import { boardsInTopic, createBoard } from "./boards/operations";
+import { createBoard } from "./boards/operations";
 import type { Board } from "./boards/types";
 import { useBoards } from "./boards/useBoards";
 import { ExportMenu } from "./bundle/ExportMenu";
@@ -16,12 +16,14 @@ import { BoardView } from "./editor/BoardView";
 import { Library } from "./library/Library";
 import { allTags } from "./library/items";
 import type { Selection } from "./library/selection";
-import { subtreeIds } from "./topics/operations";
-import { TopicEditor } from "./topics/TopicEditor";
-import { TopicView } from "./topics/TopicView";
-import { useTopics } from "./topics/useTopics";
+import { appendBoardToBlocks, subtreeIds } from "./notes/operations";
+import { AppearsIn } from "./notes/AppearsIn";
+import { NoteEditor } from "./notes/NoteEditor";
+import { NoteView } from "./notes/NoteView";
+import { useNotes } from "./notes/useNotes";
+import type { Note } from "./notes/types";
 import { useTheme } from "./theme/useTheme";
-import { MenuItem } from "./ui/Menu";
+import { MenuItem, MenuSeparator } from "./ui/Menu";
 import { TooltipProvider } from "./ui/Tooltip";
 import { useConfirm } from "./ui/useConfirm";
 import { useAuth } from "./auth/useAuth";
@@ -30,7 +32,6 @@ import { SetPassword } from "./auth/SetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
 import { Button } from "./ui/Button";
 import { cx, MUTED } from "./ui/styles";
-import type { Topic } from "./topics/types";
 import { TeamPage } from "./team/TeamPage";
 import { AdminPage } from "./admin/AdminPage";
 import { SettingsPage } from "./account/SettingsPage";
@@ -56,17 +57,17 @@ import {
   boardRoute,
   canonicalRoute,
   findTeamId,
-  findTopicId,
+  findNoteId,
   libraryRoute,
   routeSpaceForSpace,
   spaceForRouteSpace,
   teamRoute,
-  topicPrintRoute,
-  topicRoute,
+  notePrintRoute,
+  noteRoute,
 } from "./routing/links";
 import { BoardPrint } from "./print/BoardPrint";
 import { PrintView } from "./print/PrintView";
-import { TopicPrint } from "./print/TopicPrint";
+import { NotePrint } from "./print/NotePrint";
 import { AppShell } from "./shell/AppShell";
 import { Sidebar } from "./shell/Sidebar";
 import { SidebarRail } from "./shell/SidebarRail";
@@ -89,7 +90,7 @@ const DraftPreview = import.meta.env.DEV
 
 // The URL is the single source of truth for navigation: the active space, the browse selection, and the
 // open board are all derived from the path-based route. A draft (the editor's working copy) and the
-// topic-editing toggle are the only navigation state not in the URL. App wires the stores together and
+// note-editing toggle are the only navigation state not in the URL. App wires the stores together and
 // renders the persistent shell; the share and invite hash links still win over everything.
 
 export function App(): JSX.Element {
@@ -117,26 +118,28 @@ export function App(): JSX.Element {
     addBoard,
     deleteBoard,
     updateBoard,
-    unfileBoards,
     setBoardLock,
     shareBoard,
     unshareBoard,
     moveBoardToTeam,
   } = useBoards(space);
-  const topics = useTopics(space);
+  const notes = useNotes(space);
   const { confirm, dialog } = useConfirm();
 
   const [draft, setDraft] = useState<Board | null>(null);
   // Bumped when a backup restore replaces the draft in place, so the keyed editor remounts on it.
   const [draftRevision, setDraftRevision] = useState(0);
-  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
+  // The note page a new draft was created from: its first commit appends the board to that note's
+  // document. Null for a board created from the library or an edit of an existing board.
+  const [draftNoteId, setDraftNoteId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [passwordReady, setPasswordReady] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [missingBoardId, setMissingBoardId] = useState<string | null>(null);
 
-  // Below the full-sidebar width the navigation lives in an overlay: expanded from the rail's Topics
+  // Below the full-sidebar width the navigation lives in an overlay: expanded from the rail's Notes
   // toggle, or from the drawer toggle in the top bar. Anything picked inside it closes it.
   const sidebarMode = useSidebarMode();
   const [navOpen, setNavOpen] = useState(false);
@@ -158,7 +161,7 @@ export function App(): JSX.Element {
 
   // Selection, open board, and edit mode are all read off the current route.
   const selection: Selection =
-    route.kind === "topic" ? { kind: "topic", id: findTopicId(topics.topics, route.topicSlug) ?? "" } : { kind: "all" };
+    route.kind === "note" ? { kind: "note", id: findNoteId(notes.notes, route.noteSlug) ?? "" } : { kind: "all" };
   const openId = route.kind === "board" ? route.boardId : null;
   const openBoard = openId !== null ? (boards.find((b) => b.id === openId) ?? null) : null;
   const editing = route.kind === "board" && route.edit;
@@ -176,8 +179,10 @@ export function App(): JSX.Element {
   // leaves edit mode (so the back button exits the editor), and seed it from the board when an edit URL
   // is opened directly. Adjusting state during render is React's recommended alternative to an effect
   // here; it converges in one extra render and avoids the cascading renders of a reactive effect.
-  if (!editing && draft !== null) setDraft(null);
-  else if (editableBoard !== null && (draft === null || draft.id !== editableBoard.id)) setDraft(editableBoard);
+  if (!editing && draft !== null) {
+    setDraft(null);
+    setDraftNoteId(null);
+  } else if (editableBoard !== null && (draft === null || draft.id !== editableBoard.id)) setDraft(editableBoard);
 
   const showEditor = editing && draft !== null && draft.id === openId;
 
@@ -222,10 +227,10 @@ export function App(): JSX.Element {
   useEffect(() => {
     if (hashRoute || route.kind === "root" || route.kind === "notFound") return;
 
-    const canonical = canonicalRoute(route, allTeams, topics.topics);
+    const canonical = canonicalRoute(route, allTeams, notes.notes);
 
     if (buildPath(canonical) !== window.location.pathname) navigate(canonical, { replace: true });
-  }, [route, hashRoute, navigate, allTeams, topics.topics]);
+  }, [route, hashRoute, navigate, allTeams, notes.notes]);
 
   // Resolve a board URL the active space does not hold: confirm it is unreadable (→ not found), or
   // self-heal a stale link to the board's real space. The synchronous resets happen in render above; the
@@ -314,6 +319,19 @@ export function App(): JSX.Element {
 
     if (error !== null) return error;
 
+    // A board created from a note page joins that note's document now, after its first commit
+    // succeeded. A failed link keeps the editor open and Done retries (the board save is idempotent).
+    const note = draftNoteId !== null ? notes.notes.find((t) => t.id === draftNoteId) : undefined;
+
+    if (note) {
+      const linkError = await notes.updateNote(note.id, {
+        blocks: appendBoardToBlocks(note.blocks, updated.id),
+      });
+
+      if (linkError !== null) return linkError;
+    }
+
+    setDraftNoteId(null);
     clearDraftBackup(updated.id);
     setDraft(null);
     navigate(boardRoute(activeSpace, allTeams, updated.id, false));
@@ -339,17 +357,18 @@ export function App(): JSX.Element {
 
   const startEdit = (board: Board) => {
     setDraft(board);
+    setDraftNoteId(null);
     navigate(boardRoute(activeSpace, allTeams, board.id, true));
   };
 
-  // New board placement: unfiled from the library, pre-filed into the topic when created from its page.
+  // A board created from a note page commits into that note's document; from the library it starts unlinked.
   const newBoard = () => {
     if (!user) return;
 
-    const topicId = route.kind === "topic" ? findTopicId(topics.topics, route.topicSlug) : null;
-    const board = { ...createBoard(Date.now()), owner: user.id, topicId };
+    const board = { ...createBoard(Date.now()), owner: user.id };
 
     setDraft(board);
+    setDraftNoteId(route.kind === "note" ? findNoteId(notes.notes, route.noteSlug) : null);
     navigate(boardRoute(activeSpace, allTeams, board.id, true));
   };
 
@@ -358,21 +377,22 @@ export function App(): JSX.Element {
 
     if (id) clearDraftBackup(id);
     setDraft(null);
+    setDraftNoteId(null);
     navigate(id && boards.some((b) => b.id === id) ? boardRoute(activeSpace, allTeams, id, false) : homeRoute());
   };
 
   const switchSpace = (next: Space) => navigate(libraryRoute(next, allTeams));
 
-  const selectTopic = (next: Selection) => {
+  const selectNote = (next: Selection) => {
     if (next.kind === "all") {
       navigate(homeRoute());
 
       return;
     }
 
-    const topic = topics.topics.find((t) => t.id === next.id);
+    const note = notes.notes.find((t) => t.id === next.id);
 
-    if (topic) navigate(topicRoute(activeSpace, allTeams, topic));
+    if (note) navigate(noteRoute(activeSpace, allTeams, note));
   };
 
   const deleteOwnAccount = async () => {
@@ -397,32 +417,30 @@ export function App(): JSX.Element {
     await signOut();
   };
 
-  const createTopic = (parentId: string | null) => {
-    const id = topics.addTopic(parentId);
+  const createNote = (parentId: string | null) => {
+    const id = notes.addNote(parentId);
 
-    // Navigate by id (addTopic only returns the id); the canonicalisation effect rewrites it to the slug.
-    navigate({ kind: "topic", space: routeSpaceForSpace(activeSpace, allTeams), topicSlug: id });
+    // Navigate by id (addNote only returns the id); the canonicalisation effect rewrites it to the slug.
+    navigate({ kind: "note", space: routeSpaceForSpace(activeSpace, allTeams), noteSlug: id });
   };
 
-  const removeTopic = async (id: string) => {
+  const removeNote = async (id: string) => {
     const ok = await confirm({
-      title: "Delete this topic and its subtopics?",
-      description: "Its boards return to Unfiled.",
+      title: "Delete this note and its subnotes?",
+      description: "Boards they reference stay in the library.",
       confirmLabel: "Delete",
       danger: true,
     });
 
     if (!ok) return;
 
-    const removed = subtreeIds(topics.topics, id);
+    const removed = subtreeIds(notes.notes, id);
 
-    unfileBoards(boards.filter((b) => b.topicId !== null && removed.includes(b.topicId)).map((b) => b.id));
-    topics.removeTopic(id);
-    if (editingTopicId && removed.includes(editingTopicId)) setEditingTopicId(null);
-    if (selection.kind === "topic" && removed.includes(selection.id)) navigate(homeRoute());
+    notes.removeNote(id);
+    if (editingNoteId && removed.includes(editingNoteId)) setEditingNoteId(null);
+    if (selection.kind === "note" && removed.includes(selection.id)) navigate(homeRoute());
   };
 
-  const draftExisting = draft !== null && boards.some((b) => b.id === draft.id);
   const tagSuggestions = useMemo(() => allTags(boards), [boards]);
 
   const loader = (
@@ -457,12 +475,12 @@ export function App(): JSX.Element {
   }
 
   // Once the workspace resolves, a user with no display name set must choose one before reaching the
-  // app. This wins over the content-loading gate, so the prompt shows without waiting on boards/topics.
+  // app. This wins over the content-loading gate, so the prompt shows without waiting on boards/notes.
   if (!workspace.loading && workspace.displayName === null) return <NameSetup onSave={workspace.setDisplayName} />;
 
   // Block on the first load only. A later team switch keeps the prior content on screen until the new
   // data arrives, so switching teams (or working in a dialog mid-load) never blanks the whole app.
-  if (workspace.loading || (boardsLoading && boards.length === 0) || (topics.loading && topics.topics.length === 0))
+  if (workspace.loading || (boardsLoading && boards.length === 0) || (notes.loading && notes.notes.length === 0))
     return loader;
 
   const printNotFound = (
@@ -473,7 +491,7 @@ export function App(): JSX.Element {
 
   // The print routes render their handout chrome-free, outside the shell. The space-sync effect above
   // aligns the active space to the URL, so the document just reads the loaded lists; a board id or
-  // topic slug the space does not hold is treated as not found once the space has settled.
+  // note slug the space does not hold is treated as not found once the space has settled.
   if (route.kind === "printBoard") {
     const board = boards.find((b) => b.id === route.boardId);
 
@@ -489,20 +507,20 @@ export function App(): JSX.Element {
     );
   }
 
-  if (route.kind === "printTopic") {
-    const topicId = findTopicId(topics.topics, route.topicSlug);
-    const topic = topics.topics.find((t) => t.id === topicId);
+  if (route.kind === "printNote") {
+    const noteId = findNoteId(notes.notes, route.noteSlug);
+    const note = notes.notes.find((t) => t.id === noteId);
 
-    if (!topic) return !spaceReady || topics.loading ? loader : printNotFound;
+    if (!note) return !spaceReady || notes.loading ? loader : printNotFound;
 
     return (
-      <PrintView title={topic.title} onBack={() => navigate(topicRoute(activeSpace, allTeams, topic))}>
-        <TopicPrint topic={topic} boards={boardsInTopic(boards, topic.id)} />
+      <PrintView title={note.title} onBack={() => navigate(noteRoute(activeSpace, allTeams, note))}>
+        <NotePrint note={note} boards={boards} />
       </PrintView>
     );
   }
 
-  const selectedTopic = selection.kind === "topic" ? topics.topics.find((t) => t.id === selection.id) : undefined;
+  const selectedNote = selection.kind === "note" ? notes.notes.find((t) => t.id === selection.id) : undefined;
 
   // The teams whose library the viewer may write to, as copy/move targets: an admin reaches every team;
   // anyone else the teams they coach, including the showcase space for its curators.
@@ -510,7 +528,7 @@ export function App(): JSX.Element {
     ? allTeams
     : [...teams.filter((t) => t.role === "coach"), ...(showcase?.role === "coach" ? [showcase] : [])];
 
-  // A copy into the active space is a duplicate: it stays in the open list (with its topic) under a
+  // A copy into the active space is a duplicate: it stays in the open list (with its note) under a
   // fresh id and title. The view moves to the copy only after the awaited insert succeeds — navigating
   // sooner would open a board the list does not hold yet — and a failure stays put and reports back to
   // the menu item. addBoard stamps its timestamps.
@@ -555,12 +573,12 @@ export function App(): JSX.Element {
     ),
   ];
 
-  // An import creates everything anew in the active space: topics first (parents before children, the
+  // An import creates everything anew in the active space: notes first (parents before children, the
   // order the parser returns), then boards, each write awaited so a failure reports back to the dialog.
-  const importBundle = async (newTopics: Topic[], newBoards: Board[]): Promise<string | null> => {
-    const topicError = await topics.insertTopics(newTopics);
+  const importBundle = async (newNotes: Note[], newBoards: Board[]): Promise<string | null> => {
+    const noteError = await notes.insertNotes(newNotes);
 
-    if (topicError !== null) return topicError;
+    if (noteError !== null) return noteError;
 
     for (const board of newBoards) {
       const boardError = await addBoard({ ...board, owner: user.id });
@@ -572,7 +590,7 @@ export function App(): JSX.Element {
   };
 
   // The space's JSON export (and, for its curators, import) on the All Boards page bar, and the
-  // topic's subtree export on its page bar. Export needs no edit rights, matching viewing.
+  // note's subtree export on its page bar. Export needs no edit rights, matching viewing.
   const spaceName = personal
     ? "My boards"
     : (allTeams.find((t) => activeSpace.kind === "team" && t.teamId === activeSpace.teamId)?.teamName ?? "Team");
@@ -597,7 +615,7 @@ export function App(): JSX.Element {
   if (DraftPreview && draftPreviewOpen) {
     content = (
       <Suspense fallback={<p className={MUTED}>Loading…</p>}>
-        <DraftPreview topics={topics.topics} canEdit={canEdit} onImport={importBundle} />
+        <DraftPreview notes={notes.notes} canEdit={canEdit} onImport={importBundle} />
       </Suspense>
     );
   } else if (showEditor && draft) {
@@ -607,40 +625,58 @@ export function App(): JSX.Element {
         board={draft}
         onDone={commit}
         onCancel={cancelEdit}
-        onDelete={draftExisting ? () => remove(draft.id) : undefined}
         tagSuggestions={tagSuggestions}
-        topics={topics.topics}
       />
     );
   } else if (route.kind === "board") {
     if (openBoard) {
       // The board's actions sit on its title row, like every other surface's content header: an overflow
-      // menu for the occasional actions (Copy to every writable space with the active one duplicating,
-      // the owner's Move to, then the author lock and Copy JSON), the share dialog for the owner of a
-      // personal board, and Edit as the view's one primary action. RLS has the final say on every write.
+      // menu for the occasional actions (the owner's share dialog on a personal board, Copy to every
+      // writable space with the active one duplicating, the owner's Move to, then the author lock and
+      // Copy JSON), and Edit as the view's one primary action. RLS has the final say on every write.
       content = (
         <BoardView
           board={openBoard}
           onBack={() => navigate(homeRoute())}
+          meta={
+            <AppearsIn
+              boardId={openBoard.id}
+              notes={notes.notes}
+              onOpenNote={(id) => selectNote({ kind: "note", id })}
+              onAddToNote={
+                canEdit
+                  ? (noteId) => {
+                      const note = notes.notes.find((n) => n.id === noteId);
+
+                      if (!note) return;
+
+                      void notes
+                        .updateNote(noteId, { blocks: appendBoardToBlocks(note.blocks, openBoard.id) })
+                        .then((error) => {
+                          if (error)
+                            void confirm({ title: "Couldn’t add to note", description: error, confirmLabel: "OK" });
+                        });
+                    }
+                  : undefined
+              }
+            />
+          }
           actions={
             <>
               <BoardActionsMenu
                 board={openBoard}
+                onShare={personal && openBoard.owner === user.id ? () => setSharing(true) : undefined}
                 canLock={!personal && (workspace.isAdmin || openBoard.owner === user.id)}
                 onToggleLock={() => setBoardLock(openBoard.id, !openBoard.authorLocked)}
                 onPrint={() => navigate(boardPrintRoute(activeSpace, allTeams, openBoard.id))}
                 onReplace={canEditBoard(openBoard) ? () => setReplacing(true) : undefined}
+                onDelete={canEditBoard(openBoard) ? () => void remove(openBoard.id) : undefined}
               >
                 <CopyToMenu targets={copyTargets(openBoard)} />
                 {personal && openBoard.owner === user.id && targetTeams.length > 0 && (
                   <MoveToMenu teams={targetTeams} onMove={(teamId) => void moveBoard(openBoard, teamId)} />
                 )}
               </BoardActionsMenu>
-              {personal && openBoard.owner === user.id && (
-                <Button variant="ghost" onClick={() => setSharing(true)}>
-                  {openBoard.shared ? "Shared" : "Share"}
-                </Button>
-              )}
               {canEditBoard(openBoard) && (
                 <Button variant="primary" onClick={() => startEdit(openBoard)}>
                   Edit
@@ -655,26 +691,24 @@ export function App(): JSX.Element {
     } else {
       content = <p className={MUTED}>Loading…</p>;
     }
-  } else if (route.kind === "topic" && !topics.loading && selectedTopic === undefined) {
+  } else if (route.kind === "note" && !notes.loading && selectedNote === undefined) {
     content = <NotFound onHome={() => navigate(homeRoute())} />;
-  } else if (selectedTopic && editingTopicId === selectedTopic.id) {
+  } else if (selectedNote && editingNoteId === selectedNote.id) {
     content = (
-      <TopicEditor
-        topic={selectedTopic}
+      <NoteEditor
+        note={selectedNote}
         boards={boards}
-        onCancel={() => setEditingTopicId(null)}
-        onDelete={() => removeTopic(selectedTopic.id)}
-        onUnfileBoard={(boardId) => unfileBoards([boardId])}
+        onCancel={() => setEditingNoteId(null)}
         onDone={async (patch) => {
-          const error = await topics.updateTopic(selectedTopic.id, { title: patch.title, blocks: patch.blocks });
+          const error = await notes.updateNote(selectedNote.id, { title: patch.title, blocks: patch.blocks });
 
           if (error !== null) return error;
 
-          setEditingTopicId(null);
-          // The first rename away from "New topic" re-mints the slug, so the URL's old handle would go
+          setEditingNoteId(null);
+          // The first rename away from "New note" re-mints the slug, so the URL's old handle would go
           // stale; re-point it at the id and let the canonicalisation effect rewrite it to the new slug.
           navigate(
-            { kind: "topic", space: routeSpaceForSpace(activeSpace, allTeams), topicSlug: selectedTopic.id },
+            { kind: "note", space: routeSpaceForSpace(activeSpace, allTeams), noteSlug: selectedNote.id },
             { replace: true }
           );
 
@@ -682,38 +716,50 @@ export function App(): JSX.Element {
         }}
       />
     );
-  } else if (selectedTopic) {
-    // The topic export carries the whole subtree and every board filed under any topic in it.
-    const subtree = subtreeIds(topics.topics, selectedTopic.id);
-
+  } else if (selectedNote) {
     content = (
-      <TopicView
-        topic={selectedTopic}
-        topics={topics.topics}
-        boards={boardsInTopic(boards, selectedTopic.id)}
+      <NoteView
+        note={selectedNote}
+        notes={notes.notes}
+        boards={boards}
         onOpenBoard={(id) => navigate(boardRoute(activeSpace, allTeams, id, false))}
-        onSelectTopic={(id) => selectTopic({ kind: "topic", id })}
-        onEdit={() => setEditingTopicId(selectedTopic.id)}
-        onAddSubtopic={() => createTopic(selectedTopic.id)}
+        onSelectNote={(id) => selectNote({ kind: "note", id })}
+        onEdit={() => setEditingNoteId(selectedNote.id)}
+        onAddSubnote={() => createNote(selectedNote.id)}
         onNewBoard={newBoard}
         canEdit={canEdit}
         menu={
           <ExportMenu
-            label="Topic actions"
-            bundle={() =>
-              toBundle(
-                boards.filter((b) => b.topicId !== null && subtree.includes(b.topicId)),
-                topics.topics.filter((t) => subtree.includes(t.id))
-              )
-            }
-            filename={bundleFilename(selectedTopic.title)}
+            label="Note actions"
+            bundle={() => {
+              // The note export carries the whole subtree and every board any note in it references.
+              const subtree = subtreeIds(notes.notes, selectedNote.id);
+              const inSubtree = notes.notes.filter((t) => subtree.includes(t.id));
+              const referenced = new Set(
+                inSubtree.flatMap((n) => n.blocks.flatMap((b) => (b.kind === "boards" ? b.boardIds : [])))
+              );
+
+              return toBundle(
+                boards.filter((b) => referenced.has(b.id)),
+                inSubtree
+              );
+            }}
+            filename={bundleFilename(selectedNote.title)}
           >
-            <MenuItem onClick={() => navigate(topicPrintRoute(activeSpace, allTeams, selectedTopic))}>Print…</MenuItem>
+            <MenuItem onClick={() => navigate(notePrintRoute(activeSpace, allTeams, selectedNote))}>Print…</MenuItem>
+            {canEdit && (
+              <>
+                <MenuSeparator />
+                <MenuItem onClick={() => void removeNote(selectedNote.id)}>
+                  <span className="text-danger">Delete note…</span>
+                </MenuItem>
+              </>
+            )}
           </ExportMenu>
         }
       />
     );
-  } else if (route.kind === "library" || route.kind === "topic") {
+  } else if (route.kind === "library" || route.kind === "note") {
     content = (
       <Library
         boards={boards}
@@ -723,7 +769,7 @@ export function App(): JSX.Element {
         menu={
           <ExportMenu
             label="Library actions"
-            bundle={() => toBundle(boards, topics.topics)}
+            bundle={() => toBundle(boards, notes.notes)}
             filename={bundleFilename(spaceName)}
           >
             {canEdit && <MenuItem onClick={() => setImporting(true)}>Import JSON…</MenuItem>}
@@ -800,12 +846,12 @@ export function App(): JSX.Element {
       onSwitchSpace={closing(switchSpace)}
       canManageActiveTeam={!personal && canEdit}
       onManageTeam={closing((teamId: string) => navigate(teamRoute(teamId, allTeams)))}
-      topics={topics.topics}
+      notes={notes.notes}
       selection={selection}
-      onSelectTopic={closing(selectTopic)}
-      onNewTopic={closing(() => createTopic(null))}
-      onReorderTopic={topics.reorderTopic}
-      onNestTopic={topics.reparentTopic}
+      onSelectNote={closing(selectNote)}
+      onNewNote={closing(() => createNote(null))}
+      onReorderNote={notes.reorderNote}
+      onNestNote={notes.reparentNote}
       canEdit={canEdit}
       isAdmin={workspace.isAdmin}
       adminActive={route.kind === "admin"}
@@ -815,7 +861,7 @@ export function App(): JSX.Element {
 
   const topBar = (
     <TopBar
-      crumbs={breadcrumbs(route, allTeams, topics.topics, boards)}
+      crumbs={breadcrumbs(route, allTeams, notes.notes, boards)}
       onNavigate={navigate}
       onOpenNav={sidebarMode === "drawer" ? () => setNavOpen(true) : undefined}
       account={
@@ -856,8 +902,8 @@ export function App(): JSX.Element {
         }
         topBar={topBar}
       >
-        {(boardsError || topics.error) && (
-          <p className="mb-3 w-full max-w-[1320px] text-sm text-danger">{boardsError ?? topics.error}</p>
+        {(boardsError || notes.error) && (
+          <p className="mb-3 w-full max-w-[1320px] text-sm text-danger">{boardsError ?? notes.error}</p>
         )}
         {content}
       </AppShell>
@@ -868,7 +914,7 @@ export function App(): JSX.Element {
       )}
       {dialog}
       {canEdit && (
-        <ImportDialog open={importing} onOpenChange={setImporting} topics={topics.topics} onImport={importBundle} />
+        <ImportDialog open={importing} onOpenChange={setImporting} notes={notes.notes} onImport={importBundle} />
       )}
       {openBoard && canEditBoard(openBoard) && (
         <ReplaceBoardDialog open={replacing} onOpenChange={setReplacing} board={openBoard} onReplace={updateBoard} />

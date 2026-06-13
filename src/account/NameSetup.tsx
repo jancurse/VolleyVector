@@ -44,7 +44,7 @@ export function NameSetup({ onSave }: { onSave: (name: string) => Promise<{ erro
           <h1 className="m-0 font-display text-[1.9rem] font-bold tracking-[-0.025em]">What’s your name?</h1>
         </div>
 
-        <p className={MUTED}>Your teammates will see this on the boards and topics you share.</p>
+        <p className={MUTED}>Your teammates will see this on the boards and notes you share.</p>
 
         <Field label="Name">
           <Input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" autoFocus />

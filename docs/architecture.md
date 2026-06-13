@@ -2,7 +2,7 @@
 
 VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills.
 A coach lays out players and the ball on a court, writes markdown notes, and either keeps a single static arrangement or chains several into an animation.
-Boards and topics persist to a Supabase backend behind invite-only accounts: accounts are organised into teams, every user also has a private personal space, and every access rule is enforced in the database by row-level security.
+Boards and notes persist to a Supabase backend behind invite-only accounts: accounts are organised into teams, every user also has a private personal space, and every access rule is enforced in the database by row-level security.
 
 This document is the reference for how the client fits together.
 It is organised by system rather than file by file: the data model, the court, the editor, motion, organisation, bundle exchange and print, the backend and access control, and the app shell.
@@ -40,7 +40,6 @@ type Board = {
   markers: BoardMarker[]; // shared identities
   steps: BoardStep[]; // ordered, always >= 1
   tags: string[];
-  topicId: string | null; // home topic, or Unfiled
   owner: string | null; // the author account, or null once their account is deleted; set server-side
   authorLocked: boolean; // a team board only its author and admins may edit
   shared: boolean; // a personal board made visible to its team
@@ -77,13 +76,13 @@ The client model carries only what a surface renders. The placement and access c
 
 ### Rotations
 
-A step may carry a rotation: the six players' official positions in the rotational order, shown on a second small court beside the actual one. The legality lives in `boards/rotation.ts`, pure over the model like `operations.ts`.
+A step may carry a rotation: the six players' official positions in the rotational order, shown on a small zone diagram beside the actual court. The legality lives in `boards/rotation.ts`, pure over the model like `operations.ts`.
 
 - A `StepRotation` is either a **5-1 preset** (numbered by the setter's official position) or a **custom** assignment of markers to the six positions. Off is the absent field, so a step without one behaves exactly as before, and `insertStep` clones it alongside the positions.
 - The six official positions (`RotationSlot` 1–6) are fixed canonical points (`OFFICIAL_SPOTS`: front row 4-3-2, back row 5-6-1). `presetAssignment` derives a preset's slot→marker map in 5-1 service order, swapping a libero to the back-row middle slot per rotation. It needs a matching 5-1 roster or returns null; a custom assignment resolves only once all six slots are filled.
 - `rotationViolations` is the legality check: the seven pairwise overlap relations of FIVB Rule 7.4 (front/back on y, adjacent side-by-side on x), plus an assigned player outside the playing area and a libero on a front-row slot. Ties are legal. Only the six assigned players are constrained, never the ball, coach, or extras.
 - `rotationStrict` (per board, default loose) picks enforcement. **Loose** flags violations: `violationFlags` maps them to a warning halo on each marker and a tie per broken pair. **Strict** is loose plus `clampToLegal`, which holds a dragged marker inside the region the others leave legal.
-- `RotationPanel` (the editor) holds the selector, the enforcement toggle, the label, and the rotation board; `RotationBoard` reuses `Court` read-only at thumbnail scale, and is the drag-to-spot assignment surface in custom mode. `BoardView` shows the same panel and flags read-only, following the active step during playback.
+- `RotationPanel` (the editor) holds the selector, the enforcement toggle, the faults, and the rotation board; `RotationBoard` resolves the step's rotation onto `RotationDiagram` (`src/court/`), a 3×2 grid of the six official zones — a sketch of the rotation, not a miniature court — with a bench row for drag-to-zone assignment in custom mode. `BoardView` shows its own collapsible card of the same board and flags read-only, following the shown step during playback; while the rotation is active, tapping an assigned player on the court or the diagram cues its constraining neighbours (`constrainingNeighbours`) on both surfaces.
 
 ## The court and its coordinate system
 
@@ -148,11 +147,11 @@ The `editor/` module is where boards are read and written. It follows one flow t
 - A single-step board shows an **Add step** affordance that promotes it to a Sequence in place, cloning the current positions. Once a board has two or more steps the `StepStrip` appears: it selects the active step, inserts a step after the current one, reorders the active step, and removes a step (never below one). The active step is tracked by its id, so inserting, reordering, or removing never loses the coach's place.
 - Position edits (dragging or nudging a marker) touch only the active step, while the identity edits above span the whole board. This is the editor expression of the model's identity-vs-position split.
 
-### Descriptions, tags, and topic
+### Descriptions and tags
 
 - `DescriptionEditor` is a markdown field with a Write/Preview toggle, reused for both a board's description and each step's instruction (in a compact variant).
-- `TagEditor` manages a board's free-form tags as removable chips, committing a new tag on Enter, comma, or blur and ignoring duplicates. As the coach types it suggests matching tags from across the library, navigable by keyboard, so near-duplicates get reused rather than retyped.
-- A `TopicPicker` in the editor files the board under one home topic (or leaves it Unfiled), alongside the tag editor.
+- The tag input (`ui/Combobox`) manages a board's free-form tags as removable chips ending in a **ghost chip**: a dashed "+ Tag" chip that morphs into a chip-shaped input right where the new chip will land. A new tag commits on Enter, comma, or blur and duplicates are ignored; as the coach types it suggests matching tags from across the library, navigable by keyboard, so near-duplicates get reused rather than retyped.
+- Tags are the only organising metadata on the board itself. A board's relation to notes lives in the notes (see [Organising boards](#organising-boards)), so the editor carries no note control.
 
 ## Motion and playback
 
@@ -173,73 +172,74 @@ Motion is part of the product, so animation is built into the model rather than 
 
 ## Organising boards
 
-Boards are organised two independent ways: a single home topic that places a board in a curated hierarchy, and free-form tags that cut across it.
+Boards are organised two independent ways: free-form tags on the board itself, and notes — written documents that embed boards. Neither is a folder: a note references boards the way an Obsidian note links other notes, and tags cut across everything.
 
-### Topics
+### Notes
 
-A topic plays two roles, kept deliberately separate. It is a **document** a coach reads, and a **node** in the organising tree. Its content lives in its blocks. Its place in the tree lives in `parentId`, and is edited only from the sidebar.
+A note plays two roles, kept deliberately separate. It is a **document** a coach reads, and a **node** in the organising tree. Its content lives in its blocks. Its place in the tree lives in `parentId`, and is edited only from the sidebar.
 
-- A `Topic` is a tree node carrying a document: an id, a title, an ordered `blocks` list, a nullable `parentId`, and an `order` among its siblings. Nesting is arbitrary depth.
+- A `Note` is a tree node carrying a document: an id, a title, an ordered `blocks` list, a nullable `parentId`, and an `order` among its siblings. Nesting is arbitrary depth.
 
 ```ts
-type TopicBlock =
+type NoteBlock =
   | { id: string; kind: "markdown"; text: string }
-  | { id: string; kind: "boards"; boardIds: string[] }; // placement hints, not membership
+  | { id: string; kind: "boards"; boardIds: string[] }; // the note's board links — the source of truth
 
-type Topic = {
+type Note = {
   id: string;
   title: string;
-  blocks: TopicBlock[]; // the document: prose and board-group blocks in order
+  blocks: NoteBlock[]; // the document: prose and board-group blocks in order
   parentId: string | null;
   order: number;
 };
 ```
 
-- A board has **at most one** home topic, and its `topicId` is the single source of truth for membership. A board with no topic is **Unfiled**. A `boards` block's ids are only placement hints, intersected with the topic's real members where they render, so a stale id drops and a board never shows twice. Members carry no manual order: they default to newest-edited first, like the library.
-- Topic operations (`topics/operations.ts`) create, rename, nest, reorder, and delete topics, and edit a topic's blocks. Deleting cascades to the whole subtree but never deletes boards: any board under a removed topic returns to Unfiled. Server-side the delete is a grace-archive rather than a hard cascade (see [Deletion and recovery](#deletion-and-recovery)). Nesting is guarded against cycles.
-- A topic page (`TopicView`) reads as a document: a subtopic-link row, the blocks in order (prose, and board groups as card grids of their members), then a trailing grid of any unplaced members, so a filed board never disappears. The editor (`TopicEditor`) commits a draft of the same blocks, picking boards from the topic's members and editing prose in place. It holds neither membership nor tree position: filing is the board editor's job, nesting the sidebar's.
+- **A `boards` block's ids are the links themselves.** The board carries no note reference: which boards a note shows is decided entirely by its own blocks, so any number of notes may reference the same board, a note may reference any number of boards, and a board referenced by no note simply lives in All Boards alone. There is no "Unfiled" state, because membership is not a property a board has. An id that no longer resolves in the space (a deleted or moved-away board) drops at render, and a board an earlier block already shows is not shown twice.
+- Note operations (`notes/operations.ts`) create, rename, nest, reorder, and delete notes, and edit a note's blocks — which is also how board links are made and broken. `appendBoardToBlocks` adds a board to the end of a note's document (the last board group, or a fresh one); `notesReferencing` derives a board's backlinks. Deleting a note cascades to the whole subtree but never touches a board. Server-side the delete is a grace-archive rather than a hard cascade (see [Deletion and recovery](#deletion-and-recovery)). Nesting is guarded against cycles.
+- A note page (`NoteView`) reads as a document: a subnote-link row, then the blocks in order — prose, and board groups as card grids resolving their ids. The editor (`NoteEditor`) commits a draft of the same blocks; a board group offers every board of the space through a title filter. The editor holds no tree position: nesting is the sidebar's job.
+- The board view closes the loop with a quiet **Appears in** row (`notes/AppearsIn.tsx`): the notes referencing the open board as links, plus, for a curator, an add action that appends the board to a chosen note immediately. Creating a board from a note page links it into that note when its first commit succeeds.
 
 ### Tags and the browse surface
 
-- The `library/` module is the browse home. A persistent `TopicSidebar` table of contents sits beside a content pane showing All Boards or one topic's page. The sidebar lists All Boards, the topic tree with disclosure controls, and a new-topic action. An Unfiled board (no home topic) simply appears in All Boards and under no topic; there is no separate Unfiled surface. Each row's quiet hover-revealed menu (`TopicRowMenu`) reorders the topic among its siblings or re-nests it, so nesting lives here, not in the editor.
-- The card grid splits in two. `CardGrid` is the plain grid of `LibraryCard`s, used by a topic page's board groups and trailing grid. `BoardGrid` wraps it with one row of filter pills and serves the All Boards surface (`Library`) alone. Two kind pills lead the row (Positions / Sequences, mutually exclusive, pressed again to clear), then quick pills for the most-used tags with a searchable picker for the rest; every pressed pill narrows by intersection, and nothing pressed shows everything. Topic pages render through `CardGrid`, so they carry no filters by construction.
+- The `library/` module is the browse home. A persistent `NoteSidebar` table of contents sits beside a content pane showing All Boards or one note's page. The sidebar lists All Boards, the note tree with disclosure controls, and a new-note action. Each row's quiet hover-revealed menu (`NoteRowMenu`) reorders the note among its siblings or re-nests it, so nesting lives here, not in the editor.
+- The card grid splits in two. `CardGrid` is the plain grid of `LibraryCard`s, used by a note page's board groups. `BoardGrid` wraps it with one row of filter pills and serves the All Boards surface (`Library`) alone. Two kind pills lead the row (Positions / Sequences, mutually exclusive, pressed again to clear), then quick pills for the most-used tags with a searchable picker for the rest; every pressed pill narrows by intersection, and nothing pressed shows everything. Note pages render through `CardGrid`, so they carry no filters by construction.
 - Each `LibraryCard` is a button showing a small static court thumbnail (a Sequence shows its first step), the board's kind, title, a count (markers for a Position, steps for a Sequence), and its tag chips. `toLibraryItems` folds the boards into these cards newest-first.
 - Opening a card leaves the browse surface entirely for the full-width view. The browse selection is held above the surface, so closing a board returns to the same place.
 
 ## Bundle exchange and print
 
-Content leaves and enters the app two ways: a portable JSON **bundle** that round-trips boards and topics, and a print surface that renders them as paper handouts. Both are pure client features and change no access rule.
+Content leaves and enters the app two ways: a portable JSON **bundle** that round-trips boards and notes, and a print surface that renders them as paper handouts. Both are pure client features and change no access rule.
 
 ### The bundle format
 
-- `src/bundle/` owns the format: one versioned JSON object carrying topics and boards in full, rotations included, with no server-owned fields (owner, team, sharing, tokens, timestamps). `types.ts` is the single source of truth, mirrored by the board-creator skill's `format.md`.
-- Items reference each other through opaque local `ref` strings (`topicRef`, `parentRef`, `boardRefs`) that resolve within the bundle only. Import mints fresh ids and slugs; export uses the real ids as refs.
-- `FORMAT_VERSION` guards compatibility: an older bundle is normalized on parse with a "skill may be out of date" notice, and a newer one is rejected as the app being out of date.
+- `src/bundle/` owns the format: one versioned JSON object carrying notes and boards in full, rotations included, with no server-owned fields (owner, team, sharing, tokens, timestamps). `types.ts` is the single source of truth, mirrored by the board-creator skill's `format.md`.
+- Items reference each other through opaque local `ref` strings (`parentRef`, `boardRefs`) that resolve within the bundle only. Import mints fresh ids and slugs; export uses the real ids as refs.
+- `FORMAT_VERSION` guards compatibility: an older bundle is normalized on parse with a "skill may be out of date" notice, and a newer one is rejected as the app being out of date. Version 2 named the notes `topics` and filed boards through a `topicRef`; parsing still reads both, folding a `topicRef` into a trailing board link on its note.
 - `parseBundle` is strict on structure and lenient on content. Malformed JSON, unknown refs, and missing required fields become readable errors; an out-of-range coordinate clamps to the court, a step missing a marker's position benches that marker, and an invalid annotation is dropped, each with a notice rather than a failure.
 
 ### Export and import
 
-- Export builds a bundle at three levels: one board (the board's overflow menu and the share view's copy button), one topic with its whole subtree and member boards (the topic page menu), and the entire active space (the library page-bar menu). Each offers **Copy JSON** and **Download JSON**, and viewing rights suffice, so any user can take everything they can see.
-- **Import JSON…** in the library menu (shown only with create rights) parses pasted or file-picked JSON as it arrives and shows either the validation errors or a preview: the topic tree plus each board as a static court thumbnail, with any notices. Confirming creates-only into the active space through the normal store writes, topics parents-first then boards; nothing is written before then, and a failed write surfaces in the dialog.
-- **Replace from JSON…** in the board menu overwrites one board's content from a single-board bundle while keeping its identity (id, topic, owner, sharing), so iterating on a generated board needs no delete-and-reimport.
+- Export builds a bundle at three levels: one board (the board's overflow menu and the share view's copy button), one note with its whole subtree and every board those notes reference (the note page menu), and the entire active space (the library page-bar menu). Each offers **Copy JSON** and **Download JSON**, and viewing rights suffice, so any user can take everything they can see.
+- **Import JSON…** in the library menu (shown only with create rights) parses pasted or file-picked JSON as it arrives and shows either the validation errors or a preview: the note tree plus each board as a static court thumbnail, with any notices. Confirming creates-only into the active space through the normal store writes, notes parents-first then boards; nothing is written before then, and a failed write surfaces in the dialog.
+- **Replace from JSON…** in the board menu overwrites one board's content from a single-board bundle while keeping its identity (id, owner, sharing), so iterating on a generated board needs no delete-and-reimport.
 - The **board-creator** project skill (`.claude/skills/board-creator/`) authors bundles from prose or documents and validates them with a standalone script; a test feeds its example bundles through the real parser so the two cannot drift. In development a `#/preview` route renders draft bundles live (see the developer guide).
 
 ### Print handouts
 
-- `src/print/` renders a board or topic as a chrome-free paper document at the `…/print` routes, reached from the board menu and the topic export menu; the browser does the printing or PDF saving.
-- `PrintView` forces the light theme and titles the document after its content. `BoardPrint` lays out the courts with their derived arrows and instructions, and `TopicPrint` expands the topic document's board groups through it, covering direct members only (unlike the topic JSON export, which carries the subtree).
+- `src/print/` renders a board or note as a chrome-free paper document at the `…/print` routes, reached from the board menu and the note export menu; the browser does the printing or PDF saving.
+- `PrintView` forces the light theme and titles the document after its content. `BoardPrint` lays out the courts with their derived arrows and instructions, and `NotePrint` expands the note document's board groups through it, covering the boards the note itself references (unlike the note JSON export, which carries the subtree).
 
 ## Backend and access control
 
-Boards and topics live in Supabase, not the browser. The access boundary is row-level security in the database: every read and write rule holds even if the client is bypassed, so the client is never trusted. `src/supabase/` holds the one browser client (carrying only the public URL and publishable key) and the row↔model mappers.
+Boards and notes live in Supabase, not the browser. The access boundary is row-level security in the database: every read and write rule holds even if the client is bypassed, so the client is never trusted. `src/supabase/` holds the one browser client (carrying only the public URL and publishable key) and the row↔model mappers.
 
 ### Tables and the two spaces
 
-- The schema is six tables: `profiles` (one per account, with a display name and the global-admin flag), `teams`, `memberships` (`(user, team, role)`, role `coach` or `player`), `topics`, `boards`, and `invites` (single-use invite links). Markers and steps are stored as JSON on a board.
-- Every board and topic carries a `scope`: a **team** item belongs to a team's shared library; a **personal** item belongs to one user's private space. The client loads the active space and writes new content into it.
+- The schema is six tables: `profiles` (one per account, with a display name and the global-admin flag), `teams`, `memberships` (`(user, team, role)`, role `coach` or `player`), `topics` (the notes — the table keeps its legacy name, as do the RPCs around it), `boards`, and `invites` (single-use invite links). Markers and steps are stored as JSON on a board, and a note's blocks (including its board links) as JSON on its row.
+- Every board and note carries a `scope`: a **team** item belongs to a team's shared library; a **personal** item belongs to one user's private space. The client loads the active space and writes new content into it.
 - At most one team is flagged `is_showcase` (enforced by a partial unique index): the **Inspiration** showcase, an example library every authenticated user may read and copy from. The flag plus widened `select` policies on `teams`, `topics`, and `boards` are the whole mechanism. Write rules are unchanged, so only its coaches (its curators) and admins author it.
 - A board also carries `owner` (its author), `author_locked`, `shared`, a `team_id` (the owning team, or a shared personal board's target), and an unguessable `share_token` minted server-side. The `owner` becomes null when its author's account is deleted, which reassigns their team boards to the team and clears the author lock.
-- Boards, topics, teams, and profiles all carry soft-delete state. A removed board or topic is grace-archived (`deleted_at`/`deleted_by`) rather than dropped, and the every-space read queries filter `deleted_at is null`, so a deleted row is hidden everywhere but admin recovery. See [Deletion and recovery](#deletion-and-recovery).
+- Boards, notes, teams, and profiles all carry soft-delete state. A removed board or note is grace-archived (`deleted_at`/`deleted_by`) rather than dropped, and the every-space read queries filter `deleted_at is null`, so a deleted row is hidden everywhere but admin recovery. See [Deletion and recovery](#deletion-and-recovery).
 
 ### Who may do what
 
@@ -263,11 +263,11 @@ Boards and topics live in Supabase, not the browser. The access boundary is row-
 
 Removal is a grace-archive, never an immediate hard delete: a removed item is hidden from every normal view, kept three months for admin recovery, then purged. Four removals differ:
 
-- **A board or topic** is soft-deleted in place. `deleteBoard` stamps `deleted_at`/`deleted_by`; `removeTopic` calls the `soft_delete_topic` RPC, which archives the whole subtree and returns its members to Unfiled, replacing the old `ON DELETE CASCADE`. Every space query filters `deleted_at is null`, so the row drops out of the library.
+- **A board or note** is soft-deleted in place. `deleteBoard` stamps `deleted_at`/`deleted_by`; `removeNote` calls the `soft_delete_topic` RPC, which archives the whole subtree (boards are untouched — a note's links live in its own blocks). Every space query filters `deleted_at is null`, so the row drops out of the library.
 - **Removing a player** drops only their membership; their content is untouched (RLS already allowed it, no schema change).
 - **A team** has two admin-only states: archive (`archived_at`, a reversible hidden state dropped from the space switcher) and delete (the `delete_team` RPC sets `deleted_at` and starts the purge clock). Delete flags only the team, so its content stays intact: restoring brings it back, purging cascades it away.
 - **An account** deletes through the `delete-account` Edge Function: it bans the auth user and soft-deletes the profile. Their personal content is grace-archived; the team content they authored is reassigned to the team (`owner` becomes null), outside the recovery window. An admin restores within the window via `restore-account` (un-bans and clears the flag).
-- **Purging** runs `purge_expired` (the `purge-expired` Edge Function) on a server-side schedule, hard-deleting boards, topics, and teams past three months. It is granted to `service_role` only, never reachable from a client. The admin panel (`src/admin/`) reads every recovery list through god-mode and drives the restores.
+- **Purging** runs `purge_expired` (the `purge-expired` Edge Function) on a server-side schedule, hard-deleting boards, notes, and teams past three months. It is granted to `service_role` only, never reachable from a client. The admin panel (`src/admin/`) reads every recovery list through god-mode and drives the restores.
 
 ### Sharing and the share link
 
@@ -285,14 +285,14 @@ Removal is a grace-archive, never an immediate hard delete: a removed item is hi
 
 ### Stores and persistence
 
-- `useBoards` and `useTopics` hold the active space's board list and topic tree in React state and expose the mutations the UI calls. Both load from Supabase when the active space changes, scoped to it (a team's by team, the personal space's by owner), and write each edit through to the database. Edits apply optimistically so the UI stays responsive; a failed write surfaces an error and refetches to reconcile.
+- `useBoards` and `useNotes` hold the active space's board list and note tree in React state and expose the mutations the UI calls. Both load from Supabase when the active space changes, scoped to it (a team's by team, the personal space's by owner), and write each edit through to the database. Edits apply optimistically so the UI stays responsive; a failed write surfaces an error and refetches to reconcile.
 - The active space comes from `workspace/useWorkspace.ts`, which loads the user's teams, role per team, and admin flag, and tracks which space is on screen. The space switcher moves between the personal space and each team, and everyone also sees the read-only Inspiration showcase as its own icon-badged row. A showcase membership (a curator) is carried on `showcase.role` rather than in the team list, so the showcase stays one row whether or not the user is on its roster. An admin also reaches every remaining team behind a collapsed "Other teams" disclosure, so the switcher stays short as teams grow. Creating a team adds no membership: the new team lands in the admin's other teams. The team page lets an admin join any reachable team (including the showcase) with a chosen role and leave again, since their access never depended on membership.
-- The stores keep curation honest. Filing or editing a board refreshes its `updatedAt`, so it leads its topic's newest-first order. Structural topic moves, such as reordering siblings or nesting from the sidebar, only touch the topic tree and never a board, so curation never churns the library's order. The first team's library is seeded once, server-side, by the setup seed.
+- The stores keep the two models honest. A note's board groups carry their own explicit order, so curating a note never touches a board, and structural note moves (reordering siblings, nesting from the sidebar) only touch the note tree — neither churns the library's newest-first order. The first team's library is seeded once, server-side, by the setup seed.
 
 ### Navigation and the app shell
 
 - `App` is the top-level owner of navigation and ties the stores together. A share link or invite link wins over everything, since both open with no account; otherwise an unauthenticated visitor sees the login gate. After sign-in two one-time gates can precede the app: an invite-email recipient sets a password (their account is created without one), and a first-time user sets a display name. Past the gates it chooses between three surfaces by precedence: a draft in the editor wins, otherwise an open board shows its view, otherwise the browse surface.
-- Creating a board makes a single-step Position in the active space and opens it in the editor. Committing files the board into its chosen topic and returns to its view. Deleting a board, or a topic (which grace-archives the subtree and unfiles its boards), is confirmed first and stays recoverable by an admin within the window.
+- Creating a board makes a single-step Position in the active space and opens it in the editor; created from a note page, its first commit also appends it to that note's document. Committing returns to the board's view. Deleting a board, or a note (which grace-archives the subtree and leaves boards alone), is confirmed first and stays recoverable by an admin within the window.
 - The header carries the brand, the space switcher, a **Team** action (a team's coaches and admins manage roles and mint invite links), an **Admin** action (admins only, for teams, accounts, and content recovery), an **Account** action that opens a panel for the display name and sign-in email, the theme toggle, sign-out, and a **Delete account** action.
 
 ### Theme and typography

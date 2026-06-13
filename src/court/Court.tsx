@@ -42,6 +42,13 @@ export type CourtWarnings = {
   ties: readonly { a: string; b: string }[];
 };
 
+/** The view's "who do I key off" cue for one tapped player: a tie to each marker that constrains
+ *  them, with every uninvolved marker dimmed. */
+export type CourtCue = {
+  markerId: string;
+  neighbourIds: readonly string[];
+};
+
 type CourtProps = {
   markers: readonly MarkerData[];
   /** Accessible name for the whole diagram. */
@@ -55,13 +62,14 @@ type CourtProps = {
   annotations?: readonly Annotation[];
   /** Overlap-violation flags: markers carrying a warning halo, and a tie per broken pair. */
   warnings?: CourtWarnings;
-  /** Empty official-position outlines (the rotation board's unfilled spots), drawn beneath the markers. */
-  spots?: readonly { point: NormalizedPoint; label: string }[];
+  /** The tapped player's overlap-relationship cue (the read-only view). */
+  cue?: CourtCue;
   /** Faint reference grid: the number of cells per axis (0 = off). An authoring aid. */
   grid?: number;
   /** Optional transform applied to each dragged position, e.g. snapping it to the grid. */
   snap?: (position: NormalizedPoint) => NormalizedPoint;
-  /** Provide both `onSelect` and `onMove` to make the court an editable marker surface. */
+  /** Provide both `onSelect` and `onMove` to make the court an editable marker surface; `onSelect`
+   *  alone makes markers tappable without dragging (the view's cue). */
   onSelect?: (id: string | null) => void;
   onMove?: (id: string, position: NormalizedPoint) => void;
   /** The active editor tool. `markers` (default) edits markers; other tools draw or select shapes. */
@@ -90,7 +98,7 @@ export function Court({
   arrows,
   annotations,
   warnings,
-  spots,
+  cue,
   grid = 0,
   snap,
   onSelect,
@@ -107,6 +115,7 @@ export function Court({
 }: CourtProps): JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<NormalizedPoint | null>(null);
+  const selectable = Boolean(onSelect);
   const editable = Boolean(onSelect && onMove);
   const drag = useMarkerDrag(svgRef, onSelect ?? noSelect, onMove ?? noMove, snap);
   const draw = useAnnotationDraw(svgRef, {
@@ -124,13 +133,13 @@ export function Court({
   const drawingTool = Boolean(onDrawAnnotation) && tool !== "markers";
   const interactive = editable || drawingTool;
 
-  const surface = drawingTool ? draw : editable ? drag : null;
+  const surface = drawingTool ? draw : selectable ? drag : null;
   const crosshair = drawingTool && tool !== "select";
 
   return (
     <svg
       ref={svgRef}
-      className={`court${interactive ? " court--editable" : ""}${crosshair ? " court--draw" : ""}`}
+      className={`court${interactive ? " court--editable" : ""}${selectable && !editable ? " court--tap" : ""}${crosshair ? " court--draw" : ""}`}
       viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
       aria-label={label}
       onPointerDown={surface?.onSurfacePointerDown}
@@ -210,18 +219,28 @@ export function Court({
         />
       )}
 
-      {spots?.map(({ point, label }) => {
-        const { x, y } = toSvgPoint(point);
+      {cue &&
+        (() => {
+          const player = markers.find((m) => m.id === cue.markerId);
 
-        return (
-          <g key={label} aria-hidden="true">
-            <circle className="court-spot" cx={x} cy={y} r={46} />
-            <text className="court-spot-label" x={x} y={y}>
-              {label}
-            </text>
-          </g>
-        );
-      })}
+          if (!player) return null;
+
+          const p = toSvgPoint(player.position);
+
+          return (
+            <g aria-hidden="true">
+              {cue.neighbourIds.map((id) => {
+                const neighbour = markers.find((m) => m.id === id);
+
+                if (!neighbour) return null;
+
+                const q = toSvgPoint(neighbour.position);
+
+                return <line key={id} className="court-cue-tie" x1={p.x} y1={p.y} x2={q.x} y2={q.y} />;
+              })}
+            </g>
+          );
+        })()}
 
       {warnings?.ties.map(({ a, b }, i) => {
         const from = markers.find((m) => m.id === a);
@@ -242,9 +261,10 @@ export function Court({
           index={i}
           selected={marker.id === selectedId}
           warning={warnings?.markerIds.includes(marker.id)}
-          dragging={marker.id === drag.draggingId}
+          dimmed={cue && marker.id !== cue.markerId && !cue.neighbourIds.includes(marker.id)}
+          dragging={editable && marker.id === drag.draggingId}
           animated={animated}
-          onPointerDown={editable && tool === "markers" ? drag.onMarkerPointerDown : undefined}
+          onPointerDown={selectable && tool === "markers" ? drag.onMarkerPointerDown : undefined}
         />
       ))}
 

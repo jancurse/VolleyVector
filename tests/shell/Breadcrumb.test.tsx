@@ -9,7 +9,7 @@ import type { Crumb } from "../../src/shell/breadcrumb";
 // reachable through the menu. Each crumb gets a distinct route so a pick can be told apart.
 const crumbs: Crumb[] = ["Falcons", "Attack", "Tempo", "Quick", "Slide", "Quick set"].map((label) => ({
   label,
-  route: { kind: "topic", space: { kind: "personal" }, topicSlug: label },
+  route: { kind: "note", space: { kind: "personal" }, noteSlug: label },
 }));
 
 describe("Breadcrumb", () => {
