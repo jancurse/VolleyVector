@@ -47,6 +47,7 @@ export function createNote(
     blocks: [],
     parentId,
     order: nextOrder(notes, parentId),
+    currentRevisionId: null,
   };
 
   return { notes: [...notes, note], id: note.id };
@@ -56,7 +57,7 @@ export function createNote(
 export function setNote(
   notes: readonly Note[],
   id: string,
-  patch: Partial<Pick<Note, "title" | "blocks" | "slug">>
+  patch: Partial<Pick<Note, "title" | "blocks" | "slug" | "currentRevisionId">>
 ): Note[] {
   return notes.map((t) => (t.id === id ? { ...t, ...patch } : t));
 }

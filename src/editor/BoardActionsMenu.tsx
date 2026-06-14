@@ -7,16 +7,13 @@ import { useBundleExport } from "../bundle/useBundleExport";
 import { IconButton } from "../ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../ui/Menu";
 
-// The board view's overflow menu, beside the title-row actions: the occasional actions (sharing, the
-// copy and move targets, the author lock, printing, the JSON export, deletion) as labelled menu items,
-// keeping the visible row to Edit alone.
+// The board view's overflow menu, beside the title-row actions: the occasional actions (managing access,
+// the copy targets, printing, the JSON export, deletion) as labelled menu items, keeping the visible row to
+// Edit alone.
 type BoardActionsMenuProps = {
   board: Board;
-  /** Opens the share dialog; present only for the owner of a personal board. */
-  onShare?: () => void;
-  /** Whether the viewer may toggle the author lock (the board's author or an admin, on a team board). */
-  canLock: boolean;
-  onToggleLock: () => void;
+  /** Opens the access manager; present only for an owner of the board. */
+  onManageAccess?: () => void;
   /** Opens the board's print/handout view. */
   onPrint: () => void;
   /** Opens the replace-from-JSON dialog; absent when the viewer may not edit the board. */
@@ -29,9 +26,7 @@ type BoardActionsMenuProps = {
 
 export function BoardActionsMenu({
   board,
-  onShare,
-  canLock,
-  onToggleLock,
+  onManageAccess,
   onPrint,
   onReplace,
   onDelete,
@@ -48,10 +43,9 @@ export function BoardActionsMenu({
         </IconButton>
       }
     >
-      {onShare && <MenuItem onClick={onShare}>{board.shared ? "Shared…" : "Share…"}</MenuItem>}
+      {onManageAccess && <MenuItem onClick={onManageAccess}>Manage access…</MenuItem>}
       {children}
-      {(onShare || children) && <MenuSeparator />}
-      {canLock && <MenuItem onClick={onToggleLock}>{board.authorLocked ? "Unlock editing" : "Lock editing"}</MenuItem>}
+      {(onManageAccess || children) && <MenuSeparator />}
       <MenuItem onClick={onPrint}>Print…</MenuItem>
       <MenuItem closeOnClick={false} onClick={copy}>
         {copied ? "Copied" : "Copy JSON"}

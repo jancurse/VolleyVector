@@ -20,4 +20,6 @@ export type Note = {
   parentId: string | null;
   /** Manual order among its siblings (the notes that share its parent). */
   order: number;
+  /** The revision this note's content matches; the base for the next commit's conflict check. */
+  currentRevisionId: string | null;
 };

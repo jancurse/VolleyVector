@@ -403,7 +403,7 @@ function materialize(
           : { id: crypto.randomUUID(), kind: "boards", boardIds: block.boardRefs.map((r) => boardIdByRef.get(r)!) }
     );
 
-    return { id, title: note.title, slug, blocks, parentId, order };
+    return { id, title: note.title, slug, blocks, parentId, order, currentRevisionId: null };
   });
 
   const newBoards = boards.map((board): Board => {
@@ -450,10 +450,9 @@ function materialize(
       markers: board.markers,
       steps,
       tags: board.tags ?? [],
-      owner: null,
-      authorLocked: false,
-      shared: false,
-      teamId: null,
+      createdBy: null,
+      capability: "owner",
+      currentRevisionId: null,
       autoArrows: board.autoArrows ?? true,
       rotationStrict: board.rotationStrict ?? false,
       createdAt: 0,

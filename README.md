@@ -14,8 +14,9 @@ VolleyCoach is a single-page web app for building, browsing, organising, and ani
 - **Library:** browse every board as a grid of court thumbnails. Filter by type (All, Positions, Sequences) and by tags.
 - **Accounts and teams:** invite-only sign-in, with a display name shown on the boards and notes you share. A global admin creates teams; a coach grows their team by sharing single-use invite links. Per team, coaches curate the library and players view it read-only.
 - **Account and team lifecycle:** anyone can delete their own account, and an admin can archive or delete a team. Deleted boards, notes, teams, and accounts are kept for a three-month recovery window before they are purged.
-- **Two spaces:** each team has a shared library, and every user has a private personal space only they can see.
-- **Sharing:** share a personal board into a team and open any board read-only from an unguessable link. A coach can copy or move a shared board into the team library, and anyone can copy one into their own space.
+- **Spaces:** every user has a private personal space, and each team has a shared library. A board or note can be granted to several teams and to individual users at once, so it lives in every library that holds it rather than in one.
+- **Sharing and collaboration:** grant a board to a teammate to co-edit it together, or to another team so a coach of several teams keeps one board across them, each at viewer, editor, or owner. Open any shared board read-only from an unguessable link, or copy one into your own space to fork it.
+- **History:** every save is a revision, so a board or note keeps a linear edit history, and a save that would clobber a co-editor's change is caught as a conflict to resolve instead.
 - **Light and dark themes:** the interface follows the system preference and can be toggled.
 
 ## Privacy

@@ -3,7 +3,7 @@ import type { JSX } from "react";
 
 import { createBoard } from "./boards/operations";
 import type { Board } from "./boards/types";
-import { useBoards } from "./boards/useBoards";
+import { COMMIT_CONFLICT, useBoards } from "./boards/useBoards";
 import { ExportMenu } from "./bundle/ExportMenu";
 import { ImportDialog } from "./bundle/ImportDialog";
 import { ReplaceBoardDialog } from "./bundle/ReplaceBoardDialog";
@@ -44,10 +44,9 @@ import { useShareRoute } from "./sharing/useShareRoute";
 import { ShareView } from "./sharing/ShareView";
 import { useInviteRoute } from "./invites/useInviteRoute";
 import { InviteAccept } from "./invites/InviteAccept";
-import { ShareDialog } from "./sharing/ShareDialog";
+import { AccessManager } from "./sharing/AccessManager";
 import { CopyToMenu } from "./sharing/CopyToMenu";
 import type { CopyTarget } from "./sharing/CopyToMenu";
-import { MoveToMenu } from "./sharing/MoveToMenu";
 import { copyBoardToSpace, fetchBoardById } from "./sharing/share";
 import { useRoute } from "./routing/useRoute";
 import { buildPath, routeSpace } from "./routing/route";
@@ -118,11 +117,7 @@ export function App(): JSX.Element {
     addBoard,
     deleteBoard,
     updateBoard,
-    setBoardLock,
-    shareBoard,
-    unshareBoard,
-    moveBoardToTeam,
-  } = useBoards(space);
+  } = useBoards(space, workspace.isAdmin, workspace.activeRole);
   const notes = useNotes(space);
   const { confirm, dialog } = useConfirm();
 
@@ -134,7 +129,7 @@ export function App(): JSX.Element {
   const [draftNoteId, setDraftNoteId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [passwordReady, setPasswordReady] = useState(false);
-  const [sharing, setSharing] = useState(false);
+  const [managingAccess, setManagingAccess] = useState(false);
   const [importing, setImporting] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [missingBoardId, setMissingBoardId] = useState<string | null>(null);
@@ -166,12 +161,11 @@ export function App(): JSX.Element {
   const openBoard = openId !== null ? (boards.find((b) => b.id === openId) ?? null) : null;
   const editing = route.kind === "board" && route.edit;
 
-  // Who may curate the active space: in the personal space, its owner (always); in a team space, an
-  // admin or a coach of that team. A team board may also be author-locked, so editing it needs its
-  // author or an admin. RLS enforces all of this server-side; these flags only keep the UI honest.
+  // Who may create in the active space: its owner (personal), an admin, or a coach of the active team.
+  // Whether a specific board may be edited is its own derived capability (editor or owner). RLS enforces
+  // all of this server-side; these flags only keep the UI honest.
   const canEdit = personal || workspace.isAdmin || workspace.activeRole === "coach";
-  const canEditBoard = (b: Board): boolean =>
-    personal || workspace.isAdmin || (workspace.activeRole === "coach" && (!b.authorLocked || b.owner === user?.id));
+  const canEditBoard = (b: Board): boolean => b.capability === "editor" || b.capability === "owner";
 
   const editableBoard = editing && openBoard && canEditBoard(openBoard) ? openBoard : null;
 
@@ -251,8 +245,10 @@ export function App(): JSX.Element {
         return;
       }
 
-      const real: Space =
-        res.scope === "team" && res.teamId ? { kind: "team", teamId: res.teamId } : { kind: "personal" };
+      // The board may live in several spaces; heal the link to one the viewer can reach — a team whose
+      // library holds it, else their personal space.
+      const teamGrant = res.grants.find((g) => g.team_id && allTeams.some((t) => t.teamId === g.team_id));
+      const real: Space = teamGrant?.team_id ? { kind: "team", teamId: teamGrant.team_id } : { kind: "personal" };
 
       if (!sameSpace(real, activeSpace)) {
         setActiveSpace(real);
@@ -315,7 +311,24 @@ export function App(): JSX.Element {
   // Done's commit: awaited, so a failure keeps the draft on screen (the editor shows the returned
   // error and retries) and only a verified save drops the draft and navigates to the view.
   const commit = async (updated: Board): Promise<string | null> => {
-    const error = await (boards.some((b) => b.id === updated.id) ? updateBoard(updated) : addBoard(updated));
+    const isUpdate = boards.some((b) => b.id === updated.id);
+    let error = await (isUpdate ? updateBoard(updated) : addBoard(updated));
+
+    // A stale base means a co-editor committed first. Offer to overwrite their version; declining keeps the
+    // draft open so the coach can reopen the board, see the latest, and reconcile by hand.
+    if (error === COMMIT_CONFLICT) {
+      const overwrite = await confirm({
+        title: "This board changed while you were editing",
+        description: "Someone else saved changes since you opened it. Overwrite their version with yours?",
+        confirmLabel: "Overwrite",
+        cancelLabel: "Keep editing",
+        danger: true,
+      });
+
+      if (!overwrite) return "Reopen the board to see the latest changes, then edit again.";
+
+      error = await updateBoard(updated, { overwrite: true });
+    }
 
     if (error !== null) return error;
 
@@ -365,7 +378,7 @@ export function App(): JSX.Element {
   const newBoard = () => {
     if (!user) return;
 
-    const board = { ...createBoard(Date.now()), owner: user.id };
+    const board = { ...createBoard(Date.now()), createdBy: user.id };
 
     setDraft(board);
     setDraftNoteId(route.kind === "note" ? findNoteId(notes.notes, route.noteSlug) : null);
@@ -537,10 +550,9 @@ export function App(): JSX.Element {
       ...board,
       id: crypto.randomUUID(),
       title: `Copy of ${board.title}`,
-      owner: user.id,
-      authorLocked: false,
-      shared: false,
-      teamId: activeSpace.kind === "team" ? activeSpace.teamId : null,
+      createdBy: user.id,
+      capability: "owner",
+      currentRevisionId: null,
     };
 
     const error = await addBoard(copy);
@@ -581,7 +593,7 @@ export function App(): JSX.Element {
     if (noteError !== null) return noteError;
 
     for (const board of newBoards) {
-      const boardError = await addBoard({ ...board, owner: user.id });
+      const boardError = await addBoard({ ...board, createdBy: user.id });
 
       if (boardError !== null) return boardError;
     }
@@ -594,21 +606,6 @@ export function App(): JSX.Element {
   const spaceName = personal
     ? "My boards"
     : (allTeams.find((t) => activeSpace.kind === "team" && t.teamId === activeSpace.teamId)?.teamName ?? "Team");
-
-  // Moving relocates the original into a team library, so it is confirmed, unlike a copy.
-  const moveBoard = async (board: Board, teamId: string) => {
-    const name = targetTeams.find((t) => t.teamId === teamId)?.teamName ?? "the team";
-    const ok = await confirm({
-      title: `Move this board to ${name}?`,
-      description: "It leaves My Boards and joins the team’s library.",
-      confirmLabel: "Move",
-    });
-
-    if (!ok) return;
-
-    moveBoardToTeam(board.id, teamId);
-    navigate(homeRoute());
-  };
 
   let content: JSX.Element;
 
@@ -631,9 +628,9 @@ export function App(): JSX.Element {
   } else if (route.kind === "board") {
     if (openBoard) {
       // The board's actions sit on its title row, like every other surface's content header: an overflow
-      // menu for the occasional actions (the owner's share dialog on a personal board, Copy to every
-      // writable space with the active one duplicating, the owner's Move to, then the author lock and
-      // Copy JSON), and Edit as the view's one primary action. RLS has the final say on every write.
+      // menu for the occasional actions (an owner's access manager, Copy to every writable space with the
+      // active one duplicating, then Copy JSON), and Edit as the view's one primary action. RLS has the
+      // final say on every write.
       content = (
         <BoardView
           board={openBoard}
@@ -665,17 +662,12 @@ export function App(): JSX.Element {
             <>
               <BoardActionsMenu
                 board={openBoard}
-                onShare={personal && openBoard.owner === user.id ? () => setSharing(true) : undefined}
-                canLock={!personal && (workspace.isAdmin || openBoard.owner === user.id)}
-                onToggleLock={() => setBoardLock(openBoard.id, !openBoard.authorLocked)}
+                onManageAccess={openBoard.capability === "owner" ? () => setManagingAccess(true) : undefined}
                 onPrint={() => navigate(boardPrintRoute(activeSpace, allTeams, openBoard.id))}
                 onReplace={canEditBoard(openBoard) ? () => setReplacing(true) : undefined}
                 onDelete={canEditBoard(openBoard) ? () => void remove(openBoard.id) : undefined}
               >
                 <CopyToMenu targets={copyTargets(openBoard)} />
-                {personal && openBoard.owner === user.id && targetTeams.length > 0 && (
-                  <MoveToMenu teams={targetTeams} onMove={(teamId) => void moveBoard(openBoard, teamId)} />
-                )}
               </BoardActionsMenu>
               {canEditBoard(openBoard) && (
                 <Button variant="primary" onClick={() => startEdit(openBoard)}>
@@ -920,13 +912,13 @@ export function App(): JSX.Element {
         <ReplaceBoardDialog open={replacing} onOpenChange={setReplacing} board={openBoard} onReplace={updateBoard} />
       )}
       {openBoard && (
-        <ShareDialog
-          open={sharing}
-          onOpenChange={setSharing}
+        <AccessManager
+          open={managingAccess}
+          onOpenChange={setManagingAccess}
           board={openBoard}
-          teams={teams}
-          onShare={(teamId) => shareBoard(openBoard.id, teamId)}
-          onUnshare={() => unshareBoard(openBoard.id)}
+          coachedTeams={targetTeams}
+          teamName={(teamId) => allTeams.find((t) => t.teamId === teamId)?.teamName ?? "a team"}
+          currentUserId={user.id}
         />
       )}
     </TooltipProvider>

@@ -11,7 +11,7 @@ const teams: TeamMembership[] = [{ teamId: "team-1", teamName: "Falcons", slug: 
 
 // A three-level chain: Attack > Tempo > Quick.
 function note(id: string, parentId: string | null, title: string): Note {
-  return { id, parentId, title, slug: id, blocks: [], order: 0 };
+  return { id, parentId, title, slug: id, blocks: [], order: 0, currentRevisionId: null };
 }
 
 const base: Note[] = [

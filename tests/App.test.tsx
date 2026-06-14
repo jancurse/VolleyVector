@@ -7,7 +7,14 @@ import { App } from "../src/App";
 import { AuthProvider } from "../src/auth/useAuth";
 import { FORMAT_VERSION } from "../src/bundle/types";
 import { SAMPLE_BOARDS } from "./helpers/sampleData";
-import { failWrites, resetFakeAuthz, resetRecorded, setFakeAuthz, TEST_USER } from "./helpers/supabaseFake";
+import {
+  failCommits,
+  failWrites,
+  resetFakeAuthz,
+  resetRecorded,
+  setFakeAuthz,
+  TEST_USER,
+} from "./helpers/supabaseFake";
 
 // Mock only the external Supabase client; the real stores, hooks, and components run against it.
 vi.mock("../src/supabase/client", async () => {
@@ -342,13 +349,13 @@ describe("reliable saves", () => {
     await user.clear(title);
     await user.type(title, "Press defence");
 
-    failWrites(3); // outlasts the two automatic retries
+    failCommits(1); // the commit RPC fails once
     await user.click(screen.getByRole("button", { name: "Done" }));
 
     expect(await screen.findByRole("alert", {}, { timeout: 4000 })).toHaveTextContent(/Couldn’t save/);
     expect(screen.getByLabelText("Board title")).toHaveValue("Press defence");
 
-    await user.click(screen.getByRole("button", { name: "Done" })); // the writes succeed again
+    await user.click(screen.getByRole("button", { name: "Done" })); // the commit succeeds again
 
     expect(await screen.findByRole("heading", { name: "Press defence" })).toBeInTheDocument();
     expect(localStorage.getItem(BACKUP_KEY)).toBeNull(); // the successful commit cleared the backup
@@ -713,18 +720,14 @@ describe("permissions", () => {
     expect(screen.queryByRole("menuitem", { name: /editing/ })).not.toBeInTheDocument();
   });
 
-  test("the author lock toggles from the board view's overflow menu", async () => {
-    const user = await renderApp(); // the default fake authz is an admin coach
+  test("an owner opens the access manager from the board view's overflow menu", async () => {
+    const user = await renderApp(); // the default fake authz is an admin coach, so it owns the board
 
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
-    await user.click(screen.getByRole("menuitem", { name: "Lock editing" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Manage access…" }));
 
-    // The lock applied: reopening the menu offers the unlock, and Edit stays available to the author.
-    await user.click(screen.getByRole("button", { name: "Board actions" }));
-
-    expect(screen.getByRole("menuitem", { name: "Unlock editing" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Manage access" })).toBeInTheDocument();
   });
 });
 
@@ -796,49 +799,30 @@ describe("sharing", () => {
     await user.click(await screen.findByRole("button", { name: /My Personal Position/ }));
   }
 
-  test("an owner shares a personal board with a team", async () => {
+  test("an owner opens the access manager and sees the board's current grants", async () => {
     const user = await renderApp();
 
     await openMyBoard(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Share…" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Manage access…" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "Share board" });
+    const dialog = await screen.findByRole("dialog", { name: "Manage access" });
 
-    await user.click(within(dialog).getByRole("button", { name: "Share" }));
-
-    // The board is now shared, so the dialog offers the link and a way to stop.
-    expect(within(dialog).getByRole("button", { name: "Stop sharing" })).toBeInTheDocument();
+    // The owner's own grant is listed, marked as theirs.
+    expect(await within(dialog).findByText(/Coach Casey/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/\(you\)/)).toBeInTheDocument();
   });
 
   // Submenus open on hover in the browser, but happy-dom's zero-size rects break the hover tracking, so
-  // these tests drive them with the keyboard (which Base UI supports first-class).
-  test("an owner moves their personal board into a team library from the overflow menu, after confirming", async () => {
-    const user = await renderApp();
-
-    await openMyBoard(user);
-    await user.click(screen.getByRole("button", { name: "Board actions" }));
-    await screen.findByRole("menuitem", { name: "Move to" });
-    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{ArrowRight}");
-    await screen.findByRole("menuitem", { name: "My Team" });
-    await user.keyboard("{Enter}");
-
-    const dialog = await screen.findByRole("alertdialog", { name: /Move this board to My Team\?/ });
-
-    await user.click(within(dialog).getByRole("button", { name: "Move" }));
-
-    // The board leaves the personal library; the view returns to My Boards.
-    expect(await screen.findByRole("button", { name: "New board" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /My Personal Position/ })).not.toBeInTheDocument();
-  });
-
+  // these tests drive them with the keyboard (which Base UI supports first-class). The overflow menu now
+  // leads with Manage access, so reaching the Copy to submenu takes one extra step down.
   test("a viewer copies a team board into My Boards through the Copy to menu", async () => {
     const user = await renderApp();
 
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
     await screen.findByRole("menuitem", { name: "Copy to" });
-    await user.keyboard("{ArrowDown}{ArrowRight}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
     await screen.findByRole("menuitem", { name: "My Boards" });
     await user.keyboard("{Enter}");
 
@@ -851,7 +835,7 @@ describe("sharing", () => {
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
     await screen.findByRole("menuitem", { name: "Copy to" });
-    await user.keyboard("{ArrowDown}{ArrowRight}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
     await screen.findByRole("menuitem", { name: "My Team (duplicate here)" });
     await user.keyboard("{ArrowDown}{Enter}");
 
@@ -876,7 +860,7 @@ describe("sharing", () => {
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
     await screen.findByRole("menuitem", { name: "Copy to" });
-    await user.keyboard("{ArrowDown}{ArrowRight}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
     await screen.findByRole("menuitem", { name: "My Team (duplicate here)" });
     failWrites(3); // outlasts the two automatic retries
     await user.keyboard("{ArrowDown}{Enter}");

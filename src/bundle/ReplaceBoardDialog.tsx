@@ -8,8 +8,8 @@ import { Textarea } from "../ui/Textarea";
 import { BundlePreview } from "./BundlePreview";
 import { parseBundle } from "./parse";
 
-// Replaces one board's content from a pasted single-board bundle, keeping its identity (id, owner,
-// sharing, timestamps), so iterating on a board with externally authored JSON needs no
+// Replaces one board's content from a pasted single-board bundle, keeping its identity (id, creator,
+// access list, timestamps), so iterating on a board with externally authored JSON needs no
 // delete-and-reimport. Parses live like the import dialog; nothing is written until the confirm.
 type ReplaceBoardDialogProps = {
   open: boolean;
@@ -31,10 +31,9 @@ export function ReplaceBoardDialog({ open, onOpenChange, board, onReplace }: Rep
       ? {
           ...result.value.boards[0],
           id: board.id,
-          owner: board.owner,
-          authorLocked: board.authorLocked,
-          shared: board.shared,
-          teamId: board.teamId,
+          createdBy: board.createdBy,
+          capability: board.capability,
+          currentRevisionId: board.currentRevisionId,
           createdAt: board.createdAt,
           updatedAt: board.updatedAt,
         }

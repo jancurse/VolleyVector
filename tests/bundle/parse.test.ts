@@ -156,7 +156,9 @@ describe("parseBundle leniency", () => {
   });
 
   test("note slugs and orders mint against the existing tree", () => {
-    const existing: Note[] = [{ id: "x", title: "Defense", slug: "defense", blocks: [], parentId: null, order: 3 }];
+    const existing: Note[] = [
+      { id: "x", title: "Defense", slug: "defense", blocks: [], parentId: null, order: 3, currentRevisionId: null },
+    ];
     const result = parseBundle(
       bundle({
         notes: [
