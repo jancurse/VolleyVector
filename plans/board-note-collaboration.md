@@ -1,7 +1,7 @@
 # Collaboration and versioning for boards and notes
 
 Plan for issues #1 (collaborative editing, cross-team and cross-space sharing) and #2 (edit history,
-conflict handling). One branch, `claude/board-topic-sharing-versioning-ui6pef`, built as ordered commits.
+conflict handling).
 
 ## The locked access model
 
@@ -157,30 +157,38 @@ Update in lockstep, **replacing** the retired prose rather than appending, so le
 Naming note: server-side, Notes live in the table named `topics` (legacy), so every `topic_*` /
 `commit_topic` / `topic_access` artifact below is the Notes feature under its database name.
 
-- **Done and pushed** (branch `claude/board-topic-sharing-versioning-ui6pef`):
+- **Done:**
     - `supabase/migrations/20260614215854_access_model.sql` — access tables, capability helpers, RLS
       rewrite, archive triggers, backfill, `owner` → `created_by`, `board_by_token` and `soft_delete_topic`
       rewrites.
     - `supabase/migrations/20260614215856_content_versioning.sql` — revision tables, `current_revision_id`,
       seed revisions, `commit_board`/`commit_topic`.
     - Documentation (`architecture.md`, `AGENTS.md`, `README.md`).
-    - **Client cutover** (commit `11267e0`): `supabase/rows.ts`, `boards/types.ts`, `notes/types.ts`,
+    - **Client cutover**: `supabase/rows.ts`, `boards/types.ts`, `notes/types.ts`,
       `boards/operations.ts`/`notes/operations.ts` (creation defaults), `boards/useBoards.ts`,
       `notes/useNotes.ts`, `App.tsx`, `admin/useAdmin.ts`, `bundle/parse.ts`, `bundle/ReplaceBoardDialog.tsx`,
       `editor/BoardActionsMenu.tsx`, `sharing/share.ts`, new `sharing/AccessManager.tsx` (replaces and
-      deletes `ShareDialog.tsx`/`MoveToMenu.tsx`), and the test suite + Supabase fake. Green on
-      `npm run typecheck`/`lint`/`build` and 481 tests.
-- **Migrations not applied to production.** They must be pushed together with the updated edge functions
-  (current functions reference dropped columns). Applying is a user-confirmed step.
-- **Remaining:**
-    1. **Edge functions** `delete-account` / `restore-account` / `purge-expired`: stop nulling/reassigning
-       `owner`; account deletion removes the user as a principal and relies on the archive trigger; restore
-       reverses it. **Must ship with the migrations** (they currently reference dropped columns).
-    2. **History/diff UI** (new `src/history/`): a revision list with a change summary, read-only preview
-       through the existing `Court`/note render, and restore (commits old content as a new revision). The
-       schema and conflict handling support it; no surface is built yet.
-    3. Note co-editing across accounts (subtree sharing) is not built; notes load by access and commit
-       through `commit_topic`, but note editing is still gated at the space level in `App.tsx`.
+      deletes `ShareDialog.tsx`/`MoveToMenu.tsx`), and the test suite + Supabase fake.
+    - **Edge functions rewritten** (`supabase/functions/`, not deployed): `delete-account` soft-deletes by
+      banning and flagging the profile only, leaving the user's grants intact so restore is lossless;
+      `restore-account` just un-bans and clears the flag; `purge-expired` hard-deletes the expired auth user
+      and lets the cascade + reference-count trigger archive any orphaned content. No function references a
+      dropped column.
+    - **History/diff UI** (new `src/history/`): `diff.ts` (structured `diffBoard`/`diffNote` + summary),
+      `useRevisions.ts` (`useBoardRevisions`/`useNoteRevisions`, newest-first, author names, per-revision
+      summary), `RevisionList.tsx`, `BoardHistory.tsx` (revision list beside a read-only `BoardView`
+      preview), and `NoteHistory.tsx` (list beside a read-only block preview). Revision row mappers
+      (`boardFromRevision`/`noteFromRevision`) live in `supabase/rows.ts`. Wired into `App.tsx` as a
+      per-content surface, opened from the board overflow menu and the note actions menu; restore commits the
+      old content as a new revision (overwrite for boards, plain commit for notes).
+    - Green on `npm run typecheck`/`lint`/`build`/`format` and 499 tests (18 new under `tests/history/`).
+- **Nothing applied to production.** The migrations and the rewritten edge functions are not pushed; the new
+  schema breaks the deployed client and old functions, so the cutover is a user-confirmed step that goes last.
+- **Remaining** (two groups, detailed in [Next steps](#next-steps-for-whoever-picks-this-up)):
+    1. **Follow-ups** (pre-production): note co-editing across accounts (subtree sharing; note editing is
+       still space-gated in `App.tsx`), RLS policy tests under `supabase/tests/`, and the documentation pass.
+    2. **Production** (user-confirmed, last): push the migrations + functions, test in dev against the
+       migrated database, merge to deploy the client, then test in live.
 
 ## Implementation notes (as built)
 
@@ -223,35 +231,45 @@ Naming note: server-side, Notes live in the table named `topics` (legacy), so ev
 
 ## Next steps (for whoever picks this up)
 
-Do them in this order. Steps 2–3 are user-only (production); load the **supabase** skill before any DB or
-Edge Function work, and never `db push` or `functions deploy` without the user's explicit go-ahead.
+**Production goes last.** Applying the migrations rewrites the live schema (renames `owner` → `created_by`,
+drops `scope`/`shared`/`author_locked`, adds the access and revision tables). There is one Supabase project
+and it *is* production, so any breaking migration unavoidably breaks the currently-deployed client (and the
+old Edge Functions) for a window — in either order. The order below minimises and de-risks that window:
+finish all the code, push the schema and functions to production, verify the new client locally against the
+now-migrated database, and only then merge (which deploys the new client) and verify live. The live site is
+briefly broken between the push and the deploy completing — a short CI window.
 
-1. **Rewrite the three Edge Functions** (`supabase/functions/`), so they match the access model. They
-   currently read dropped columns and would error against the new schema. Keep them lined up with the
-   migrations — do not deploy yet.
-    - `delete-account`: stop nulling `owner` / reassigning team content. Remove the user as a principal
-      (delete or detach their `board_access`/`topic_access` grants), then let the reference-count trigger
-      grace-archive whatever that orphans. Ban the auth user and stamp the profile `deleted_at` as today.
-    - `restore-account`: reverse it (un-ban, clear `deleted_at`); confirm what grant restoration, if any, is
-      needed for content archived purely because the user left.
-    - `purge-expired`: confirm the hard delete still cascades grants and revisions (FKs are `on delete
-      cascade`), so no column reference is stale.
-    - Verify locally: `npm run typecheck`/`lint`/`test` still green (Edge Functions are Deno, outside the
-      Vite build, so also sanity-check their own imports).
-2. **Apply to production (user-confirmed), migrations and functions together.** Walk the user through:
-   `npx supabase migration list` → `npx supabase db push --dry-run` (confirm exactly the two new migrations
-   would apply) → get explicit go-ahead → `npx supabase db push` → `npx supabase functions deploy
-   delete-account restore-account purge-expired`. This is a one-way change on the live database; the backfill
-   converts existing rows to grants.
-3. **Verify against the live schema** (read-only MCP): the access tables exist and are populated, an
-   existing board reads back with the right `capability`, a commit advances `current_revision_id`, and
-   deleting a sole grant archives the row. Spot-check a multi-team board and a co-edited board.
-4. **History/diff UI** (issue #2 surface, new `src/history/`): revision list with a change summary, a
-   read-only preview through the existing `Court`/note render, and restore (commits old content as a new
-   revision). Append-only. The schema (`*_revisions`, `current_revision_id`) already supports it.
-5. **Optional follow-ups**: note co-editing across accounts (subtree sharing per the resolved decision), and
-   RLS policy tests under `supabase/tests/` (per the Tests section).
-6. **PR**: only open one when the user asks.
+Do them in this order. Load the **supabase** skill before any DB or Edge Function work, and never `db push`
+or `functions deploy` without the user's explicit go-ahead.
+
+1. ~~**Rewrite the three Edge Functions.**~~ **Done** (not deployed). The decided model: account soft-delete
+   leaves the user's grants intact (banning + flagging the profile already removes them as an active
+   principal), so restore is lossless; only the hard purge drops grants, and the reference-count trigger
+   archives whatever that orphans. No function references a dropped column.
+2. ~~**History/diff UI** (`src/history/`).~~ **Done.** Revision list with a per-revision change summary, a
+   read-only preview through the existing `BoardView`/note-block render, and restore (commits old content as a
+   new revision). Opened from the board overflow menu and the note actions menu. Covered by `tests/history/`.
+3. **Follow-ups** (code and docs, all pre-production):
+    1. **Note co-editing across accounts** (subtree sharing per the resolved decision): sharing a note shares
+       its whole subtree, written per node so reads stay non-recursive; lift note editing off the space-level
+       gate in `App.tsx` onto the note's own capability, like boards.
+    2. **RLS policy tests** under `supabase/tests/`: each capability path, the team-role cap, the
+       leave-vs-manage split, showcase, and the archive-on-empty trigger.
+    3. **Documentation pass**: architecture.md module map + history/versioning prose, README status and
+       feature bullets, then the proportionality trim (the plan's documentation step).
+4. **Production** (user-confirmed; the final, one-way sequence):
+    1. **Push the Supabase changes.** Migrations and functions together (the functions also read dropped
+       columns). Walk the user through: `npx supabase migration list` → `npx supabase db push --dry-run`
+       (confirm exactly the two new migrations would apply) → explicit go-ahead → `npx supabase db push` →
+       `npx supabase functions deploy delete-account restore-account purge-expired`. The backfill converts
+       existing rows to grants.
+    2. **Test in dev.** Run the local dev server (the new client code) against the now-migrated production
+       database: an existing board reads back with the right `capability`, a commit advances the revision,
+       history and access management work, and account delete/restore behave. Read-only MCP can spot-check the
+       schema (access tables populated, archive-on-empty).
+    3. **Merge the PR** (when the user asks), which deploys the new client to Cloudflare.
+    4. **Test in live.** Confirm the deployed site against the migrated schema: a board opens, a commit lands,
+       history and sharing work, and a share link resolves.
 
 After completing any step here, update the Progress and Implementation-notes sections above so this file
 stays the single source of truth for where things stand.

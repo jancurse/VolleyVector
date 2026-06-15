@@ -814,15 +814,15 @@ describe("sharing", () => {
   });
 
   // Submenus open on hover in the browser, but happy-dom's zero-size rects break the hover tracking, so
-  // these tests drive them with the keyboard (which Base UI supports first-class). The overflow menu now
-  // leads with Manage access, so reaching the Copy to submenu takes one extra step down.
+  // these tests drive them with the keyboard (which Base UI supports first-class). The overflow menu leads
+  // with Manage access then History, so reaching the Copy to submenu takes two extra steps down.
   test("a viewer copies a team board into My Boards through the Copy to menu", async () => {
     const user = await renderApp();
 
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
     await screen.findByRole("menuitem", { name: "Copy to" });
-    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{ArrowRight}");
     await screen.findByRole("menuitem", { name: "My Boards" });
     await user.keyboard("{Enter}");
 
@@ -835,7 +835,7 @@ describe("sharing", () => {
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
     await screen.findByRole("menuitem", { name: "Copy to" });
-    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{ArrowRight}");
     await screen.findByRole("menuitem", { name: "My Team (duplicate here)" });
     await user.keyboard("{ArrowDown}{Enter}");
 
@@ -860,7 +860,7 @@ describe("sharing", () => {
     await openPosition(user);
     await user.click(screen.getByRole("button", { name: "Board actions" }));
     await screen.findByRole("menuitem", { name: "Copy to" });
-    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowRight}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{ArrowRight}");
     await screen.findByRole("menuitem", { name: "My Team (duplicate here)" });
     failWrites(3); // outlasts the two automatic retries
     await user.keyboard("{ArrowDown}{Enter}");

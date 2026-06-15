@@ -2,8 +2,8 @@
 // Brings back a soft-deleted account within its 3-month recovery window: clears the profile's deleted flag
 // and un-bans the auth user, so they can log in again with their personal area intact. Admin-only — a
 // soft-deleted user is banned and cannot authenticate to restore themselves. Un-banning needs the admin API,
-// so this runs server-side with the privileged key, like delete-account. The user's authored team content
-// was detached to the team at deletion time and is not (and need not be) re-claimed.
+// so this runs server-side with the privileged key, like delete-account. Restore is lossless: deletion never
+// touched the user's grants or content, so clearing the flag and un-banning is all that is needed.
 // Deploy from the Supabase dashboard (Edge Functions -> Deploy a new function -> Via Editor). Verify JWT off.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 

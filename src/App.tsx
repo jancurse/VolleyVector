@@ -13,6 +13,8 @@ import { BoardActionsMenu } from "./editor/BoardActionsMenu";
 import { BoardEditor } from "./editor/BoardEditor";
 import { clearDraftBackup, loadDraftBackup } from "./editor/draftBackup";
 import { BoardView } from "./editor/BoardView";
+import { BoardHistory } from "./history/BoardHistory";
+import { NoteHistory } from "./history/NoteHistory";
 import { Library } from "./library/Library";
 import { allTags } from "./library/items";
 import type { Selection } from "./library/selection";
@@ -160,6 +162,17 @@ export function App(): JSX.Element {
   const openId = route.kind === "board" ? route.boardId : null;
   const openBoard = openId !== null ? (boards.find((b) => b.id === openId) ?? null) : null;
   const editing = route.kind === "board" && route.edit;
+
+  // History is a per-content surface; leaving the open board or note closes it. Reset during render, the
+  // same way the draft is reconciled below.
+  const contentKey =
+    route.kind === "board" ? `b:${openId}` : route.kind === "note" ? `n:${route.noteSlug}` : route.kind;
+  const [history, setHistory] = useState({ open: false, key: contentKey });
+
+  if (history.key !== contentKey) setHistory({ open: false, key: contentKey });
+
+  const viewingHistory = history.open;
+  const setViewingHistory = (open: boolean) => setHistory({ open, key: contentKey });
 
   // Who may create in the active space: its owner (personal), an admin, or a coach of the active team.
   // Whether a specific board may be edited is its own derived capability (editor or owner). RLS enforces
@@ -366,6 +379,32 @@ export function App(): JSX.Element {
     clearDraftBackup(id);
     setDraft(null);
     navigate(homeRoute());
+  };
+
+  // Restore a past revision by committing its content as a new revision (append-only history). Overwrite
+  // re-bases onto the current revision, so a restore lands even if the board moved on since it was opened.
+  const restoreBoardRevision = async (snapshot: Board) => {
+    const error = await updateBoard(snapshot, { overwrite: true });
+
+    if (error !== null && error !== COMMIT_CONFLICT) {
+      void confirm({ title: "Couldn’t restore", description: error, confirmLabel: "OK" });
+
+      return;
+    }
+
+    setViewingHistory(false);
+  };
+
+  const restoreNoteRevision = async (snapshot: Note) => {
+    const error = await notes.updateNote(snapshot.id, { title: snapshot.title, blocks: snapshot.blocks });
+
+    if (error !== null) {
+      void confirm({ title: "Couldn’t restore", description: error, confirmLabel: "OK" });
+
+      return;
+    }
+
+    setViewingHistory(false);
   };
 
   const startEdit = (board: Board) => {
@@ -626,7 +665,15 @@ export function App(): JSX.Element {
       />
     );
   } else if (route.kind === "board") {
-    if (openBoard) {
+    if (openBoard && viewingHistory) {
+      content = (
+        <BoardHistory
+          board={openBoard}
+          onBack={() => setViewingHistory(false)}
+          onRestore={canEditBoard(openBoard) ? restoreBoardRevision : undefined}
+        />
+      );
+    } else if (openBoard) {
       // The board's actions sit on its title row, like every other surface's content header: an overflow
       // menu for the occasional actions (an owner's access manager, Copy to every writable space with the
       // active one duplicating, then Copy JSON), and Edit as the view's one primary action. RLS has the
@@ -663,6 +710,7 @@ export function App(): JSX.Element {
               <BoardActionsMenu
                 board={openBoard}
                 onManageAccess={openBoard.capability === "owner" ? () => setManagingAccess(true) : undefined}
+                onViewHistory={() => setViewingHistory(true)}
                 onPrint={() => navigate(boardPrintRoute(activeSpace, allTeams, openBoard.id))}
                 onReplace={canEditBoard(openBoard) ? () => setReplacing(true) : undefined}
                 onDelete={canEditBoard(openBoard) ? () => void remove(openBoard.id) : undefined}
@@ -708,6 +756,16 @@ export function App(): JSX.Element {
         }}
       />
     );
+  } else if (selectedNote && viewingHistory) {
+    content = (
+      <NoteHistory
+        note={selectedNote}
+        boards={boards}
+        onBack={() => setViewingHistory(false)}
+        onOpenBoard={(id) => navigate(boardRoute(activeSpace, allTeams, id, false))}
+        onRestore={canEdit ? restoreNoteRevision : undefined}
+      />
+    );
   } else if (selectedNote) {
     content = (
       <NoteView
@@ -738,6 +796,7 @@ export function App(): JSX.Element {
             }}
             filename={bundleFilename(selectedNote.title)}
           >
+            <MenuItem onClick={() => setViewingHistory(true)}>History…</MenuItem>
             <MenuItem onClick={() => navigate(notePrintRoute(activeSpace, allTeams, selectedNote))}>Print…</MenuItem>
             {canEdit && (
               <>

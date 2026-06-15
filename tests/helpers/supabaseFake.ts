@@ -163,6 +163,64 @@ const TOPIC_ACCESS: Grant[] = [
   { topic_id: DELETED_TOPIC.id, user_id: null, team_id: TEST_TEAM_ID, capability: "owner" },
 ];
 
+// Two revisions per sample board/note: an older draft and the current one (its id matches the row's
+// current_revision_id), so the history surface shows a real list with a change to summarise.
+const BOARD_REVISIONS: Row[] = SAMPLE_BOARDS.flatMap((b) => [
+  {
+    id: `rev0-${b.id}`,
+    board_id: b.id,
+    content: {
+      title: `${b.title} (draft)`,
+      description: b.description,
+      mode: b.mode,
+      markers: b.markers,
+      steps: b.steps,
+      tags: b.tags,
+      auto_arrows: true,
+      rotation_strict: false,
+    },
+    created_by: BOARD_AUTHOR,
+    base_revision_id: null,
+    created_at: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: `rev-${b.id}`,
+    board_id: b.id,
+    content: {
+      title: b.title,
+      description: b.description,
+      mode: b.mode,
+      markers: b.markers,
+      steps: b.steps,
+      tags: b.tags,
+      auto_arrows: true,
+      rotation_strict: false,
+    },
+    created_by: TEST_USER.id,
+    base_revision_id: `rev0-${b.id}`,
+    created_at: "2026-01-02T00:00:00.000Z",
+  },
+]);
+
+const TOPIC_REVISIONS: Row[] = SAMPLE_NOTES.flatMap((n) => [
+  {
+    id: `rev0-${n.id}`,
+    topic_id: n.id,
+    content: { title: `${n.title} (draft)`, slug: n.slug, blocks: n.blocks },
+    created_by: BOARD_AUTHOR,
+    base_revision_id: null,
+    created_at: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: `rev-${n.id}`,
+    topic_id: n.id,
+    content: { title: n.title, slug: n.slug, blocks: n.blocks },
+    created_by: TEST_USER.id,
+    base_revision_id: `rev0-${n.id}`,
+    created_at: "2026-01-02T00:00:00.000Z",
+  },
+]);
+
 type Row = Record<string, unknown>;
 type Predicate = (row: Row) => boolean;
 type DbResult = { data: unknown; error: { message: string; code?: string } | null };
@@ -234,6 +292,7 @@ type Query = {
   in: (column: string, values: readonly unknown[]) => Query;
   is: (column: string, value: unknown) => Query;
   not: (column: string, op: string, value: unknown) => Query;
+  order: (column: string, opts?: { ascending?: boolean }) => Query;
   single: () => Promise<DbResult>;
   maybeSingle: () => Promise<DbResult>;
   then: (onfulfilled: (value: DbResult) => unknown, onrejected?: (reason: unknown) => unknown) => Promise<unknown>;
@@ -303,6 +362,8 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
 
       return query;
     },
+    // Ordering is a no-op: the callers that order also sort defensively, so seed order is enough here.
+    order: () => query,
     single: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     maybeSingle: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     then: (onfulfilled, onrejected) => {
@@ -335,6 +396,10 @@ function from(table: string): Query {
       return makeQuery(table, [...SAMPLE_NOTES.map(toNoteRow), DELETED_TOPIC], null);
     case "topic_access":
       return makeQuery(table, TOPIC_ACCESS as Row[], null);
+    case "board_revisions":
+      return makeQuery(table, BOARD_REVISIONS, null);
+    case "topic_revisions":
+      return makeQuery(table, TOPIC_REVISIONS, null);
     case "memberships":
       return makeQuery(
         table,

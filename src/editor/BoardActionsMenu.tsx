@@ -14,6 +14,8 @@ type BoardActionsMenuProps = {
   board: Board;
   /** Opens the access manager; present only for an owner of the board. */
   onManageAccess?: () => void;
+  /** Opens the board's revision history (viewing rights suffice). */
+  onViewHistory: () => void;
   /** Opens the board's print/handout view. */
   onPrint: () => void;
   /** Opens the replace-from-JSON dialog; absent when the viewer may not edit the board. */
@@ -27,6 +29,7 @@ type BoardActionsMenuProps = {
 export function BoardActionsMenu({
   board,
   onManageAccess,
+  onViewHistory,
   onPrint,
   onReplace,
   onDelete,
@@ -44,8 +47,9 @@ export function BoardActionsMenu({
       }
     >
       {onManageAccess && <MenuItem onClick={onManageAccess}>Manage access…</MenuItem>}
+      <MenuItem onClick={onViewHistory}>History…</MenuItem>
       {children}
-      {(onManageAccess || children) && <MenuSeparator />}
+      <MenuSeparator />
       <MenuItem onClick={onPrint}>Print…</MenuItem>
       <MenuItem closeOnClick={false} onClick={copy}>
         {copied ? "Copied" : "Copy JSON"}

@@ -164,3 +164,62 @@ export function noteToInsert(note: Note, createdBy: string, teamId: string | nul
 export function noteToContent(note: Pick<Note, "title" | "slug" | "blocks">): Record<string, unknown> {
   return { title: note.title, slug: note.slug, blocks: note.blocks };
 }
+
+/** One append-only revision: the committed content snapshot with its author, base, and time. The content
+ *  jsonb mirrors `boardToContent`/`noteToContent`, so a revision maps back to a Board/Note for read-only
+ *  preview through the same surfaces as the live content. */
+export type BoardRevisionRow = {
+  id: string;
+  board_id: string;
+  content: Record<string, unknown>;
+  created_by: string | null;
+  base_revision_id: string | null;
+  created_at: string;
+};
+
+export type NoteRevisionRow = {
+  id: string;
+  topic_id: string;
+  content: Record<string, unknown>;
+  created_by: string | null;
+  base_revision_id: string | null;
+  created_at: string;
+};
+
+/** A board as it stood at one revision: the snapshot content joined onto the live board's identity and the
+ *  viewer's capability, so it renders read-only exactly like the current board. */
+export function boardFromRevision(row: BoardRevisionRow, board: Board): Board {
+  const c = row.content;
+
+  return {
+    id: board.id,
+    title: (c.title as string) ?? "",
+    description: (c.description as string) ?? "",
+    mode: c.mode as CourtMode,
+    markers: (c.markers as BoardMarker[]) ?? [],
+    steps: normalizeSteps((c.steps as StoredStep[]) ?? []),
+    tags: (c.tags as string[]) ?? [],
+    createdBy: row.created_by,
+    capability: board.capability,
+    currentRevisionId: row.id,
+    autoArrows: (c.auto_arrows as boolean) ?? false,
+    rotationStrict: (c.rotation_strict as boolean) ?? false,
+    createdAt: board.createdAt,
+    updatedAt: Date.parse(row.created_at),
+  };
+}
+
+/** A note as it stood at one revision: the snapshot content joined onto the live note's tree position. */
+export function noteFromRevision(row: NoteRevisionRow, note: Note): Note {
+  const c = row.content;
+
+  return {
+    id: note.id,
+    title: (c.title as string) ?? "",
+    slug: (c.slug as string) ?? note.slug,
+    blocks: (c.blocks as NoteBlock[]) ?? [],
+    parentId: note.parentId,
+    order: note.order,
+    currentRevisionId: row.id,
+  };
+}
