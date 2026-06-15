@@ -1,5 +1,5 @@
 ---
-name: code-review
+name: code-review-custom
 description: Review changed code for correctness, reuse, quality, and efficiency, then report findings
 ---
 
