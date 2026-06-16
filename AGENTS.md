@@ -87,6 +87,15 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - Report results factually without positive spin. If errors or issues remain unresolved, state them clearly.
 - **User-only steps are part of the task.** Some steps need the user (Supabase, Cloudflare, admin actions). Walk them through it with exact, ordered steps and wait. Do not work around it to do it yourself, and do not finish the code, declare done, and dump the rest on them. The task is not done until you have guided their part to completion.
 
+### Communication
+
+- **Be concise:** give the answer and only the context needed to act on it.
+- **Answer exactly what was asked**, not what you think the user wants to hear or really means.
+- **Do not pad:**
+    - Do not add anything the user does not need to act on.
+    - Cut anything that is not load-bearing. Before adding a sentence, ask whether the user needs it to act. If not, drop it.
+    - Flag what you think is important, but do not go into detail unless asked.
+
 ### Problem Solving
 
 - Analyse the specific situation before giving advice. Do not give generic answers or troubleshooting steps.
