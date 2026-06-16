@@ -32,6 +32,7 @@ describe("NotePrint", () => {
       slug: "serve-receive",
       parentId: null,
       order: 0,
+      capability: "owner",
       currentRevisionId: null,
       blocks: [
         { id: "md", kind: "markdown", text: "Read the server" },

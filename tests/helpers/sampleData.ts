@@ -141,6 +141,7 @@ export const SAMPLE_NOTES: Note[] = [
     ],
     parentId: null,
     order: 0,
+    capability: "owner",
     currentRevisionId: null,
   },
   {
@@ -157,6 +158,7 @@ export const SAMPLE_NOTES: Note[] = [
     ],
     parentId: null,
     order: 1,
+    capability: "owner",
     currentRevisionId: null,
   },
   {
@@ -173,6 +175,7 @@ export const SAMPLE_NOTES: Note[] = [
     ],
     parentId: null,
     order: 2,
+    capability: "owner",
     currentRevisionId: null,
   },
 ];

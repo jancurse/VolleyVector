@@ -47,6 +47,7 @@ export function createNote(
     blocks: [],
     parentId,
     order: nextOrder(notes, parentId),
+    capability: "owner",
     currentRevisionId: null,
   };
 

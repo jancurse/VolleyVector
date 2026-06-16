@@ -33,6 +33,7 @@ function renderEditor(blocks: NoteBlock[], boards: Board[]) {
     blocks,
     parentId: null,
     order: 0,
+    capability: "owner",
     currentRevisionId: null,
   };
   const onDone = vi.fn<(patch: { title: string; blocks: NoteBlock[] }) => Promise<string | null>>(async () => null);

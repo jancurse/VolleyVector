@@ -3,9 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
 import { writeWithRetries } from "../supabase/retry";
-import type { NoteRow } from "../supabase/rows";
+import type { Capability, NoteRow } from "../supabase/rows";
 import { noteFromRow, noteToInsert } from "../supabase/rows";
 import { uniqueSlug } from "../routing/slug";
+import type { TeamRole } from "../workspace/useWorkspace";
 import type { Space } from "../workspace/space";
 import { createNote, deleteNote, moveNote, nestNote, setNote } from "./operations";
 import type { Note } from "./types";
@@ -47,22 +48,47 @@ function changedPlacements(prev: readonly Note[], next: readonly Note[]): Note[]
 /** A read query for the notes of one space: by the space's principal on the access list (a team's grants by
  *  team, the personal space's by the user). Grace-archived rows are hidden from every normal view. */
 function selectSpaceNotes(space: Space, userId: string) {
-  const query = supabase.from("topics").select("*, topic_access!inner(team_id, user_id)").is("deleted_at", null);
+  const query = supabase
+    .from("topics")
+    .select("*, topic_access!inner(capability, team_id, user_id)")
+    .is("deleted_at", null);
 
   return space.kind === "team"
     ? query.eq("topic_access.team_id", space.teamId)
     : query.eq("topic_access.user_id", userId);
 }
 
+type LoadedNoteRow = NoteRow & { topic_access: { capability: Capability }[] };
+
 /** The active space's note tree, loaded from Supabase by access grant and written through on each edit. Like
  *  boards, content commits go through the conflict-checked RPC; structural moves (parent/order) are plain
- *  column writes, since they do not change the document and so record no revision. */
-export function useNotes(space: Space | null): NotesStore {
+ *  column writes, since they do not change the document and so record no revision. The viewer's `capability`
+ *  on each note is derived from the space's grant and their role, exactly as for boards: an admin is owner
+ *  everywhere, a coach gets the team grant's capability, anyone else a team grant reads as viewer, and a
+ *  direct user grant counts as itself. */
+export function useNotes(space: Space | null, isAdmin: boolean, activeRole: TeamRole | null): NotesStore {
   const { user } = useAuth();
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const capabilityOf = useCallback(
+    (grant: Capability | undefined): Capability => {
+      if (isAdmin) return "owner";
+      if (!grant) return "viewer";
+      if (space?.kind === "team") return activeRole === "coach" ? grant : "viewer";
+
+      return grant;
+    },
+    [isAdmin, activeRole, space]
+  );
+
+  const mapRows = useCallback(
+    (rows: LoadedNoteRow[]): Note[] =>
+      rows.map((row) => noteFromRow(row, capabilityOf(row.topic_access[0]?.capability))),
+    [capabilityOf]
+  );
 
   // `addNote` returns the new id synchronously, and structural moves diff against the current tree,
   // so both read the latest notes from a ref rather than a stale closure.
@@ -77,8 +103,8 @@ export function useNotes(space: Space | null): NotesStore {
 
     const { data, error: queryError } = await selectSpaceNotes(space, user.id);
 
-    if (!queryError && data) setNotes((data as NoteRow[]).map(noteFromRow));
-  }, [space, user]);
+    if (!queryError && data) setNotes(mapRows(data as LoadedNoteRow[]));
+  }, [space, user, mapRows]);
 
   useEffect(() => {
     let active = true;
@@ -105,14 +131,14 @@ export function useNotes(space: Space | null): NotesStore {
         return;
       }
 
-      setNotes((data as NoteRow[]).map(noteFromRow));
+      setNotes(mapRows(data as LoadedNoteRow[]));
       setLoading(false);
     })();
 
     return () => {
       active = false;
     };
-  }, [space, user]);
+  }, [space, user, mapRows]);
 
   const fail = useCallback(
     (message: string) => {

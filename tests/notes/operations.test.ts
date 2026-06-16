@@ -21,11 +21,56 @@ import type { Note, NoteBlock } from "../../src/notes/types";
 
 // A small tree: two roots (A before B); A has children A1, A2; A1 has a grandchild A1a.
 const TREE: Note[] = [
-  { id: "A", title: "A", slug: "a", blocks: [], parentId: null, order: 0, currentRevisionId: null },
-  { id: "B", title: "B", slug: "b", blocks: [], parentId: null, order: 1, currentRevisionId: null },
-  { id: "A1", title: "A1", slug: "a1", blocks: [], parentId: "A", order: 0, currentRevisionId: null },
-  { id: "A2", title: "A2", slug: "a2", blocks: [], parentId: "A", order: 1, currentRevisionId: null },
-  { id: "A1a", title: "A1a", slug: "a1a", blocks: [], parentId: "A1", order: 0, currentRevisionId: null },
+  {
+    id: "A",
+    title: "A",
+    slug: "a",
+    blocks: [],
+    parentId: null,
+    order: 0,
+    capability: "owner",
+    currentRevisionId: null,
+  },
+  {
+    id: "B",
+    title: "B",
+    slug: "b",
+    blocks: [],
+    parentId: null,
+    order: 1,
+    capability: "owner",
+    currentRevisionId: null,
+  },
+  {
+    id: "A1",
+    title: "A1",
+    slug: "a1",
+    blocks: [],
+    parentId: "A",
+    order: 0,
+    capability: "owner",
+    currentRevisionId: null,
+  },
+  {
+    id: "A2",
+    title: "A2",
+    slug: "a2",
+    blocks: [],
+    parentId: "A",
+    order: 1,
+    capability: "owner",
+    currentRevisionId: null,
+  },
+  {
+    id: "A1a",
+    title: "A1a",
+    slug: "a1a",
+    blocks: [],
+    parentId: "A1",
+    order: 0,
+    capability: "owner",
+    currentRevisionId: null,
+  },
 ];
 
 describe("childrenOf", () => {

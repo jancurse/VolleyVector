@@ -47,6 +47,7 @@ import { ShareView } from "./sharing/ShareView";
 import { useInviteRoute } from "./invites/useInviteRoute";
 import { InviteAccept } from "./invites/InviteAccept";
 import { AccessManager } from "./sharing/AccessManager";
+import { NoteAccessManager } from "./sharing/NoteAccessManager";
 import { CopyToMenu } from "./sharing/CopyToMenu";
 import type { CopyTarget } from "./sharing/CopyToMenu";
 import { copyBoardToSpace, fetchBoardById } from "./sharing/share";
@@ -120,7 +121,7 @@ export function App(): JSX.Element {
     deleteBoard,
     updateBoard,
   } = useBoards(space, workspace.isAdmin, workspace.activeRole);
-  const notes = useNotes(space);
+  const notes = useNotes(space, workspace.isAdmin, workspace.activeRole);
   const { confirm, dialog } = useConfirm();
 
   const [draft, setDraft] = useState<Board | null>(null);
@@ -132,6 +133,7 @@ export function App(): JSX.Element {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [passwordReady, setPasswordReady] = useState(false);
   const [managingAccess, setManagingAccess] = useState(false);
+  const [managingNoteAccess, setManagingNoteAccess] = useState(false);
   const [importing, setImporting] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [missingBoardId, setMissingBoardId] = useState<string | null>(null);
@@ -179,6 +181,7 @@ export function App(): JSX.Element {
   // all of this server-side; these flags only keep the UI honest.
   const canEdit = personal || workspace.isAdmin || workspace.activeRole === "coach";
   const canEditBoard = (b: Board): boolean => b.capability === "editor" || b.capability === "owner";
+  const canEditNote = (n: Note): boolean => n.capability === "editor" || n.capability === "owner";
 
   const editableBoard = editing && openBoard && canEditBoard(openBoard) ? openBoard : null;
 
@@ -763,7 +766,7 @@ export function App(): JSX.Element {
         boards={boards}
         onBack={() => setViewingHistory(false)}
         onOpenBoard={(id) => navigate(boardRoute(activeSpace, allTeams, id, false))}
-        onRestore={canEdit ? restoreNoteRevision : undefined}
+        onRestore={canEditNote(selectedNote) ? restoreNoteRevision : undefined}
       />
     );
   } else if (selectedNote) {
@@ -777,7 +780,7 @@ export function App(): JSX.Element {
         onEdit={() => setEditingNoteId(selectedNote.id)}
         onAddSubnote={() => createNote(selectedNote.id)}
         onNewBoard={newBoard}
-        canEdit={canEdit}
+        canEdit={canEditNote(selectedNote)}
         menu={
           <ExportMenu
             label="Note actions"
@@ -798,9 +801,10 @@ export function App(): JSX.Element {
           >
             <MenuItem onClick={() => setViewingHistory(true)}>History…</MenuItem>
             <MenuItem onClick={() => navigate(notePrintRoute(activeSpace, allTeams, selectedNote))}>Print…</MenuItem>
-            {canEdit && (
+            {selectedNote.capability === "owner" && (
               <>
                 <MenuSeparator />
+                <MenuItem onClick={() => setManagingNoteAccess(true)}>Manage access…</MenuItem>
                 <MenuItem onClick={() => void removeNote(selectedNote.id)}>
                   <span className="text-danger">Delete note…</span>
                 </MenuItem>
@@ -975,6 +979,17 @@ export function App(): JSX.Element {
           open={managingAccess}
           onOpenChange={setManagingAccess}
           board={openBoard}
+          coachedTeams={targetTeams}
+          teamName={(teamId) => allTeams.find((t) => t.teamId === teamId)?.teamName ?? "a team"}
+          currentUserId={user.id}
+        />
+      )}
+      {selectedNote && (
+        <NoteAccessManager
+          open={managingNoteAccess}
+          onOpenChange={setManagingNoteAccess}
+          note={selectedNote}
+          notes={notes.notes}
           coachedTeams={targetTeams}
           teamName={(teamId) => allTeams.find((t) => t.teamId === teamId)?.teamName ?? "a team"}
           currentUserId={user.id}

@@ -150,7 +150,7 @@ Update in lockstep, **replacing** the retired prose rather than appending, so le
   `coalesce(team_id, created_by)`. Boards have no slug, so boards dropped `team_id` entirely (placement is
   purely the access list, and a board link self-heals to any reachable space at lookup time).
 - **Note subtree sharing**: sharing a note shares its whole subtree, surfaced at the target team's top
-  level and read-only there. (Not yet built — see remaining work.)
+  level. Built: a grant is written per node so reads stay non-recursive (see follow-up 1 below).
 
 ## Progress
 
@@ -181,14 +181,17 @@ Naming note: server-side, Notes live in the table named `topics` (legacy), so ev
       (`boardFromRevision`/`noteFromRevision`) live in `supabase/rows.ts`. Wired into `App.tsx` as a
       per-content surface, opened from the board overflow menu and the note actions menu; restore commits the
       old content as a new revision (overwrite for boards, plain commit for notes).
-    - Green on `npm run typecheck`/`lint`/`build`/`format` and 499 tests (18 new under `tests/history/`).
-- **Nothing applied to production.** The migrations and the rewritten edge functions are not pushed; the new
-  schema breaks the deployed client and old functions, so the cutover is a user-confirmed step that goes last.
+    - **Note co-editing across accounts** (follow-up 1): `Note` gained a derived `capability` (computed in
+      `useNotes` from the space's grant and the viewer's role, exactly as boards), so note editing is now gated
+      per note (`canEditNote` in `App.tsx`) instead of by the space. Manage-access and delete are owner-only.
+      New `sharing/NoteAccessManager.tsx` shares a note's whole subtree at once: a grant is written per node
+      (`subtreeIds`), so reads stay non-recursive. Opened from the note page's actions menu for an owner.
+    - Green on `npm run typecheck`/`lint`/`build`/`format` and 501 tests (18 under `tests/history/`, plus
+      note-capability and subtree-sharing tests).
+- **Schema and functions applied to production (2026-06-15).** Both migrations are pushed and the three edge functions (`delete-account`, `restore-account`, `purge-expired`) deployed with `--no-verify-jwt`. The still-deployed client is the old one, so the live site is in the brief breakage window until the client merge (production step 4). Two latent bugs in `20260614215854_access_model.sql` were fixed before it applied (see implementation notes): the scope-partial slug indexes are now dropped before the `scope` column, and `enforce_board_guards` uses `create or replace` because it pre-existed. The first push attempt failed on the slug-index drop and rolled back cleanly (transactional, byte-identical schema after), leaving production untouched; the fixed re-push applied both migrations.
 - **Remaining** (two groups, detailed in [Next steps](#next-steps-for-whoever-picks-this-up)):
-    1. **Follow-ups** (pre-production): note co-editing across accounts (subtree sharing; note editing is
-       still space-gated in `App.tsx`), RLS policy tests under `supabase/tests/`, and the documentation pass.
-    2. **Production** (user-confirmed, last): push the migrations + functions, test in dev against the
-       migrated database, merge to deploy the client, then test in live.
+    1. **Follow-ups** (pre-production): ~~note co-editing across accounts~~ **done**; ~~RLS policy tests under `supabase/tests/`~~ **done** (written, not yet run, since execution belongs to the production step); ~~documentation pass~~ **done**. All pre-production follow-ups are complete; only the production step remains.
+    2. **Production** (user-confirmed, last): ~~push the migrations + functions~~ **done (2026-06-15)**; ~~run the RLS test~~ **done (2026-06-16, `ALL RLS TESTS PASSED`)**; remaining: test in dev against the migrated database, merge to deploy the client, then test in live.
 
 ## Implementation notes (as built)
 
@@ -250,25 +253,18 @@ or `functions deploy` without the user's explicit go-ahead.
    read-only preview through the existing `BoardView`/note-block render, and restore (commits old content as a
    new revision). Opened from the board overflow menu and the note actions menu. Covered by `tests/history/`.
 3. **Follow-ups** (code and docs, all pre-production):
-    1. **Note co-editing across accounts** (subtree sharing per the resolved decision): sharing a note shares
-       its whole subtree, written per node so reads stay non-recursive; lift note editing off the space-level
-       gate in `App.tsx` onto the note's own capability, like boards.
-    2. **RLS policy tests** under `supabase/tests/`: each capability path, the team-role cap, the
-       leave-vs-manage split, showcase, and the archive-on-empty trigger.
-    3. **Documentation pass**: architecture.md module map + history/versioning prose, README status and
-       feature bullets, then the proportionality trim (the plan's documentation step).
+    1. ~~**Note co-editing across accounts**~~ **Done.** `Note` carries a derived `capability` (computed in `useNotes` like boards); note edit/subnote/history-restore are gated per note (`canEditNote`), and manage-access and delete are owner-only. `sharing/NoteAccessManager.tsx` shares a note's whole subtree by writing one grant per node, opened from the note actions menu for an owner. Covered by `tests/notes/useNotes.test.ts` (capability derivation) and `tests/sharing/NoteAccessManager.test.tsx` (subtree write).
+    2. ~~**RLS policy tests**~~ **Done.** `supabase/tests/rls_policies_test.sql` rewritten for the access model: it builds throwaway users, teams, boards, and grants, then asserts each capability path (team owner/editor/viewer grants, a direct user co-edit grant, personal privacy), the team-role cap, the leave-vs-manage split, the showcase widening (against the existing global showcase team), admin god-mode, the share-token rule, the bootstrap-and-coach insert guard, the archive-on-empty reference-count trigger, and the commit compare-and-swap, then rolls back. **Not yet run** — there is no local Supabase, so executing it against the migrated database belongs to the production step.
+    3. ~~**Documentation pass**~~ **Done.** Audited `architecture.md`, `AGENTS.md`, and `README.md` against the shipped access model and history. README was already accurate (co-editing, cross-team grants, history, reference-counted deletion). Fixes: added the `src/history/` module-map entry to AGENTS.md and pluralized the access managers (board + note); trimmed the retired-concept contrast in architecture.md ("author-lock/move are all just grants now, not separate flags"); documented note sharing (per-note capability + the subtree-granting note access manager) in the Sharing subsection; and added `capability`/`currentRevisionId` to the architecture `Note` type for parity with `Board`. A final sweep found no remaining stale phrasing; net length roughly flat.
 4. **Production** (user-confirmed; the final, one-way sequence):
-    1. **Push the Supabase changes.** Migrations and functions together (the functions also read dropped
-       columns). Walk the user through: `npx supabase migration list` → `npx supabase db push --dry-run`
-       (confirm exactly the two new migrations would apply) → explicit go-ahead → `npx supabase db push` →
-       `npx supabase functions deploy delete-account restore-account purge-expired`. The backfill converts
-       existing rows to grants.
-    2. **Test in dev.** Run the local dev server (the new client code) against the now-migrated production
+    1. ~~**Push the Supabase changes.**~~ **Done (2026-06-15).** Linked the worktree, confirmed a clean `migration list` and a 2-migration `db push --dry-run`, fixed two bugs in the access-model migration (drop the scope-partial slug indexes before the `scope` column; `enforce_board_guards` → `create or replace` since it pre-existed), then `db push` applied both migrations and `functions deploy --no-verify-jwt` shipped delete-account, restore-account, purge-expired. Verified the migrated schema (all new tables, columns, RPCs, policies, triggers, the home-slug index) and the backfill: 10 boards → 10 grants + 10 revisions, 12 topics → 12 grants + 12 revisions. The first push attempt rolled back cleanly and left production untouched.
+    2. ~~**Run the RLS test file.**~~ **Done (2026-06-16): `ALL RLS TESTS PASSED`** against the migrated production database in the SQL Editor. Three test-only fixes were needed first (no policy or migration change): the teams fixture now supplies the NOT NULL `slug`; the section-4 "leave" test re-grants coachA2 to the co-edited board so the section-9 user-shared share-token check still has a board shared with a non-creator; and the test must be run from the worktree copy, since the `VolleyCoach` checkout still holds the old pre-access-model version. Every path holds: each capability, the team-role cap, the leave-vs-manage split, showcase widening, admin god-mode, the share-token rule, the bootstrap-and-coach insert guard, the archive-on-empty trigger, and the commit compare-and-swap. The corrected test currently lives only in the worktree's working tree (uncommitted), so re-runs must use that copy until it is committed and merged.
+    3. **Test in dev.** Run the local dev server (the new client code) against the now-migrated production
        database: an existing board reads back with the right `capability`, a commit advances the revision,
        history and access management work, and account delete/restore behave. Read-only MCP can spot-check the
        schema (access tables populated, archive-on-empty).
-    3. **Merge the PR** (when the user asks), which deploys the new client to Cloudflare.
-    4. **Test in live.** Confirm the deployed site against the migrated schema: a board opens, a commit lands,
+    4. **Merge the PR** (when the user asks), which deploys the new client to Cloudflare.
+    5. **Test in live.** Confirm the deployed site against the migrated schema: a board opens, a commit lands,
        history and sharing work, and a share link resolves.
 
 After completing any step here, update the Progress and Implementation-notes sections above so this file

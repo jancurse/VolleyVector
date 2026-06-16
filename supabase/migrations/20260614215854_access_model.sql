@@ -135,12 +135,16 @@ alter table public.boards drop constraint boards_team_scope;
 alter table public.topics drop constraint topics_team_scope;
 alter table public.boards rename column owner to created_by;
 alter table public.topics rename column owner to created_by;
+
+-- The old slug indexes are partial on `scope`, so drop them before the column they depend on: dropping the
+-- column cascades them away, which would make a later explicit drop fail.
+drop index public.topics_team_slug_key;
+drop index public.topics_personal_slug_key;
+
 alter table public.boards drop column scope, drop column shared, drop column author_locked, drop column team_id;
 alter table public.topics drop column scope;
 
 -- Topic slugs stay unique per home space: a team topic by its team, a personal topic by its creator.
-drop index public.topics_team_slug_key;
-drop index public.topics_personal_slug_key;
 create unique index topics_home_slug_key on public.topics (coalesce(team_id, created_by), slug);
 
 -- boards/topics: read with any capability, write with editor or owner. A normal delete is never a hard
@@ -235,7 +239,7 @@ for each row execute function public.archive_orphaned_topic();
 
 -- The board guard now only keeps the creator label immutable (an admin may reassign or null it). The author
 -- lock it used to enforce is gone.
-create function public.enforce_board_guards() returns trigger
+create or replace function public.enforce_board_guards() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   if new.created_by is distinct from old.created_by and new.created_by is not null and not public.is_admin() then

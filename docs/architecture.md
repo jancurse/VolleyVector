@@ -190,6 +190,8 @@ type Note = {
   blocks: NoteBlock[]; // the document: prose and board-group blocks in order
   parentId: string | null;
   order: number;
+  capability: Capability; // the viewer's own access; derived, never stored
+  currentRevisionId: string | null; // the revision this note's content matches, for conflict detection
 };
 ```
 
@@ -236,7 +238,7 @@ Boards and notes live in Supabase, not the browser. The access boundary is row-l
 
 - The schema's core tables are `profiles` (one per account, with a display name and the global-admin flag), `teams`, `memberships` (`(user, team, role)`, role `coach` or `player`), `topics` (the notes — the table keeps its legacy name, as do the RPCs around it), `boards`, and `invites` (single-use invite links). Markers and steps are stored as JSON on a board, and a note's blocks (including its board links) as JSON on its row.
 - A board or note carries a `created_by` label (attribution only, nullable, never load-bearing) and an **access list**: `board_access` and `topic_access` rows, each one grant of `(principal, capability)`. A **principal** is a user or a team (exactly one column set); a **capability** is `viewer`, `editor`, or `owner`. Content appears in a space's library when that space's principal is on its list, so one board can live in several teams and a personal space at once, and "scope" is derived from the grants rather than stored.
-- A **team grant** maps the team's roles, capped by the grant's capability: a coach gets the grant's capability, any member at least viewer. So a team `owner` grant is an ordinary team-library board (coaches manage, players view); a team `viewer` grant is read-only for the whole team. Author-lock, sharing into a team, and moving into a team are all just grants now, not separate flags.
+- A **team grant** maps the team's roles, capped by the grant's capability: a coach gets the grant's capability, any member at least viewer. So a team `owner` grant is an ordinary team-library board (coaches manage, players view); a team `viewer` grant is read-only for the whole team. Sharing a board into a team and moving it there are the same operation: adding a team grant at the chosen capability.
 - At most one team is flagged `is_showcase` (enforced by a partial unique index): the **Inspiration** showcase, an example library every authenticated user may read and copy from. A grant to the showcase team reads as viewer for everyone; writes are unchanged, so only its coaches and admins author it.
 - A board also carries an unguessable `share_token` minted server-side. Boards, notes, teams, and profiles all carry soft-delete state (`deleted_at`/`deleted_by`); every read query filters `deleted_at is null`, so a deleted row is hidden everywhere but admin recovery. See [Deletion and recovery](#deletion-and-recovery).
 - `board_capability(board)` and `topic_capability(topic)` are the `security definer` helpers that return the caller's highest grant (admin is owner everywhere). Policies read through them: select with any capability, update with editor or owner, and change the access list only with owner — except that anyone may always remove their own grant (leave). `capability_rank` orders the three levels so a policy can compare.
@@ -271,7 +273,7 @@ Removal is a grace-archive, never an immediate hard delete: a removed item is hi
 
 ### Sharing and the share link
 
-- Sharing is editing the access list: an owner adds a grant for a user (co-editing one board) or a team (placing it in that team's library), at viewer, editor, or owner. Multiple grants are how a coach of several teams keeps one board across them, and how teammates co-edit a single board instead of each holding a copy. `src/sharing/` holds the access manager, the copy actions (a deliberate fork into a separate board), and the read-only `ShareView`. Copy stays for forking; live grants replace copy-back-and-forth for collaboration.
+- Sharing is editing the access list: an owner adds a grant for a user (co-editing one board) or a team (placing it in that team's library), at viewer, editor, or owner. Multiple grants are how a coach of several teams keeps one board across them, and how teammates co-edit a single board instead of each holding a copy. `src/sharing/` holds the board and note access managers, the copy actions (a deliberate fork into a separate board), and the read-only `ShareView`. Copy stays for forking; live grants replace copy-back-and-forth for collaboration. A note is shared the same way and carries its own per-note capability: its access manager grants the whole subtree at once, writing one grant per node so reads stay non-recursive.
 - Every board has a `share_token`. The `board_by_token` function (`security definer`, granted to anonymous) resolves one board from an exact token, but only a genuinely shared one (a team grant, or a grant to a user other than its creator), so a private board never leaks and the collection cannot be enumerated. The read-only viewer is reached by the `#/share/<token>` hash route.
 
 ### Versioning and history

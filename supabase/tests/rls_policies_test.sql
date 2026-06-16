@@ -1,9 +1,17 @@
--- Row-level security tests for VolleyCoach.
+-- Row-level security tests for VolleyCoach, the access-list model.
 --
--- Verifies the access boundary at the policy level, not just in the UI: team isolation, player
--- read-only access, the author lock on team boards, and admin override. Self-contained: it creates
--- throwaway users, teams, and boards, asserts each rule while impersonating each user, then rolls back,
--- so it leaves no trace. Run it in the Supabase SQL Editor.
+-- Verifies the access boundary at the policy level, not just in the UI. A board has a `created_by` label
+-- and an access list of (principal, capability) grants; the caller's effective capability is the highest
+-- grant they hold (admin → owner; a direct user grant counts as itself; a team grant counts as its
+-- capability for a coach and viewer for any member; a showcase grant is viewer for everyone). This file
+-- exercises each capability path, the team-role cap, the leave-vs-manage split, the showcase widening,
+-- admin god-mode, the share-token rule, the bootstrap-and-coach insert guard, the archive-on-empty
+-- reference-count trigger, and the commit compare-and-swap. (`topic_access` mirrors `board_access` policy
+-- for policy; only the board path is tested.)
+--
+-- Self-contained: it creates throwaway users, teams, boards, and grants as the table owner (which bypasses
+-- RLS), asserts each rule while impersonating each user, then rolls back, so it leaves no trace. Run it in
+-- the Supabase SQL Editor.
 --
 -- Result: a single row "ALL RLS TESTS PASSED" means every policy holds; an error beginning "FAIL ..."
 -- names the rule that is broken.
@@ -29,9 +37,19 @@ values
 -- admin: the global flag, and deliberately no team membership (so god-mode is tested without a team).
 update public.profiles set is_admin = true where id = 'a0000000-0000-0000-0000-000000000001';
 
-insert into public.teams (id, name) values
-  ('b0000000-0000-0000-0000-00000000000a', 'RLS Team A'),
-  ('b0000000-0000-0000-0000-00000000000b', 'RLS Team B');
+insert into public.teams (id, name, slug) values
+  ('b0000000-0000-0000-0000-00000000000a', 'RLS Team A', 'rls-team-a'),
+  ('b0000000-0000-0000-0000-00000000000b', 'RLS Team B', 'rls-team-b');
+
+-- The showcase team is global and unique (a partial index allows only one), so reuse the existing one
+-- rather than creating a second. It must exist for the showcase test below; in production the setup seed
+-- has created it.
+do $$
+begin
+  if not exists (select 1 from public.teams where is_showcase) then
+    raise exception 'FIXTURE: no showcase team exists; cannot test the showcase widening';
+  end if;
+end $$;
 
 insert into public.memberships (team_id, user_id, role) values
   ('b0000000-0000-0000-0000-00000000000a', 'a0000000-0000-0000-0000-000000000002', 'coach'),  -- coachA
@@ -39,148 +57,63 @@ insert into public.memberships (team_id, user_id, role) values
   ('b0000000-0000-0000-0000-00000000000a', 'a0000000-0000-0000-0000-000000000004', 'player'), -- playerA
   ('b0000000-0000-0000-0000-00000000000b', 'a0000000-0000-0000-0000-000000000005', 'coach');  -- coachB
 
-insert into public.boards (id, owner, scope, team_id, title, author_locked) values
-  ('c0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'team', 'b0000000-0000-0000-0000-00000000000a', 'Board A',        false),
-  ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 'team', 'b0000000-0000-0000-0000-00000000000a', 'Board A locked', true),
-  ('c0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000005', 'team', 'b0000000-0000-0000-0000-00000000000b', 'Board B',        false);
+-- Boards carry only a creator label now; placement and access are the grants below. share_token is minted
+-- by the insert trigger.
+insert into public.boards (id, created_by, title) values
+  ('c0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'Team A owner board'),
+  ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000005', 'Team A editor board'),  -- creator outside team A, so the editor grant is the only path in
+  ('c0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000002', 'Team A viewer board'),
+  ('c0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000005', 'Team B owner board'),
+  ('d0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'Coach A personal'),
+  ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 'Coach A co-edited'),
+  ('e0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'Showcase board'),
+  ('f0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'Reference-count board');
 
--- Personal boards (unshared), for the sharing, token, copy, and move tests. One owned by a coach of team
--- A, one by a player of team A. share_token is minted by the insert trigger.
-insert into public.boards (id, owner, scope, title) values
-  ('d0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'personal', 'Coach A personal'),
-  ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000004', 'personal', 'Player A personal');
+-- The grants. A team grant maps the team's roles capped by its capability; a direct user grant counts as
+-- itself.
+insert into public.board_access (board_id, team_id, capability) values
+  ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000a', 'owner'),
+  ('c0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-00000000000a', 'editor'),
+  ('c0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-00000000000a', 'viewer'),
+  ('c0000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-00000000000b', 'owner'),
+  ('f0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000a', 'viewer'); -- one of two grants
+-- Grant the showcase board to the existing global showcase team (looked up, since it is unique).
+insert into public.board_access (board_id, team_id, capability)
+  select 'e0000000-0000-0000-0000-000000000001', id, 'owner' from public.teams where is_showcase limit 1;
+insert into public.board_access (board_id, user_id, capability) values
+  ('d0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'owner'),  -- private to coachA
+  ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 'owner'),  -- co-edited: owner
+  ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000003', 'editor'), -- co-edited: coachA2
+  ('f0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'owner');  -- the other grant
 
 -- ---------------------------------------------------------------------------
--- 1. Team isolation: a coach of team B can neither read nor write team A's boards.
+-- 1. Team owner grant: a coach gets the grant's capability (owner), a player gets viewer, an outside coach
+--    gets nothing.
 -- ---------------------------------------------------------------------------
 set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}';
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA
 do $$
-declare n int; denied boolean := false;
+declare updated int;
 begin
-  select count(*) into n from public.boards where team_id = 'b0000000-0000-0000-0000-00000000000a';
-  if n <> 0 then raise exception 'FAIL team isolation (read): coach B saw % team A board(s), expected 0', n; end if;
-
-  begin
-    insert into public.boards (owner, scope, team_id, title)
-    values ('a0000000-0000-0000-0000-000000000005', 'team', 'b0000000-0000-0000-0000-00000000000a', 'intruder');
-  exception when others then denied := true;
-  end;
-  if not denied then raise exception 'FAIL team isolation (write): coach B inserted a board into team A'; end if;
+  if public.board_capability('c0000000-0000-0000-0000-000000000001') is distinct from 'owner' then
+    raise exception 'FAIL team owner: a coach is not owner of a team-owner board';
+  end if;
+  update public.boards set title = 'coach owner edit' where id = 'c0000000-0000-0000-0000-000000000001';
+  get diagnostics updated = row_count;
+  if updated <> 1 then raise exception 'FAIL team owner: a coach could not edit a team-owner board'; end if;
 end $$;
 reset role;
 
--- ---------------------------------------------------------------------------
--- 2. Player read-only: a player reads their team's boards but cannot update or insert them.
--- ---------------------------------------------------------------------------
 set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000004","role":"authenticated"}';
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000004","role":"authenticated"}'; -- playerA
 do $$
-declare n int; updated int; denied boolean := false;
+declare n int; updated int;
 begin
-  select count(*) into n from public.boards where team_id = 'b0000000-0000-0000-0000-00000000000a';
-  if n < 2 then raise exception 'FAIL player read: player saw % team A board(s), expected >= 2', n; end if;
-
+  select count(*) into n from public.boards where id = 'c0000000-0000-0000-0000-000000000001';
+  if n <> 1 then raise exception 'FAIL team owner: a player could not read a team-owner board'; end if;
   update public.boards set title = 'player edit' where id = 'c0000000-0000-0000-0000-000000000001';
   get diagnostics updated = row_count;
-  if updated <> 0 then raise exception 'FAIL player write: player updated % team board(s)', updated; end if;
-
-  begin
-    insert into public.boards (owner, scope, team_id, title)
-    values ('a0000000-0000-0000-0000-000000000004', 'team', 'b0000000-0000-0000-0000-00000000000a', 'player board');
-  exception when others then denied := true;
-  end;
-  if not denied then raise exception 'FAIL player write: player inserted a team board'; end if;
-end $$;
-reset role;
-
--- ---------------------------------------------------------------------------
--- 3. Author lock: another coach cannot edit a locked board (but can edit an unlocked one), and cannot
---    seize it by setting the lock; the author can edit their own locked board.
--- ---------------------------------------------------------------------------
-set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000003","role":"authenticated"}';
-do $$
-declare updated int; blocked boolean := false;
-begin
-  update public.boards set title = 'other coach edit' where id = 'c0000000-0000-0000-0000-000000000002';
-  get diagnostics updated = row_count;
-  if updated <> 0 then raise exception 'FAIL author lock: another coach updated a locked board'; end if;
-
-  update public.boards set title = 'other coach edit' where id = 'c0000000-0000-0000-0000-000000000001';
-  get diagnostics updated = row_count;
-  if updated <> 1 then raise exception 'FAIL coach edit: a coach could not update an unlocked team board (% rows)', updated; end if;
-
-  begin
-    update public.boards set author_locked = true where id = 'c0000000-0000-0000-0000-000000000001';
-  exception when others then blocked := true;
-  end;
-  if not blocked then raise exception 'FAIL author lock: a non-author coach changed the author lock'; end if;
-end $$;
-reset role;
-
-set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}';
-do $$
-declare updated int;
-begin
-  update public.boards set title = 'author edit' where id = 'c0000000-0000-0000-0000-000000000002';
-  get diagnostics updated = row_count;
-  if updated <> 1 then raise exception 'FAIL author lock: the author could not edit their own locked board'; end if;
-end $$;
-reset role;
-
--- ---------------------------------------------------------------------------
--- 4. Admin god-mode: an admin with no membership reads every team and edits a locked board.
--- ---------------------------------------------------------------------------
-set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000001","role":"authenticated"}';
-do $$
-declare na int; nb int; updated int;
-begin
-  select count(*) into na from public.boards where team_id = 'b0000000-0000-0000-0000-00000000000a';
-  select count(*) into nb from public.boards where team_id = 'b0000000-0000-0000-0000-00000000000b';
-  if na < 2 or nb < 1 then raise exception 'FAIL admin read: admin saw A=%, B=% (expected all)', na, nb; end if;
-
-  update public.boards set title = 'admin edit' where id = 'c0000000-0000-0000-0000-000000000002';
-  get diagnostics updated = row_count;
-  if updated <> 1 then raise exception 'FAIL admin write: admin could not edit a locked board'; end if;
-end $$;
-reset role;
-
--- ---------------------------------------------------------------------------
--- 5. Personal privacy and the shared-read path: an unshared personal board is the owner's alone; once
---    its owner shares it into a team, that team's members may read it, but other teams still cannot.
--- ---------------------------------------------------------------------------
-set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000003","role":"authenticated"}'; -- coachA2
-do $$
-declare n int;
-begin
-  select count(*) into n from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
-  if n <> 0 then raise exception 'FAIL personal privacy: a teammate read an unshared personal board'; end if;
-end $$;
-reset role;
-
-set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA (owner)
-do $$
-declare updated int;
-begin
-  update public.boards set shared = true, team_id = 'b0000000-0000-0000-0000-00000000000a'
-    where id = 'd0000000-0000-0000-0000-000000000001';
-  get diagnostics updated = row_count;
-  if updated <> 1 then raise exception 'FAIL share: an owner could not share their personal board (% rows)', updated; end if;
-end $$;
-reset role;
-
-set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000003","role":"authenticated"}'; -- coachA2
-do $$
-declare n int;
-begin
-  select count(*) into n from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
-  if n <> 1 then raise exception 'FAIL shared read: a teammate could not read a board shared into their team'; end if;
+  if updated <> 0 then raise exception 'FAIL team owner: a player edited a team-owner board (% rows)', updated; end if;
 end $$;
 reset role;
 
@@ -189,25 +122,171 @@ set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","
 do $$
 declare n int;
 begin
-  select count(*) into n from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
-  if n <> 0 then raise exception 'FAIL shared isolation: another team read a board shared elsewhere'; end if;
+  select count(*) into n from public.boards where id = 'c0000000-0000-0000-0000-000000000001';
+  if n <> 0 then raise exception 'FAIL team isolation: an outside coach read another team''s board'; end if;
 end $$;
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 6. Share-token resolution: the public function returns a team board or a shared personal board for an
---    exact token, but never an unshared personal board, and resolves for a visitor with no account (anon).
+-- 2. Team editor grant: a coach may edit but not manage the access list; a player still only reads.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA
+do $$
+declare updated int; blocked boolean := false;
+begin
+  if public.board_capability('c0000000-0000-0000-0000-000000000002') is distinct from 'editor' then
+    raise exception 'FAIL team editor: a coach is not editor of a team-editor board';
+  end if;
+  update public.boards set title = 'coach editor edit' where id = 'c0000000-0000-0000-0000-000000000002';
+  get diagnostics updated = row_count;
+  if updated <> 1 then raise exception 'FAIL team editor: a coach could not edit a team-editor board'; end if;
+
+  begin
+    insert into public.board_access (board_id, user_id, capability)
+    values ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000004', 'viewer');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL editor cannot manage: an editor added a grant'; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 3. Team viewer grant: even a coach is capped at viewer, so they read but cannot edit.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA
+do $$
+declare n int; updated int;
+begin
+  if public.board_capability('c0000000-0000-0000-0000-000000000003') is distinct from 'viewer' then
+    raise exception 'FAIL team viewer: a coach is not capped at viewer on a team-viewer board';
+  end if;
+  select count(*) into n from public.boards where id = 'c0000000-0000-0000-0000-000000000003';
+  if n <> 1 then raise exception 'FAIL team viewer: a coach could not read a team-viewer board'; end if;
+  update public.boards set title = 'coach viewer edit' where id = 'c0000000-0000-0000-0000-000000000003';
+  get diagnostics updated = row_count;
+  if updated <> 0 then raise exception 'FAIL team viewer: a coach edited a team-viewer board (% rows)', updated; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 4. Direct user grant (co-editing): the grantee edits as their own capability, cannot manage the list,
+--    but may always remove their own grant (leave).
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000003","role":"authenticated"}'; -- coachA2
+do $$
+declare updated int; deleted int; blocked boolean := false;
+begin
+  if public.board_capability('d0000000-0000-0000-0000-000000000002') is distinct from 'editor' then
+    raise exception 'FAIL user grant: a directly-granted editor is not editor';
+  end if;
+  update public.boards set title = 'co-editor edit' where id = 'd0000000-0000-0000-0000-000000000002';
+  get diagnostics updated = row_count;
+  if updated <> 1 then raise exception 'FAIL user grant: a co-editor could not edit'; end if;
+
+  begin
+    insert into public.board_access (board_id, team_id, capability)
+    values ('d0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-00000000000a', 'viewer');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL user grant: a non-owner co-editor managed the access list'; end if;
+
+  delete from public.board_access
+    where board_id = 'd0000000-0000-0000-0000-000000000002' and user_id = 'a0000000-0000-0000-0000-000000000003';
+  get diagnostics deleted = row_count;
+  if deleted <> 1 then raise exception 'FAIL leave: a co-editor could not remove their own grant'; end if;
+end $$;
+reset role;
+
+-- The leave test above removed coachA2's grant from d0...002. Restore it (as the fixture owner, bypassing
+-- RLS) so the user-shared share-token check in section 9 still has a board shared with a non-creator user.
+insert into public.board_access (board_id, user_id, capability)
+  values ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000003', 'editor');
+
+-- ---------------------------------------------------------------------------
+-- 5. Personal privacy: a board with only its creator's grant is the creator's alone.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000003","role":"authenticated"}'; -- coachA2 (teammate)
+do $$
+declare n int;
+begin
+  select count(*) into n from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
+  if n <> 0 then raise exception 'FAIL personal privacy: a teammate read a private personal board'; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 6. Owner manages the access list: an owner adds and removes grants; the bootstrap+coach insert guard
+--    blocks a team grant for a team the caller does not coach.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA (owner of team A board)
+do $$
+declare blocked boolean := false;
+begin
+  insert into public.board_access (board_id, user_id, capability)
+  values ('c0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000004', 'editor');
+
+  begin
+    insert into public.board_access (board_id, team_id, capability)
+    values ('c0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000b', 'viewer');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL insert guard: an owner granted a team they do not coach'; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 7. Showcase widening: a showcase-team grant reads as viewer for any authenticated user (no membership),
+--    who may read but not edit.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}'; -- coachB (not a showcase member)
+do $$
+declare n int; updated int;
+begin
+  if public.board_capability('e0000000-0000-0000-0000-000000000001') is distinct from 'viewer' then
+    raise exception 'FAIL showcase: an outsider is not viewer of a showcase board';
+  end if;
+  select count(*) into n from public.boards where id = 'e0000000-0000-0000-0000-000000000001';
+  if n <> 1 then raise exception 'FAIL showcase: an outsider could not read a showcase board'; end if;
+  update public.boards set title = 'showcase edit' where id = 'e0000000-0000-0000-0000-000000000001';
+  get diagnostics updated = row_count;
+  if updated <> 0 then raise exception 'FAIL showcase: an outsider edited a showcase board (% rows)', updated; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 8. Admin god-mode: an admin with no membership reads every board and edits one held only at viewer.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000001","role":"authenticated"}'; -- admin
+do $$
+declare n int; updated int;
+begin
+  select count(*) into n from public.boards
+    where id in ('c0000000-0000-0000-0000-000000000003', 'c0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000001');
+  if n <> 3 then raise exception 'FAIL admin read: admin saw % of 3 boards', n; end if;
+
+  update public.boards set title = 'admin edit' where id = 'c0000000-0000-0000-0000-000000000003';
+  get diagnostics updated = row_count;
+  if updated <> 1 then raise exception 'FAIL admin write: admin could not edit a viewer-only board'; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 9. Share-token resolution: a team-granted board and a user-shared board resolve by exact token for an
+--    anonymous visitor; a board with only its creator's grant never resolves.
 -- ---------------------------------------------------------------------------
 do $$
-declare
-  tok_team text;
-  tok_shared text;
-  tok_unshared text;
-  n int;
+declare tok_team text; tok_shared text; tok_private text; n int;
 begin
-  select share_token into tok_team     from public.boards where id = 'c0000000-0000-0000-0000-000000000001';
-  select share_token into tok_shared   from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
-  select share_token into tok_unshared from public.boards where id = 'd0000000-0000-0000-0000-000000000002';
+  select share_token into tok_team    from public.boards where id = 'c0000000-0000-0000-0000-000000000001';
+  select share_token into tok_shared  from public.boards where id = 'd0000000-0000-0000-0000-000000000002';
+  select share_token into tok_private from public.boards where id = 'd0000000-0000-0000-0000-000000000001';
 
   set local role anon;
 
@@ -215,56 +294,62 @@ begin
   if n <> 1 then raise exception 'FAIL token: a team board did not resolve by token'; end if;
 
   select count(*) into n from public.board_by_token(tok_shared);
-  if n <> 1 then raise exception 'FAIL token: a shared personal board did not resolve by token'; end if;
+  if n <> 1 then raise exception 'FAIL token: a user-shared board did not resolve by token'; end if;
 
-  select count(*) into n from public.board_by_token(tok_unshared);
-  if n <> 0 then raise exception 'FAIL token: an unshared personal board resolved by token'; end if;
+  select count(*) into n from public.board_by_token(tok_private);
+  if n <> 0 then raise exception 'FAIL token: a private personal board resolved by token'; end if;
 
   reset role;
 end $$;
 
 -- ---------------------------------------------------------------------------
--- 7. Copy and promotion writes: any user may create a personal board (a copy target); a coach may insert
---    a team board (promote by copy); the owner may move their own board into a team they coach, but a
---    non-coach owner may not.
+-- 10. Reference-count archive: removing a grant leaves a board that still has one alone; removing the last
+--     grant grace-archives the row.
 -- ---------------------------------------------------------------------------
-set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}'; -- coachB
-do $$
-begin
-  insert into public.boards (owner, scope, title)
-  values ('a0000000-0000-0000-0000-000000000005', 'personal', 'coach B copy');
-exception when others then
-  raise exception 'FAIL copy: a user could not create a personal board (a copy target): %', sqlerrm;
-end $$;
-reset role;
-
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA (owner)
 do $$
-declare updated int;
+declare archived timestamptz;
 begin
-  insert into public.boards (owner, scope, team_id, title)
-  values ('a0000000-0000-0000-0000-000000000002', 'team', 'b0000000-0000-0000-0000-00000000000a', 'promoted copy');
+  -- Remove the team grant; the owner grant remains, so the board still reads to coachA and is not archived.
+  delete from public.board_access
+    where board_id = 'f0000000-0000-0000-0000-000000000001' and team_id = 'b0000000-0000-0000-0000-00000000000a';
+  select deleted_at into archived from public.boards where id = 'f0000000-0000-0000-0000-000000000001';
+  if archived is not null then raise exception 'FAIL reference count: a board archived while a grant remained'; end if;
 
-  update public.boards set scope = 'team', team_id = 'b0000000-0000-0000-0000-00000000000a', shared = false
-    where id = 'd0000000-0000-0000-0000-000000000001';
-  get diagnostics updated = row_count;
-  if updated <> 1 then raise exception 'FAIL move: an owner-coach could not move their board into the team (% rows)', updated; end if;
+  -- Leave (remove own last grant); the board now has no grants, so coachA can no longer read it.
+  delete from public.board_access
+    where board_id = 'f0000000-0000-0000-0000-000000000001' and user_id = 'a0000000-0000-0000-0000-000000000002';
 end $$;
 reset role;
 
-set local role authenticated;
-set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000004","role":"authenticated"}'; -- playerA (non-coach owner)
+-- The board is archived now; verify as the fixture owner, since no one holds a grant to read it through RLS.
 do $$
-declare blocked boolean := false;
+declare archived timestamptz;
 begin
-  begin
-    update public.boards set scope = 'team', team_id = 'b0000000-0000-0000-0000-00000000000a'
-      where id = 'd0000000-0000-0000-0000-000000000002';
-  exception when others then blocked := true;
-  end;
-  if not blocked then raise exception 'FAIL move guard: a non-coach owner moved their board into a team'; end if;
+  select deleted_at into archived from public.boards where id = 'f0000000-0000-0000-0000-000000000001';
+  if archived is null then raise exception 'FAIL reference count: a board did not archive when its last grant went'; end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 11. Commit compare-and-swap: a commit on the current base advances the revision; a commit on a stale base
+--     returns null (the conflict the client resolves).
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA (owner)
+do $$
+declare content jsonb; rev1 uuid; rev2 uuid;
+begin
+  content := jsonb_build_object('title', 'committed', 'description', '', 'mode', 'positions',
+    'markers', '[]'::jsonb, 'steps', '[]'::jsonb, 'tags', '[]'::jsonb, 'auto_arrows', true, 'rotation_strict', false);
+
+  -- The board was inserted directly, so its current revision is null; committing on a null base seeds it.
+  rev1 := public.commit_board('c0000000-0000-0000-0000-000000000001', content, null);
+  if rev1 is null then raise exception 'FAIL commit: a fresh commit on the current base was rejected'; end if;
+
+  -- Re-committing on the same (now stale) null base must conflict.
+  rev2 := public.commit_board('c0000000-0000-0000-0000-000000000001', content, null);
+  if rev2 is not null then raise exception 'FAIL commit: a commit on a stale base was not rejected'; end if;
 end $$;
 reset role;
 

@@ -135,7 +135,7 @@ export function boardToContent(board: Board): Record<string, unknown> {
   };
 }
 
-export function noteFromRow(row: NoteRow): Note {
+export function noteFromRow(row: NoteRow, capability: Capability): Note {
   return {
     id: row.id,
     title: row.title,
@@ -143,6 +143,7 @@ export function noteFromRow(row: NoteRow): Note {
     blocks: row.blocks,
     parentId: row.parent_id,
     order: row.sort_order,
+    capability,
     currentRevisionId: row.current_revision_id,
   };
 }
@@ -220,6 +221,7 @@ export function noteFromRevision(row: NoteRevisionRow, note: Note): Note {
     blocks: (c.blocks as NoteBlock[]) ?? [],
     parentId: note.parentId,
     order: note.order,
+    capability: note.capability,
     currentRevisionId: row.id,
   };
 }

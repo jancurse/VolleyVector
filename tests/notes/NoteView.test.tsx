@@ -35,6 +35,7 @@ function renderView(blocks: NoteBlock[], boards: Board[]) {
     blocks,
     parentId: null,
     order: 0,
+    capability: "owner",
     currentRevisionId: null,
   };
 
