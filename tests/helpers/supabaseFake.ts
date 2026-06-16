@@ -434,6 +434,23 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
 export const DELETED_ACCOUNT = { id: "gone-1", email: "gone@volley.test" };
 export const DELETED_TEAM = { id: "old-team-1", name: "Old Team" };
 
+// The profile rows, shared by the `profiles` table reads (display name only for an ordinary client) and
+// the admin-only `admin_list_profiles` RPC (which adds email). Email is never selectable through the
+// table itself server-side; the fake does not model column grants, so tests assert the client behaviour.
+function profileRows(): Row[] {
+  return [
+    {
+      id: TEST_USER.id,
+      email: TEST_USER.email,
+      is_admin: authz.isAdmin,
+      display_name: authz.displayName,
+      deleted_at: null,
+    },
+    { id: OTHER_MEMBER.id, email: OTHER_MEMBER.email, is_admin: false, display_name: "Player Pat", deleted_at: null },
+    { id: DELETED_ACCOUNT.id, email: DELETED_ACCOUNT.email, is_admin: false, display_name: null, deleted_at: ISO },
+  ];
+}
+
 function from(table: string): Query {
   switch (table) {
     case "boards":
@@ -493,34 +510,10 @@ function from(table: string): Query {
       );
     case "invites":
       return makeQuery(table, [], { token: "new-invite-token" });
+    case "access_links":
+      return makeQuery(table, [], { token: "new-grant-token" });
     case "profiles":
-      return makeQuery(
-        table,
-        [
-          {
-            id: TEST_USER.id,
-            email: TEST_USER.email,
-            is_admin: authz.isAdmin,
-            display_name: authz.displayName,
-            deleted_at: null,
-          },
-          {
-            id: OTHER_MEMBER.id,
-            email: OTHER_MEMBER.email,
-            is_admin: false,
-            display_name: "Player Pat",
-            deleted_at: null,
-          },
-          {
-            id: DELETED_ACCOUNT.id,
-            email: DELETED_ACCOUNT.email,
-            is_admin: false,
-            display_name: null,
-            deleted_at: ISO,
-          },
-        ],
-        null
-      );
+      return makeQuery(table, profileRows(), null);
     default:
       return makeQuery(table, [], null);
   }
@@ -567,6 +560,18 @@ function rpc(fn: string, params: Record<string, unknown>): Promise<DbResult> {
   }
 
   if (fn === "soft_delete_topic" || fn === "delete_team") return Promise.resolve(ok(null));
+
+  // The admin-only profile list (with email); the fake serves it to any caller since it does not model
+  // authz for reads.
+  if (fn === "admin_list_profiles") return Promise.resolve(ok(profileRows()));
+
+  // Sharing outside your teams. The grant-by-email RPCs return nothing whether or not an account matched
+  // (the server makes a miss indistinguishable from a hit), so the fake just accepts the call. The link
+  // preview and redeem RPCs return shaped rows so the redeem flow can be tested.
+  if (fn === "grant_board_by_email" || fn === "grant_topic_by_email") return Promise.resolve(ok(null));
+  if (fn === "access_link_preview")
+    return Promise.resolve(ok([{ kind: "board", title: "Shared Tactic", capability: "editor" }]));
+  if (fn === "redeem_access_link") return Promise.resolve(ok([{ board_id: SHARED_PERSONAL.id, topic_id: null }]));
 
   if (fn !== "board_by_token") return Promise.resolve({ data: null, error: { message: `unknown rpc ${fn}` } });
 

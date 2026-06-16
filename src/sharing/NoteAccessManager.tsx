@@ -11,6 +11,9 @@ import type { TeamRef } from "../workspace/useWorkspace";
 import { AccessList } from "./AccessList";
 import { fetchAccess } from "./access";
 import type { AccessData, Profile } from "./access";
+import { fetchShareCandidates } from "./candidates";
+import type { ShareCandidate } from "./candidates";
+import { createTopicGrantLink, grantTopicByEmail } from "./grants";
 
 // The owner's access manager for one note, sharing its whole subtree at once. A note is a document and a tree
 // node; sharing applies to the note and every subnote beneath it, so a grant is written per node (reads stay
@@ -25,6 +28,8 @@ type NoteAccessManagerProps = {
   notes: readonly Note[];
   /** Teams the caller may grant to (the teams they coach). */
   coachedTeams: readonly TeamRef[];
+  /** Teams the caller belongs to, scoping the add-a-person picker to their teammates. */
+  memberTeams: readonly TeamRef[];
   /** Resolve any team's name (a grant may name a team the caller does not coach). */
   teamName: (teamId: string) => string;
   currentUserId: string;
@@ -36,11 +41,13 @@ export function NoteAccessManager({
   note,
   notes,
   coachedTeams,
+  memberTeams,
   teamName,
   currentUserId,
 }: NoteAccessManagerProps): JSX.Element {
   const [grants, setGrants] = useState<AccessRow[]>([]);
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
+  const [candidates, setCandidates] = useState<ShareCandidate[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Sharing writes one grant per node in the note's subtree, so reads (which select by the space's principal)
@@ -59,11 +66,12 @@ export function NoteAccessManager({
     let active = true;
 
     void fetchAccess("topic_access", "topic_id", note.id).then((data) => active && apply(data));
+    void fetchShareCandidates(memberTeams, currentUserId).then((r) => active && setCandidates(r.candidates));
 
     return () => {
       active = false;
     };
-  }, [open, note.id]);
+  }, [open, note.id, memberTeams, currentUserId]);
 
   const run = async (op: PromiseLike<{ error: { message: string } | null }>) => {
     const { error: writeError } = await op;
@@ -89,9 +97,12 @@ export function NoteAccessManager({
         profiles={profiles}
         error={error}
         coachedTeams={coachedTeams}
+        candidates={candidates}
         teamName={teamName}
         currentUserId={currentUserId}
         entityNoun="note"
+        onCreateLink={(capability) => createTopicGrantLink(note.id, capability, currentUserId)}
+        onGrantByEmail={(email, capability) => grantTopicByEmail(note.id, email, capability)}
         onAdd={(kind, id, capability) =>
           void run(
             supabase.from("topic_access").insert(

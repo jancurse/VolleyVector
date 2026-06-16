@@ -23,7 +23,7 @@ Review code for correctness, cleanliness, and codebase fit. The user will specif
 - **Simplification**: can any logic be simplified, with fewer branches, less indirection, or consolidated repetition?
 - **Codebase fit**: no duplication of existing functionality. Search for similar patterns before approving new ones. Consistent naming and patterns with surrounding code.
 - **Correctness**: the logic does what it's meant to, handling the expected inputs and the edge cases without bugs.
-- **Security**: changes preserve confidentiality, integrity, and availability. Secrets stay out of client code, untrusted input is handled safely, and access is enforced server-side rather than trusted to the client.
+- **Security**: changes preserve confidentiality, integrity, and availability. Secrets stay out of client code, untrusted input is handled safely, and access is enforced server-side rather than trusted to the client. Personal data (emails and the like) never reaches a non-admin client: check both what RLS policies and RPCs return and what the client selects.
 - **Testing**: sufficient tests for new/changed behaviour, following the react-testing skill rules. If tests are missing or inadequate, specify what should be tested.
 - **Documentation**: behaviour, data-model, or module-structure changes are reflected in the docs (README.md, AGENTS.md, docs/architecture.md). New documentation is proportional to the change, never over-explaining a small feature to the point of drowning surrounding content.
 - **Diagnostics**: all changed files pass formatting, linting, and type checking.

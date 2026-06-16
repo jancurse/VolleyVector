@@ -67,9 +67,11 @@ export function useAdmin(open: boolean): AdminData {
       // The recovery list is every grace-archived board/note: a row archives only once its access list
       // empties (reference counting), so this holds individually-deleted content and content orphaned by a
       // team or account removal alike. Team deletion still flags only the team; its rows cascade on purge.
+      // Email is admin-only, served by a security-definer RPC rather than a column any client could
+      // select, so the admin panel reads the profile list through it.
       const [teamsR, profilesR, boardsR, notesR] = await Promise.all([
         supabase.from("teams").select("id, name, archived_at, deleted_at"),
-        supabase.from("profiles").select("id, email, is_admin, deleted_at"),
+        supabase.rpc("admin_list_profiles"),
         supabase.from("boards").select("id, title, deleted_at").not("deleted_at", "is", null),
         supabase.from("topics").select("id, title, deleted_at").not("deleted_at", "is", null),
       ]);

@@ -23,14 +23,14 @@ VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, brow
 - `src/notes/`: the note-tree model, operations, store, sidebar, the note view/editor, and the board view's appears-in backlinks. (Server-side, notes live in the legacy-named `topics` table.)
 - `src/history/`: the revision list, the read-only board and note history views, the structured board/note diff, and the revision-loading hooks.
 - `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle.
-- `src/supabase/`, `src/auth/`, `src/account/`, `src/workspace/`, `src/team/`, `src/admin/`, `src/invites/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the account panel and display-name setup, the active-space and team membership state, team management (roles, invite links), admin management (teams, accounts, deleted-content recovery), the invite-link flow (preview, accept, set-password), and the sharing flows (the board and note access managers, copy-as-fork, the share-token route and read-only viewer).
+- `src/supabase/`, `src/auth/`, `src/account/`, `src/workspace/`, `src/team/`, `src/admin/`, `src/invites/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the account panel and display-name setup, the active-space and team membership state, team management (roles, invite links), admin management (teams, accounts, deleted-content recovery), the invite-link flow (preview, accept, set-password), and the sharing flows (the board and note access managers, the relationship-scoped principal picker, copy-as-fork, the share-token route and read-only viewer, and sharing outside your teams by grant link or exact email).
 - `src/App.tsx`: the top-level shell that owns navigation and wires the stores together.
 
 See @docs/architecture.md for how these fit together and the detail behind each.
 
 ## Writing Code
 
-- Always read the style guide before writing code: @docs/style_guide.md
+- Always read the style guide (`docs/style_guide.md`) before writing substantial code.
 - We use Prettier, ESLint, and the TypeScript compiler with a 120-character line length. Do not break lines manually. Run Prettier instead. Settings live in @package.json (Prettier), @eslint.config.js (ESLint), and @tsconfig.json (TypeScript).
 - **Icons: use Lucide (`lucide-react`).** Base UI ships no icons. Render a Lucide component for every UI glyph (`<ChevronRight size={14} />`); never hand-draw an inline `<svg>` icon. The only exceptions are the domain art in `src/court/` (the volleyball, net, and court lines) and the app brand mark in the header (mirrored by `public/favicon.svg`).
 - **Keep the board-creator skill in lockstep.** Any change to the bundle format (`src/bundle/types.ts`), the board or annotation model, or the court's geometry, roles, or colours must update `.claude/skills/board-creator/` in the same change (`format.md`, `court.md`, `examples/`, `scripts/validate.mjs`), bumping `FORMAT_VERSION` when the bundle shape changes.

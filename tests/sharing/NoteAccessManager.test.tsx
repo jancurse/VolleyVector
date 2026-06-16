@@ -29,6 +29,8 @@ const note = (id: string, parentId: string | null): Note => ({
 
 // A root note with one subnote, so a share must write a grant per node.
 const NOTES: Note[] = [note("root", null), note("child", "root")];
+// A stable array, so the candidate-loading effect (keyed on the member teams) runs once per render.
+const TEAMS = [{ teamId: TEST_TEAM_ID, teamName: "My Team", slug: "my-team" }];
 
 describe("NoteAccessManager", () => {
   test("sharing a note writes a grant across its whole subtree", async () => {
@@ -40,14 +42,15 @@ describe("NoteAccessManager", () => {
         onOpenChange={() => {}}
         note={NOTES[0]}
         notes={NOTES}
-        coachedTeams={[{ teamId: TEST_TEAM_ID, teamName: "My Team", slug: "my-team" }]}
+        coachedTeams={TEAMS}
+        memberTeams={TEAMS}
         teamName={() => "My Team"}
         currentUserId={TEST_USER.id}
       />
     );
 
-    // The first combobox is the principal picker; open it and (once the profiles load) pick the teammate.
-    await user.click(screen.getAllByRole("combobox")[0]);
+    // Open the relationship-scoped picker (named by its "Add a person or team" aria-label) and pick the teammate.
+    await user.click((await screen.findAllByRole("combobox", { name: "Add a person or team" }))[0]);
     await user.click(await screen.findByRole("option", { name: "Player Pat" }));
     await user.click(screen.getByRole("button", { name: "Add" }));
 
