@@ -141,6 +141,7 @@ const DELETED_TOPIC: NoteRow = {
 };
 
 type Grant = {
+  id: string;
   board_id?: string;
   topic_id?: string;
   user_id: string | null;
@@ -149,18 +150,65 @@ type Grant = {
 };
 
 // The access list. A team grant places content in that team's library; a user grant in that user's personal
-// space. board_by_token resolves a board only with a team grant or a grant to a non-creator user.
+// space. board_by_token resolves a board only with a team grant or a grant to a non-creator user. Each grant
+// carries a stable id (its principal disambiguates it on a row), so a write can target one grant by id.
 const BOARD_ACCESS: Grant[] = [
-  ...SAMPLE_BOARDS.map((b): Grant => ({ board_id: b.id, user_id: null, team_id: TEST_TEAM_ID, capability: "owner" })),
-  { board_id: PERSONAL_BOARD.id, user_id: TEST_USER.id, team_id: null, capability: "owner" },
-  { board_id: SHARED_PERSONAL.id, user_id: OTHER_MEMBER.id, team_id: null, capability: "owner" },
-  { board_id: SHOWCASE_BOARD.id, user_id: null, team_id: SHOWCASE_TEAM_ID, capability: "owner" },
-  { board_id: DELETED_BOARD.id, user_id: null, team_id: TEST_TEAM_ID, capability: "owner" },
+  ...SAMPLE_BOARDS.map(
+    (b): Grant => ({
+      id: `ba-${b.id}-${TEST_TEAM_ID}`,
+      board_id: b.id,
+      user_id: null,
+      team_id: TEST_TEAM_ID,
+      capability: "owner",
+    })
+  ),
+  {
+    id: `ba-${PERSONAL_BOARD.id}-${TEST_USER.id}`,
+    board_id: PERSONAL_BOARD.id,
+    user_id: TEST_USER.id,
+    team_id: null,
+    capability: "owner",
+  },
+  {
+    id: `ba-${SHARED_PERSONAL.id}-${OTHER_MEMBER.id}`,
+    board_id: SHARED_PERSONAL.id,
+    user_id: OTHER_MEMBER.id,
+    team_id: null,
+    capability: "owner",
+  },
+  {
+    id: `ba-${SHOWCASE_BOARD.id}-${SHOWCASE_TEAM_ID}`,
+    board_id: SHOWCASE_BOARD.id,
+    user_id: null,
+    team_id: SHOWCASE_TEAM_ID,
+    capability: "owner",
+  },
+  {
+    id: `ba-${DELETED_BOARD.id}-${TEST_TEAM_ID}`,
+    board_id: DELETED_BOARD.id,
+    user_id: null,
+    team_id: TEST_TEAM_ID,
+    capability: "owner",
+  },
 ];
 
 const TOPIC_ACCESS: Grant[] = [
-  ...SAMPLE_NOTES.map((n): Grant => ({ topic_id: n.id, user_id: null, team_id: TEST_TEAM_ID, capability: "owner" })),
-  { topic_id: DELETED_TOPIC.id, user_id: null, team_id: TEST_TEAM_ID, capability: "owner" },
+  ...SAMPLE_NOTES.map(
+    (n): Grant => ({
+      id: `ta-${n.id}-${TEST_TEAM_ID}`,
+      topic_id: n.id,
+      user_id: null,
+      team_id: TEST_TEAM_ID,
+      capability: "owner",
+    })
+  ),
+  {
+    id: `ta-${DELETED_TOPIC.id}-${TEST_TEAM_ID}`,
+    topic_id: DELETED_TOPIC.id,
+    user_id: null,
+    team_id: TEST_TEAM_ID,
+    capability: "owner",
+  },
 ];
 
 // Two revisions per sample board/note: an older draft and the current one (its id matches the row's
