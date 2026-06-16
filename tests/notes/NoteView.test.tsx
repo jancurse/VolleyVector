@@ -14,10 +14,9 @@ function board(id: string, title: string): Board {
     markers: [{ id: "m", role: "setter", label: "S" }],
     steps: [{ id: "s", instruction: "", positions: { m: { x: 0.5, y: 0.5 } } }],
     tags: [],
-    owner: "",
-    authorLocked: false,
-    shared: false,
-    teamId: null,
+    createdBy: null,
+    capability: "owner",
+    currentRevisionId: null,
     autoArrows: true,
     rotationStrict: false,
     createdAt: 0,
@@ -29,7 +28,16 @@ const ONE = board("b1", "Board One");
 const TWO = board("b2", "Board Two");
 
 function renderView(blocks: NoteBlock[], boards: Board[]) {
-  const note: Note = { id: "t", title: "Note", slug: "note", blocks, parentId: null, order: 0 };
+  const note: Note = {
+    id: "t",
+    title: "Note",
+    slug: "note",
+    blocks,
+    parentId: null,
+    order: 0,
+    capability: "owner",
+    currentRevisionId: null,
+  };
 
   render(
     <NoteView

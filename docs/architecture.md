@@ -40,17 +40,16 @@ type Board = {
   markers: BoardMarker[]; // shared identities
   steps: BoardStep[]; // ordered, always >= 1
   tags: string[];
-  owner: string | null; // the author account, or null once their account is deleted; set server-side
-  authorLocked: boolean; // a team board only its author and admins may edit
-  shared: boolean; // a personal board made visible to its team
-  teamId: string | null; // a team board's team, or a shared personal board's target team
+  createdBy: string | null; // the author account (attribution only), or null once their account is deleted
+  capability: Capability; // the viewer's own access: "viewer" | "editor" | "owner"; derived, never stored
+  currentRevisionId: string | null; // the revision this board's content matches, for conflict detection
   rotationStrict: boolean; // rotation enforcement: strict clamps illegal drags, loose only flags
   createdAt: number;
   updatedAt: number;
 };
 ```
 
-The client model carries only what a surface renders. The placement and access columns a board also has server-side (its `scope`, its team, the share token) are mapped in `supabase/rows.ts`: `scope` follows the active space, and the token is fetched on demand for a share link. See [Backend and access control](#backend-and-access-control).
+The client model carries only what a surface renders. A board's access list and revisions live in their own tables, mapped in `supabase/rows.ts`: `capability` is the viewer's effective grant (which gates the UI), and the share token is fetched on demand for a share link. See [Backend and access control](#backend-and-access-control).
 
 ### Positions and Sequences
 
@@ -191,6 +190,8 @@ type Note = {
   blocks: NoteBlock[]; // the document: prose and board-group blocks in order
   parentId: string | null;
   order: number;
+  capability: Capability; // the viewer's own access; derived, never stored
+  currentRevisionId: string | null; // the revision this note's content matches, for conflict detection
 };
 ```
 
@@ -212,7 +213,7 @@ Content leaves and enters the app two ways: a portable JSON **bundle** that roun
 
 ### The bundle format
 
-- `src/bundle/` owns the format: one versioned JSON object carrying notes and boards in full, rotations included, with no server-owned fields (owner, team, sharing, tokens, timestamps). `types.ts` is the single source of truth, mirrored by the board-creator skill's `format.md`.
+- `src/bundle/` owns the format: one versioned JSON object carrying notes and boards in full, rotations included, with no server-owned fields (creator, access list, revisions, tokens, timestamps). `types.ts` is the single source of truth, mirrored by the board-creator skill's `format.md`.
 - Items reference each other through opaque local `ref` strings (`parentRef`, `boardRefs`) that resolve within the bundle only. Import mints fresh ids and slugs; export uses the real ids as refs.
 - `FORMAT_VERSION` guards compatibility: an older bundle is normalized on parse with a "skill may be out of date" notice, and a newer one is rejected as the app being out of date. Version 2 named the notes `topics` and filed boards through a `topicRef`; parsing still reads both, folding a `topicRef` into a trailing board link on its note.
 - `parseBundle` is strict on structure and lenient on content. Malformed JSON, unknown refs, and missing required fields become readable errors; an out-of-range coordinate clamps to the court, a step missing a marker's position benches that marker, and an invalid annotation is dropped, each with a notice rather than a failure.
@@ -221,7 +222,7 @@ Content leaves and enters the app two ways: a portable JSON **bundle** that roun
 
 - Export builds a bundle at three levels: one board (the board's overflow menu and the share view's copy button), one note with its whole subtree and every board those notes reference (the note page menu), and the entire active space (the library page-bar menu). Each offers **Copy JSON** and **Download JSON**, and viewing rights suffice, so any user can take everything they can see.
 - **Import JSON…** in the library menu (shown only with create rights) parses pasted or file-picked JSON as it arrives and shows either the validation errors or a preview: the note tree plus each board as a static court thumbnail, with any notices. Confirming creates-only into the active space through the normal store writes, notes parents-first then boards; nothing is written before then, and a failed write surfaces in the dialog.
-- **Replace from JSON…** in the board menu overwrites one board's content from a single-board bundle while keeping its identity (id, owner, sharing), so iterating on a generated board needs no delete-and-reimport.
+- **Replace from JSON…** in the board menu overwrites one board's content from a single-board bundle while keeping its identity (id, creator, access list), so iterating on a generated board needs no delete-and-reimport.
 - The **board-creator** project skill (`.claude/skills/board-creator/`) authors bundles from prose or documents and validates them with a standalone script; a test feeds its example bundles through the real parser so the two cannot drift. In development a `#/preview` route renders draft bundles live (see the developer guide).
 
 ### Print handouts
@@ -233,46 +234,55 @@ Content leaves and enters the app two ways: a portable JSON **bundle** that roun
 
 Boards and notes live in Supabase, not the browser. The access boundary is row-level security in the database: every read and write rule holds even if the client is bypassed, so the client is never trusted. `src/supabase/` holds the one browser client (carrying only the public URL and publishable key) and the row↔model mappers.
 
-### Tables and the two spaces
+### Tables, principals, and the access list
 
-- The schema is six tables: `profiles` (one per account, with a display name and the global-admin flag), `teams`, `memberships` (`(user, team, role)`, role `coach` or `player`), `topics` (the notes — the table keeps its legacy name, as do the RPCs around it), `boards`, and `invites` (single-use invite links). Markers and steps are stored as JSON on a board, and a note's blocks (including its board links) as JSON on its row.
-- Every board and note carries a `scope`: a **team** item belongs to a team's shared library; a **personal** item belongs to one user's private space. The client loads the active space and writes new content into it.
-- At most one team is flagged `is_showcase` (enforced by a partial unique index): the **Inspiration** showcase, an example library every authenticated user may read and copy from. The flag plus widened `select` policies on `teams`, `topics`, and `boards` are the whole mechanism. Write rules are unchanged, so only its coaches (its curators) and admins author it.
-- A board also carries `owner` (its author), `author_locked`, `shared`, a `team_id` (the owning team, or a shared personal board's target), and an unguessable `share_token` minted server-side. The `owner` becomes null when its author's account is deleted, which reassigns their team boards to the team and clears the author lock.
-- Boards, notes, teams, and profiles all carry soft-delete state. A removed board or note is grace-archived (`deleted_at`/`deleted_by`) rather than dropped, and the every-space read queries filter `deleted_at is null`, so a deleted row is hidden everywhere but admin recovery. See [Deletion and recovery](#deletion-and-recovery).
+- The schema's core tables are `profiles` (one per account, with a display name and the global-admin flag), `teams`, `memberships` (`(user, team, role)`, role `coach` or `player`), `topics` (the notes — the table keeps its legacy name, as do the RPCs around it), `boards`, and `invites` (single-use invite links). Markers and steps are stored as JSON on a board, and a note's blocks (including its board links) as JSON on its row.
+- A board or note carries a `created_by` label (attribution only, nullable, never load-bearing) and an **access list**: `board_access` and `topic_access` rows, each one grant of `(principal, capability)`. A **principal** is a user or a team (exactly one column set); a **capability** is `viewer`, `editor`, or `owner`. Content appears in a space's library when that space's principal is on its list, so one board can live in several teams and a personal space at once, and "scope" is derived from the grants rather than stored.
+- A **team grant** maps the team's roles, capped by the grant's capability: a coach gets the grant's capability, any member at least viewer. So a team `owner` grant is an ordinary team-library board (coaches manage, players view); a team `viewer` grant is read-only for the whole team. Sharing a board into a team and moving it there are the same operation: adding a team grant at the chosen capability.
+- At most one team is flagged `is_showcase` (enforced by a partial unique index): the **Inspiration** showcase, an example library every authenticated user may read and copy from. A grant to the showcase team reads as viewer for everyone; writes are unchanged, so only its coaches and admins author it.
+- A board also carries an unguessable `share_token` minted server-side. Boards, notes, teams, and profiles all carry soft-delete state (`deleted_at`/`deleted_by`); every read query filters `deleted_at is null`, so a deleted row is hidden everywhere but admin recovery. See [Deletion and recovery](#deletion-and-recovery).
+- `board_capability(board)` and `topic_capability(topic)` are the `security definer` helpers that return the caller's highest grant (admin is owner everywhere). Policies read through them: select with any capability, update with editor or owner, and change the access list only with owner — except that anyone may always remove their own grant (leave). `capability_rank` orders the three levels so a policy can compare.
 
 ### Who may do what
 
-| Action                                  | Player | Coach        | Admin           |
-|-----------------------------------------|--------|--------------|-----------------|
-| View their team's library               | ✓      | ✓            | ✓ (every team)  |
-| View the Inspiration showcase library   | ✓      | ✓            | ✓               |
-| Create or edit team content             | —      | ✓ (own team) | ✓ (every team)  |
-| Edit a team board its author has locked | —      | author only  | ✓               |
-| Their own personal space                | full   | full         | full + god-mode |
-| Invite a member                         | —      | ✓ (own team) | ✓ (any team)    |
-| Create a team                           | —      | —            | ✓               |
-| Delete their own account                | ✓      | ✓            | ✓               |
-| Archive or delete a team                | —      | —            | ✓               |
-| Restore deleted content or an account   | —      | —            | ✓               |
+| Action                                | Player | Coach        | Admin           |
+|---------------------------------------|--------|--------------|-----------------|
+| View content granted to their team    | ✓      | ✓            | ✓ (every team)  |
+| View the Inspiration showcase library | ✓      | ✓            | ✓               |
+| Edit content a team holds for editing | —      | ✓ (own team) | ✓ (every team)  |
+| Co-edit a board granted to them       | ✓      | ✓            | ✓               |
+| Their own personal space              | full   | full         | full + god-mode |
+| Invite a member                       | —      | ✓ (own team) | ✓ (any team)    |
+| Create a team                         | —      | —            | ✓               |
+| Delete their own account              | ✓      | ✓            | ✓               |
+| Archive or delete a team              | —      | —            | ✓               |
+| Restore deleted content or an account | —      | —            | ✓               |
 
-- RLS helper functions (`is_admin`, `is_team_member`, `is_team_coach`, `is_showcase_team`) run `security definer` so a policy can check membership or the showcase flag without recursing. A `boards` guard trigger keeps `owner` immutable, except that an admin may reassign it and anyone may null it. Nulling orphans the board to the team and auto-clears the author lock. The trigger otherwise limits the author lock to the author and admins.
+- RLS helper functions (`is_admin`, `is_team_member`, `is_team_coach`, `is_showcase_team`, plus the capability functions) run `security definer` so a policy can resolve a grant without recursing. Only an owner (a board's creator by default, or anyone granted owner) changes its access list. A `boards` guard trigger keeps `created_by` immutable except to an admin, and adding a team grant requires coaching that team, so a board cannot be pushed into an arbitrary team's library.
 - An admin has full read/write across all teams and all personal content. This god-mode is a deliberate privacy trade-off for a small trusted group, called out in the README.
 
 ### Deletion and recovery
 
 Removal is a grace-archive, never an immediate hard delete: a removed item is hidden from every normal view, kept three months for admin recovery, then purged. Four removals differ:
 
-- **A board or note** is soft-deleted in place. `deleteBoard` stamps `deleted_at`/`deleted_by`; `removeNote` calls the `soft_delete_topic` RPC, which archives the whole subtree (boards are untouched — a note's links live in its own blocks). Every space query filters `deleted_at is null`, so the row drops out of the library.
-- **Removing a player** drops only their membership; their content is untouched (RLS already allowed it, no schema change).
-- **A team** has two admin-only states: archive (`archived_at`, a reversible hidden state dropped from the space switcher) and delete (the `delete_team` RPC sets `deleted_at` and starts the purge clock). Delete flags only the team, so its content stays intact: restoring brings it back, purging cascades it away.
-- **An account** deletes through the `delete-account` Edge Function: it bans the auth user and soft-deletes the profile. Their personal content is grace-archived; the team content they authored is reassigned to the team (`owner` becomes null), outside the recovery window. An admin restores within the window via `restore-account` (un-bans and clears the flag).
+- **Removal is detaching a grant, and archiving is reference-counted.** Deleting a board removes the caller's own grant rather than destroying the board; an `after delete` trigger on the access list grace-archives the row (`deleted_at`/`deleted_by`) only once its last grant is gone, so a board others still hold lives on. `removeNote` calls `soft_delete_topic`, which archives the whole subtree (boards are untouched — a note's links live in its own blocks). Every space query filters `deleted_at is null`.
+- **Removing a player** drops only their membership; their content is untouched (RLS already allowed it).
+- **A team** has two admin-only states: archive (`archived_at`, a reversible hidden state dropped from the space switcher) and delete (the `delete_team` RPC sets `deleted_at` and starts the purge clock). Delete flags only the team; purging it cascades its grants away, and the reference-count trigger then archives whatever that orphaned.
+- **An account** deletes through the `delete-account` Edge Function: it bans the auth user and soft-deletes the profile, removing the user as a principal. Content only they held grace-archives; content a team still holds lives on. An admin restores within the window via `restore-account` (un-bans and clears the flag).
 - **Purging** runs `purge_expired` (the `purge-expired` Edge Function) on a server-side schedule, hard-deleting boards, notes, and teams past three months. It is granted to `service_role` only, never reachable from a client. The admin panel (`src/admin/`) reads every recovery list through god-mode and drives the restores.
 
 ### Sharing and the share link
 
-- Sharing a personal board sets `shared` and a target `team_id`; RLS then lets that team's members read it, and the owner can copy or move it into the team library (a coach of any team can copy a shared board in; only the owner can move their own).
-- Every board has a `share_token`. The `board_by_token` function (`security definer`, granted to anonymous) resolves exactly one board from an exact token, but only a team board or a shared personal board, so an unshared board never leaks and the collection cannot be enumerated. `src/sharing/` holds the share dialog, the copy/promote actions, and the read-only `ShareView` reached by the `#/share/<token>` hash route.
+- Sharing is editing the access list: an owner adds a grant for a user (co-editing one board) or a team (placing it in that team's library), at viewer, editor, or owner. Multiple grants are how a coach of several teams keeps one board across them, and how teammates co-edit a single board instead of each holding a copy. `src/sharing/` holds the board and note access managers, the copy actions (a deliberate fork into a separate board), and the read-only `ShareView`. Copy stays for forking; live grants replace copy-back-and-forth for collaboration. A note is shared the same way and carries its own per-note capability: its access manager grants the whole subtree at once, writing one grant per node so reads stay non-recursive.
+- Every board has a `share_token`. The `board_by_token` function (`security definer`, granted to anonymous) resolves one board from an exact token, but only a genuinely shared one (a team grant, or a grant to a user other than its creator), so a private board never leaks and the collection cannot be enumerated. The read-only viewer is reached by the `#/share/<token>` hash route.
+
+### Versioning and history
+
+Every commit (the editor's Done) is a revision, so boards and notes carry a linear edit history with conflict detection. There is no branching or merging: co-editing means taking turns, made safe by the conflict check.
+
+- `board_revisions` and `topic_revisions` hold one append-only content snapshot per commit, with its author, time, and the revision it was based on; the board/note row points at its `current_revision_id`.
+- Committing goes through the `commit_board`/`commit_topic` RPCs, a compare-and-swap: the editor passes the revision it started from, and the write only lands while that is still current. A stale base returns a conflict the editor resolves (overwrite, save a copy, or discard) rather than silently clobbering a co-editor.
+- History reads as a revision list on the view with a change summary and a read-only preview; restoring an old revision commits its content as a new revision rather than rewinding, keeping history append-only.
 
 ### Auth, invites, and keep-alive
 
@@ -285,7 +295,7 @@ Removal is a grace-archive, never an immediate hard delete: a removed item is hi
 
 ### Stores and persistence
 
-- `useBoards` and `useNotes` hold the active space's board list and note tree in React state and expose the mutations the UI calls. Both load from Supabase when the active space changes, scoped to it (a team's by team, the personal space's by owner), and write each edit through to the database. Edits apply optimistically so the UI stays responsive; a failed write surfaces an error and refetches to reconcile.
+- `useBoards` and `useNotes` hold the active space's board list and note tree in React state and expose the mutations the UI calls. Both load from Supabase when the active space changes, by the space's principal on the access list (a team's grants by team, the personal space's by the user), and attach the viewer's `capability` to each item. They write content edits through the commit RPC (which records a revision and rejects a stale base) and access-list edits through `board_access`/`topic_access`. Edits apply optimistically; a failed write surfaces an error and refetches to reconcile.
 - The active space comes from `workspace/useWorkspace.ts`, which loads the user's teams, role per team, and admin flag, and tracks which space is on screen. The space switcher moves between the personal space and each team, and everyone also sees the read-only Inspiration showcase as its own icon-badged row. A showcase membership (a curator) is carried on `showcase.role` rather than in the team list, so the showcase stays one row whether or not the user is on its roster. An admin also reaches every remaining team behind a collapsed "Other teams" disclosure, so the switcher stays short as teams grow. Creating a team adds no membership: the new team lands in the admin's other teams. The team page lets an admin join any reachable team (including the showcase) with a chosen role and leave again, since their access never depended on membership.
 - The stores keep the two models honest. A note's board groups carry their own explicit order, so curating a note never touches a board, and structural note moves (reordering siblings, nesting from the sidebar) only touch the note tree — neither churns the library's newest-first order. The first team's library is seeded once, server-side, by the setup seed.
 

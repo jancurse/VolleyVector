@@ -21,17 +21,27 @@ afterEach(() => vi.clearAllMocks());
 const wrapper = ({ children }: { children: ReactNode }) => createElement(AuthProvider, null, children);
 const TEAM_SPACE: Space = { kind: "team", teamId: TEST_TEAM_ID };
 
+// The default fake authz is an admin coach, so the viewer's derived capability on team notes is owner.
 function renderNotes() {
-  return renderHook(() => useNotes(TEAM_SPACE), { wrapper });
+  return renderHook(() => useNotes(TEAM_SPACE, true, "coach"), { wrapper });
 }
 
 describe("useNotes", () => {
-  test("a normal load excludes grace-archived notes", async () => {
+  test("a normal load excludes grace-archived notes and derives the viewer's capability", async () => {
     const { result } = renderNotes();
 
     await waitFor(() => expect(result.current.notes.length).toBeGreaterThan(0));
 
     expect(result.current.notes.some((t) => t.title === "Archived Note")).toBe(false);
+    expect(result.current.notes.every((t) => t.capability === "owner")).toBe(true);
+  });
+
+  test("a non-coach member reads a team note's grant as viewer", async () => {
+    const { result } = renderHook(() => useNotes(TEAM_SPACE, false, "player"), { wrapper });
+
+    await waitFor(() => expect(result.current.notes.length).toBeGreaterThan(0));
+
+    expect(result.current.notes.every((t) => t.capability === "viewer")).toBe(true);
   });
 
   test("removing a note calls the soft_delete_topic RPC and drops it from the tree", async () => {

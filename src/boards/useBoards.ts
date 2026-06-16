@@ -3,10 +3,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
 import { writeWithRetries } from "../supabase/retry";
-import type { BoardRow } from "../supabase/rows";
-import { boardFromRow, boardToInsert, boardToUpdate } from "../supabase/rows";
+import type { BoardRow, Capability } from "../supabase/rows";
+import { boardFromRow, boardToContent, boardToInsert } from "../supabase/rows";
+import type { TeamRole } from "../workspace/useWorkspace";
 import type { Space } from "../workspace/space";
 import type { Board } from "./types";
+
+/** `updateBoard` resolves to this when the commit's base revision is stale: a co-editor committed first, so
+ *  the caller resolves the conflict (overwrite, save a copy, or discard) rather than clobbering them. */
+export const COMMIT_CONFLICT = "\0conflict";
 
 export type BoardsStore = {
   boards: Board[];
@@ -14,52 +19,70 @@ export type BoardsStore = {
   loading: boolean;
   /** The last load or write error, or null. */
   error: string | null;
-  /** Commit a new board (the editor's Done): awaited and retried, the list updates only on success.
-   *  Resolves to null on success, or the error message — the caller owns the failure UI. */
+  /** Commit a new board (the editor's Done on a board not yet saved): inserts the row and the creator's
+   *  owner grant. Resolves to null on success, or the error message. */
   addBoard: (board: Board) => Promise<string | null>;
+  /** Remove the caller's grant on a board (their user grant in the personal space, the team's grant in a
+   *  team space). The board grace-archives only once its last grant is gone. */
   deleteBoard: (id: string) => void;
-  /** Commit an edited board, refreshing `updatedAt`. Awaited and retried like `addBoard`. */
-  updateBoard: (board: Board) => Promise<string | null>;
-  /** Set or clear a team board's author lock. Only its author or an admin may do this (RLS-enforced). */
-  setBoardLock: (id: string, locked: boolean) => void;
-  /** Share a personal board into a team: visible to its members and link-resolvable. Owner-only (RLS). */
-  shareBoard: (id: string, teamId: string) => void;
-  /** Stop sharing a personal board, so only its owner can see it again. Owner-only (RLS). */
-  unshareBoard: (id: string) => void;
-  /** Move the owner's shared personal board into a team they coach; it leaves the personal space. */
-  moveBoardToTeam: (id: string, teamId: string) => void;
+  /** Commit an edited board through the conflict-checked RPC. Resolves null on success, COMMIT_CONFLICT on a
+   *  stale base, or the error message. Pass `overwrite` to re-base onto the current revision and win. */
+  updateBoard: (board: Board, opts?: { overwrite?: boolean }) => Promise<string | null>;
 };
 
-/** A read query for the boards of one space: a team's by team, the personal space's by owner. Grace-archived
- *  rows (deleted_at set) are hidden from every normal view; only admin recovery reads them. */
+type LoadedBoardRow = BoardRow & { board_access: { capability: Capability }[] };
+
+/** A read query for the boards of one space: by the space's principal on the access list (a team's grants by
+ *  team, the personal space's by the user). Grace-archived rows are hidden from every normal view. */
 function selectSpaceBoards(space: Space, userId: string) {
-  const query = supabase.from("boards").select("*").is("deleted_at", null);
+  const query = supabase
+    .from("boards")
+    .select("*, board_access!inner(capability, user_id, team_id)")
+    .is("deleted_at", null);
 
   return space.kind === "team"
-    ? query.eq("scope", "team").eq("team_id", space.teamId)
-    : query.eq("scope", "personal").eq("owner", userId);
+    ? query.eq("board_access.team_id", space.teamId)
+    : query.eq("board_access.user_id", userId);
 }
 
-/** The active space's boards, loaded from Supabase and written through on each edit. The editor's
- *  commits (`addBoard`/`updateBoard`) are awaited with retries and update the list only on success, so
- *  a failed Done keeps the user's draft as the sole copy of their work. The small writes apply
- *  optimistically so the UI stays responsive; one failing surfaces an error and refetches to
- *  reconcile. Access (who may read or write) is enforced by row-level security, never here. */
-export function useBoards(space: Space | null): BoardsStore {
+/** The active space's boards, loaded from Supabase by access grant and written through on each edit. Content
+ *  commits (`addBoard`/`updateBoard`) go through the conflict-checked RPC; access (who may read or write) is
+ *  enforced by row-level security, never here. The viewer's `capability` is derived from the space's grant
+ *  and their role: an admin is owner everywhere, a coach gets the team grant's capability, anyone else a
+ *  team grant reads as viewer, and a direct user grant counts as itself. */
+export function useBoards(space: Space | null, isAdmin: boolean, activeRole: TeamRole | null): BoardsStore {
   const { user } = useAuth();
 
   const [boards, setBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const capabilityOf = useCallback(
+    (grant: Capability | undefined): Capability => {
+      if (isAdmin) return "owner";
+      if (!grant) return "viewer";
+      if (space?.kind === "team") return activeRole === "coach" ? grant : "viewer";
+
+      return grant;
+    },
+    [isAdmin, activeRole, space]
+  );
+
+  const mapRows = useCallback(
+    (rows: LoadedBoardRow[]): Board[] =>
+      rows
+        .map((row) => boardFromRow(row, capabilityOf(row.board_access[0]?.capability)))
+        .sort((a, b) => b.updatedAt - a.updatedAt),
+    [capabilityOf]
+  );
+
   const refetch = useCallback(async () => {
     if (!space || !user) return;
 
     const { data, error: queryError } = await selectSpaceBoards(space, user.id);
 
-    if (!queryError && data)
-      setBoards((data as BoardRow[]).map(boardFromRow).sort((a, b) => b.updatedAt - a.updatedAt));
-  }, [space, user]);
+    if (!queryError && data) setBoards(mapRows(data as LoadedBoardRow[]));
+  }, [space, user, mapRows]);
 
   useEffect(() => {
     let active = true;
@@ -86,14 +109,14 @@ export function useBoards(space: Space | null): BoardsStore {
         return;
       }
 
-      setBoards((data as BoardRow[]).map(boardFromRow).sort((a, b) => b.updatedAt - a.updatedAt));
+      setBoards(mapRows(data as LoadedBoardRow[]));
       setLoading(false);
     })();
 
     return () => {
       active = false;
     };
-  }, [space, user]);
+  }, [space, user, mapRows]);
 
   const fail = useCallback(
     (message: string) => {
@@ -107,119 +130,85 @@ export function useBoards(space: Space | null): BoardsStore {
     async (board: Board): Promise<string | null> => {
       if (!space || !user) return "No active space to save into.";
 
-      const scope = space.kind === "team" ? "team" : "personal";
-      const teamId = space.kind === "team" ? space.teamId : null;
-      // Stamp the commit time (the server stamps its own on insert), so the board leads the
-      // newest-first order even when it carries an older board's timestamps (a duplicate).
-      const stamped = { ...board, createdAt: Date.now(), updatedAt: Date.now() };
+      // Stamp the commit time so the board leads the newest-first order even when it carries an older
+      // board's timestamps (a duplicate). The server stamps its own on insert.
+      const stamped = { ...board, capability: "owner" as Capability, createdAt: Date.now(), updatedAt: Date.now() };
 
-      const writeError = await writeWithRetries(async () => {
-        const result = await supabase.from("boards").insert(boardToInsert(stamped, user.id, scope, teamId));
+      const boardError = await writeWithRetries(async () => {
+        const result = await supabase.from("boards").insert(boardToInsert(stamped, user.id));
 
-        // The id is a client-minted UUID, so a duplicate key can only be this board's own earlier
-        // attempt whose response was lost in transit — the save already happened, count it a success.
+        // A duplicate key is this board's own earlier attempt whose response was lost — count it a success.
         return result.error?.code === "23505" ? { error: null } : result;
       });
 
-      if (writeError === null) setBoards((prev) => [stamped, ...prev]);
+      if (boardError !== null) return boardError;
 
-      return writeError;
+      // The creator's first grant: the access list is empty until now, so the bootstrap insert policy lets
+      // the creator add it. A team board is owned by its team (coaches manage); a personal board by the user.
+      const grant = {
+        board_id: stamped.id,
+        user_id: space.kind === "team" ? null : user.id,
+        team_id: space.kind === "team" ? space.teamId : null,
+        capability: "owner" as Capability,
+      };
+
+      const grantError = await writeWithRetries(async () => {
+        const result = await supabase.from("board_access").insert(grant);
+
+        return result.error?.code === "23505" ? { error: null } : result;
+      });
+
+      if (grantError !== null) return grantError;
+
+      setBoards((prev) => [stamped, ...prev]);
+
+      return null;
     },
     [space, user]
   );
 
-  const updateBoard = useCallback(async (board: Board): Promise<string | null> => {
-    const updated = { ...board, updatedAt: Date.now() };
-    const writeError = await writeWithRetries(() =>
-      supabase.from("boards").update(boardToUpdate(updated)).eq("id", board.id)
+  const updateBoard = useCallback(async (board: Board, opts?: { overwrite?: boolean }): Promise<string | null> => {
+    let base = board.currentRevisionId;
+
+    if (opts?.overwrite) {
+      const { data: current } = await supabase.from("boards").select("current_revision_id").eq("id", board.id).single();
+
+      base = (current as { current_revision_id: string | null } | null)?.current_revision_id ?? null;
+    }
+
+    const { data, error: rpcError } = await supabase.rpc("commit_board", {
+      board: board.id,
+      content: boardToContent(board),
+      base,
+    });
+
+    if (rpcError) return rpcError.message;
+    if (data === null) return COMMIT_CONFLICT;
+
+    const updated = { ...board, currentRevisionId: data as string, updatedAt: Date.now() };
+
+    setBoards((prev) =>
+      prev.some((b) => b.id === board.id) ? prev.map((b) => (b.id === board.id ? updated : b)) : [updated, ...prev]
     );
 
-    // Re-add a board the list no longer holds (e.g. a refetch raced the commit), so a saved board
-    // never vanishes from the UI.
-    if (writeError === null)
-      setBoards((prev) =>
-        prev.some((b) => b.id === board.id) ? prev.map((b) => (b.id === board.id ? updated : b)) : [updated, ...prev]
-      );
-
-    return writeError;
+    return null;
   }, []);
 
-  // Deletion is a grace-archive, not a hard delete: the row stays for 3 months of admin recovery, hidden
-  // from every normal view. The optimistic removal from the in-memory list is unchanged.
+  // Deletion detaches the caller's grant: their user grant in the personal space, the team's grant in a team
+  // space. An after-delete trigger grace-archives the board only once its last grant is gone.
   const deleteBoard = useCallback(
     (id: string) => {
-      if (!user) return;
+      if (!space || !user) return;
 
       setBoards((prev) => prev.filter((b) => b.id !== id));
-      void supabase
-        .from("boards")
-        .update({ deleted_at: new Date().toISOString(), deleted_by: user.id })
-        .eq("id", id)
-        .then(({ error: writeError }) => writeError && fail(writeError.message));
+
+      const query = supabase.from("board_access").delete().eq("board_id", id);
+      const scoped = space.kind === "team" ? query.eq("team_id", space.teamId) : query.eq("user_id", user.id);
+
+      void scoped.then(({ error: writeError }) => writeError && fail(writeError.message));
     },
-    [user, fail]
+    [space, user, fail]
   );
 
-  const setBoardLock = useCallback(
-    (id: string, locked: boolean) => {
-      setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, authorLocked: locked } : b)));
-      void supabase
-        .from("boards")
-        .update({ author_locked: locked })
-        .eq("id", id)
-        .then(({ error: writeError }) => writeError && fail(writeError.message));
-    },
-    [fail]
-  );
-
-  const shareBoard = useCallback(
-    (id: string, teamId: string) => {
-      setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, shared: true, teamId } : b)));
-      void supabase
-        .from("boards")
-        .update({ shared: true, team_id: teamId })
-        .eq("id", id)
-        .then(({ error: writeError }) => writeError && fail(writeError.message));
-    },
-    [fail]
-  );
-
-  const unshareBoard = useCallback(
-    (id: string) => {
-      setBoards((prev) => prev.map((b) => (b.id === id ? { ...b, shared: false, teamId: null } : b)));
-      void supabase
-        .from("boards")
-        .update({ shared: false, team_id: null })
-        .eq("id", id)
-        .then(({ error: writeError }) => writeError && fail(writeError.message));
-    },
-    [fail]
-  );
-
-  // A move relocates the board into the team library, so it leaves the personal space the list holds.
-  // The owner stays the author. Any personal notes referencing it simply stop resolving the id.
-  const moveBoardToTeam = useCallback(
-    (id: string, teamId: string) => {
-      setBoards((prev) => prev.filter((b) => b.id !== id));
-      void supabase
-        .from("boards")
-        .update({ scope: "team", team_id: teamId, shared: false })
-        .eq("id", id)
-        .then(({ error: writeError }) => writeError && fail(writeError.message));
-    },
-    [fail]
-  );
-
-  return {
-    boards,
-    loading,
-    error,
-    addBoard,
-    deleteBoard,
-    updateBoard,
-    setBoardLock,
-    shareBoard,
-    unshareBoard,
-    moveBoardToTeam,
-  };
+  return { boards, loading, error, addBoard, deleteBoard, updateBoard };
 }

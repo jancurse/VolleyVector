@@ -1,10 +1,12 @@
 // VolleyCoach — delete-account Edge Function.
-// Deleting an account needs the privileged server key: removing the auth user is not a client write, and
-// it must run after the user's personal content is grace-archived. The caller is authorized from their own
-// login (an admin may delete any non-admin account; any user may delete their own), then the privileged
-// client grace-archives the target's personal boards and topics and removes the auth user. Deleting the
-// auth user cascades to the profile and, via the owner FK's on-delete-set-null, reassigns the target's
-// remaining (team) content to the team (owner becomes null). Memberships cascade away.
+// Deleting an account is a soft-delete with a 3-month recovery window: it bans the auth user and stamps the
+// profile deleted_at, nothing more. The caller is authorized from their own login (an admin may delete any
+// non-admin account; any user may delete their own), then the privileged client bans and flags the target.
+// Under the access-list model the user's content is reached purely through their grants, so banning them
+// already removes them as an active principal: their personal content becomes inaccessible (only they held
+// it, and they can no longer log in) while team-held content lives on through the team grant. The grants
+// stay intact for the window, so restore is lossless. Reference-count grace-archive happens only at the hard
+// purge, when deleting the auth user cascades their grants away (see purge-expired).
 // Deploy from the Supabase dashboard (Edge Functions -> Deploy a new function -> Via Editor).
 //
 // Privileged calls use a new-format secret key (`sb_secret_...`) read from the auto-injected
@@ -91,21 +93,11 @@ Deno.serve(async (req) => {
   if (targetProfile.is_admin === true) return json({ error: "An admin account cannot be deleted. Revoke admin first." }, 403);
 
   // Account deletion is a soft-delete with a 3-month recovery window. We do NOT hard-delete the auth user
-  // here; the scheduled purge does that after the window. Three steps:
-  //   1. Detach the user's authored TEAM content to the team (owner -> null). The board guard trigger clears
-  //      author_locked on the null path, so the team keeps full access. This content is the team's now and
-  //      is never part of the recovery window.
-  //   2. Flag the profile deleted (the recovery window applies to the user's personal area + login only).
-  //   3. Ban the auth user so they cannot log in. Restore (restore-account) un-bans and clears the flag.
+  // here, and we leave the user's grants intact so restore is lossless; the scheduled purge cascades the
+  // grants away after the window. Two steps:
+  //   1. Flag the profile deleted (the recovery window applies to the user's personal area + login).
+  //   2. Ban the auth user so they cannot log in. Restore (restore-account) un-bans and clears the flag.
   const now = new Date().toISOString();
-
-  const teamBoards = await admin.from("boards").update({ owner: null }).eq("owner", target).eq("scope", "team");
-
-  if (teamBoards.error) return json({ error: `Could not detach team boards: ${teamBoards.error.message}` }, 400);
-
-  const teamTopics = await admin.from("topics").update({ owner: null }).eq("owner", target).eq("scope", "team");
-
-  if (teamTopics.error) return json({ error: `Could not detach team topics: ${teamTopics.error.message}` }, 400);
 
   const flagged = await admin
     .from("profiles")

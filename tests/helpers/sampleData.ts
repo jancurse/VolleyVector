@@ -19,10 +19,9 @@ const SAMPLE_POSITION: Board = {
     "- **OH1:** Defending sharp hits and/or tips to middle of court",
   mode: "positions",
   tags: ["sample", "defense"],
-  owner: "",
-  authorLocked: false,
-  shared: false,
-  teamId: null,
+  createdBy: null,
+  capability: "owner",
+  currentRevisionId: null,
   autoArrows: true,
   rotationStrict: false,
   markers: [
@@ -59,10 +58,9 @@ const SAMPLE_SEQUENCE: Board = {
   description: "### Serve Reception & Sideout",
   mode: "positions",
   tags: ["sample", "reception"],
-  owner: "",
-  authorLocked: false,
-  shared: false,
-  teamId: null,
+  createdBy: null,
+  capability: "owner",
+  currentRevisionId: null,
   autoArrows: true,
   rotationStrict: false,
   markers: [
@@ -143,6 +141,8 @@ export const SAMPLE_NOTES: Note[] = [
     ],
     parentId: null,
     order: 0,
+    capability: "owner",
+    currentRevisionId: null,
   },
   {
     id: "note-defense",
@@ -158,6 +158,8 @@ export const SAMPLE_NOTES: Note[] = [
     ],
     parentId: null,
     order: 1,
+    capability: "owner",
+    currentRevisionId: null,
   },
   {
     id: "note-drills",
@@ -173,5 +175,7 @@ export const SAMPLE_NOTES: Note[] = [
     ],
     parentId: null,
     order: 2,
+    capability: "owner",
+    currentRevisionId: null,
   },
 ];

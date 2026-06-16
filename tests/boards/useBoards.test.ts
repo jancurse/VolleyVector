@@ -5,9 +5,16 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { AuthProvider } from "../../src/auth/useAuth";
 import { createBoard } from "../../src/boards/operations";
-import { useBoards } from "../../src/boards/useBoards";
+import { COMMIT_CONFLICT, useBoards } from "../../src/boards/useBoards";
 import type { Space } from "../../src/workspace/space";
-import { failWrites, recordedWrites, resetRecorded, TEST_TEAM_ID, TEST_USER } from "../helpers/supabaseFake";
+import {
+  recordedRpcs,
+  recordedWrites,
+  resetRecorded,
+  setCommitConflict,
+  TEST_TEAM_ID,
+  TEST_USER,
+} from "../helpers/supabaseFake";
 
 // Mock only the external Supabase client; the real store runs against it.
 vi.mock("../../src/supabase/client", async () => {
@@ -22,75 +29,44 @@ afterEach(() => vi.clearAllMocks());
 const wrapper = ({ children }: { children: ReactNode }) => createElement(AuthProvider, null, children);
 const TEAM_SPACE: Space = { kind: "team", teamId: TEST_TEAM_ID };
 
+// The default fake authz is an admin coach, so the viewer's derived capability on team boards is owner.
 function renderBoards() {
-  return renderHook(() => useBoards(TEAM_SPACE), { wrapper });
+  return renderHook(() => useBoards(TEAM_SPACE, true, "coach"), { wrapper });
 }
 
 describe("useBoards", () => {
-  test("a normal load excludes grace-archived boards", async () => {
+  test("a normal load excludes grace-archived boards and derives the viewer's capability", async () => {
     const { result } = renderBoards();
 
     await waitFor(() => expect(result.current.boards.length).toBeGreaterThan(0));
 
     expect(result.current.boards.some((b) => b.title === "Archived Board")).toBe(false);
+    expect(result.current.boards.every((b) => b.capability === "owner")).toBe(true);
   });
 
-  test("toggling autoArrows writes auto_arrows through to the board row", async () => {
+  test("a commit goes through the conflict-checked RPC and updates the list", async () => {
     const { result } = renderBoards();
 
     await waitFor(() => expect(result.current.boards.length).toBeGreaterThan(0));
 
     const target = result.current.boards[0];
+    let commitError: string | null = "unset";
 
     await act(async () => {
-      await result.current.updateBoard({ ...target, autoArrows: false });
+      commitError = await result.current.updateBoard({ ...target, autoArrows: false });
     });
 
+    expect(commitError).toBeNull();
     expect(result.current.boards.find((b) => b.id === target.id)?.autoArrows).toBe(false);
 
-    const write = recordedWrites.find((c) => c.table === "boards" && c.op === "update" && c.eq.id === target.id);
+    const commit = recordedRpcs.find((c) => c.fn === "commit_board");
 
-    expect(write?.payload?.auto_arrows).toBe(false);
+    expect((commit?.params as { board: string }).board).toBe(target.id);
+    expect((commit?.params as { content: { auto_arrows: boolean } }).content.auto_arrows).toBe(false);
+    expect((commit?.params as { base: string | null }).base).toBe(target.currentRevisionId);
   });
 
-  test("a transient commit failure saves on automatic retry without surfacing an error", async () => {
-    const { result } = renderBoards();
-
-    await waitFor(() => expect(result.current.boards.length).toBeGreaterThan(0));
-
-    const target = result.current.boards[0];
-    let commitError: string | null = "unset";
-
-    failWrites(1);
-    await act(async () => {
-      commitError = await result.current.updateBoard({ ...target, title: "Retried" });
-    });
-
-    expect(commitError).toBeNull();
-    expect(result.current.boards.find((b) => b.id === target.id)?.title).toBe("Retried");
-    expect(result.current.error).toBeNull();
-  });
-
-  test("a duplicate-key insert counts as success, being this board's own response-lost earlier attempt", async () => {
-    const { result } = renderBoards();
-
-    await waitFor(() => expect(result.current.boards.length).toBeGreaterThan(0));
-
-    const board = { ...createBoard(Date.now()), owner: TEST_USER.id };
-    let commitError: string | null = "unset";
-
-    failWrites(1, "duplicate key value violates unique constraint", "23505");
-    await act(async () => {
-      commitError = await result.current.addBoard(board);
-    });
-
-    expect(commitError).toBeNull();
-    expect(result.current.boards.some((b) => b.id === board.id)).toBe(true);
-    // The duplicate key already proves the row exists, so no retry is issued.
-    expect(recordedWrites.filter((c) => c.op === "insert")).toHaveLength(1);
-  });
-
-  test("an exhausted commit reports the error and leaves the list untouched", async () => {
+  test("a stale base reports a conflict the caller resolves, without changing the list", async () => {
     const { result } = renderBoards();
 
     await waitFor(() => expect(result.current.boards.length).toBeGreaterThan(0));
@@ -98,19 +74,39 @@ describe("useBoards", () => {
     const target = result.current.boards[0];
     let commitError: string | null = null;
 
-    failWrites(3);
+    setCommitConflict();
     await act(async () => {
-      commitError = await result.current.updateBoard({ ...target, title: "Lost?" });
+      commitError = await result.current.updateBoard({ ...target, title: "Mine" });
     });
 
-    expect(commitError).toBe("Load failed");
+    expect(commitError).toBe(COMMIT_CONFLICT);
     expect(result.current.boards.find((b) => b.id === target.id)?.title).toBe(target.title);
-    // The failure belongs to the caller, not the store banner, and triggers no refetch-overwrite.
-    expect(result.current.error).toBeNull();
-    expect(recordedWrites.filter((c) => c.op === "update")).toHaveLength(3);
   });
 
-  test("deleting a board issues a soft-delete write and drops it from the list", async () => {
+  test("adding a board inserts the row and the creator's owner grant", async () => {
+    const { result } = renderBoards();
+
+    await waitFor(() => expect(result.current.boards.length).toBeGreaterThan(0));
+
+    const board = { ...createBoard(Date.now()), createdBy: TEST_USER.id };
+    let commitError: string | null = "unset";
+
+    await act(async () => {
+      commitError = await result.current.addBoard(board);
+    });
+
+    expect(commitError).toBeNull();
+    expect(result.current.boards.some((b) => b.id === board.id)).toBe(true);
+
+    const boardInsert = recordedWrites.find((c) => c.table === "boards" && c.op === "insert");
+    const grantInsert = recordedWrites.find((c) => c.table === "board_access" && c.op === "insert");
+
+    expect(boardInsert?.payload?.created_by).toBe(TEST_USER.id);
+    expect(grantInsert?.payload?.team_id).toBe(TEST_TEAM_ID);
+    expect(grantInsert?.payload?.capability).toBe("owner");
+  });
+
+  test("deleting a board detaches the team's grant and drops it from the list", async () => {
     const { result } = renderBoards();
 
     await waitFor(() => expect(result.current.boards.length).toBeGreaterThan(0));
@@ -121,10 +117,9 @@ describe("useBoards", () => {
 
     expect(result.current.boards.some((b) => b.id === target.id)).toBe(false);
 
-    const write = recordedWrites.find((c) => c.table === "boards" && c.op === "update");
+    const write = recordedWrites.find((c) => c.table === "board_access" && c.op === "delete");
 
-    expect(write?.eq.id).toBe(target.id);
-    expect(typeof write?.payload?.deleted_at).toBe("string");
-    expect(write?.payload?.deleted_by).toBe(TEST_USER.id);
+    expect(write?.eq.board_id).toBe(target.id);
+    expect(write?.eq.team_id).toBe(TEST_TEAM_ID);
   });
 });

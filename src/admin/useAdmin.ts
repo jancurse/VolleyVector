@@ -64,14 +64,14 @@ export function useAdmin(open: boolean): AdminData {
       setLoading(true);
       setError(null);
 
-      // Grace-archived boards/notes in the recovery list are only items deleted individually: those keep a
-      // non-null owner. Team-deletion flags only the team, and account deletion detaches team content
-      // (owner -> null) rather than stamping it, so neither floods this list.
+      // The recovery list is every grace-archived board/note: a row archives only once its access list
+      // empties (reference counting), so this holds individually-deleted content and content orphaned by a
+      // team or account removal alike. Team deletion still flags only the team; its rows cascade on purge.
       const [teamsR, profilesR, boardsR, notesR] = await Promise.all([
         supabase.from("teams").select("id, name, archived_at, deleted_at"),
         supabase.from("profiles").select("id, email, is_admin, deleted_at"),
-        supabase.from("boards").select("id, title, deleted_at").not("deleted_at", "is", null).not("owner", "is", null),
-        supabase.from("topics").select("id, title, deleted_at").not("deleted_at", "is", null).not("owner", "is", null),
+        supabase.from("boards").select("id, title, deleted_at").not("deleted_at", "is", null),
+        supabase.from("topics").select("id, title, deleted_at").not("deleted_at", "is", null),
       ]);
 
       if (!active) return;

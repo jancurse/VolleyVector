@@ -4,6 +4,8 @@
 // the one source of truth for which boards a note references. Any number of notes may reference the
 // same board, and a board referenced by none simply lives in All Boards alone.
 
+import type { Capability } from "../supabase/rows";
+
 /** One block in a note's document: markdown prose, or a group of board cards. */
 export type NoteBlock =
   | { id: string; kind: "markdown"; text: string }
@@ -20,4 +22,8 @@ export type Note = {
   parentId: string | null;
   /** Manual order among its siblings (the notes that share its parent). */
   order: number;
+  /** The viewer's own access on this note: viewer, editor, or owner; derived, never stored. */
+  capability: Capability;
+  /** The revision this note's content matches; the base for the next commit's conflict check. */
+  currentRevisionId: string | null;
 };

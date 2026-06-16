@@ -1,11 +1,12 @@
 // VolleyCoach — purge-expired Edge Function (scheduled cleanup).
 // Permanently removes everything past its 3-month grace window. Two parts:
 //   1. Accounts: a soft-deleted account's auth user can only be removed via the admin API (SQL cannot), so
-//      for each profile whose deleted_at is older than the window we hard-delete its personal content and
-//      then the auth user. Deleting the auth user cascades the profile and memberships; the user's team
-//      content was already detached to the team at deletion time, so nothing team-owned is touched.
-//   2. Boards, topics, and teams: handled by the SQL public.purge_expired() (a deleted team cascade-removes
-//      its boards and topics).
+//      for each profile whose deleted_at is older than the window we hard-delete the auth user. That cascades
+//      the profile, memberships, and the user's access grants away; the reference-count trigger then
+//      grace-archives any content left with no grants (content a team still holds survives). That freshly
+//      archived content is hard-removed by a later run, once it too passes the window.
+//   2. Boards, topics, and teams already past the window: handled by the SQL public.purge_expired(). A
+//      deleted team's hard-delete cascades its grants, and the trigger archives whatever that orphans.
 // There is no signed-in user here, so this is gated on the service key: the caller must present it as the
 // bearer token. Schedule it (pg_cron http call, or a GitHub Action) with the secret key in Authorization.
 // Deploy from the dashboard with Verify JWT off.
@@ -70,9 +71,8 @@ Deno.serve(async (req) => {
   const purgedAccounts: string[] = [];
 
   for (const { id } of accounts) {
-    await admin.from("boards").delete().eq("owner", id).eq("scope", "personal");
-    await admin.from("topics").delete().eq("owner", id).eq("scope", "personal");
-
+    // Hard-deleting the auth user cascades the profile, memberships, and access grants; the reference-count
+    // trigger then grace-archives any content left with no grants.
     const { error: delError } = await admin.auth.admin.deleteUser(id);
 
     if (!delError) purgedAccounts.push(id);

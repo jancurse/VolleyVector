@@ -69,7 +69,7 @@ describe("export → import round-trip", () => {
   );
 
   test("imported boards carry no server state", () => {
-    expect(boards.every((b) => b.owner === null && b.teamId === null && !b.shared && !b.authorLocked)).toBe(true);
+    expect(boards.every((b) => b.createdBy === null && b.currentRevisionId === null)).toBe(true);
   });
 
   test("rotations and rotationStrict survive the round-trip", () => {

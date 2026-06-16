@@ -15,10 +15,9 @@ function board(id: string, title: string): Board {
     markers: [],
     steps: [{ id: "s", instruction: "", positions: {} }],
     tags: [],
-    owner: "",
-    authorLocked: false,
-    shared: false,
-    teamId: null,
+    createdBy: null,
+    capability: "owner",
+    currentRevisionId: null,
     autoArrows: true,
     rotationStrict: false,
     createdAt: 0,
@@ -27,7 +26,16 @@ function board(id: string, title: string): Board {
 }
 
 function renderEditor(blocks: NoteBlock[], boards: Board[]) {
-  const note: Note = { id: "t", title: "Note", slug: "note", blocks, parentId: null, order: 0 };
+  const note: Note = {
+    id: "t",
+    title: "Note",
+    slug: "note",
+    blocks,
+    parentId: null,
+    order: 0,
+    capability: "owner",
+    currentRevisionId: null,
+  };
   const onDone = vi.fn<(patch: { title: string; blocks: NoteBlock[] }) => Promise<string | null>>(async () => null);
 
   render(<NoteEditor note={note} boards={boards} onDone={onDone} onCancel={vi.fn()} />);

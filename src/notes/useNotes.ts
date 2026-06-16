@@ -3,9 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
 import { writeWithRetries } from "../supabase/retry";
-import type { NoteRow } from "../supabase/rows";
+import type { Capability, NoteRow } from "../supabase/rows";
 import { noteFromRow, noteToInsert } from "../supabase/rows";
 import { uniqueSlug } from "../routing/slug";
+import type { TeamRole } from "../workspace/useWorkspace";
 import type { Space } from "../workspace/space";
 import { createNote, deleteNote, moveNote, nestNote, setNote } from "./operations";
 import type { Note } from "./types";
@@ -21,10 +22,10 @@ export type NotesStore = {
   /** Insert fully-formed notes (an import; parents before children), awaited in order with retries.
    *  Resolves to null on success, or the first error message — notes inserted before it stay. */
   insertNotes: (notes: readonly Note[]) => Promise<string | null>;
-  /** Commit the note editor's Done: awaited and retried, the tree updates only on success. Resolves
-   *  to null on success, or the error message — the caller owns the failure UI. */
+  /** Commit the note editor's Done through the conflict-checked RPC. Resolves to null on success, or the
+   *  error message (a readable one on a stale-base conflict). */
   updateNote: (id: string, patch: Partial<Pick<Note, "title" | "blocks">>) => Promise<string | null>;
-  /** Remove a note and its whole subtree. Unfiling its boards is the caller's job. */
+  /** Remove a note and its whole subtree (grace-archived, recoverable by an admin). */
   removeNote: (id: string) => void;
   /** Re-parent a note (`null` for a root). */
   reparentNote: (id: string, parentId: string | null) => void;
@@ -44,24 +45,50 @@ function changedPlacements(prev: readonly Note[], next: readonly Note[]): Note[]
   });
 }
 
-/** A read query for the notes of one space: a team's by team, the personal space's by owner. Grace-archived
- *  rows (deleted_at set) are hidden from every normal view; only admin recovery reads them. */
+/** A read query for the notes of one space: by the space's principal on the access list (a team's grants by
+ *  team, the personal space's by the user). Grace-archived rows are hidden from every normal view. */
 function selectSpaceNotes(space: Space, userId: string) {
-  const query = supabase.from("topics").select("*").is("deleted_at", null);
+  const query = supabase
+    .from("topics")
+    .select("*, topic_access!inner(capability, team_id, user_id)")
+    .is("deleted_at", null);
 
   return space.kind === "team"
-    ? query.eq("scope", "team").eq("team_id", space.teamId)
-    : query.eq("scope", "personal").eq("owner", userId);
+    ? query.eq("topic_access.team_id", space.teamId)
+    : query.eq("topic_access.user_id", userId);
 }
 
-/** The active space's note tree, loaded from Supabase and written through on each edit. Like boards,
- *  edits apply optimistically and a failed write surfaces an error and refetches. */
-export function useNotes(space: Space | null): NotesStore {
+type LoadedNoteRow = NoteRow & { topic_access: { capability: Capability }[] };
+
+/** The active space's note tree, loaded from Supabase by access grant and written through on each edit. Like
+ *  boards, content commits go through the conflict-checked RPC; structural moves (parent/order) are plain
+ *  column writes, since they do not change the document and so record no revision. The viewer's `capability`
+ *  on each note is derived from the space's grant and their role, exactly as for boards: an admin is owner
+ *  everywhere, a coach gets the team grant's capability, anyone else a team grant reads as viewer, and a
+ *  direct user grant counts as itself. */
+export function useNotes(space: Space | null, isAdmin: boolean, activeRole: TeamRole | null): NotesStore {
   const { user } = useAuth();
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const capabilityOf = useCallback(
+    (grant: Capability | undefined): Capability => {
+      if (isAdmin) return "owner";
+      if (!grant) return "viewer";
+      if (space?.kind === "team") return activeRole === "coach" ? grant : "viewer";
+
+      return grant;
+    },
+    [isAdmin, activeRole, space]
+  );
+
+  const mapRows = useCallback(
+    (rows: LoadedNoteRow[]): Note[] =>
+      rows.map((row) => noteFromRow(row, capabilityOf(row.topic_access[0]?.capability))),
+    [capabilityOf]
+  );
 
   // `addNote` returns the new id synchronously, and structural moves diff against the current tree,
   // so both read the latest notes from a ref rather than a stale closure.
@@ -76,8 +103,8 @@ export function useNotes(space: Space | null): NotesStore {
 
     const { data, error: queryError } = await selectSpaceNotes(space, user.id);
 
-    if (!queryError && data) setNotes((data as NoteRow[]).map(noteFromRow));
-  }, [space, user]);
+    if (!queryError && data) setNotes(mapRows(data as LoadedNoteRow[]));
+  }, [space, user, mapRows]);
 
   useEffect(() => {
     let active = true;
@@ -104,14 +131,14 @@ export function useNotes(space: Space | null): NotesStore {
         return;
       }
 
-      setNotes((data as NoteRow[]).map(noteFromRow));
+      setNotes(mapRows(data as LoadedNoteRow[]));
       setLoading(false);
     })();
 
     return () => {
       active = false;
     };
-  }, [space, user]);
+  }, [space, user, mapRows]);
 
   const fail = useCallback(
     (message: string) => {
@@ -119,6 +146,47 @@ export function useNotes(space: Space | null): NotesStore {
       void refetch();
     },
     [refetch]
+  );
+
+  // Insert one note row and the principal's owner grant for the active space, retrying the row on a slug
+  // collision. Shared by create and import.
+  const insertNote = useCallback(
+    async (note: Note): Promise<string | null> => {
+      if (!space || !user) return "No active space to save into.";
+
+      const teamId = space.kind === "team" ? space.teamId : null;
+      let row = note;
+      let writeError = await writeWithRetries(async () => {
+        const result = await supabase.from("topics").insert(noteToInsert(row, user.id, teamId));
+
+        if (result.error?.code === "23505") {
+          row = { ...note, slug: `${note.slug}-${Math.random().toString(36).slice(2, 6)}` };
+          setNotes((prev) => setNote(prev, note.id, { slug: row.slug }));
+
+          return supabase.from("topics").insert(noteToInsert(row, user.id, teamId));
+        }
+
+        return result;
+      });
+
+      if (writeError !== null) return writeError;
+
+      const grant = {
+        topic_id: note.id,
+        user_id: teamId !== null ? null : user.id,
+        team_id: teamId,
+        capability: "owner",
+      };
+
+      writeError = await writeWithRetries(async () => {
+        const result = await supabase.from("topic_access").insert(grant);
+
+        return result.error?.code === "23505" ? { error: null } : result;
+      });
+
+      return writeError;
+    },
+    [space, user]
   );
 
   const addNote = useCallback(
@@ -129,48 +197,17 @@ export function useNotes(space: Space | null): NotesStore {
 
       const created = next.find((t) => t.id === id);
 
-      if (created && space && user) {
-        const scope = space.kind === "team" ? "team" : "personal";
-        const teamId = space.kind === "team" ? space.teamId : null;
-
-        void (async () => {
-          const { error: writeError } = await supabase
-            .from("topics")
-            .insert(noteToInsert(created, user.id, scope, teamId));
-
-          // Unique-index backstop: a slug collision (e.g. a concurrent mint) retries once with a random suffix.
-          if (writeError?.code === "23505") {
-            const slug = `${created.slug}-${Math.random().toString(36).slice(2, 6)}`;
-
-            setNotes((prev) => setNote(prev, id, { slug }));
-
-            const retry = await supabase
-              .from("topics")
-              .insert(noteToInsert({ ...created, slug }, user.id, scope, teamId));
-
-            if (retry.error) fail(retry.error.message);
-          } else if (writeError) {
-            fail(writeError.message);
-          }
-        })();
-      }
+      if (created) void insertNote(created).then((writeError) => writeError && fail(writeError));
 
       return id;
     },
-    [space, user, fail]
+    [insertNote, fail]
   );
 
   const insertNotes = useCallback(
     async (toInsert: readonly Note[]): Promise<string | null> => {
-      if (!space || !user) return "No active space to import into.";
-
-      const scope = space.kind === "team" ? "team" : "personal";
-      const teamId = space.kind === "team" ? space.teamId : null;
-
       for (const note of toInsert) {
-        const writeError = await writeWithRetries(() =>
-          supabase.from("topics").insert(noteToInsert(note, user.id, scope, teamId))
-        );
+        const writeError = await insertNote(note);
 
         if (writeError !== null) return writeError;
 
@@ -179,32 +216,40 @@ export function useNotes(space: Space | null): NotesStore {
 
       return null;
     },
-    [space, user]
+    [insertNote]
   );
 
   const updateNote = useCallback(
     async (id: string, patch: Partial<Pick<Note, "title" | "blocks">>): Promise<string | null> => {
-      // Slugs never change on rename, except the first rename away from the creation placeholder
-      // ("New note"), which mints the real slug. Real renames after that never touch it.
       const current = latest.current.find((t) => t.id === id);
-      const full: Partial<Pick<Note, "title" | "blocks" | "slug">> =
+
+      if (!current) return "Note not found.";
+
+      // The first rename away from the creation placeholder mints the real slug; real renames after that
+      // never touch it.
+      const slug =
         patch.title !== undefined &&
-        (current?.title === "New note" || current?.title === "New topic") &&
+        (current.title === "New note" || current.title === "New topic") &&
         patch.title !== current.title
-          ? {
-              ...patch,
-              slug: uniqueSlug(
-                patch.title,
-                latest.current.filter((t) => t.id !== id).map((t) => t.slug)
-              ),
-            }
-          : patch;
+          ? uniqueSlug(
+              patch.title,
+              latest.current.filter((t) => t.id !== id).map((t) => t.slug)
+            )
+          : current.slug;
+      const content = { title: patch.title ?? current.title, slug, blocks: patch.blocks ?? current.blocks };
 
-      const writeError = await writeWithRetries(() => supabase.from("topics").update(full).eq("id", id));
+      const { data, error: rpcError } = await supabase.rpc("commit_topic", {
+        topic: id,
+        content,
+        base: current.currentRevisionId,
+      });
 
-      if (writeError === null) setNotes((prev) => setNote(prev, id, full));
+      if (rpcError) return rpcError.message;
+      if (data === null) return "This note was changed elsewhere. Reopen it to get the latest, then edit again.";
 
-      return writeError;
+      setNotes((prev) => setNote(prev, id, { ...patch, slug, currentRevisionId: data as string }));
+
+      return null;
     },
     []
   );

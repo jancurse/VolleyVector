@@ -1,6 +1,9 @@
 import type { NormalizedPoint } from "../court/geometry";
 import type { CourtMode } from "../court/roles";
 import type { Annotation, Marker } from "../court/types";
+import type { Capability } from "../supabase/rows";
+
+export type { Capability } from "../supabase/rows";
 
 export type { Annotation, AnnotationKind, AnnotationStyle } from "../court/types";
 
@@ -47,15 +50,12 @@ export type Board = {
   steps: BoardStep[];
   /** Free-form organising tags the library filters by. */
   tags: string[];
-  /** The account that created the board (its author), or null when authored by the team after the author's
-   *  account was deleted. Set server-side; the source of truth for the lock. */
-  owner: string | null;
-  /** When set on a team board, only the author and admins may edit, delete, or clear the lock. */
-  authorLocked: boolean;
-  /** A personal board the owner has shared: visible to its target team and link-resolvable. */
-  shared: boolean;
-  /** For a team board, its owning team; for a shared personal board, the team it is shared into. */
-  teamId: string | null;
+  /** The account that created the board (attribution only), or null once their account is deleted. */
+  createdBy: string | null;
+  /** The viewer's own access, derived from the access list and never stored: gates the UI. */
+  capability: Capability;
+  /** The revision this board's content matches; the base for the next commit's conflict check. */
+  currentRevisionId: string | null;
   /** Whether the derived movement arrows are shown. Off hides them entirely; manual arrows are unaffected. */
   autoArrows: boolean;
   /** Rotation enforcement: strict clamps dragging at the legal boundary; loose (the default) only flags. */
