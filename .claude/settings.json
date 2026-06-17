@@ -33,6 +33,10 @@
       "Bash(supabase secrets list:*)"
     ],
     "ask": [
+      "Bash(git push)",
+      "Bash(git push:*)",
+      "Bash(gh pr create)",
+      "Bash(gh pr create:*)",
       "Bash(npx supabase db push:*)",
       "Bash(supabase db push:*)",
       "Bash(npx supabase db reset:*)",
