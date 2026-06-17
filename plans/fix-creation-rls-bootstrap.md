@@ -55,13 +55,15 @@ Add or update unit tests to cover the changed behavior — no more than the chan
 
 ## Follow-ups
 
-- **Delete the orphaned grant-less board rows** left by the failed creation attempts: `ZZ Temp Access Test` (`38b4908c-684b-4c40-a4ed-a38492c67fd0`) and `test board` (`02d3597b-a31c-41f5-b92a-ea5f44907e09`). Both have zero `board_access` grants, are invisible in the app, and will not be reference-count archived (there is no grant whose removal triggers it). Remove via an ad-hoc data fix once board creation works, then verify the rows are gone.
+- **(Done)** ~~Delete the orphaned grant-less board rows left by the failed creation attempts: `ZZ Temp Access Test` (`38b4908c-684b-4c40-a4ed-a38492c67fd0`) and `test board` (`02d3597b-a31c-41f5-b92a-ea5f44907e09`).~~ Removed via an ad-hoc dashboard `delete` guarded by `not exists (grant)`, and verified gone with a follow-up read.
 - **Build an RLS/migration test harness** so policy regressions are caught automatically (e.g. a local Supabase stack or pgTAP that runs inserts as a non-admin role against real policies). The current unit suite mocks Supabase and cannot exercise RLS, so this whole class of bug is invisible to it.
 - **Capture the redesigned "Manage access" screenshots** to verify the sharing UI redesign visually (grant list, the add-a-person picker at full width, the outside-teams block, the view-only-link footer), now that a non-admin (Dev Coach) can own a board to open the dialog on.
 
 ## Implementation Notes
 
 One migration (`supabase/migrations/20260616221448_fix_creation_access_bootstrap.sql`) plus a small client change in both stores. Applied to production with the user's go-ahead and verified against the live schema.
+
+**Status.** The migration is live on production and confirmed working in-app (a non-admin creates a board and a note). The code is committed on the worktree branch `1-worktree-fix-creation`, not yet merged into the feature branch. The orphaned grant-less rows from the old failed attempts have been cleaned up (see Follow-ups).
 
 ### The bootstrap fix
 
