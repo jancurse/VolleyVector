@@ -45,7 +45,7 @@ export function AccessManager({
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
   const [candidates, setCandidates] = useState<ShareCandidate[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [linkLabel, setLinkLabel] = useState("Copy link");
+  const [linkLabel, setLinkLabel] = useState("Copy view-only link");
 
   const apply = (data: AccessData) => {
     setError(data.error);
@@ -81,7 +81,7 @@ export function AccessManager({
     try {
       await navigator.clipboard.writeText(url);
       setLinkLabel("Copied");
-      window.setTimeout(() => setLinkLabel("Copy link"), 1500);
+      window.setTimeout(() => setLinkLabel("Copy view-only link"), 1500);
     } catch {
       // The clipboard call can reject (no permission or an insecure context); leave the label as is.
     }
@@ -121,7 +121,7 @@ export function AccessManager({
             <Button variant="ghost" onClick={() => void copyLink()}>
               {linkLabel}
             </Button>
-            <span className={MUTED}>Anyone with the link can view this board.</span>
+            <span className={MUTED}>Permanent link - anyone can view</span>
           </div>
         </div>
       </AccessList>

@@ -24,32 +24,31 @@ type OutsideTeamShareProps = {
 export function OutsideTeamShare({ entityNoun, onCreateLink, onGrantByEmail }: OutsideTeamShareProps): JSX.Element {
   const [capability, setCapability] = useState<Capability>("editor");
   const [email, setEmail] = useState("");
-  const [link, setLink] = useState<string | null>(null);
-  const [copyLabel, setCopyLabel] = useState("Copy");
+  const [linkLabel, setLinkLabel] = useState("Copy share link");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const createLink = async () => {
+  // Mint a fresh single-use link and copy it straight to the clipboard, matching the view-only link's
+  // one-click copy. The link is still generated on the fly each time; only the way it's handed over is shared.
+  const shareLink = async () => {
     setBusy(true);
     setError(null);
-    setLink(null);
-    setCopyLabel("Copy");
 
     const { url, error: failure } = await onCreateLink(capability);
 
     setBusy(false);
-    if (failure) setError(failure);
-    else setLink(url);
-  };
+    if (failure) {
+      setError(failure);
 
-  const copyLink = async () => {
-    if (!link) return;
+      return;
+    }
+    if (!url) return;
 
     try {
-      await navigator.clipboard.writeText(link);
-      setCopyLabel("Copied");
-      window.setTimeout(() => setCopyLabel("Copy"), 1500);
+      await navigator.clipboard.writeText(url);
+      setLinkLabel("Copied");
+      window.setTimeout(() => setLinkLabel("Copy share link"), 1500);
     } catch {
       // The clipboard call can reject (no permission or an insecure context); leave the label as is.
     }
@@ -80,12 +79,7 @@ export function OutsideTeamShare({ entityNoun, onCreateLink, onGrantByEmail }: O
 
   return (
     <section className="flex flex-col gap-4 border-t border-border pt-4">
-      <div className="flex flex-col gap-1">
-        <span className={PANEL_TITLE}>Share outside your teams</span>
-        <p className="m-0 text-sm text-text-dim">
-          For someone who isn’t on your teams. Neither way reveals their email.
-        </p>
-      </div>
+      <span className={PANEL_TITLE}>Share outside your teams</span>
 
       <div className="w-36">
         <Field label="Access level">
@@ -98,37 +92,34 @@ export function OutsideTeamShare({ entityNoun, onCreateLink, onGrantByEmail }: O
         </Field>
       </div>
 
-      <Field label="By email">
-        <div className="flex gap-2">
-          <Input
-            type="email"
-            value={email}
-            placeholder="name@example.com"
-            aria-label="Email to share with"
-            onChange={(event) => setEmail(event.target.value)}
-          />
-          <Button onClick={() => void grantByEmail()} disabled={busy || email.trim() === ""}>
-            Share
-          </Button>
-        </div>
-      </Field>
-      {message && <p className={MUTED}>{message}</p>}
-
-      <div className="flex flex-col gap-2">
-        <span className={FIELD_LABEL}>By link</span>
-        {link ? (
-          <div className="flex items-center gap-2">
-            <Input readOnly value={link} aria-label="Grant link" onFocus={(event) => event.target.select()} />
-            <Button variant="ghost" onClick={() => void copyLink()}>
-              {copyLabel}
+      {/* The two methods are indented under a rule that descends from the Access level above, so it reads
+          as the one capability both the email grant and the link carry. */}
+      <div className="ml-1 flex flex-col gap-4 border-l-2 border-border pl-4">
+        <Field label="By email">
+          <div className="flex gap-2">
+            <Input
+              type="email"
+              value={email}
+              placeholder="name@example.com"
+              aria-label="Email to share with"
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            <Button variant="ghost" onClick={() => void grantByEmail()} disabled={busy || email.trim() === ""}>
+              Share
             </Button>
           </div>
-        ) : (
-          <Button variant="ghost" onClick={() => void createLink()} disabled={busy}>
-            {busy ? "Working…" : "Create grant link"}
-          </Button>
-        )}
-        <span className={MUTED}>A single-use link the first signed-in person to open it can claim.</span>
+        </Field>
+        {message && <p className={MUTED}>{message}</p>}
+
+        <div className="flex flex-col gap-2">
+          <span className={FIELD_LABEL}>By link</span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => void shareLink()} disabled={busy}>
+              {busy ? "Working…" : linkLabel}
+            </Button>
+            <span className={MUTED}>Unique single-use link</span>
+          </div>
+        </div>
       </div>
 
       {error && <p className="m-0 text-sm text-danger">{error}</p>}

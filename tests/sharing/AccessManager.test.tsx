@@ -127,16 +127,20 @@ describe("AccessManager", () => {
     expect(await screen.findByText(/it now has access to this board/i)).toBeInTheDocument();
   });
 
-  test("creating a grant link mints a single-use link and shows it", async () => {
+  test("the share link mints a single-use link and copies it to the clipboard", async () => {
     const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
 
     renderManager();
 
-    await user.click(screen.getByRole("button", { name: "Create grant link" }));
+    await user.click(screen.getByRole("button", { name: "Copy share link" }));
 
     const insert = await findWrite("access_links", "insert");
 
     expect(insert.payload).toMatchObject({ board_id: board.id, capability: "editor" });
-    expect(await screen.findByRole("textbox", { name: "Grant link" })).toBeInTheDocument();
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
   });
 });
