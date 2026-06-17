@@ -13,13 +13,6 @@ import type { Note, NoteBlock } from "../notes/types";
 
 export type Capability = "viewer" | "editor" | "owner";
 
-const RANK: Record<Capability, number> = { viewer: 1, editor: 2, owner: 3 };
-
-/** True when `cap` permits editing (editor or owner). */
-export function canWrite(cap: Capability): boolean {
-  return RANK[cap] >= 2;
-}
-
 export type BoardRow = {
   id: string;
   created_by: string | null;
@@ -161,14 +154,9 @@ export function noteToInsert(note: Note, createdBy: string, teamId: string | nul
   };
 }
 
-/** The content snapshot the `commit_topic` RPC unpacks back into the note's columns. */
-export function noteToContent(note: Pick<Note, "title" | "slug" | "blocks">): Record<string, unknown> {
-  return { title: note.title, slug: note.slug, blocks: note.blocks };
-}
-
 /** One append-only revision: the committed content snapshot with its author, base, and time. The content
- *  jsonb mirrors `boardToContent`/`noteToContent`, so a revision maps back to a Board/Note for read-only
- *  preview through the same surfaces as the live content. */
+ *  jsonb mirrors `boardToContent`, so a revision maps back to a Board/Note for read-only preview through the
+ *  same surfaces as the live content. */
 export type BoardRevisionRow = {
   id: string;
   board_id: string;

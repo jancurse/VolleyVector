@@ -8,10 +8,10 @@ import { cx, MUTED, TABLE_FRAME } from "../ui/styles";
 import type { TeamRole } from "../workspace/useWorkspace";
 import type { Member } from "./useMembers";
 
-// The team roster as a bounded list: an initials disc, the display name over a quiet email line, and the
-// role on the right. A coach or admin (canManage) re-roles and removes everyone but themselves; anyone
-// else, and a member's own row, shows the role as a read-only chip. Driven by `useMembers` from the page
-// above, so it holds no data of its own.
+// The team roster as a bounded list: an initials disc, the display name, and the role on the right. A
+// coach or admin (canManage) re-roles and removes everyone but themselves; anyone else, and a member's
+// own row, shows the role as a read-only chip. Email is admin-only data, so the roster never shows it.
+// Driven by `useMembers` from the page above, so it holds no data of its own.
 type MembersListProps = {
   members: readonly Member[];
   loading: boolean;
@@ -42,9 +42,9 @@ function RoleChip({ role }: { role: TeamRole }): JSX.Element {
   );
 }
 
-/** The name a roster row leads with: the display name, or the email until one is set. */
+/** The name a roster row leads with: the display name, or the account id until one is set. */
 export function memberLabel(member: Member): string {
-  return member.name || member.email || member.userId;
+  return member.name || member.userId;
 }
 
 export function MembersList({
@@ -67,15 +67,10 @@ export function MembersList({
         return (
           <li key={member.userId} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0">
             <span aria-hidden="true" className={DISC}>
-              {initials(member.name || member.email)}
+              {initials(member.name || member.userId)}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold text-text">{label}</span>
-              {member.name && member.email && (
-                <span className="block truncate text-xs text-text-dim" title={member.email}>
-                  {member.email}
-                </span>
-              )}
             </span>
             {manageable ? (
               <Select

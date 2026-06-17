@@ -141,6 +141,7 @@ const DELETED_TOPIC: NoteRow = {
 };
 
 type Grant = {
+  id: string;
   board_id?: string;
   topic_id?: string;
   user_id: string | null;
@@ -149,18 +150,65 @@ type Grant = {
 };
 
 // The access list. A team grant places content in that team's library; a user grant in that user's personal
-// space. board_by_token resolves a board only with a team grant or a grant to a non-creator user.
+// space. board_by_token resolves a board only with a team grant or a grant to a non-creator user. Each grant
+// carries a stable id (its principal disambiguates it on a row), so a write can target one grant by id.
 const BOARD_ACCESS: Grant[] = [
-  ...SAMPLE_BOARDS.map((b): Grant => ({ board_id: b.id, user_id: null, team_id: TEST_TEAM_ID, capability: "owner" })),
-  { board_id: PERSONAL_BOARD.id, user_id: TEST_USER.id, team_id: null, capability: "owner" },
-  { board_id: SHARED_PERSONAL.id, user_id: OTHER_MEMBER.id, team_id: null, capability: "owner" },
-  { board_id: SHOWCASE_BOARD.id, user_id: null, team_id: SHOWCASE_TEAM_ID, capability: "owner" },
-  { board_id: DELETED_BOARD.id, user_id: null, team_id: TEST_TEAM_ID, capability: "owner" },
+  ...SAMPLE_BOARDS.map(
+    (b): Grant => ({
+      id: `ba-${b.id}-${TEST_TEAM_ID}`,
+      board_id: b.id,
+      user_id: null,
+      team_id: TEST_TEAM_ID,
+      capability: "owner",
+    })
+  ),
+  {
+    id: `ba-${PERSONAL_BOARD.id}-${TEST_USER.id}`,
+    board_id: PERSONAL_BOARD.id,
+    user_id: TEST_USER.id,
+    team_id: null,
+    capability: "owner",
+  },
+  {
+    id: `ba-${SHARED_PERSONAL.id}-${OTHER_MEMBER.id}`,
+    board_id: SHARED_PERSONAL.id,
+    user_id: OTHER_MEMBER.id,
+    team_id: null,
+    capability: "owner",
+  },
+  {
+    id: `ba-${SHOWCASE_BOARD.id}-${SHOWCASE_TEAM_ID}`,
+    board_id: SHOWCASE_BOARD.id,
+    user_id: null,
+    team_id: SHOWCASE_TEAM_ID,
+    capability: "owner",
+  },
+  {
+    id: `ba-${DELETED_BOARD.id}-${TEST_TEAM_ID}`,
+    board_id: DELETED_BOARD.id,
+    user_id: null,
+    team_id: TEST_TEAM_ID,
+    capability: "owner",
+  },
 ];
 
 const TOPIC_ACCESS: Grant[] = [
-  ...SAMPLE_NOTES.map((n): Grant => ({ topic_id: n.id, user_id: null, team_id: TEST_TEAM_ID, capability: "owner" })),
-  { topic_id: DELETED_TOPIC.id, user_id: null, team_id: TEST_TEAM_ID, capability: "owner" },
+  ...SAMPLE_NOTES.map(
+    (n): Grant => ({
+      id: `ta-${n.id}-${TEST_TEAM_ID}`,
+      topic_id: n.id,
+      user_id: null,
+      team_id: TEST_TEAM_ID,
+      capability: "owner",
+    })
+  ),
+  {
+    id: `ta-${DELETED_TOPIC.id}-${TEST_TEAM_ID}`,
+    topic_id: DELETED_TOPIC.id,
+    user_id: null,
+    team_id: TEST_TEAM_ID,
+    capability: "owner",
+  },
 ];
 
 // Two revisions per sample board/note: an older draft and the current one (its id matches the row's
@@ -252,15 +300,19 @@ export const recordedInvokes: InvokeCall[] = [];
 let failingWrites = 0;
 let failingMessage = "Load failed";
 let failingCode: string | undefined;
+let failingTable: string | undefined;
 // When set, the next commit RPC reports a conflict (a null return), so the conflict path can be exercised.
 let commitConflict = false;
 // The next `failingCommits` commit RPCs report an error, so the editor's failure path can be exercised.
 let failingCommits = 0;
+// Which content a grant link previews and redeems to, so the redeem flow can be tested for either kind.
+let grantTarget: "board" | "note" = "board";
 
-export function failWrites(count: number, message = "Load failed", code?: string): void {
+export function failWrites(count: number, message = "Load failed", code?: string, table?: string): void {
   failingWrites = count;
   failingMessage = message;
   failingCode = code;
+  failingTable = table;
 }
 
 /** Make the next commit_board/commit_topic RPC return a stale-base conflict (a null data). */
@@ -273,14 +325,21 @@ export function failCommits(count: number): void {
   failingCommits = count;
 }
 
+/** Switch what a grant link previews and redeems to: a board (default) or a note. */
+export function setGrantTarget(target: "board" | "note"): void {
+  grantTarget = target;
+}
+
 export function resetRecorded(): void {
   recordedWrites.length = 0;
   recordedRpcs.length = 0;
   recordedInvokes.length = 0;
   failingWrites = 0;
   failingCode = undefined;
+  failingTable = undefined;
   commitConflict = false;
   failingCommits = 0;
+  grantTarget = "board";
 }
 
 type Query = {
@@ -367,7 +426,7 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
     single: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     maybeSingle: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     then: (onfulfilled, onrejected) => {
-      if (write && failingWrites > 0) {
+      if (write && failingWrites > 0 && (failingTable === undefined || failingTable === table)) {
         failingWrites--;
 
         return Promise.resolve({ data: null, error: { message: failingMessage, code: failingCode } }).then(
@@ -385,6 +444,23 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
 
 export const DELETED_ACCOUNT = { id: "gone-1", email: "gone@volley.test" };
 export const DELETED_TEAM = { id: "old-team-1", name: "Old Team" };
+
+// The profile rows, shared by the `profiles` table reads (display name only for an ordinary client) and
+// the admin-only `admin_list_profiles` RPC (which adds email). Email is never selectable through the
+// table itself server-side; the fake does not model column grants, so tests assert the client behaviour.
+function profileRows(): Row[] {
+  return [
+    {
+      id: TEST_USER.id,
+      email: TEST_USER.email,
+      is_admin: authz.isAdmin,
+      display_name: authz.displayName,
+      deleted_at: null,
+    },
+    { id: OTHER_MEMBER.id, email: OTHER_MEMBER.email, is_admin: false, display_name: "Player Pat", deleted_at: null },
+    { id: DELETED_ACCOUNT.id, email: DELETED_ACCOUNT.email, is_admin: false, display_name: null, deleted_at: ISO },
+  ];
+}
 
 function from(table: string): Query {
   switch (table) {
@@ -406,6 +482,8 @@ function from(table: string): Query {
         [
           { team_id: TEST_TEAM_ID, user_id: TEST_USER.id, role: authz.role },
           { team_id: TEST_TEAM_ID, user_id: OTHER_MEMBER.id, role: "player" },
+          // A soft-deleted account keeps its membership but must never be offered as a share candidate.
+          { team_id: TEST_TEAM_ID, user_id: DELETED_ACCOUNT.id, role: "player" },
           ...(authz.showcaseRole
             ? [{ team_id: SHOWCASE_TEAM_ID, user_id: TEST_USER.id, role: authz.showcaseRole }]
             : []),
@@ -445,34 +523,10 @@ function from(table: string): Query {
       );
     case "invites":
       return makeQuery(table, [], { token: "new-invite-token" });
+    case "access_links":
+      return makeQuery(table, [], { token: "new-grant-token" });
     case "profiles":
-      return makeQuery(
-        table,
-        [
-          {
-            id: TEST_USER.id,
-            email: TEST_USER.email,
-            is_admin: authz.isAdmin,
-            display_name: authz.displayName,
-            deleted_at: null,
-          },
-          {
-            id: OTHER_MEMBER.id,
-            email: OTHER_MEMBER.email,
-            is_admin: false,
-            display_name: "Player Pat",
-            deleted_at: null,
-          },
-          {
-            id: DELETED_ACCOUNT.id,
-            email: DELETED_ACCOUNT.email,
-            is_admin: false,
-            display_name: null,
-            deleted_at: ISO,
-          },
-        ],
-        null
-      );
+      return makeQuery(table, profileRows(), null);
     default:
       return makeQuery(table, [], null);
   }
@@ -519,6 +573,38 @@ function rpc(fn: string, params: Record<string, unknown>): Promise<DbResult> {
   }
 
   if (fn === "soft_delete_topic" || fn === "delete_team") return Promise.resolve(ok(null));
+
+  // Orphan cleanup after a failed create: the client fires these but ignores the result.
+  if (fn === "delete_orphan_board" || fn === "delete_orphan_topic") return Promise.resolve(ok(null));
+
+  // The admin-only profile list (with email); the fake serves it to any caller since it does not model
+  // authz for reads.
+  if (fn === "admin_list_profiles") return Promise.resolve(ok(profileRows()));
+
+  // Sharing outside your teams. The grant-by-email RPCs return nothing whether or not an account matched
+  // (the server makes a miss indistinguishable from a hit), so the fake just accepts the call. The link
+  // preview and redeem RPCs return shaped rows so the redeem flow can be tested.
+  if (fn === "grant_board_by_email" || fn === "grant_topic_by_email") return Promise.resolve(ok(null));
+  // Only "grant-token" is a live link; any other token previews and redeems to nothing (spent/expired).
+  if (fn === "access_link_preview" || fn === "redeem_access_link") {
+    if (params.link_token !== "grant-token") return Promise.resolve(ok([]));
+    if (fn === "access_link_preview")
+      return Promise.resolve(
+        ok(
+          grantTarget === "note"
+            ? [{ kind: "note", title: SAMPLE_NOTES[0].title, capability: "viewer" }]
+            : [{ kind: "board", title: "Shared Tactic", capability: "editor" }]
+        )
+      );
+
+    return Promise.resolve(
+      ok(
+        grantTarget === "note"
+          ? [{ board_id: null, topic_id: SAMPLE_NOTES[0].id }]
+          : [{ board_id: SHARED_PERSONAL.id, topic_id: null }]
+      )
+    );
+  }
 
   if (fn !== "board_by_token") return Promise.resolve({ data: null, error: { message: `unknown rpc ${fn}` } });
 

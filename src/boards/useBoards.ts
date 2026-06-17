@@ -158,7 +158,13 @@ export function useBoards(space: Space | null, isAdmin: boolean, activeRole: Tea
         return result.error?.code === "23505" ? { error: null } : result;
       });
 
-      if (grantError !== null) return grantError;
+      // The grant write failed after the row landed: remove the orphaned row so a failed create leaves
+      // nothing behind. A plain delete cannot (board deletes are admin-only), so go through the RPC.
+      if (grantError !== null) {
+        await supabase.rpc("delete_orphan_board", { board: stamped.id });
+
+        return grantError;
+      }
 
       setBoards((prev) => [stamped, ...prev]);
 

@@ -13,7 +13,7 @@ export type ButtonVariant = "primary" | "ghost" | "text" | "danger" | "dashed";
 export type ButtonSize = "sm" | "md";
 
 const BUTTON_BASE =
-  "inline-flex items-center justify-center gap-2 cursor-pointer font-semibold transition-[filter,color,background-color,border-color,transform] duration-150 ease-settle disabled:cursor-default disabled:opacity-40";
+  "inline-flex items-center justify-center gap-2 cursor-pointer font-semibold whitespace-nowrap transition-[filter,color,background-color,border-color,transform] duration-150 ease-settle disabled:cursor-default disabled:opacity-40";
 
 const BUTTON_VARIANT: Record<ButtonVariant, string> = {
   primary: "flex-none border-0 bg-accent text-on-accent hover:brightness-[1.08] active:scale-[0.97]",

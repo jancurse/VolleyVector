@@ -45,10 +45,31 @@ if [ ! -f "$dir/.claude/settings.local.json" ]; then
   fi
 fi
 
-# Show the worktree in the open VS Code window (best effort, fully detached).
-if command -v code >/dev/null 2>&1; then
-  nohup code --add "$dir" >/dev/null 2>&1 </dev/null &
-  disown 2>/dev/null || true
+# Add the worktree to its feature's VS Code workspace. The feature folder holds
+# the clone and all its worktrees side by side; a named .code-workspace there is
+# the one window that shows them. Editing that file targets the right window
+# deterministically, unlike `code --add`, which only ever hits the active window.
+feature="$(dirname "$repo")"
+wsfile="$feature/$(basename "$feature").code-workspace"
+if [ -f "$wsfile" ]; then
+  # Append the worktree folder if absent; VS Code live-updates the open window.
+  tmp="$(mktemp)"
+  if jq --arg wt "$name" \
+    'if any(.folders[]?; .path == $wt) then . else .folders += [{path: $wt}] end' \
+    "$wsfile" >"$tmp" 2>/dev/null; then
+    mv "$tmp" "$wsfile"
+  else
+    rm -f "$tmp"
+  fi
+else
+  # First worktree for this feature: seed the workspace with the clone first,
+  # then the worktree, and open it so the feature lives in this one window.
+  jq -n --arg clone "$(basename "$repo")" --arg wt "$name" \
+    '{folders: [{path: $clone}, {path: $wt}], settings: {}}' >"$wsfile"
+  if command -v code >/dev/null 2>&1; then
+    nohup code "$wsfile" >/dev/null 2>&1 </dev/null &
+    disown 2>/dev/null || true
+  fi
 fi
 
 # Install dependencies in the background so creation stays fast and never trips

@@ -44,6 +44,8 @@ import { sameSpace } from "./workspace/space";
 import type { Space } from "./workspace/space";
 import { useShareRoute } from "./sharing/useShareRoute";
 import { ShareView } from "./sharing/ShareView";
+import { useGrantRoute } from "./sharing/useGrantRoute";
+import { GrantAccept } from "./sharing/GrantAccept";
 import { useInviteRoute } from "./invites/useInviteRoute";
 import { InviteAccept } from "./invites/InviteAccept";
 import { AccessManager } from "./sharing/AccessManager";
@@ -101,13 +103,14 @@ export function App(): JSX.Element {
   const workspace = useWorkspace();
   const shareToken = useShareRoute();
   const inviteToken = useInviteRoute();
+  const grantToken = useGrantRoute();
   const draftPreviewOpen = useDraftPreviewRoute() && import.meta.env.DEV;
   const { route, navigate } = useRoute();
 
   // A share or invite link rides the hash and owns the whole screen (it opens with or without an account),
-  // and the dev-only draft preview rides it inside the shell, so the path router stays dormant while one
-  // is active: its effects must not navigate and clear the hash.
-  const hashRoute = shareToken !== null || inviteToken !== null || draftPreviewOpen;
+  // a grant link rides it too (but only once signed in), and the dev-only draft preview rides it inside the
+  // shell, so the path router stays dormant while one is active: its effects must not navigate the hash.
+  const hashRoute = shareToken !== null || inviteToken !== null || grantToken !== null || draftPreviewOpen;
 
   // Hold content loads until the workspace has resolved the landing space, so the app does not fetch the
   // personal space and then immediately re-fetch the defaulted team.
@@ -515,6 +518,10 @@ export function App(): JSX.Element {
   if (inviteToken) return <InviteAccept key={inviteToken} token={inviteToken} />;
 
   if (!user) return <Login />;
+
+  // A grant link binds its grant to the signed-in caller, so it sits behind the gate above: once signed
+  // in, it owns the screen to preview and claim the share before the app loads.
+  if (grantToken) return <GrantAccept key={grantToken} token={grantToken} />;
 
   // An invite email signs its recipient in as a freshly created, passwordless account. Collect a password
   // before the app, so the account is usable for ordinary sign-in afterwards.
@@ -980,6 +987,7 @@ export function App(): JSX.Element {
           onOpenChange={setManagingAccess}
           board={openBoard}
           coachedTeams={targetTeams}
+          memberTeams={teams}
           teamName={(teamId) => allTeams.find((t) => t.teamId === teamId)?.teamName ?? "a team"}
           currentUserId={user.id}
         />
@@ -991,6 +999,7 @@ export function App(): JSX.Element {
           note={selectedNote}
           notes={notes.notes}
           coachedTeams={targetTeams}
+          memberTeams={teams}
           teamName={(teamId) => allTeams.find((t) => t.teamId === teamId)?.teamName ?? "a team"}
           currentUserId={user.id}
         />

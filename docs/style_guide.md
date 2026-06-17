@@ -51,3 +51,8 @@
 - Use `danger` only for destructive actions.
 - Use `dashed` only for an add affordance that stands where its result will appear, shaped like that result (e.g. the new-board tile in the card grid). An add affordance inside a list or nav takes the list's own row style, quiet and borderless, never a dashed button.
 - A destructive row action is an `IconButton` with an `aria-label`, never a bespoke button with its own class string.
+- **Pickers over growing sets.** A control that reveals all its options at once fits a set that's small and bounded by design. When the set grows with the data (accounts, boards), that loads slowly, gives no way to narrow, and can expose more than the user should see. Ways to keep what's loaded bounded:
+    - **Scope to a relationship** (your teams, your teammates), where it makes sense — narrows to who's relevant rather than everyone. Sufficient on its own only when the result is bounded to a small number by design (not merely small today); otherwise combine it with one of the below.
+    - **Filter an already-loaded scoped set** — when it's dozens to low hundreds and instant typing helps.
+    - **Search server-side** (query with a limit, nothing shown until typed) — when the set is large or sensitive and the user can name the target.
+    - **A dedicated paginated page** — when the task is browse or manage, not pick-one.

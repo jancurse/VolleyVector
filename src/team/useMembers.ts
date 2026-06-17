@@ -3,12 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabase/client";
 import type { TeamRole } from "../workspace/useWorkspace";
 
-export type Member = { userId: string; name: string; email: string; role: TeamRole };
+export type Member = { userId: string; name: string; role: TeamRole };
 
 type MembershipRow = { user_id: string; role: TeamRole };
-type ProfileRow = { id: string; email: string | null; display_name: string | null };
+type ProfileRow = { id: string; display_name: string | null };
 
-// The members of one team, joined with their profiles for a name and email to show. Loads when given a team
+// The members of one team, joined with their profiles for a display name to show. Loads when given a team
 // (null while a manager dialog is closed), and exposes a reload so a fresh invite shows immediately,
 // plus setRole and remove to re-role or drop a member (RLS permits both for the team's coaches and
 // admins).
@@ -77,7 +77,7 @@ export function useMembers(teamId: string | null): {
       // Exclude soft-deleted accounts: they keep their membership (so a restore re-grants team access) but
       // must not appear in the live roster.
       const profiles = ids.length
-        ? await supabase.from("profiles").select("id, email, display_name").in("id", ids).is("deleted_at", null)
+        ? await supabase.from("profiles").select("id, display_name").in("id", ids).is("deleted_at", null)
         : null;
 
       if (!active) return;
@@ -90,7 +90,7 @@ export function useMembers(teamId: string | null): {
           .map((m) => {
             const profile = live.get(m.user_id);
 
-            return { userId: m.user_id, name: profile?.display_name ?? "", email: profile?.email ?? "", role: m.role };
+            return { userId: m.user_id, name: profile?.display_name ?? "", role: m.role };
           })
       );
       setLoading(false);

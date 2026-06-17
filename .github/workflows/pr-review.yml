@@ -16,6 +16,7 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  id-token: write
 
 jobs:
   review:
@@ -40,11 +41,38 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The skill's best-effort visual check drives the Playwright MCP server,
+      # which needs a Chromium and a running app. These steps stand the app up so
+      # the check can run; if the dev login secret is absent the agent simply
+      # hits the login gate and the skill records a skip rather than failing.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Configure dev auto-login
+        run: |
+          mkdir -p ~/.config/volleycoach
+          cat > ~/.config/volleycoach/dev.env <<EOF
+          VITE_DEV_EMAIL=${{ secrets.VITE_DEV_EMAIL }}
+          VITE_DEV_PASSWORD=${{ secrets.VITE_DEV_PASSWORD }}
+          EOF
+
+      - name: Start dev server
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          nohup npm run dev > dev-server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:5173 > /dev/null && exit 0; sleep 1; done
+          echo "Dev server did not come up in time; visual check will be skipped." >&2
+
       - name: Review with Claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           trigger_phrase: "@claude-review"
+          claude_args: |
+            --mcp-config '{"mcpServers": {"playwright": {"command": "npx", "args": ["@playwright/mcp@latest", "--headless", "--isolated"]}}}'
+            --allowedTools mcp__playwright__*
           prompt: |
             Review this pull request using the code-review-custom skill (defined
             in .claude/skills/). Follow its process and report format exactly,

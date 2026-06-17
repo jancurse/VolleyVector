@@ -8,6 +8,7 @@ import { createBoard } from "../../src/boards/operations";
 import { COMMIT_CONFLICT, useBoards } from "../../src/boards/useBoards";
 import type { Space } from "../../src/workspace/space";
 import {
+  failWrites,
   recordedRpcs,
   recordedWrites,
   resetRecorded,
@@ -104,6 +105,28 @@ describe("useBoards", () => {
     expect(boardInsert?.payload?.created_by).toBe(TEST_USER.id);
     expect(grantInsert?.payload?.team_id).toBe(TEST_TEAM_ID);
     expect(grantInsert?.payload?.capability).toBe("owner");
+  });
+
+  test("a failed grant write removes the orphaned row and reports the error", async () => {
+    const { result } = renderBoards();
+
+    await waitFor(() => expect(result.current.boards.length).toBeGreaterThan(0));
+
+    const board = { ...createBoard(Date.now()), createdBy: TEST_USER.id };
+    let commitError: string | null = "unset";
+
+    // The board row lands, then the grant write fails past its retries, so the create cleans up after itself.
+    failWrites(3, "Load failed", undefined, "board_access");
+    await act(async () => {
+      commitError = await result.current.addBoard(board);
+    });
+
+    expect(commitError).toBe("Load failed");
+    expect(result.current.boards.some((b) => b.id === board.id)).toBe(false);
+
+    const cleanup = recordedRpcs.find((c) => c.fn === "delete_orphan_board");
+
+    expect((cleanup?.params as { board: string }).board).toBe(board.id);
   });
 
   test("deleting a board detaches the team's grant and drops it from the list", async () => {

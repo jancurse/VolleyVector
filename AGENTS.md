@@ -23,14 +23,14 @@ VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, brow
 - `src/notes/`: the note-tree model, operations, store, sidebar, the note view/editor, and the board view's appears-in backlinks. (Server-side, notes live in the legacy-named `topics` table.)
 - `src/history/`: the revision list, the read-only board and note history views, the structured board/note diff, and the revision-loading hooks.
 - `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle.
-- `src/supabase/`, `src/auth/`, `src/account/`, `src/workspace/`, `src/team/`, `src/admin/`, `src/invites/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the account panel and display-name setup, the active-space and team membership state, team management (roles, invite links), admin management (teams, accounts, deleted-content recovery), the invite-link flow (preview, accept, set-password), and the sharing flows (the board and note access managers, copy-as-fork, the share-token route and read-only viewer).
+- `src/supabase/`, `src/auth/`, `src/account/`, `src/workspace/`, `src/team/`, `src/admin/`, `src/invites/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the account panel and display-name setup, the active-space and team membership state, team management (roles, invite links), admin management (teams, accounts, deleted-content recovery), the invite-link flow (preview, accept, set-password), and the sharing flows (the board and note access managers, the relationship-scoped principal picker, copy-as-fork, the share-token route and read-only viewer, and sharing outside your teams by grant link or exact email).
 - `src/App.tsx`: the top-level shell that owns navigation and wires the stores together.
 
 See @docs/architecture.md for how these fit together and the detail behind each.
 
 ## Writing Code
 
-- Always read the style guide before writing code: @docs/style_guide.md
+- Always read the style guide (`docs/style_guide.md`) before writing substantial code.
 - We use Prettier, ESLint, and the TypeScript compiler with a 120-character line length. Do not break lines manually. Run Prettier instead. Settings live in @package.json (Prettier), @eslint.config.js (ESLint), and @tsconfig.json (TypeScript).
 - **Icons: use Lucide (`lucide-react`).** Base UI ships no icons. Render a Lucide component for every UI glyph (`<ChevronRight size={14} />`); never hand-draw an inline `<svg>` icon. The only exceptions are the domain art in `src/court/` (the volleyball, net, and court lines) and the app brand mark in the header (mirrored by `public/favicon.svg`).
 - **Keep the board-creator skill in lockstep.** Any change to the bundle format (`src/bundle/types.ts`), the board or annotation model, or the court's geometry, roles, or colours must update `.claude/skills/board-creator/` in the same change (`format.md`, `court.md`, `examples/`, `scripts/validate.mjs`), bumping `FORMAT_VERSION` when the bundle shape changes.
@@ -86,6 +86,16 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - **Flag reversals explicitly**: when you change your mind about a recommendation, say so plainly and explain why, rather than sliding into a new direction as if it were a continuation.
 - Report results factually without positive spin. If errors or issues remain unresolved, state them clearly.
 - **User-only steps are part of the task.** Some steps need the user (Supabase, Cloudflare, admin actions). Walk them through it with exact, ordered steps and wait. Do not work around it to do it yourself, and do not finish the code, declare done, and dump the rest on them. The task is not done until you have guided their part to completion.
+
+### Communication
+
+- **Be concise:** give the answer and only the context needed to act on it.
+- **Answer exactly what was asked**, not what you think the user wants to hear or really means.
+- **Do not pad:**
+    - Do not add anything the user does not need to act on.
+    - Cut anything that is not load-bearing. Before adding a sentence, ask whether the user needs it to act. If not, drop it.
+    - Flag what you think is important, but do not go into detail unless asked.
+- **Keep it short by default:** write at most 2-3 paragraphs unless the user asked for detail or a long report. If you think more would help, say so and ask which part they want expanded before writing it.
 
 ### Problem Solving
 
