@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # WorktreeCreate hook. Creates the worktree as a sibling of the repo (parallel,
-# not nested under .claude/worktrees), sets it up, and shows it in VS Code.
+# not nested under .claude/worktrees), sets it up, and registers it in the
+# feature's VS Code workspace file.
 # It replaces Claude Code's default git behaviour, so it must create the worktree
 # itself and print ONLY the absolute path on stdout.
 set -u
@@ -51,25 +52,30 @@ fi
 # deterministically, unlike `code --add`, which only ever hits the active window.
 feature="$(dirname "$repo")"
 wsfile="$feature/$(basename "$feature").code-workspace"
-if [ -f "$wsfile" ]; then
-  # Append the worktree folder if absent; VS Code live-updates the open window.
-  tmp="$(mktemp)"
-  if jq --arg wt "$name" \
-    'if any(.folders[]?; .path == $wt) then . else .folders += [{path: $wt}] end' \
-    "$wsfile" >"$tmp" 2>/dev/null; then
-    mv "$tmp" "$wsfile"
-  else
-    rm -f "$tmp"
-  fi
+
+# If the feature has no saved workspace yet, save one now, listing the clone and
+# every existing worktree so nothing already open is dropped. The worktree just
+# created above is already in `git worktree list`, so this seed includes it. We
+# deliberately never run `code` to open it: that spawns a second window instead of
+# updating the one already open. Open the workspace once; edits then live-update.
+if [ ! -f "$wsfile" ]; then
+  folders=()
+  while IFS= read -r wt; do
+    [ "$(dirname "$wt")" = "$feature" ] && folders+=("$(basename "$wt")")
+  done < <(git -C "$repo" worktree list --porcelain | sed -n 's/^worktree //p')
+  jq -n '$ARGS.positional | {folders: map({path: .}), settings: {}}' \
+    --args "${folders[@]}" >"$wsfile"
+fi
+
+# Ensure the new worktree is listed (covers the already-saved case; a no-op when
+# the seed above just added it). VS Code live-updates the open window.
+tmp="$(mktemp)"
+if jq --arg wt "$name" \
+  'if any(.folders[]?; .path == $wt) then . else .folders += [{path: $wt}] end' \
+  "$wsfile" >"$tmp" 2>/dev/null; then
+  mv "$tmp" "$wsfile"
 else
-  # First worktree for this feature: seed the workspace with the clone first,
-  # then the worktree, and open it so the feature lives in this one window.
-  jq -n --arg clone "$(basename "$repo")" --arg wt "$name" \
-    '{folders: [{path: $clone}, {path: $wt}], settings: {}}' >"$wsfile"
-  if command -v code >/dev/null 2>&1; then
-    nohup code "$wsfile" >/dev/null 2>&1 </dev/null &
-    disown 2>/dev/null || true
-  fi
+  rm -f "$tmp"
 fi
 
 # Install dependencies in the background so creation stays fast and never trips
