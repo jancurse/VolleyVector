@@ -44,6 +44,8 @@ See @docs/architecture.md for how these fit together and the detail behind each.
 ## Writing Markdown
 
 - **Every sentence must carry concrete content.** Cut any sentence whose only job is to assert importance, relevance, or consequence without conveying the substance that backs the claim.
+- **Write concisely, with no padding.** Cut any word or sentence that adds length without adding information. Say each point once.
+- **Match the document you edit.** When updating a doc (README, architecture, style guide), keep a new entry or section no longer or denser than the ones already there. Do not let an addition dominate the document.
 - **Write direct, plainly-structured prose. Do not pile clauses onto one sentence.** Prefer simple subject-verb-object sentences, and split a compound thought into separate sentences.
     - Use punctuation for the job each mark does: a colon to introduce what follows, a period to end a thought. Do not reach for an em dash where a colon or full stop is what you mean.
     - Heavy use of em dashes, semicolons, and stacked commas is the main tell of fragmented "AI" prose. If a sentence leans on several of them, rewrite it as two or three plain ones.

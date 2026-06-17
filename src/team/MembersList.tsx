@@ -77,6 +77,7 @@ export function MembersList({
                 ariaLabel={`Role for ${label}`}
                 value={member.role}
                 options={ROLE_OPTIONS}
+                variant="quiet"
                 onValueChange={(next) => onSetRole(member.userId, next === "coach" ? "coach" : "player")}
               />
             ) : (

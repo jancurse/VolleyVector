@@ -56,3 +56,5 @@
     - **Filter an already-loaded scoped set** — when it's dozens to low hundreds and instant typing helps.
     - **Search server-side** (query with a limit, nothing shown until typed) — when the set is large or sensitive and the user can name the target.
     - **A dedicated paginated page** — when the task is browse or manage, not pick-one.
+- Size a control to its content, not its container. A select over a short enum is as wide as its longest option; only genuinely long or free-form values (a title, a description) earn full width.
+- A list row leads with what identifies the item, not its controls. Render a rarely-changed field as quiet text or a compact control, never a full-width input.
