@@ -14,7 +14,8 @@ Review code for correctness, cleanliness, and codebase fit. The user will specif
 3. **Find potential issues**: evaluate every item in the checklist below. Collect candidate findings, but do not categorize or write them up yet. Only raise actual issues, and do not pad.
 4. **Investigate each finding with subagents**: spawn one Agent tool call per candidate finding, in parallel, in a single message. Each subagent reads the relevant code, traces concrete scenarios, and returns confirmed (with evidence and severity: ISSUE/SUGGESTION/NOTE) or dismissed (with reasoning). You do not evaluate candidates in your own reasoning. That is the subagent's job.
 5. **Run the diagnostics skill**: check diagnostics using the diagnostics skill on all changed files. You must use the skill, not raw tool calls.
-6. **Report**: present only confirmed findings using the format below.
+6. **Visual check (best-effort)**: when the change touches UI, run one Playwright subagent (Agent tool) to load the app and visually confirm the change. Load the playwright skill first and follow its rules: the browser work lives entirely in that one subagent, which returns only its findings. This step is conditional, never blocking: if no dev server is reachable at `localhost:5173` or the login gate appears (the dev login is absent), skip it and record one NOTE that the visual check was skipped and why. A confirmed visual regression is an ISSUE; never fail the review merely because the browser could not start.
+7. **Report**: present only confirmed findings using the format below.
 
 ## Checklist
 
@@ -26,6 +27,7 @@ Review code for correctness, cleanliness, and codebase fit. The user will specif
 - **Security**: changes preserve confidentiality, integrity, and availability. Secrets stay out of client code, untrusted input is handled safely, and access is enforced server-side rather than trusted to the client. Personal data (emails and the like) never reaches a non-admin client: check both what RLS policies and RPCs return and what the client selects.
 - **Testing**: sufficient tests for new/changed behaviour, following the react-testing skill rules. If tests are missing or inadequate, specify what should be tested.
 - **Documentation**: behaviour, data-model, or module-structure changes are reflected in the docs (README.md, AGENTS.md, docs/architecture.md). New documentation is proportional to the change, never over-explaining a small feature to the point of drowning surrounding content.
+- **No leftover plans**: `./plans/` is empty or absent. A planning file left behind in the diff is an ISSUE: a plan is scratch work, never committed alongside the change it produced.
 - **Diagnostics**: all changed files pass formatting, linting, and type checking.
 
 ## Rigor
