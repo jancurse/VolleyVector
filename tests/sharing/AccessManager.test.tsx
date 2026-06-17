@@ -123,7 +123,7 @@ describe("AccessManager", () => {
     await waitFor(() => expect(recordedRpcs.some((c) => c.fn === "grant_board_by_email")).toBe(true));
     const call = recordedRpcs.find((c) => c.fn === "grant_board_by_email");
 
-    expect(call?.params).toMatchObject({ board: board.id, addr: "stranger@example.com", cap: "editor" });
+    expect(call?.params).toMatchObject({ board: board.id, addr: "stranger@example.com", cap: "viewer" });
     expect(await screen.findByText(/it now has access to this board/i)).toBeInTheDocument();
   });
 
@@ -139,7 +139,7 @@ describe("AccessManager", () => {
 
     const insert = await findWrite("access_links", "insert");
 
-    expect(insert.payload).toMatchObject({ board_id: board.id, capability: "editor" });
+    expect(insert.payload).toMatchObject({ board_id: board.id, capability: "viewer" });
     await waitFor(() => expect(writeText).toHaveBeenCalled());
     expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
   });

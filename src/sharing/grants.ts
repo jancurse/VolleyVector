@@ -84,3 +84,13 @@ export async function redeemAccessLink(
 
   return { boardId: row?.board_id ?? null, topicId: row?.topic_id ?? null, error: null };
 }
+
+/** A note's URL slug, to open it after redeeming a note grant (the caller now holds the grant, so RLS
+ *  permits the read). Null when the note cannot be resolved, so the caller can fall back to the library. */
+export async function fetchNoteSlug(topicId: string): Promise<string | null> {
+  const { data, error } = await supabase.from("topics").select("slug").eq("id", topicId).maybeSingle();
+
+  if (error || !data) return null;
+
+  return (data as { slug: string }).slug;
+}

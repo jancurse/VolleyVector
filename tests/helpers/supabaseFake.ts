@@ -305,6 +305,8 @@ let failingTable: string | undefined;
 let commitConflict = false;
 // The next `failingCommits` commit RPCs report an error, so the editor's failure path can be exercised.
 let failingCommits = 0;
+// Which content a grant link previews and redeems to, so the redeem flow can be tested for either kind.
+let grantTarget: "board" | "note" = "board";
 
 export function failWrites(count: number, message = "Load failed", code?: string, table?: string): void {
   failingWrites = count;
@@ -323,6 +325,11 @@ export function failCommits(count: number): void {
   failingCommits = count;
 }
 
+/** Switch what a grant link previews and redeems to: a board (default) or a note. */
+export function setGrantTarget(target: "board" | "note"): void {
+  grantTarget = target;
+}
+
 export function resetRecorded(): void {
   recordedWrites.length = 0;
   recordedRpcs.length = 0;
@@ -332,6 +339,7 @@ export function resetRecorded(): void {
   failingTable = undefined;
   commitConflict = false;
   failingCommits = 0;
+  grantTarget = "board";
 }
 
 type Query = {
@@ -474,6 +482,8 @@ function from(table: string): Query {
         [
           { team_id: TEST_TEAM_ID, user_id: TEST_USER.id, role: authz.role },
           { team_id: TEST_TEAM_ID, user_id: OTHER_MEMBER.id, role: "player" },
+          // A soft-deleted account keeps its membership but must never be offered as a share candidate.
+          { team_id: TEST_TEAM_ID, user_id: DELETED_ACCOUNT.id, role: "player" },
           ...(authz.showcaseRole
             ? [{ team_id: SHOWCASE_TEAM_ID, user_id: TEST_USER.id, role: authz.showcaseRole }]
             : []),
@@ -575,9 +585,26 @@ function rpc(fn: string, params: Record<string, unknown>): Promise<DbResult> {
   // (the server makes a miss indistinguishable from a hit), so the fake just accepts the call. The link
   // preview and redeem RPCs return shaped rows so the redeem flow can be tested.
   if (fn === "grant_board_by_email" || fn === "grant_topic_by_email") return Promise.resolve(ok(null));
-  if (fn === "access_link_preview")
-    return Promise.resolve(ok([{ kind: "board", title: "Shared Tactic", capability: "editor" }]));
-  if (fn === "redeem_access_link") return Promise.resolve(ok([{ board_id: SHARED_PERSONAL.id, topic_id: null }]));
+  // Only "grant-token" is a live link; any other token previews and redeems to nothing (spent/expired).
+  if (fn === "access_link_preview" || fn === "redeem_access_link") {
+    if (params.link_token !== "grant-token") return Promise.resolve(ok([]));
+    if (fn === "access_link_preview")
+      return Promise.resolve(
+        ok(
+          grantTarget === "note"
+            ? [{ kind: "note", title: SAMPLE_NOTES[0].title, capability: "viewer" }]
+            : [{ kind: "board", title: "Shared Tactic", capability: "editor" }]
+        )
+      );
+
+    return Promise.resolve(
+      ok(
+        grantTarget === "note"
+          ? [{ board_id: null, topic_id: SAMPLE_NOTES[0].id }]
+          : [{ board_id: SHARED_PERSONAL.id, topic_id: null }]
+      )
+    );
+  }
 
   if (fn !== "board_by_token") return Promise.resolve({ data: null, error: { message: `unknown rpc ${fn}` } });
 

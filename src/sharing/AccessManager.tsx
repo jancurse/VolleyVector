@@ -59,7 +59,13 @@ export function AccessManager({
     let active = true;
 
     void fetchAccess("board_access", "board_id", board.id).then((data) => active && apply(data));
-    void fetchShareCandidates(memberTeams, currentUserId).then((r) => active && setCandidates(r.candidates));
+    void fetchShareCandidates(memberTeams, currentUserId).then((r) => {
+      if (!active) return;
+
+      setCandidates(r.candidates);
+      // Surface a memberships/profiles load failure without clobbering a concurrent access-fetch error.
+      if (r.error) setError(r.error);
+    });
 
     return () => {
       active = false;

@@ -22,7 +22,7 @@ type OutsideTeamShareProps = {
 };
 
 export function OutsideTeamShare({ entityNoun, onCreateLink, onGrantByEmail }: OutsideTeamShareProps): JSX.Element {
-  const [capability, setCapability] = useState<Capability>("editor");
+  const [capability, setCapability] = useState<Capability>("viewer");
   const [email, setEmail] = useState("");
   const [linkLabel, setLinkLabel] = useState("Copy share link");
   const [message, setMessage] = useState<string | null>(null);

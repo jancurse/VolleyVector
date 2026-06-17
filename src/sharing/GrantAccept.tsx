@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
+import { buildPath } from "../routing/route";
 import { Button } from "../ui/Button";
 import { cx, EYEBROW, MUTED, PANEL } from "../ui/styles";
-import { accessLinkPreview, redeemAccessLink } from "./grants";
+import { accessLinkPreview, fetchNoteSlug, redeemAccessLink } from "./grants";
 import type { GrantLinkPreview } from "./grants";
 
 const BACKGROUND =
@@ -22,8 +23,8 @@ const CAPABILITY_LABEL: Record<GrantLinkPreview["capability"], string> = {
 
 // The redeem screen for a grant link, reached at `#/grant/<token>` once the visitor is signed in (the
 // grant binds to their account, so unlike a share link this sits behind the login gate). It previews the
-// content the link opens, then claims the single-use grant on Accept and reloads at the root so the
-// workspace loads fresh with the new content in the visitor's personal space.
+// content the link opens, then claims the single-use grant on Accept and lands on the granted content in
+// the visitor's personal space (where the grant places it), reloading so the workspace loads fresh.
 export function GrantAccept({ token }: { token: string }): JSX.Element {
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading", preview: null });
   const [error, setError] = useState<string | null>(null);
@@ -43,11 +44,26 @@ export function GrantAccept({ token }: { token: string }): JSX.Element {
 
   const finish = () => window.location.replace(window.location.origin);
 
+  // Where to land after redeeming: the granted board or note in the personal space (the grant places it
+  // there), falling back to the personal library when a note's slug cannot be resolved.
+  const landingPath = async (boardId: string | null, topicId: string | null): Promise<string> => {
+    const space = { kind: "personal" } as const;
+
+    if (boardId) return buildPath({ kind: "board", space, boardId, edit: false });
+    if (topicId) {
+      const slug = await fetchNoteSlug(topicId);
+
+      if (slug) return buildPath({ kind: "note", space, noteSlug: slug });
+    }
+
+    return buildPath({ kind: "library", space });
+  };
+
   const accept = async () => {
     setError(null);
     setBusy(true);
 
-    const { error: failure } = await redeemAccessLink(token);
+    const { boardId, topicId, error: failure } = await redeemAccessLink(token);
 
     if (failure) {
       setError(failure);
@@ -56,7 +72,7 @@ export function GrantAccept({ token }: { token: string }): JSX.Element {
       return;
     }
 
-    finish();
+    window.location.replace(window.location.origin + (await landingPath(boardId, topicId)));
   };
 
   const preview = loaded.status === "ready" ? loaded.preview : null;
