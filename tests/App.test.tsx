@@ -752,6 +752,36 @@ describe("team management", () => {
     expect(screen.queryByRole("button", { name: /Manage/ })).not.toBeInTheDocument();
   });
 
+  // The team library's page-bar menu carries a Manage team… entry too, so management is reachable at every
+  // sidebar width, not only from the full sidebar's gear. It routes to the same team page.
+  test("a coach reaches team management from the team-library page-bar menu", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Library actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Manage team…" }));
+
+    expect(await screen.findByRole("button", { name: "Invite member" })).toBeInTheDocument();
+  });
+
+  test("the personal space's page-bar menu offers no Manage team…", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Personal" }));
+    await screen.findByRole("button", { name: /My Personal Position/ });
+    await user.click(screen.getByRole("button", { name: "Library actions" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Manage team…" })).not.toBeInTheDocument();
+  });
+
+  test("a player gets no Manage team… on the team library, since management is coach-facing", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Library actions" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Manage team…" })).not.toBeInTheDocument();
+  });
+
   test("an admin creates a team through the admin panel, which becomes selectable in the space switcher", async () => {
     const user = await renderApp();
 

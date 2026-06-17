@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
+import { Settings } from "lucide-react";
 
 import { createBoard } from "./boards/operations";
 import type { Board } from "./boards/types";
@@ -836,6 +837,12 @@ export function App(): JSX.Element {
             bundle={() => toBundle(boards, notes.notes)}
             filename={bundleFilename(spaceName)}
           >
+            {activeSpace.kind === "team" && canEdit && (
+              <MenuItem className="gap-2" onClick={() => navigate(teamRoute(activeSpace.teamId, allTeams))}>
+                <Settings size={15} aria-hidden="true" />
+                Manage team…
+              </MenuItem>
+            )}
             {canEdit && <MenuItem onClick={() => setImporting(true)}>Import JSON…</MenuItem>}
             {import.meta.env.DEV && (
               <MenuItem onClick={() => (window.location.hash = "#/preview")}>Draft preview…</MenuItem>
