@@ -95,6 +95,7 @@ The repo enables the following Claude Code tools (binaries to install are in @do
     - Do not add anything the user does not need to act on.
     - Cut anything that is not load-bearing. Before adding a sentence, ask whether the user needs it to act. If not, drop it.
     - Flag what you think is important, but do not go into detail unless asked.
+- **Keep it short by default:** write at most 2-3 paragraphs unless the user asked for detail or a long report. If you think more would help, say so and ask which part they want expanded before writing it.
 
 ### Problem Solving
 
