@@ -5,7 +5,8 @@ import { useAuth } from "./useAuth";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
-import { cx, EYEBROW, MUTED, PANEL } from "../ui/styles";
+import { BrandLockup } from "../shell/BrandMark";
+import { cx, MUTED, PANEL } from "../ui/styles";
 
 const BACKGROUND =
   "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)]";
@@ -62,8 +63,8 @@ export function SetPassword({ email, onDone }: { email: string; onDone: () => vo
         className={cx(PANEL, "w-full max-w-[24rem] gap-5")}
       >
         <div>
-          <p className={EYEBROW}>VolleyCoach</p>
-          <h1 className="m-0 font-display text-[1.9rem] font-bold tracking-[-0.025em]">Set a password</h1>
+          <BrandLockup />
+          <h1 className="m-0 mt-3 font-display text-[1.9rem] font-bold tracking-[-0.025em]">Set a password</h1>
           <p className={cx(MUTED, "mt-2")}>Choose a password for {email} to finish setting up your account.</p>
         </div>
 

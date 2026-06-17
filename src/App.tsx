@@ -73,6 +73,7 @@ import { BoardPrint } from "./print/BoardPrint";
 import { PrintView } from "./print/PrintView";
 import { NotePrint } from "./print/NotePrint";
 import { AppShell } from "./shell/AppShell";
+import { BrandLockup } from "./shell/BrandMark";
 import { Sidebar } from "./shell/Sidebar";
 import { SidebarRail } from "./shell/SidebarRail";
 import { TopBar } from "./shell/TopBar";
@@ -502,7 +503,8 @@ export function App(): JSX.Element {
   const tagSuggestions = useMemo(() => allTags(boards), [boards]);
 
   const loader = (
-    <div className={cx(BG, "items-center justify-center")}>
+    <div className={cx(BG, "items-center justify-center gap-6")}>
+      <BrandLockup size={30} />
       <p className={MUTED}>Loading…</p>
     </div>
   );

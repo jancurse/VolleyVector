@@ -5,6 +5,7 @@ import { useAuth } from "../auth/useAuth";
 import type { Board } from "../boards/types";
 import { BoardView } from "../editor/BoardView";
 import { CopyJsonButton } from "../editor/CopyJsonButton";
+import { BrandLockup } from "../shell/BrandMark";
 import { Button } from "../ui/Button";
 import { cx, MUTED } from "../ui/styles";
 import { useWorkspace } from "../workspace/useWorkspace";
@@ -70,14 +71,7 @@ export function ShareView({ token }: { token: string }): JSX.Element {
   return (
     <div className={BG}>
       <header className="flex items-center justify-between px-[clamp(1.1rem,4vw,2.75rem)] py-[1.1rem]">
-        <div className="flex items-center gap-[0.6rem] font-display text-display-md font-bold tracking-[-0.02em]">
-          <svg className="text-text opacity-90" viewBox="0 0 24 24" width={22} height={22} aria-hidden="true">
-            <rect x="3" y="3" width="18" height="18" rx="4.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.6" />
-            <circle cx="12" cy="15" r="2.1" fill="currentColor" />
-          </svg>
-          <span>VolleyCoach</span>
-        </div>
+        <BrandLockup />
         {!user && (
           <Button variant="ghost" size="sm" onClick={openApp}>
             Sign in
