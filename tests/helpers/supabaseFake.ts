@@ -300,15 +300,17 @@ export const recordedInvokes: InvokeCall[] = [];
 let failingWrites = 0;
 let failingMessage = "Load failed";
 let failingCode: string | undefined;
+let failingTable: string | undefined;
 // When set, the next commit RPC reports a conflict (a null return), so the conflict path can be exercised.
 let commitConflict = false;
 // The next `failingCommits` commit RPCs report an error, so the editor's failure path can be exercised.
 let failingCommits = 0;
 
-export function failWrites(count: number, message = "Load failed", code?: string): void {
+export function failWrites(count: number, message = "Load failed", code?: string, table?: string): void {
   failingWrites = count;
   failingMessage = message;
   failingCode = code;
+  failingTable = table;
 }
 
 /** Make the next commit_board/commit_topic RPC return a stale-base conflict (a null data). */
@@ -327,6 +329,7 @@ export function resetRecorded(): void {
   recordedInvokes.length = 0;
   failingWrites = 0;
   failingCode = undefined;
+  failingTable = undefined;
   commitConflict = false;
   failingCommits = 0;
 }
@@ -415,7 +418,7 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
     single: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     maybeSingle: () => Promise.resolve(write ? ok(created) : ok(matches()[0] ?? null)),
     then: (onfulfilled, onrejected) => {
-      if (write && failingWrites > 0) {
+      if (write && failingWrites > 0 && (failingTable === undefined || failingTable === table)) {
         failingWrites--;
 
         return Promise.resolve({ data: null, error: { message: failingMessage, code: failingCode } }).then(
@@ -560,6 +563,9 @@ function rpc(fn: string, params: Record<string, unknown>): Promise<DbResult> {
   }
 
   if (fn === "soft_delete_topic" || fn === "delete_team") return Promise.resolve(ok(null));
+
+  // Orphan cleanup after a failed create: the client fires these but ignores the result.
+  if (fn === "delete_orphan_board" || fn === "delete_orphan_topic") return Promise.resolve(ok(null));
 
   // The admin-only profile list (with email); the fake serves it to any caller since it does not model
   // authz for reads.

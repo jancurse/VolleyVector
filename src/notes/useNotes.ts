@@ -184,6 +184,10 @@ export function useNotes(space: Space | null, isAdmin: boolean, activeRole: Team
         return result.error?.code === "23505" ? { error: null } : result;
       });
 
+      // The grant write failed after the row landed: remove the orphaned row so a failed create leaves
+      // nothing behind. A plain delete cannot (topic deletes are admin-only), so go through the RPC.
+      if (writeError !== null) await supabase.rpc("delete_orphan_topic", { topic: note.id });
+
       return writeError;
     },
     [space, user]

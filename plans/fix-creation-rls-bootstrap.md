@@ -61,8 +61,26 @@ Add or update unit tests to cover the changed behavior — no more than the chan
 
 ## Implementation Notes
 
-_To be filled in by the implementation agent._
+One migration (`supabase/migrations/20260616221448_fix_creation_access_bootstrap.sql`) plus a small client change in both stores. Applied to production with the user's go-ahead and verified against the live schema.
+
+### The bootstrap fix
+
+- Added `board_creator(uuid)` / `topic_creator(uuid)`: `security definer`, `stable`, `set search_path = ''`, granted to `authenticated`. Each returns `created_by` only while the row still has no access grant (`not exists (... access ...)`), so it answers solely during the transient bootstrap window. Verified live that it returns `null` for an established board (one with grants), so it cannot look up the author of detached or established content.
+- Re-created `board_access_insert` / `topic_access_insert` (drop + create) with the bootstrap clause reading `... or public.board_creator(board_id) = auth.uid()` in place of the RLS-hidden subquery. Every other clause is byte-for-byte unchanged: the existing-owner path (`capability_rank(...) >= 3`) and the team-grant guard (`team_id is null or is_team_coach(team_id) or is_admin()`). Confirmed against the live `pg_policy` definitions.
+- `boards_select` / `topics_select`, `board_capability` / `topic_capability`, and the other access-list policies are untouched, so read visibility and capability semantics are unchanged everywhere.
+
+### Atomicity
+
+- The two-step client create stays (board/note row, then the creator's first grant), so every access guard remains in RLS rather than being re-implemented in a definer function. This is why I did **not** use a `security definer` create RPC: such an RPC bypasses RLS and would force the team-grant guard to be duplicated inside it (a more security-sensitive surface where a bug could push a board into an arbitrary team).
+- For atomicity I took the plan's "client removes the row" alternative. The literal form (`supabase.from("boards").delete()`) cannot work — board/note deletes are admin-only under RLS — so the removal goes through narrow `delete_orphan_board(uuid)` / `delete_orphan_topic(uuid)` `security definer` helpers, each scoped to delete only a grant-less row the caller created. An established row always carries at least its creator's grant, so these can never remove live content.
+- This is best-effort compensation, not transactional atomicity: a tiny window remains if both the grant write and the cleanup call fail (e.g. total network loss), leaving an orphan an admin can still recover. That is strictly better than before (the grant write used to fail every time, orphaning every create) and matches the existing admin path, which has the same residual window. If you want the stronger "both-or-neither in one transaction" guarantee instead, say so and I'll move create behind a definer RPC (and re-add the team guard inside it).
+
+### Client and tests
+
+- `src/boards/useBoards.ts` (`addBoard`) and `src/notes/useNotes.ts` (`insertNote`): on a failed grant write, call the matching `delete_orphan_*` RPC before returning the error. The editor still shows the error and keeps the draft.
+- `tests/helpers/supabaseFake.ts`: `failWrites` gained an optional `table` argument (fail only that table's writes), and the two cleanup RPCs are accepted as no-ops. Added a `useBoards` test that a failed `board_access` write removes the orphan via `delete_orphan_board` and reports the error.
+- The in-memory fake does not model RLS, so the policy itself is not unit-tested (per the plan); it is verified against the live database. All 509 tests pass; format, lint, and typecheck are clean.
 
 ### Critical Issues
 
-_To be filled in by the implementation agent._
+_None._
