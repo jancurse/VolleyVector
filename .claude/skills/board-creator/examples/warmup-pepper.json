@@ -10,7 +10,7 @@
       "markers": [
         { "id": "c", "role": "coach" },
         { "id": "p1", "role": "player", "label": "P1" },
-        { "id": "p2", "role": "player", "label": "P2", "color": "red" },
+        { "id": "p2", "role": "player", "label": "P2", "color": "amber" },
         { "id": "ball", "role": "ball" }
       ],
       "steps": [

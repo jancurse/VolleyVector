@@ -857,6 +857,7 @@ export function App(): JSX.Element {
         email={user.email ?? ""}
         displayName={workspace.displayName ?? ""}
         onSave={workspace.setDisplayName}
+        onDeleteAccount={() => void deleteOwnAccount()}
       />
     );
   } else if (route.kind === "team") {
@@ -943,7 +944,6 @@ export function App(): JSX.Element {
           onSetTheme={setThemePreference}
           onAccountSettings={() => navigate({ kind: "settings" })}
           onSignOut={() => void signOut()}
-          onDeleteAccount={() => void deleteOwnAccount()}
         />
       }
     />

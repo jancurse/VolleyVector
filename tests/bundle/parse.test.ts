@@ -129,9 +129,33 @@ describe("parseBundle leniency", () => {
 
     if (!result.ok) throw new Error(result.errors.join("\n"));
     expect(result.value.boards[0].steps[0].annotations).toEqual([
-      expect.objectContaining({ kind: "ellipse", fill: "tint", color: "red", width: 6 }),
+      // The retired `red` key resolves to its replacement, `magenta`, rather than dropping.
+      expect.objectContaining({ kind: "ellipse", fill: "tint", color: "magenta", width: 6 }),
     ]);
     expect(result.value.notices.join("\n")).toMatch(/dropped an annotation/);
+  });
+
+  test("retired marker and annotation colour keys (red/green) load as magenta/teal", () => {
+    const result = parseBundle(
+      bundle({
+        boards: [
+          board({
+            markers: [{ id: "p", role: "player", color: "red" }],
+            steps: [
+              {
+                positions: { p: { x: 0.5, y: 0.5 } },
+                annotations: [{ kind: "line", a: { x: 0.1, y: 0.1 }, b: { x: 0.4, y: 0.4 }, color: "green", width: 6 }],
+              },
+            ],
+          }),
+        ],
+      }),
+      []
+    );
+
+    if (!result.ok) throw new Error(result.errors.join("\n"));
+    expect(result.value.boards[0].markers[0].color).toBe("magenta");
+    expect(result.value.boards[0].steps[0].annotations?.[0].color).toBe("teal");
   });
 
   test("an unreadable rotation drops with a notice and a custom one keeps only usable entries", () => {

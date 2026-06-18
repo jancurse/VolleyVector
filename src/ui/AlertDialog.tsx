@@ -20,7 +20,7 @@ const BACKDROP =
   "fixed inset-0 z-40 bg-black/40 transition-opacity duration-150 ease-settle data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none";
 
 const POPUP = cx(
-  "fixed top-1/2 left-1/2 z-40 -mt-8 flex w-96 max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border border-border bg-court-surface p-5 text-text shadow-overlay",
+  "fixed top-1/2 left-1/2 z-40 -mt-8 flex w-96 max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border border-border bg-overlay p-5 text-text shadow-overlay",
   OVERLAY_MOTION
 );
 
@@ -50,7 +50,13 @@ export function AlertDialog({
             )}
           </div>
           <div className="flex justify-end gap-3">
-            <BaseAlertDialog.Close render={<Button variant="ghost">{cancelLabel}</Button>} />
+            <BaseAlertDialog.Close
+              render={
+                <Button variant="ghost" paired>
+                  {cancelLabel}
+                </Button>
+              }
+            />
             <Button
               variant="primary"
               className={danger ? "bg-danger! hover:brightness-110" : undefined}

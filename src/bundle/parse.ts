@@ -3,8 +3,8 @@ import { benchPosition } from "../boards/operations";
 import type { Annotation, Board, BoardStep, RotationSlot, StepRotation } from "../boards/types";
 import { clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
-import { COLOR_KEYS, ROLES } from "../court/roles";
-import type { ColorKey, MarkerRole } from "../court/roles";
+import { resolveColorKey, ROLES } from "../court/roles";
+import type { MarkerRole } from "../court/roles";
 import type { AnnotationDash, AnnotationFill, Marker } from "../court/types";
 import { uniqueSlug } from "../routing/slug";
 import type { Note, NoteBlock } from "../notes/types";
@@ -44,19 +44,20 @@ function isRole(value: unknown): value is MarkerRole {
   return typeof value === "string" && value in ROLES;
 }
 
-function isColorKey(value: unknown): value is ColorKey {
-  return typeof value === "string" && (COLOR_KEYS as string[]).includes(value);
-}
-
-/** Validate and clean one annotation (any stored shape, legacy included), or null when unusable. */
+/** Validate and clean one annotation (any stored shape, legacy included), or null when unusable. A
+ *  retired colour key (red/green) is mapped to its replacement rather than dropped. */
 function parseAnnotation(raw: unknown): Annotation | null {
-  if (!isRecord(raw) || !isColorKey(raw.color)) return null;
+  if (!isRecord(raw)) return null;
+
+  const color = typeof raw.color === "string" ? resolveColorKey(raw.color) : null;
+
+  if (!color) return null;
   if (typeof raw.width !== "number" || !Number.isFinite(raw.width) || raw.width <= 0) return null;
 
   const dash: AnnotationDash | undefined = raw.dash === "solid" || raw.dash === "dashed" ? raw.dash : undefined;
   const fill: AnnotationFill | undefined =
     raw.fill === "none" || raw.fill === "tint" || raw.fill === "hachure" ? raw.fill : undefined;
-  const style = { id: crypto.randomUUID(), color: raw.color, width: raw.width, ...(dash && { dash }) };
+  const style = { id: crypto.randomUUID(), color, width: raw.width, ...(dash && { dash }) };
   const point = (value: unknown): NormalizedPoint | null => (isPoint(value) ? clampToCourt(value) : null);
   const points = (value: unknown, min: number): NormalizedPoint[] | null =>
     Array.isArray(value) && value.length >= min && value.every(isPoint) ? value.map(clampToCourt) : null;
@@ -241,7 +242,14 @@ function parseBoardEntry(
         return;
       }
 
-      if (marker.color !== undefined && !isColorKey(marker.color)) {
+      const color =
+        marker.color === undefined
+          ? undefined
+          : typeof marker.color === "string"
+            ? resolveColorKey(marker.color)
+            : null;
+
+      if (color === null) {
         errors.push(`${at}: unknown color "${String(marker.color)}".`);
 
         return;
@@ -251,7 +259,7 @@ function parseBoardEntry(
         id: marker.id,
         role: marker.role,
         ...(marker.label !== undefined && { label: marker.label }),
-        ...(marker.color !== undefined && { color: marker.color }),
+        ...(color !== undefined && { color }),
       });
     });
 

@@ -1,12 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { normalizeAnnotation, normalizeSteps } from "../../src/boards/normalize";
+import { normalizeAnnotation, normalizeMarkers, normalizeSteps } from "../../src/boards/normalize";
 import type { StoredAnnotation } from "../../src/boards/normalize";
+import type { BoardMarker } from "../../src/boards/types";
 import type { Annotation } from "../../src/boards/types";
 
 const A = { x: 0.2, y: 0.2 };
 const B = { x: 0.6, y: 0.5 };
-const STYLE = { color: "red", width: 8 } as const;
+const STYLE = { color: "magenta", width: 8 } as const;
 
 describe("normalizeAnnotation", () => {
   test("a legacy area becomes a tinted ellipse", () => {
@@ -29,6 +30,31 @@ describe("normalizeAnnotation", () => {
     { id: "f", kind: "free", points: [A, B], ...STYLE },
   ])("a modern $kind passes through untouched", (annotation) => {
     expect(normalizeAnnotation(annotation)).toEqual(annotation);
+  });
+
+  test("a retired colour key resolves to its replacement", () => {
+    // Stored content predating the colour-blind retune may carry the dropped red/green keys.
+    const legacy = (color: string) =>
+      ({ id: "l", kind: "line", a: A, b: B, color, width: 8 }) as unknown as StoredAnnotation;
+
+    expect(normalizeAnnotation(legacy("red")).color).toBe("magenta");
+    expect(normalizeAnnotation(legacy("green")).color).toBe("teal");
+  });
+});
+
+describe("normalizeMarkers", () => {
+  test("remaps a retired colour key and leaves a current one untouched", () => {
+    const markers = [
+      { id: "a", role: "player", color: "red" },
+      { id: "b", role: "player", color: "teal" },
+      { id: "c", role: "setter" },
+    ] as unknown as BoardMarker[];
+
+    expect(normalizeMarkers(markers)).toEqual([
+      { id: "a", role: "player", color: "magenta" },
+      { id: "b", role: "player", color: "teal" },
+      { id: "c", role: "setter" },
+    ]);
   });
 });
 

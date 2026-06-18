@@ -396,7 +396,7 @@ export function BoardEditor({
         <IconButton aria-label="Redo" tooltip="Redo (Ctrl+Shift+Z)" disabled={!canRedo} onClick={redo}>
           <Redo2 size={16} aria-hidden="true" />
         </IconButton>
-        <Button variant="text" onClick={onCancel}>
+        <Button variant="text" paired onClick={onCancel}>
           Cancel
         </Button>
         <Button variant="primary" disabled={saving} onClick={() => void done()}>

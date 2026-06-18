@@ -7,7 +7,9 @@ import { readFileSync } from "node:fs";
 
 const FORMAT_VERSION = 3;
 const ROLES = ["setter", "outside", "middle", "opposite", "libero", "ball", "coach", "player"];
-const COLORS = ["blue", "red", "green", "amber", "violet", "slate"];
+// Current colour keys, plus the retired `red`/`green` the app still loads (it remaps them to
+// magenta/teal). Always author with the current keys; legacy keys are accepted so old bundles validate.
+const COLORS = ["blue", "amber", "teal", "magenta", "violet", "slate", "red", "green"];
 const ANNOTATION_KINDS = ["line", "arrow", "rect", "ellipse", "polygon", "free", "text"];
 const REACH = 0.1; // how far past the court a marker may sit before the app clamps it
 

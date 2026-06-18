@@ -59,7 +59,7 @@ export function NoteEditor({ note, boards, onDone, onCancel }: NoteEditorProps):
           aria-label="Note title"
           onChange={(event) => setTitle(event.target.value)}
         />
-        <Button variant="text" onClick={onCancel}>
+        <Button variant="text" paired onClick={onCancel}>
           Cancel
         </Button>
         <Button variant="primary" disabled={saving} onClick={() => void done()}>

@@ -17,7 +17,7 @@ const MARKERS: Marker[] = [
 // One of every annotation kind, so rendering exercises each shape branch — including the selectively
 // smoothed freehand path, a dashed stroke, and an arrow bent through `via`.
 const ANNOTATIONS: Annotation[] = [
-  { id: "l", kind: "line", a: { x: 0.1, y: 0.1 }, b: { x: 0.5, y: 0.5 }, dash: "dashed", color: "red", width: 8 },
+  { id: "l", kind: "line", a: { x: 0.1, y: 0.1 }, b: { x: 0.5, y: 0.5 }, dash: "dashed", color: "magenta", width: 8 },
   {
     id: "a",
     kind: "arrow",
@@ -28,7 +28,7 @@ const ANNOTATIONS: Annotation[] = [
     color: "blue",
     width: 8,
   },
-  { id: "r", kind: "rect", a: { x: 0.2, y: 0.2 }, b: { x: 0.6, y: 0.5 }, fill: "none", color: "green", width: 8 },
+  { id: "r", kind: "rect", a: { x: 0.2, y: 0.2 }, b: { x: 0.6, y: 0.5 }, fill: "none", color: "teal", width: 8 },
   { id: "e", kind: "ellipse", a: { x: 0.3, y: 0.3 }, b: { x: 0.7, y: 0.6 }, fill: "tint", color: "amber", width: 8 },
   {
     id: "z",
@@ -39,7 +39,7 @@ const ANNOTATIONS: Annotation[] = [
       { x: 0.25, y: 0.9 },
     ],
     fill: "hachure",
-    color: "green",
+    color: "teal",
     width: 8,
   },
   {
@@ -53,7 +53,7 @@ const ANNOTATIONS: Annotation[] = [
     color: "violet",
     width: 8,
   },
-  { id: "t", kind: "text", at: { x: 0.5, y: 0.7 }, text: "Serve", color: "red", width: 8 },
+  { id: "t", kind: "text", at: { x: 0.5, y: 0.7 }, text: "Serve", color: "magenta", width: 8 },
 ];
 
 describe("Court", () => {
@@ -144,7 +144,7 @@ describe("Court polygon drawing", () => {
       <Court
         markers={[]}
         tool="polygon"
-        annotationStyle={{ color: "red", width: 8, fill: "hachure", dash: "solid" }}
+        annotationStyle={{ color: "magenta", width: 8, fill: "hachure", dash: "solid" }}
         onDrawAnnotation={onDraw}
       />
     );

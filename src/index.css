@@ -70,6 +70,7 @@
 @theme inline {
   --color-bg: var(--bg);
   --color-court-surface: var(--court-surface);
+  --color-overlay: var(--overlay);
   --color-text: var(--text);
   --color-text-dim: var(--text-dim);
   --color-panel: var(--panel);
@@ -110,6 +111,10 @@
   --court-surface: #1f1b15;
   --court-cast: rgba(20, 12, 4, 0.6);
 
+  /* Floating overlays (menus, listboxes, popovers, tooltips, modals) sit on their own elevated surface,
+     a step lighter than --bg and distinct from --court-surface, so they read as lifted off the page. */
+  --overlay: #2a251d;
+
   --text: #f3efe6;
   --text-dim: #a89d8c;
   --panel: rgba(255, 243, 228, 0.055);
@@ -132,6 +137,9 @@
 
   --court-surface: #e7e3d8;
   --court-cast: rgba(46, 44, 62, 0.18);
+
+  /* The lightest layer in light mode, brighter than the #f1eee6 page, so an overlay reads as on top. */
+  --overlay: #fdfcf8;
 
   --text: #1d2129;
   --text-dim: #66707f;

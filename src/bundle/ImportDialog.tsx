@@ -94,7 +94,7 @@ export function ImportDialog({ open, onOpenChange, notes, onImport }: ImportDial
       {writeError && <p className="m-0 text-sm text-danger">{writeError}</p>}
 
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={() => close(false)}>
+        <Button variant="ghost" paired onClick={() => close(false)}>
           Cancel
         </Button>
         <Button variant="primary" disabled={!result?.ok || importing} onClick={() => void confirm()}>

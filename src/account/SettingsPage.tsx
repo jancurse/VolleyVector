@@ -12,15 +12,16 @@ const PENCIL_ICON = <Pencil size={15} aria-hidden="true" />;
 
 // The account settings page, reached from the avatar menu. The display name shows read-only with a pencil
 // to switch into editing it (a plain update RLS allows on the user's own row, limited to display_name by
-// the column grant). The sign-in email shows read-only beneath. Sign out and delete account stay in the
-// avatar menu, the always-available account cluster.
+// the column grant). The sign-in email shows read-only beneath. Sign out stays in the avatar menu; the
+// one-way Delete account lives here, behind its confirm dialog.
 type SettingsPageProps = {
   email: string;
   displayName: string;
   onSave: (name: string) => Promise<{ error: string | null }>;
+  onDeleteAccount: () => void;
 };
 
-export function SettingsPage({ email, displayName, onSave }: SettingsPageProps): JSX.Element {
+export function SettingsPage({ email, displayName, onSave, onDeleteAccount }: SettingsPageProps): JSX.Element {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(displayName);
   const [saving, setSaving] = useState(false);
@@ -64,6 +65,7 @@ export function SettingsPage({ email, displayName, onSave }: SettingsPageProps):
               </Button>
               <Button
                 variant="ghost"
+                paired
                 onClick={() => {
                   setName(displayName);
                   setEditing(false);
@@ -92,6 +94,18 @@ export function SettingsPage({ email, displayName, onSave }: SettingsPageProps):
         </div>
 
         {error && <p className="m-0 text-sm text-danger">{error}</p>}
+      </div>
+
+      <div className={cx(PANEL, "max-w-[34rem] gap-3")}>
+        <span className={FIELD_LABEL}>Delete account</span>
+        <p className="m-0 text-sm text-text-dim">
+          Permanently delete your account and the content only you can see. This can’t be undone.
+        </p>
+        <div>
+          <Button variant="danger" onClick={onDeleteAccount}>
+            Delete account
+          </Button>
+        </div>
       </div>
     </section>
   );

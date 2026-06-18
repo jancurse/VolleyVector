@@ -265,9 +265,9 @@ describe("updateAnnotation", () => {
   test("patches one annotation's style, leaving its geometry and the step's others alone", () => {
     const other: Annotation = { ...LINE, id: "ann2" };
     const board = addAnnotation(addAnnotation(SEQUENCE, "s1", LINE), "s1", other);
-    const result = updateAnnotation(board, "s1", "ann1", { color: "red", width: 14 });
+    const result = updateAnnotation(board, "s1", "ann1", { color: "magenta", width: 14 });
 
-    expect(stepAnnotations(result, 0)[0]).toMatchObject({ id: "ann1", color: "red", width: 14, a: LINE.a });
+    expect(stepAnnotations(result, 0)[0]).toMatchObject({ id: "ann1", color: "magenta", width: 14, a: LINE.a });
     expect(stepAnnotations(result, 0)[1]).toEqual(other); // the other annotation is untouched
   });
 });
@@ -299,7 +299,7 @@ describe("translateAnnotation", () => {
       from: { x: 0.3, y: 0.3 },
       to: { x: 0.6, y: 0.6 },
       via: { x: 0.5, y: 0.2 },
-      color: "green",
+      color: "teal",
       width: 5,
     };
     const moved = translateAnnotation(arrow, -0.1, 0);
@@ -350,7 +350,7 @@ const RECT: Annotation = {
   a: { x: 0.6, y: 0.7 },
   b: { x: 0.2, y: 0.3 },
   fill: "none",
-  color: "red",
+  color: "magenta",
   width: 8,
 };
 const POLYGON: Annotation = {
@@ -370,7 +370,7 @@ const ARROW: Annotation = {
   kind: "arrow",
   from: { x: 0.3, y: 0.3 },
   to: { x: 0.6, y: 0.6 },
-  color: "green",
+  color: "teal",
   width: 5,
 };
 const BENT_ARROW: Annotation = { ...ARROW, via: { x: 0.5, y: 0.2 } };
@@ -574,7 +574,14 @@ describe("copyAnnotationsToNextStep", () => {
 });
 
 describe("text annotations", () => {
-  const TEXT: Annotation = { id: "t1", kind: "text", at: { x: 0.4, y: 0.6 }, text: "Serve", color: "red", width: 8 };
+  const TEXT: Annotation = {
+    id: "t1",
+    kind: "text",
+    at: { x: 0.4, y: 0.6 },
+    text: "Serve",
+    color: "magenta",
+    width: 8,
+  };
 
   test("translates by its anchor and duplicates with a fresh id", () => {
     const moved = translateAnnotation(TEXT, 0.1, -0.1);

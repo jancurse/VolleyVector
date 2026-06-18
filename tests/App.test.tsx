@@ -193,8 +193,8 @@ describe("court mode", () => {
     await user.click(screen.getByRole("button", { name: "Add player" }));
     expect(screen.getByRole("radio", { name: "Blue", checked: true })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("radio", { name: "Red" }));
-    expect(screen.getByRole("radio", { name: "Red", checked: true })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Amber" }));
+    expect(screen.getByRole("radio", { name: "Amber", checked: true })).toBeInTheDocument();
   });
 });
 
@@ -1047,16 +1047,31 @@ describe("share links", () => {
   });
 });
 
-// Self-service account deletion lives in the avatar menu, available to every signed-in user (admin actions
-// on other accounts live in the Admin panel, covered in admin/AdminManager.test).
+// Self-service account deletion lives on the Account settings page, available to every signed-in user
+// (admin actions on other accounts live in the Admin panel, covered in admin/AdminManager.test).
 describe("account deletion", () => {
-  test("the avatar menu offers a self-delete action even to a non-admin", async () => {
+  test("the avatar menu no longer offers delete and ends on Sign out", async () => {
     setFakeAuthz({ isAdmin: false, role: "player" });
     const user = await renderApp();
 
     await user.click(screen.getByRole("button", { name: "Account menu" }));
 
-    expect(screen.getByRole("menuitem", { name: "Delete account" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Delete account" })).not.toBeInTheDocument();
+
+    const items = screen.getAllByRole("menuitem");
+
+    expect(items[items.length - 1]).toHaveTextContent("Sign out");
+  });
+
+  test("the settings page offers a self-delete behind the confirm dialog, even to a non-admin", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Account menu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Account settings" }));
+    await user.click(await screen.findByRole("button", { name: "Delete account" }));
+
+    expect(await screen.findByRole("alertdialog", { name: /Delete your account/ })).toBeInTheDocument();
   });
 });
 
