@@ -104,21 +104,21 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: #0c0e13;
-  --bg-glow: rgba(78, 104, 158, 0.16);
+  --bg: #14110d;
+  --bg-glow: rgba(224, 176, 116, 0.13);
 
-  --court-surface: #161a22;
-  --court-cast: rgba(0, 0, 0, 0.55);
+  --court-surface: #1f1b15;
+  --court-cast: rgba(20, 12, 4, 0.6);
 
-  --text: #eef1f6;
-  --text-dim: #97a0b1;
-  --panel: rgba(255, 255, 255, 0.035);
-  --border: rgba(255, 255, 255, 0.09);
-  --control: rgba(255, 255, 255, 0.05);
-  --control-hover: rgba(255, 255, 255, 0.1);
+  --text: #f3efe6;
+  --text-dim: #a89d8c;
+  --panel: rgba(255, 243, 228, 0.055);
+  --border: rgba(255, 240, 222, 0.15);
+  --control: rgba(255, 243, 228, 0.06);
+  --control-hover: rgba(255, 243, 228, 0.12);
 
   --accent: #7aa2ff;
-  --accent-weak: rgba(122, 162, 255, 0.16);
+  --accent-weak: rgba(122, 162, 255, 0.18);
   --on-accent: #0b1020;
   --danger: #ef6a52;
   --warn: #f0a83c;
