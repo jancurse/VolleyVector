@@ -7,7 +7,7 @@ import type { Note } from "../notes/types";
 import { cx } from "../ui/styles";
 import type { Space } from "../workspace/space";
 import type { TeamMembership, TeamRef } from "../workspace/useWorkspace";
-import { BrandMark } from "./BrandMark";
+import { BrandLockup } from "./BrandMark";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 
 // The persistent left column, present on every authenticated surface including board view and edit. Top
@@ -58,9 +58,8 @@ export function Sidebar({
   return (
     <aside className="sticky top-0 flex h-[100dvh] flex-col border-r border-border bg-[color-mix(in_srgb,var(--court-surface)_45%,transparent)]">
       <div className="flex flex-col gap-5 px-3 pt-4 pb-3">
-        <div className="flex items-center gap-2.5 px-2 font-display text-display-md font-bold tracking-[-0.02em] text-text">
-          <BrandMark />
-          <span>VolleyCoach</span>
+        <div className="px-2">
+          <BrandLockup />
         </div>
 
         <SpaceSwitcher

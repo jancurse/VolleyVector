@@ -8,7 +8,8 @@ import { initials } from "../ui/initials";
 import { cx } from "../ui/styles";
 
 // The single top-right account control: an initials avatar opening a menu with account settings, the
-// theme picker, sign out, and delete account, so nothing else needs to live in the top bar.
+// theme picker, and sign out, so nothing else needs to live in the top bar. Deleting the account lives
+// on the Account settings page, not here.
 type AvatarMenuProps = {
   displayName: string;
   email: string;
@@ -16,7 +17,6 @@ type AvatarMenuProps = {
   onSetTheme: (preference: ThemePreference) => void;
   onAccountSettings: () => void;
   onSignOut: () => void;
-  onDeleteAccount: () => void;
 };
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: JSX.Element }[] = [
@@ -41,7 +41,6 @@ export function AvatarMenu({
   onSetTheme,
   onAccountSettings,
   onSignOut,
-  onDeleteAccount,
 }: AvatarMenuProps): JSX.Element {
   return (
     <Menu
@@ -71,9 +70,6 @@ export function AvatarMenu({
       </div>
       <div className={DIVIDER} />
       <MenuItem onClick={onSignOut}>Sign out</MenuItem>
-      <MenuItem onClick={onDeleteAccount}>
-        <span className="text-danger">Delete account</span>
-      </MenuItem>
     </Menu>
   );
 }

@@ -16,7 +16,7 @@ const BACKDROP =
   "fixed inset-0 z-40 bg-black/40 transition-opacity duration-150 ease-settle data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none";
 
 const POPUP = cx(
-  "fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100vh-3rem)] w-[30rem] max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-court-surface p-5 text-text shadow-overlay",
+  "fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100vh-3rem)] w-[30rem] max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-overlay p-5 text-text shadow-overlay",
   OVERLAY_MOTION
 );
 

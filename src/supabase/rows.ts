@@ -1,5 +1,5 @@
 import type { CourtMode } from "../court/roles";
-import { normalizeSteps } from "../boards/normalize";
+import { normalizeMarkers, normalizeSteps } from "../boards/normalize";
 import type { StoredStep } from "../boards/normalize";
 import type { Board, BoardMarker, BoardStep } from "../boards/types";
 import type { Note, NoteBlock } from "../notes/types";
@@ -86,7 +86,7 @@ export function boardFromRow(row: BoardRow, capability: Capability): Board {
     title: row.title,
     description: row.description,
     mode: row.mode,
-    markers: row.markers,
+    markers: normalizeMarkers(row.markers),
     steps: normalizeSteps(row.steps),
     tags: row.tags,
     createdBy: row.created_by,
@@ -185,7 +185,7 @@ export function boardFromRevision(row: BoardRevisionRow, board: Board): Board {
     title: (c.title as string) ?? "",
     description: (c.description as string) ?? "",
     mode: c.mode as CourtMode,
-    markers: (c.markers as BoardMarker[]) ?? [],
+    markers: normalizeMarkers((c.markers as BoardMarker[]) ?? []),
     steps: normalizeSteps((c.steps as StoredStep[]) ?? []),
     tags: (c.tags as string[]) ?? [],
     createdBy: row.created_by,

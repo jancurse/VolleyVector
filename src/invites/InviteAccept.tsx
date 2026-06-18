@@ -5,7 +5,8 @@ import { useAuth } from "../auth/useAuth";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
-import { cx, EYEBROW, MUTED, PANEL } from "../ui/styles";
+import { BrandLockup } from "../shell/BrandMark";
+import { cx, MUTED, PANEL } from "../ui/styles";
 import type { InvitePreview } from "./invites";
 import { invitePreview, redeemInvite, redeemInviteAsCurrentUser } from "./invites";
 
@@ -107,11 +108,11 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
     <div className={BACKGROUND}>
       <div className={cx(PANEL, "w-full max-w-[24rem] gap-5")}>
         <div>
-          <p className={EYEBROW}>VolleyCoach</p>
+          <BrandLockup />
           {loaded.status === "ready" ? (
-            <h1 className="m-0 font-display text-[1.9rem] font-bold tracking-[-0.025em]">Join {team}</h1>
+            <h1 className="m-0 mt-3 font-display text-[1.9rem] font-bold tracking-[-0.025em]">Join {team}</h1>
           ) : (
-            <h1 className="m-0 font-display text-[1.9rem] font-bold tracking-[-0.025em]">Invite</h1>
+            <h1 className="m-0 mt-3 font-display text-[1.9rem] font-bold tracking-[-0.025em]">Invite</h1>
           )}
         </div>
 

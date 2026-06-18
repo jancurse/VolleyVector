@@ -88,7 +88,7 @@ export function ReplaceBoardDialog({ open, onOpenChange, board, onReplace }: Rep
       {writeError && <p className="m-0 text-sm text-danger">{writeError}</p>}
 
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={() => close(false)}>
+        <Button variant="ghost" paired onClick={() => close(false)}>
           Cancel
         </Button>
         <Button variant="primary" disabled={!replacement || saving} onClick={() => void confirm()}>

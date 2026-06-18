@@ -6,15 +6,17 @@ import type { ButtonSize, ButtonVariant } from "./styles";
 
 // The one button used across the app. Variants cover the primary action, a bordered ghost, a quiet
 // text button, a destructive text button, and the dashed "add" affordance. It forwards its ref and
-// spreads props, so Base UI primitives can drive it through their `render` prop.
+// spreads props, so Base UI primitives can drive it through their `render` prop. Set `paired` on a
+// quiet button sitting beside a primary/danger in an action row so it matches that button's height.
 type ButtonProps = ComponentPropsWithoutRef<"button"> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  paired?: boolean;
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = "primary", size = "md", type = "button", className, ...props },
+  { variant = "primary", size = "md", paired = false, type = "button", className, ...props },
   ref
 ) {
-  return <button ref={ref} type={type} className={cx(buttonClass(variant, size), className)} {...props} />;
+  return <button ref={ref} type={type} className={cx(buttonClass(variant, size, paired), className)} {...props} />;
 });

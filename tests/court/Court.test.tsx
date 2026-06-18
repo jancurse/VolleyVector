@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { Court } from "../../src/court/Court";
 import { toSvg } from "../../src/court/geometry";
+import { ROLES } from "../../src/court/roles";
 import type { Annotation, Marker } from "../../src/court/types";
 
 const MARKERS: Marker[] = [
@@ -16,7 +17,7 @@ const MARKERS: Marker[] = [
 // One of every annotation kind, so rendering exercises each shape branch — including the selectively
 // smoothed freehand path, a dashed stroke, and an arrow bent through `via`.
 const ANNOTATIONS: Annotation[] = [
-  { id: "l", kind: "line", a: { x: 0.1, y: 0.1 }, b: { x: 0.5, y: 0.5 }, dash: "dashed", color: "red", width: 8 },
+  { id: "l", kind: "line", a: { x: 0.1, y: 0.1 }, b: { x: 0.5, y: 0.5 }, dash: "dashed", color: "magenta", width: 8 },
   {
     id: "a",
     kind: "arrow",
@@ -27,7 +28,7 @@ const ANNOTATIONS: Annotation[] = [
     color: "blue",
     width: 8,
   },
-  { id: "r", kind: "rect", a: { x: 0.2, y: 0.2 }, b: { x: 0.6, y: 0.5 }, fill: "none", color: "green", width: 8 },
+  { id: "r", kind: "rect", a: { x: 0.2, y: 0.2 }, b: { x: 0.6, y: 0.5 }, fill: "none", color: "teal", width: 8 },
   { id: "e", kind: "ellipse", a: { x: 0.3, y: 0.3 }, b: { x: 0.7, y: 0.6 }, fill: "tint", color: "amber", width: 8 },
   {
     id: "z",
@@ -38,7 +39,7 @@ const ANNOTATIONS: Annotation[] = [
       { x: 0.25, y: 0.9 },
     ],
     fill: "hachure",
-    color: "green",
+    color: "teal",
     width: 8,
   },
   {
@@ -52,7 +53,7 @@ const ANNOTATIONS: Annotation[] = [
     color: "violet",
     width: 8,
   },
-  { id: "t", kind: "text", at: { x: 0.5, y: 0.7 }, text: "Serve", color: "red", width: 8 },
+  { id: "t", kind: "text", at: { x: 0.5, y: 0.7 }, text: "Serve", color: "magenta", width: 8 },
 ];
 
 describe("Court", () => {
@@ -97,6 +98,27 @@ describe("Court", () => {
     expect(container.querySelectorAll(".court-annotation-handle")).toHaveLength(count);
   });
 
+  test.each([
+    ["full size", undefined, true],
+    ["compact", true, false],
+  ] as const)("at %s the marker labels are present: %s", (_name, compact, present) => {
+    render(<Court markers={MARKERS} compact={compact} />);
+    expect(screen.queryByText("S") !== null).toBe(present);
+    // The markers themselves still render either way (named accessibly, label or not).
+    expect(screen.getByLabelText("Setter")).toBeInTheDocument();
+  });
+
+  test("draws the ball's movement arrow dashed and a player's solid", () => {
+    const arrows = [
+      { from: { x: 0.2, y: 0.2 }, to: { x: 0.8, y: 0.8 }, color: "var(--ball-arrow)", dashed: true },
+      { from: { x: 0.2, y: 0.8 }, to: { x: 0.8, y: 0.2 }, color: ROLES.outside.fill, dashed: false },
+    ];
+    const { container } = render(<Court markers={MARKERS} arrows={arrows} />);
+
+    expect(container.querySelectorAll(".court-arrow-line")).toHaveLength(2);
+    expect(container.querySelectorAll(".court-arrow-line--dashed")).toHaveLength(1);
+  });
+
   test("renders every annotation kind alongside the markers", () => {
     const { container } = render(<Court markers={MARKERS} annotations={ANNOTATIONS} label="Annotated" />);
 
@@ -122,7 +144,7 @@ describe("Court polygon drawing", () => {
       <Court
         markers={[]}
         tool="polygon"
-        annotationStyle={{ color: "red", width: 8, fill: "hachure", dash: "solid" }}
+        annotationStyle={{ color: "magenta", width: 8, fill: "hachure", dash: "solid" }}
         onDrawAnnotation={onDraw}
       />
     );

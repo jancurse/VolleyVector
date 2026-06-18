@@ -193,8 +193,8 @@ describe("court mode", () => {
     await user.click(screen.getByRole("button", { name: "Add player" }));
     expect(screen.getByRole("radio", { name: "Blue", checked: true })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("radio", { name: "Red" }));
-    expect(screen.getByRole("radio", { name: "Red", checked: true })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Amber" }));
+    expect(screen.getByRole("radio", { name: "Amber", checked: true })).toBeInTheDocument();
   });
 });
 
@@ -752,6 +752,36 @@ describe("team management", () => {
     expect(screen.queryByRole("button", { name: /Manage/ })).not.toBeInTheDocument();
   });
 
+  // The team library's page-bar menu carries a Manage team… entry too, so management is reachable at every
+  // sidebar width, not only from the full sidebar's gear. It routes to the same team page.
+  test("a coach reaches team management from the team-library page-bar menu", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Library actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Manage team…" }));
+
+    expect(await screen.findByRole("button", { name: "Invite member" })).toBeInTheDocument();
+  });
+
+  test("the personal space's page-bar menu offers no Manage team…", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Personal" }));
+    await screen.findByRole("button", { name: /My Personal Position/ });
+    await user.click(screen.getByRole("button", { name: "Library actions" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Manage team…" })).not.toBeInTheDocument();
+  });
+
+  test("a player gets no Manage team… on the team library, since management is coach-facing", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Library actions" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Manage team…" })).not.toBeInTheDocument();
+  });
+
   test("an admin creates a team through the admin panel, which becomes selectable in the space switcher", async () => {
     const user = await renderApp();
 
@@ -1017,16 +1047,31 @@ describe("share links", () => {
   });
 });
 
-// Self-service account deletion lives in the avatar menu, available to every signed-in user (admin actions
-// on other accounts live in the Admin panel, covered in admin/AdminManager.test).
+// Self-service account deletion lives on the Account settings page, available to every signed-in user
+// (admin actions on other accounts live in the Admin panel, covered in admin/AdminManager.test).
 describe("account deletion", () => {
-  test("the avatar menu offers a self-delete action even to a non-admin", async () => {
+  test("the avatar menu no longer offers delete and ends on Sign out", async () => {
     setFakeAuthz({ isAdmin: false, role: "player" });
     const user = await renderApp();
 
     await user.click(screen.getByRole("button", { name: "Account menu" }));
 
-    expect(screen.getByRole("menuitem", { name: "Delete account" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Delete account" })).not.toBeInTheDocument();
+
+    const items = screen.getAllByRole("menuitem");
+
+    expect(items[items.length - 1]).toHaveTextContent("Sign out");
+  });
+
+  test("the settings page offers a self-delete behind the confirm dialog, even to a non-admin", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Account menu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Account settings" }));
+    await user.click(await screen.findByRole("button", { name: "Delete account" }));
+
+    expect(await screen.findByRole("alertdialog", { name: /Delete your account/ })).toBeInTheDocument();
   });
 });
 

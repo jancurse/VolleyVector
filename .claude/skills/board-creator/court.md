@@ -34,13 +34,13 @@ A three-player serve-receive line sits at roughly `y ≈ 2/3`. The base splits t
 
 ## Roles (from `src/court/roles.ts`)
 
-| Role       | Default label | Colour | Mode      |
-|------------|---------------|--------|-----------|
-| `setter`   | `S`           | amber  | positions |
-| `outside`  | `OH`          | blue   | positions |
-| `middle`   | `MB`          | green  | positions |
-| `opposite` | `OPP`         | red    | positions |
-| `libero`   | `L`           | violet | positions |
-| `ball`     | —             | —      | both      |
-| `coach`    | `C`           | slate  | basic     |
-| `player`   | `P`           | blue   | basic     |
+| Role       | Default label | Colour  | Mode      |
+|------------|---------------|---------|-----------|
+| `setter`   | `S`           | amber   | positions |
+| `outside`  | `OH`          | blue    | positions |
+| `middle`   | `MB`          | teal    | positions |
+| `opposite` | `OPP`         | magenta | positions |
+| `libero`   | `L`           | violet  | positions |
+| `ball`     | —             | —       | both      |
+| `coach`    | `C`           | slate   | basic     |
+| `player`   | `P`           | blue    | basic     |

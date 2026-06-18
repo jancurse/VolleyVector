@@ -15,8 +15,9 @@ export type Marker = {
 };
 
 // A derived movement arrow between two normalized points, coloured to match the marker that moves.
-// Drills compute these from step-to-step deltas; the Court only draws them.
-export type Arrow = { from: NormalizedPoint; to: NormalizedPoint; color: string };
+// Drills compute these from step-to-step deltas; the Court only draws them. The two fixed meanings:
+// a player move is solid in the player's role colour, a ball path is dashed in the neutral colour.
+export type Arrow = { from: NormalizedPoint; to: NormalizedPoint; color: string; dashed: boolean };
 
 /** Shared visual style for every annotation: a colour from the marker palette and a stroke width. */
 export type AnnotationStyle = { color: ColorKey; width: number };

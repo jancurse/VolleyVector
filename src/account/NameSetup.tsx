@@ -4,7 +4,8 @@ import type { JSX } from "react";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
-import { cx, EYEBROW, MUTED, PANEL } from "../ui/styles";
+import { BrandLockup } from "../shell/BrandMark";
+import { cx, MUTED, PANEL } from "../ui/styles";
 
 const BACKGROUND =
   "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)]";
@@ -40,8 +41,8 @@ export function NameSetup({ onSave }: { onSave: (name: string) => Promise<{ erro
         className={cx(PANEL, "w-full max-w-[24rem] gap-5")}
       >
         <div>
-          <p className={EYEBROW}>VolleyCoach</p>
-          <h1 className="m-0 font-display text-[1.9rem] font-bold tracking-[-0.025em]">What’s your name?</h1>
+          <BrandLockup />
+          <h1 className="m-0 mt-3 font-display text-[1.9rem] font-bold tracking-[-0.025em]">What’s your name?</h1>
         </div>
 
         <p className={MUTED}>Your teammates will see this on the boards and notes you share.</p>

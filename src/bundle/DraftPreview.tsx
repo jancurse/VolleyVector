@@ -150,7 +150,7 @@ export function DraftPreview({ notes, canEdit, onImport }: DraftPreviewProps): J
           <h1 className={TITLE}>Draft preview</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={close}>
+          <Button variant="ghost" paired onClick={close}>
             Back
           </Button>
           {canEdit && (

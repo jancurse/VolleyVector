@@ -1,8 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="VolleyCoach">
-  <rect width="32" height="32" rx="7" fill="#0c0e13" />
-  <g fill="none" stroke="#eef1f6" stroke-width="2" stroke-linejoin="round">
-    <rect x="7" y="7" width="18" height="18" rx="4" />
-    <line x1="7" y1="13" x2="25" y2="13" stroke-linecap="round" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="VolleyCoach">
+  <!-- The board, cropped: white court + corner ball on the brand-blue tile. Blue ships as default; the
+       warm charcoal/amber variant takes over under dark browser chrome (see docs/brand.md). -->
+  <style>
+    .tile { fill: #2f6fe0; }
+    .band { fill: #ffffff; }
+    .line { stroke: #ffffff; }
+    .ball { fill: #FFC61E; }
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #22201c; }
+      .band { fill: #f3efe6; }
+      .line { stroke: #f3efe6; }
+      .ball { fill: #e8973a; }
+    }
+  </style>
+  <defs>
+    <linearGradient id="ball-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55" />
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.18" />
+    </linearGradient>
+  </defs>
+  <rect class="tile" x="0.5" y="0.5" width="99" height="99" rx="22" />
+  <rect class="band" x="23" y="23" width="54" height="18" fill-opacity="0.14" />
+  <rect class="line" x="23" y="23" width="54" height="54" rx="5" fill="none" stroke-width="2.6" />
+  <line class="line" x1="23" y1="41" x2="77" y2="41" stroke-width="1.8" stroke-opacity="0.9" />
+  <g transform="translate(77 23)">
+    <circle class="tile" r="7.5" />
+    <circle class="ball" r="6.2" />
+    <circle r="6.2" fill="url(#ball-sheen)" />
   </g>
-  <circle cx="16" cy="19" r="2.4" fill="#eef1f6" />
 </svg>

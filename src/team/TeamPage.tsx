@@ -92,13 +92,19 @@ export function TeamPage({ teamId, teamName, canManage, currentUserId, onJoin, o
         </div>
         <div className="flex items-center gap-2">
           {onJoin && (
-            <Menu trigger={<Button variant="ghost">Join team</Button>}>
+            <Menu
+              trigger={
+                <Button variant="ghost" paired>
+                  Join team
+                </Button>
+              }
+            >
               <MenuItem onClick={() => join("coach")}>Join as coach</MenuItem>
               <MenuItem onClick={() => join("player")}>Join as player</MenuItem>
             </Menu>
           )}
           {onLeave && (
-            <Button variant="ghost" onClick={() => void leave()}>
+            <Button variant="ghost" paired onClick={() => void leave()}>
               Leave team
             </Button>
           )}

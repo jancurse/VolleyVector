@@ -17,7 +17,7 @@ type TooltipProps = {
 };
 
 const POPUP = cx(
-  "z-30 max-w-[16rem] rounded-sm border border-border bg-court-surface px-2 py-1 text-xs font-semibold text-text shadow-overlay",
+  "z-30 max-w-[16rem] rounded-sm border border-border bg-overlay px-2 py-1 text-xs font-semibold text-text shadow-overlay",
   OVERLAY_MOTION
 );
 

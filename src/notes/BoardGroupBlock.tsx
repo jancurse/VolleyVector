@@ -61,7 +61,7 @@ export function BoardGroupBlock({ boardIds, boards, reserved, onChange }: BoardG
             return (
               <figure key={id} className={CHIP}>
                 <div className={THUMB} aria-hidden="true">
-                  <Court markers={stepMarkers(board, 0)} label={board.title} />
+                  <Court markers={stepMarkers(board, 0)} label={board.title} compact />
                 </div>
                 <figcaption className={CHIP_TITLE}>{board.title || "Untitled board"}</figcaption>
                 <div className="flex flex-wrap items-center gap-1 px-2 pt-1.5 pb-2">
@@ -122,7 +122,7 @@ export function BoardGroupBlock({ boardIds, boards, reserved, onChange }: BoardG
                 onClick={() => onChange([...assigned, board.id])}
               >
                 <div className={THUMB} aria-hidden="true">
-                  <Court markers={stepMarkers(board, 0)} label={board.title} />
+                  <Court markers={stepMarkers(board, 0)} label={board.title} compact />
                 </div>
                 <span className={CHIP_TITLE}>{board.title || "Untitled board"}</span>
                 <span

@@ -36,6 +36,8 @@ type MarkerProps = {
   dragging?: boolean;
   /** When true the marker glides to new positions (drill playback) instead of jumping there. */
   animated?: boolean;
+  /** Thumbnail mode: the disc grows so the formation reads small, and the label is dropped. */
+  compact?: boolean;
   /** When provided, the marker is interactive: pressing it starts a select/drag. */
   onPointerDown?: (id: string, event: PointerEvent) => void;
 };
@@ -48,13 +50,15 @@ export function Marker({
   dimmed = false,
   dragging = false,
   animated = false,
+  compact = false,
   onPointerDown,
 }: MarkerProps): JSX.Element {
   const { x, y } = toSvgPoint(marker.position);
   const style = marker.color ? MARKER_COLORS[marker.color] : ROLES[marker.role];
   const isBall = marker.role === "ball";
   const label = markerLabel(marker.role, marker.label);
-  const radius = isBall ? BALL_RADIUS : PLAYER_RADIUS;
+  const scale = compact ? 1.25 : 1;
+  const radius = (isBall ? BALL_RADIUS : PLAYER_RADIUS) * scale;
 
   // The inner group owns the entrance/lift animations, so a CSS transform never clobbers placement.
   const body = (
@@ -72,16 +76,18 @@ export function Marker({
         <circle className="court-marker-shadow" r={radius} />
         <g className="court-marker-body">
           {isBall ? (
-            <BallArt />
+            <g transform={`scale(${scale})`}>
+              <BallArt />
+            </g>
           ) : (
             <>
-              <circle r={PLAYER_RADIUS} fill={style.fill} stroke={style.ring} strokeWidth={2.5} />
-              <circle r={PLAYER_RADIUS} fill="url(#court-marker-sheen)" />
-              <circle className="court-marker-edge" r={PLAYER_RADIUS} fill="none" />
+              <circle r={radius} fill={style.fill} stroke={style.ring} strokeWidth={2.5 * scale} />
+              <circle r={radius} fill="url(#court-marker-sheen)" />
+              <circle className="court-marker-edge" r={radius} fill="none" />
             </>
           )}
         </g>
-        {!isBall && (
+        {!isBall && !compact && (
           <text
             textAnchor="middle"
             dominantBaseline="central"

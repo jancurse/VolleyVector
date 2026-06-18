@@ -92,6 +92,7 @@ export function useMembers(teamId: string | null): {
 
             return { userId: m.user_id, name: profile?.display_name ?? "", role: m.role };
           })
+          .sort((a, b) => (a.name || a.userId).localeCompare(b.name || b.userId, undefined, { sensitivity: "base" }))
       );
       setLoading(false);
     })();

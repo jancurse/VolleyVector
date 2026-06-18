@@ -30,14 +30,17 @@ const BUTTON_SIZE: Record<ButtonSize, string> = {
   md: "text-base px-4.5 py-2 rounded-md",
 };
 
-// Ghost/text/dashed read a touch smaller than a primary at the same size, one scale step below it.
+// A lone ghost/text/dashed reads a touch smaller than a primary at the same size, one scale step below
+// it. A quiet button `paired` with a primary/danger in an action row instead takes the primary's size,
+// so the two align on height, font, and radius; only its quiet chrome (transparent/bordered, dim) sets
+// it apart. The primary keeps the full size regardless.
 const BUTTON_SIZE_QUIET: Record<ButtonSize, string> = {
   sm: "text-xs px-2 py-1 rounded-sm",
   md: "text-sm px-2.5 py-1.5 rounded-md",
 };
 
-export function buttonClass(variant: ButtonVariant, size: ButtonSize): string {
-  const sizing = variant === "primary" ? BUTTON_SIZE[size] : BUTTON_SIZE_QUIET[size];
+export function buttonClass(variant: ButtonVariant, size: ButtonSize, paired = false): string {
+  const sizing = variant === "primary" || paired ? BUTTON_SIZE[size] : BUTTON_SIZE_QUIET[size];
 
   return cx(BUTTON_BASE, BUTTON_VARIANT[variant], sizing);
 }
@@ -112,8 +115,9 @@ export const PAGE_BAR = "flex flex-wrap items-end justify-between gap-4 max-[760
 export const INPUT =
   "w-full border border-border bg-control text-text rounded-md transition-[border-color,background-color] duration-150 ease-settle focus:outline-none focus:border-accent focus:bg-control-hover placeholder:text-text-dim";
 
-/** The floating overlay surface (border, fill, shadow) without padding, so a caller can set its own. */
-export const OVERLAY_SURFACE = "z-20 rounded-lg border border-border bg-court-surface shadow-overlay outline-none";
+/** The floating overlay surface (border, fill, shadow) without padding, so a caller can set its own. It
+    rides the dedicated elevated `overlay` token, the lightest layer, so every popup reads as lifted. */
+export const OVERLAY_SURFACE = "z-20 rounded-lg border border-border bg-overlay shadow-overlay outline-none";
 
 /** A floating overlay surface for menus, listboxes, and combobox popups. */
 export const OVERLAY = cx(OVERLAY_SURFACE, "p-1");

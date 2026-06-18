@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
+import { Settings } from "lucide-react";
 
 import { createBoard } from "./boards/operations";
 import type { Board } from "./boards/types";
@@ -73,6 +74,7 @@ import { BoardPrint } from "./print/BoardPrint";
 import { PrintView } from "./print/PrintView";
 import { NotePrint } from "./print/NotePrint";
 import { AppShell } from "./shell/AppShell";
+import { BrandLockup } from "./shell/BrandMark";
 import { Sidebar } from "./shell/Sidebar";
 import { SidebarRail } from "./shell/SidebarRail";
 import { TopBar } from "./shell/TopBar";
@@ -502,7 +504,8 @@ export function App(): JSX.Element {
   const tagSuggestions = useMemo(() => allTags(boards), [boards]);
 
   const loader = (
-    <div className={cx(BG, "items-center justify-center")}>
+    <div className={cx(BG, "items-center justify-center gap-6")}>
+      <BrandLockup size={30} />
       <p className={MUTED}>Loading…</p>
     </div>
   );
@@ -834,6 +837,12 @@ export function App(): JSX.Element {
             bundle={() => toBundle(boards, notes.notes)}
             filename={bundleFilename(spaceName)}
           >
+            {activeSpace.kind === "team" && canEdit && (
+              <MenuItem className="gap-2" onClick={() => navigate(teamRoute(activeSpace.teamId, allTeams))}>
+                <Settings size={15} aria-hidden="true" />
+                Manage team…
+              </MenuItem>
+            )}
             {canEdit && <MenuItem onClick={() => setImporting(true)}>Import JSON…</MenuItem>}
             {import.meta.env.DEV && (
               <MenuItem onClick={() => (window.location.hash = "#/preview")}>Draft preview…</MenuItem>
@@ -848,6 +857,7 @@ export function App(): JSX.Element {
         email={user.email ?? ""}
         displayName={workspace.displayName ?? ""}
         onSave={workspace.setDisplayName}
+        onDeleteAccount={() => void deleteOwnAccount()}
       />
     );
   } else if (route.kind === "team") {
@@ -934,7 +944,6 @@ export function App(): JSX.Element {
           onSetTheme={setThemePreference}
           onAccountSettings={() => navigate({ kind: "settings" })}
           onSignOut={() => void signOut()}
-          onDeleteAccount={() => void deleteOwnAccount()}
         />
       }
     />

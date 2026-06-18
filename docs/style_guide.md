@@ -46,13 +46,18 @@
 ## UI Controls
 
 - Every control renders through the `src/ui/` wrappers and the shared class strings in `src/ui/styles.ts`. Never style a control with ad-hoc classes.
+- **Reach for a shared wrapper, not bespoke markup.** A recurring UI structure (a table, an overlay, a list row) renders through a shared `src/ui/` component, not markup hand-assembled at each call site. If you repeat a structure that has no wrapper yet, add one in `src/ui/` and route every use through it, rather than copying its markup or classes.
+- **No handpicked style values.** Take every dimension, colour, radius, shadow, and type value from the shared sources: the tokens in `src/ui/styles.ts` and the Tailwind `@theme` scale in `src/index.css`. Never inline an arbitrary value (`max-w-[18rem]`) and never hand-pick a one-off off the scale to make a single component fit. Reuse the existing token for that role when one exists; when none does, add a named token to the shared source and use that, so the value is defined once and shared rather than guessed per component.
 - Use one `primary` Button per view: the single main action.
 - Use `ghost` for secondary actions. Use `text` or an `IconButton` for quiet actions.
 - Use `danger` only for destructive actions.
 - Use `dashed` only for an add affordance that stands where its result will appear, shaped like that result (e.g. the new-board tile in the card grid). An add affordance inside a list or nav takes the list's own row style, quiet and borderless, never a dashed button.
+- A quiet button (`ghost`/`text`/`dashed`) paired with a `primary` or `danger` in the same action row takes the `paired` prop, so it matches that button's height, font size, and corner radius while keeping its quiet chrome. Hierarchy then comes from fill-vs-quiet, not size. A lone quiet button stays a step smaller.
 - A destructive row action is an `IconButton` with an `aria-label`, never a bespoke button with its own class string.
 - **Pickers over growing sets.** A control that reveals all its options at once fits a set that's small and bounded by design. When the set grows with the data (accounts, boards), that loads slowly, gives no way to narrow, and can expose more than the user should see. Ways to keep what's loaded bounded:
     - **Scope to a relationship** (your teams, your teammates), where it makes sense — narrows to who's relevant rather than everyone. Sufficient on its own only when the result is bounded to a small number by design (not merely small today); otherwise combine it with one of the below.
     - **Filter an already-loaded scoped set** — when it's dozens to low hundreds and instant typing helps.
     - **Search server-side** (query with a limit, nothing shown until typed) — when the set is large or sensitive and the user can name the target.
     - **A dedicated paginated page** — when the task is browse or manage, not pick-one.
+- Size a control to its content, not its container. A select over a short enum is as wide as its longest option; only genuinely long or free-form values (a title, a description) earn full width.
+- A list row leads with what identifies the item, not its controls. Render a rarely-changed field as quiet text or a compact control, never a full-width input.

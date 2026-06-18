@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="VolleyCoach">
+  <!-- Home-screen / installed-app icon source. Full-bleed warm charcoal tile (the OS applies its own mask
+       shape), with the court and corner ball pulled into the maskable safe zone so no shape crop clips them.
+       The app defaults to dark, so the baked icon takes the warm expression outright. Rasterised to the
+       apple-touch and manifest PNGs (see docs/brand.md). -->
+  <defs>
+    <linearGradient id="ball-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55" />
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.18" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="100" height="100" fill="#22201c" />
+  <g transform="translate(50 50) scale(0.8) translate(-50 -50)">
+    <rect x="23" y="23" width="54" height="18" fill="#f3efe6" fill-opacity="0.14" />
+    <rect x="23" y="23" width="54" height="54" rx="5" fill="none" stroke="#f3efe6" stroke-width="2.6" />
+    <line x1="23" y1="41" x2="77" y2="41" stroke="#f3efe6" stroke-width="1.8" stroke-opacity="0.9" />
+    <g transform="translate(77 23)">
+      <circle r="7.5" fill="#22201c" />
+      <circle r="6.2" fill="#e8973a" />
+      <circle r="6.2" fill="url(#ball-sheen)" />
+    </g>
+  </g>
+</svg>
