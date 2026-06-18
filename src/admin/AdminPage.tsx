@@ -6,20 +6,8 @@ import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
 import { Tab, TabList, TabPanel, Tabs } from "../ui/Tabs";
-import {
-  cx,
-  EYEBROW,
-  MUTED,
-  PAGE,
-  PAGE_BAR,
-  PANEL,
-  PANEL_TITLE,
-  TABLE,
-  TABLE_CELL,
-  TABLE_FRAME,
-  TABLE_HEAD_CELL,
-  TITLE,
-} from "../ui/styles";
+import { Table, TableCell, TableHeadCell } from "../ui/Table";
+import { cx, EYEBROW, MUTED, PAGE, PAGE_BAR, PANEL, PANEL_TITLE, TITLE } from "../ui/styles";
 import { useConfirm } from "../ui/useConfirm";
 import type { AdminProfile, AdminTeam, TeamState } from "./useAdmin";
 import { useAdmin } from "./useAdmin";
@@ -66,22 +54,20 @@ function RecoveryGroup({
   return (
     <div className="flex max-w-2xl flex-col gap-2">
       <span className={PANEL_TITLE}>{title}</span>
-      <div className={TABLE_FRAME}>
-        <table className={TABLE}>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id}>
-                <td className={cx(TABLE_CELL, "max-w-0 truncate")}>{item.label}</td>
-                <td className={cx(TABLE_CELL, "w-28 text-right")}>
-                  <Button variant="ghost" size="sm" onClick={() => onRestore(item.id)}>
-                    Restore
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table width="fill">
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <TableCell className="max-w-0 truncate">{item.label}</TableCell>
+              <TableCell className="w-28 text-right">
+                <Button variant="ghost" size="sm" onClick={() => onRestore(item.id)}>
+                  Restore
+                </Button>
+              </TableCell>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
     </div>
   );
 }
@@ -182,45 +168,43 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
           ) : liveTeams.length === 0 ? (
             <p className={MUTED}>No teams yet.</p>
           ) : (
-            <div className={cx(TABLE_FRAME, "max-w-2xl")}>
-              <table className={TABLE}>
-                <thead>
-                  <tr>
-                    <th className={TABLE_HEAD_CELL}>Team</th>
-                    <th className={cx(TABLE_HEAD_CELL, "w-28")}>State</th>
-                    <th className={cx(TABLE_HEAD_CELL, "w-48")}>
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {liveTeams.map((team) => (
-                    <tr key={team.id}>
-                      <td className={cx(TABLE_CELL, "max-w-0 truncate")}>{team.name}</td>
-                      <td className={TABLE_CELL}>
-                        <StateBadge state={team.state} />
-                      </td>
-                      <td className={cx(TABLE_CELL, "text-right")}>
-                        <div className="flex justify-end gap-1">
-                          {team.state === "archived" ? (
-                            <Button variant="ghost" size="sm" onClick={() => void act(admin.unarchiveTeam(team.id))}>
-                              Unarchive
-                            </Button>
-                          ) : (
-                            <Button variant="ghost" size="sm" onClick={() => void act(admin.archiveTeam(team.id))}>
-                              Archive
-                            </Button>
-                          )}
-                          <Button variant="danger" size="sm" onClick={() => void confirmDeleteTeam(team)}>
-                            Delete
+            <Table width="fill">
+              <thead>
+                <tr>
+                  <TableHeadCell>Team</TableHeadCell>
+                  <TableHeadCell className="w-28">State</TableHeadCell>
+                  <TableHeadCell className="w-48">
+                    <span className="sr-only">Actions</span>
+                  </TableHeadCell>
+                </tr>
+              </thead>
+              <tbody>
+                {liveTeams.map((team) => (
+                  <tr key={team.id}>
+                    <TableCell className="max-w-0 truncate">{team.name}</TableCell>
+                    <TableCell>
+                      <StateBadge state={team.state} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {team.state === "archived" ? (
+                          <Button variant="ghost" size="sm" onClick={() => void act(admin.unarchiveTeam(team.id))}>
+                            Unarchive
                           </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        ) : (
+                          <Button variant="ghost" size="sm" onClick={() => void act(admin.archiveTeam(team.id))}>
+                            Archive
+                          </Button>
+                        )}
+                        <Button variant="danger" size="sm" onClick={() => void confirmDeleteTeam(team)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </TabPanel>
 
@@ -230,39 +214,37 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
           ) : activeProfiles.length === 0 ? (
             <p className={MUTED}>No accounts.</p>
           ) : (
-            <div className={cx(TABLE_FRAME, "max-w-2xl")}>
-              <table className={TABLE}>
-                <thead>
-                  <tr>
-                    <th className={TABLE_HEAD_CELL}>Account</th>
-                    <th className={cx(TABLE_HEAD_CELL, "w-48")}>
-                      <span className="sr-only">Actions</span>
-                    </th>
+            <Table width="fill">
+              <thead>
+                <tr>
+                  <TableHeadCell>Account</TableHeadCell>
+                  <TableHeadCell className="w-48">
+                    <span className="sr-only">Actions</span>
+                  </TableHeadCell>
+                </tr>
+              </thead>
+              <tbody>
+                {activeProfiles.map((profile) => (
+                  <tr key={profile.id}>
+                    <TableCell className="max-w-0">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate">{profile.email || profile.id}</span>
+                        {profile.id === currentUserId && <span className={TAG}>You</span>}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {profile.isAdmin ? (
+                        <span className={cx(TAG, "text-accent")}>Admin</span>
+                      ) : (
+                        <Button variant="danger" size="sm" onClick={() => void confirmDeleteAccount(profile)}>
+                          Delete account
+                        </Button>
+                      )}
+                    </TableCell>
                   </tr>
-                </thead>
-                <tbody>
-                  {activeProfiles.map((profile) => (
-                    <tr key={profile.id}>
-                      <td className={cx(TABLE_CELL, "max-w-0")}>
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className="truncate">{profile.email || profile.id}</span>
-                          {profile.id === currentUserId && <span className={TAG}>You</span>}
-                        </span>
-                      </td>
-                      <td className={cx(TABLE_CELL, "text-right")}>
-                        {profile.isAdmin ? (
-                          <span className={cx(TAG, "text-accent")}>Admin</span>
-                        ) : (
-                          <Button variant="danger" size="sm" onClick={() => void confirmDeleteAccount(profile)}>
-                            Delete account
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </Table>
           )}
         </TabPanel>
 

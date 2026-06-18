@@ -3,14 +3,13 @@ import { X } from "lucide-react";
 
 import { IconButton } from "../ui/IconButton";
 import { Select } from "../ui/Select";
-import { initials } from "../ui/initials";
-import { cx, MUTED, TABLE_FRAME } from "../ui/styles";
+import { Table, TableCell, TableHeadCell } from "../ui/Table";
+import { cx, MUTED } from "../ui/styles";
 import type { TeamRole } from "../workspace/useWorkspace";
 import type { Member } from "./useMembers";
 
-// The team roster as a bounded list: an initials disc, the display name, and the role on the right. A
-// coach or admin (canManage) re-roles and removes everyone but themselves; anyone else, and a member's
-// own row, shows the role as a read-only chip. Email is admin-only data, so the roster never shows it.
+// The team roster, rendered through the shared Table. A coach or admin (canManage) re-roles and removes
+// everyone but themselves; anyone else, and a member's own row, shows the role as a read-only chip.
 // Driven by `useMembers` from the page above, so it holds no data of its own.
 type MembersListProps = {
   members: readonly Member[];
@@ -25,9 +24,6 @@ const ROLE_OPTIONS = [
   { value: "coach", label: "Coach" },
   { value: "player", label: "Player" },
 ];
-
-const DISC =
-  "grid size-9 flex-none place-items-center rounded-full border border-border bg-accent-weak font-mono text-sm font-semibold text-accent";
 
 function RoleChip({ role }: { role: TeamRole }): JSX.Element {
   return (
@@ -59,42 +55,50 @@ export function MembersList({
   if (members.length === 0) return <p className={MUTED}>No members yet.</p>;
 
   return (
-    <ul className={cx(TABLE_FRAME, "m-0 w-full max-w-2xl list-none p-0")}>
-      {members.map((member) => {
-        const label = memberLabel(member);
-        const manageable = canManage && member.userId !== currentUserId;
+    <Table width="compact">
+      <thead>
+        <tr>
+          <TableHeadCell>Member</TableHeadCell>
+          <TableHeadCell className="text-right">Role</TableHeadCell>
+        </tr>
+      </thead>
+      <tbody>
+        {members.map((member) => {
+          const label = memberLabel(member);
+          const manageable = canManage && member.userId !== currentUserId;
 
-        return (
-          <li key={member.userId} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-0">
-            <span aria-hidden="true" className={DISC}>
-              {initials(member.name || member.userId)}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold text-text">{label}</span>
-            </span>
-            {manageable ? (
-              <Select
-                ariaLabel={`Role for ${label}`}
-                value={member.role}
-                options={ROLE_OPTIONS}
-                variant="quiet"
-                onValueChange={(next) => onSetRole(member.userId, next === "coach" ? "coach" : "player")}
-              />
-            ) : (
-              <RoleChip role={member.role} />
-            )}
-            {canManage && (
-              <span className="grid w-7.5 flex-none place-items-center">
-                {manageable && (
-                  <IconButton variant="plain" size="sm" aria-label={`Remove ${label}`} onClick={() => onRemove(member)}>
-                    <X size={14} aria-hidden="true" />
-                  </IconButton>
-                )}
-              </span>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+          return (
+            <tr key={member.userId}>
+              <TableCell className="max-w-xs truncate font-medium">{label}</TableCell>
+              <TableCell className="text-right">
+                <span className="flex items-center justify-end gap-1">
+                  {manageable ? (
+                    <Select
+                      ariaLabel={`Role for ${label}`}
+                      value={member.role}
+                      options={ROLE_OPTIONS}
+                      variant="quiet"
+                      onValueChange={(next) => onSetRole(member.userId, next === "coach" ? "coach" : "player")}
+                    />
+                  ) : (
+                    <RoleChip role={member.role} />
+                  )}
+                  {manageable && (
+                    <IconButton
+                      variant="plain"
+                      size="sm"
+                      aria-label={`Remove ${label}`}
+                      onClick={() => onRemove(member)}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </IconButton>
+                  )}
+                </span>
+              </TableCell>
+            </tr>
+          );
+        })}
+      </tbody>
+    </Table>
   );
 }

@@ -7,7 +7,6 @@ import type { Member } from "../../src/team/useMembers";
 const member = (over: Partial<Member> = {}): Member => ({
   userId: "u1",
   name: "Coach Cara",
-  email: "cara@example.com",
   role: "coach",
   ...over,
 });
@@ -23,7 +22,7 @@ const base = {
 describe("MembersList", () => {
   test.each([
     { kind: "display name", member: member(), expected: "Coach Cara" },
-    { kind: "email when unnamed", member: member({ name: "" }), expected: "cara@example.com" },
+    { kind: "account id when unnamed", member: member({ name: "" }), expected: "u1" },
   ])("a non-manageable row leads with the $kind and shows the role as a read-only chip", ({ member: m, expected }) => {
     render(<MembersList {...base} members={[m]} />);
 
@@ -34,7 +33,7 @@ describe("MembersList", () => {
 
   test("a manageable row shows an editable role control while the manager's own row keeps the chip", () => {
     const me = member({ userId: "me", name: "Coach Me", role: "coach" });
-    const other = member({ userId: "other", name: "Player Pat", email: "pat@example.com", role: "player" });
+    const other = member({ userId: "other", name: "Player Pat", role: "player" });
 
     render(<MembersList {...base} canManage members={[me, other]} currentUserId="me" />);
 

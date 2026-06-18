@@ -46,6 +46,8 @@
 ## UI Controls
 
 - Every control renders through the `src/ui/` wrappers and the shared class strings in `src/ui/styles.ts`. Never style a control with ad-hoc classes.
+- **Reach for a shared wrapper, not bespoke markup.** A recurring UI structure (a table, an overlay, a list row) renders through a shared `src/ui/` component, not markup hand-assembled at each call site. If you repeat a structure that has no wrapper yet, add one in `src/ui/` and route every use through it, rather than copying its markup or classes.
+- **No handpicked style values.** Take every dimension, colour, radius, shadow, and type value from the shared sources: the tokens in `src/ui/styles.ts` and the Tailwind `@theme` scale in `src/index.css`. Never inline an arbitrary value (`max-w-[18rem]`) and never hand-pick a one-off off the scale to make a single component fit. Reuse the existing token for that role when one exists; when none does, add a named token to the shared source and use that, so the value is defined once and shared rather than guessed per component.
 - Use one `primary` Button per view: the single main action.
 - Use `ghost` for secondary actions. Use `text` or an `IconButton` for quiet actions.
 - Use `danger` only for destructive actions.
