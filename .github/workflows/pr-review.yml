@@ -26,6 +26,7 @@ jobs:
       (github.event_name == 'pull_request_review_comment' ||
        github.event.issue.pull_request != null)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,10 +67,16 @@ jobs:
           echo "Dev server did not come up in time; visual check will be skipped." >&2
 
       - name: Review with Claude
+        id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           trigger_phrase: "@claude-review"
+          # Post a live-updating progress comment, and stream the full run into the
+          # Actions log (private repo, trusted maintainers), so a stuck or slow run
+          # is diagnosable instead of opaque.
+          track_progress: true
+          show_full_output: true
           claude_args: |
             --mcp-config '{"mcpServers": {"playwright": {"command": "npx", "args": ["@playwright/mcp@latest", "--headless", "--isolated"]}}}'
             --allowedTools mcp__playwright__*
@@ -77,3 +84,13 @@ jobs:
             Review this pull request using the code-review-custom skill (defined
             in .claude/skills/). Follow its process and report format exactly,
             ending with its one-line verdict, and post the result as a PR comment.
+
+      # Keep the structured execution log even when the review fails, times out, or
+      # is canceled, so a bad run can be inspected after the runner is gone.
+      - name: Upload Claude execution log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-execution-log
+          path: ${{ steps.claude.outputs.execution_file }}
+          if-no-files-found: ignore

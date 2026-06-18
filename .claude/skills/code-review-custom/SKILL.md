@@ -12,10 +12,11 @@ Review code for correctness, cleanliness, and codebase fit. The user will specif
 1. **Gather the code**: obtain the changes or files to review based on user context.
 2. **Read surrounding code**: read the full files and related modules. Do not review the diff in isolation.
 3. **Find potential issues**: evaluate every item in the checklist below. Collect candidate findings, but do not categorize or write them up yet. Only raise actual issues, and do not pad.
-4. **Investigate each finding with subagents**: spawn one Agent tool call per candidate finding, in parallel, in a single message. Each subagent reads the relevant code, traces concrete scenarios, and returns confirmed (with evidence and severity: ISSUE/SUGGESTION/NOTE) or dismissed (with reasoning). You do not evaluate candidates in your own reasoning. That is the subagent's job.
+4. **Investigate in parallel with subagents**: in a single message, dispatch all of the review's subagents to run concurrently. You do not evaluate candidates in your own reasoning; that is the subagents' job.
+    - **One subagent per candidate finding.** Each reads the relevant code, traces concrete scenarios, and returns confirmed (with evidence and severity: ISSUE/SUGGESTION/NOTE) or dismissed (with reasoning).
+    - **Visually verify a UI change.** When the change touches the UI, spawn one subagent to load the app and confirm the change on screen; it must load the playwright skill first. This never blocks the review: a confirmed regression is an ISSUE, and a check that can't run is one NOTE of why.
 5. **Run the diagnostics skill**: check diagnostics using the diagnostics skill on all changed files. You must use the skill, not raw tool calls.
-6. **Visual check (best-effort)**: when the change touches UI, run one Playwright subagent (Agent tool) to load the app and visually confirm the change. Load the playwright skill first and follow its rules: the browser work lives entirely in that one subagent, which returns only its findings. This step is conditional, never blocking: if no dev server is reachable at `localhost:5173` or the login gate appears (the dev login is absent), skip it and record one NOTE that the visual check was skipped and why. A confirmed visual regression is an ISSUE; never fail the review merely because the browser could not start.
-7. **Report**: present only confirmed findings using the format below.
+6. **Report**: present only confirmed findings using the format below.
 
 ## Checklist
 
