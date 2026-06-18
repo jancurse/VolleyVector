@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { Court } from "../../src/court/Court";
 import { toSvg } from "../../src/court/geometry";
+import { ROLES } from "../../src/court/roles";
 import type { Annotation, Marker } from "../../src/court/types";
 
 const MARKERS: Marker[] = [
@@ -95,6 +96,27 @@ describe("Court", () => {
     );
 
     expect(container.querySelectorAll(".court-annotation-handle")).toHaveLength(count);
+  });
+
+  test.each([
+    ["full size", undefined, true],
+    ["compact", true, false],
+  ] as const)("at %s the marker labels are present: %s", (_name, compact, present) => {
+    render(<Court markers={MARKERS} compact={compact} />);
+    expect(screen.queryByText("S") !== null).toBe(present);
+    // The markers themselves still render either way (named accessibly, label or not).
+    expect(screen.getByLabelText("Setter")).toBeInTheDocument();
+  });
+
+  test("draws the ball's movement arrow dashed and a player's solid", () => {
+    const arrows = [
+      { from: { x: 0.2, y: 0.2 }, to: { x: 0.8, y: 0.8 }, color: "var(--ball-arrow)", dashed: true },
+      { from: { x: 0.2, y: 0.8 }, to: { x: 0.8, y: 0.2 }, color: ROLES.outside.fill, dashed: false },
+    ];
+    const { container } = render(<Court markers={MARKERS} arrows={arrows} />);
+
+    expect(container.querySelectorAll(".court-arrow-line")).toHaveLength(2);
+    expect(container.querySelectorAll(".court-arrow-line--dashed")).toHaveLength(1);
   });
 
   test("renders every annotation kind alongside the markers", () => {

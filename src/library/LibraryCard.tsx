@@ -21,7 +21,7 @@ export function LibraryCard({ item, onOpen }: LibraryCardProps): JSX.Element {
         className="aspect-square w-full border-b border-border bg-court-surface transition-[background-color] duration-[400ms]"
         aria-hidden="true"
       >
-        <Court markers={item.markers} label={item.title} />
+        <Court markers={item.markers} label={item.title} compact />
       </div>
       <div className="flex flex-col gap-[0.35rem] px-[0.95rem] pt-[0.8rem] pb-4">
         <p className="m-0 font-mono text-2xs font-medium uppercase tracking-[0.28em] text-text-dim">

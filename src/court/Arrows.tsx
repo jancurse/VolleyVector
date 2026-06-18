@@ -96,7 +96,13 @@ export function Arrows({ arrows }: { arrows: readonly Arrow[] }): JSX.Element {
 
         return (
           <g key={i} className="court-arrow" style={{ color: arrow.color }}>
-            <line className="court-arrow-line" x1={seg.line.x1} y1={seg.line.y1} x2={seg.line.x2} y2={seg.line.y2} />
+            <line
+              className={`court-arrow-line${arrow.dashed ? " court-arrow-line--dashed" : ""}`}
+              x1={seg.line.x1}
+              y1={seg.line.y1}
+              x2={seg.line.x2}
+              y2={seg.line.y2}
+            />
             <path className="court-arrow-head" d={seg.head} />
           </g>
         );

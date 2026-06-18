@@ -68,23 +68,19 @@
   stroke-width: 1;
 }
 
+/* The net, drawn flat from directly above: a band sitting on the net line, in the court-line colour
+   like every other line — its rail (also the single line a thumbnail collapses to, and the rotation
+   diagram's net) plus the short cross-ticks that read as mesh. No posts, no standing strands. */
 .court-net-tape {
   stroke: var(--net);
-  stroke-width: 4;
+  stroke-width: 5;
   stroke-linecap: round;
   transition: stroke 0.4s ease;
 }
 
-.court-net-strand {
+.court-net-hatch {
   stroke: var(--net);
-  stroke-width: 2;
-  opacity: 0.7;
-  transition: stroke 0.4s ease;
-}
-
-.court-net-post {
-  stroke: var(--court-line);
-  stroke-width: 5;
+  stroke-width: 2.5;
   stroke-linecap: round;
   transition: stroke 0.4s ease;
 }
@@ -249,6 +245,11 @@
   opacity: 0.82;
 }
 
+/* The ball's path dashes so a ball run never reads as a player run (which stays solid). */
+.court-arrow-line--dashed {
+  stroke-dasharray: 17 15;
+}
+
 .court-arrow-head {
   fill: currentColor;
   opacity: 0.82;
@@ -269,11 +270,12 @@
   animation: none;
 }
 
-/* A text label: the shape's palette colour over a theme-background halo (paint-order draws the
-   stroke behind the fill), so it stays legible across the court lines on either theme. */
+/* A text label: the shape's palette colour over a floor-coloured halo (paint-order draws the stroke
+   behind the fill), so it stays legible across the court lines. The halo follows the theme-invariant
+   floor, not the chrome, so it reads the same on the warm court in both themes. */
 .court-annotation-text {
   fill: currentColor;
-  stroke: var(--court-surface);
+  stroke: var(--court-play);
   stroke-width: 8;
   paint-order: stroke;
   stroke-linejoin: round;
@@ -349,10 +351,10 @@
 }
 
 /* The armed-tool tip: a swatch in the next shape's colour and weight (currentColor set per style),
-   trailing the crosshair on a court-surface ring so it reads over the lines on either theme. */
+   trailing the crosshair on a floor-coloured ring so it reads over the lines on the warm court. */
 .court-tool-tip {
   fill: currentColor;
-  stroke: var(--court-surface);
+  stroke: var(--court-play);
   stroke-width: 2.5;
   pointer-events: none;
   transform-box: fill-box;

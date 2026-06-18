@@ -20,8 +20,12 @@ import { clientToNormalized, useMarkerDrag } from "./useMarkerDrag";
 // annotation tools. The active `tool` chooses which interaction the surface drives. Without any of
 // these it renders as a static diagram.
 
-const NET_BAND = 54; // height of the net mesh above the top line, in SVG units
-const NET_STRANDS = 26;
+// The warm floor extends a touch past the boundary lines (a real court's free zone), so each outer
+// line keeps light floor on both sides whatever chrome sits behind the court. Markers and the lines
+// keep their positions; only the painted floor grows, into the viewBox's reserved free zone.
+const FLOOR_BLEED = 22;
+const NET_BAND = 16; // half-height of the flat net hatch band straddling the net line, in SVG units
+const NET_HATCH = 26; // cross-ticks along the net band — the mesh, drawn at full size only
 
 // The armed-tool tip trails the crosshair by this offset (SVG units), clear of the precision point.
 const TIP_OFFSET = 30;
@@ -29,7 +33,6 @@ const TIP_OFFSET = 30;
 const left = toSvg(0);
 const right = toSvg(1);
 const netLine = toSvg(0);
-const netTape = netLine - NET_BAND;
 
 const noSelect = (_id: string | null): void => {};
 const noMove = (_id: string, _position: NormalizedPoint): void => {};
@@ -66,6 +69,9 @@ type CourtProps = {
   cue?: CourtCue;
   /** Faint reference grid: the number of cells per axis (0 = off). An authoring aid. */
   grid?: number;
+  /** Thumbnail mode (~200px): the net collapses to a line, labels drop, and discs grow so the
+   *  formation still reads. The warm floor, zones, and lines carry down unchanged. */
+  compact?: boolean;
   /** Optional transform applied to each dragged position, e.g. snapping it to the grid. */
   snap?: (position: NormalizedPoint) => NormalizedPoint;
   /** Provide both `onSelect` and `onMove` to make the court an editable marker surface; `onSelect`
@@ -100,6 +106,7 @@ export function Court({
   warnings,
   cue,
   grid = 0,
+  compact = false,
   snap,
   onSelect,
   onMove,
@@ -167,23 +174,37 @@ export function Court({
         </linearGradient>
       </defs>
 
-      <rect className="court-play" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
-      <rect className="court-zone" x={left} y={toSvg(0)} width={COURT_SPAN} height={ATTACK_LINE * COURT_SPAN} />
+      <rect
+        className="court-play"
+        x={left - FLOOR_BLEED}
+        y={netLine - FLOOR_BLEED}
+        width={COURT_SPAN + FLOOR_BLEED * 2}
+        height={COURT_SPAN + FLOOR_BLEED * 2}
+        rx={8}
+      />
+      <rect
+        className="court-zone"
+        x={left - FLOOR_BLEED}
+        y={netLine - FLOOR_BLEED}
+        width={COURT_SPAN + FLOOR_BLEED * 2}
+        height={ATTACK_LINE * COURT_SPAN + FLOOR_BLEED}
+      />
 
       <CourtGrid divisions={grid} />
 
-      <rect className="court-boundary" x={left} y={toSvg(0)} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
+      <rect className="court-boundary" x={left} y={netLine} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
       <line className="court-attack" x1={left} y1={toSvg(ATTACK_LINE)} x2={right} y2={toSvg(ATTACK_LINE)} />
 
       <g className="court-net" aria-hidden="true">
-        <line className="court-net-tape" x1={left} y1={netTape} x2={right} y2={netTape} />
-        {Array.from({ length: NET_STRANDS + 1 }, (_, i) => {
-          const x = toSvg(i / NET_STRANDS);
+        <line className="court-net-tape" x1={left} y1={netLine} x2={right} y2={netLine} />
+        {!compact &&
+          Array.from({ length: NET_HATCH + 1 }, (_, i) => {
+            const x = toSvg(i / NET_HATCH);
 
-          return <line key={i} className="court-net-strand" x1={x} y1={netTape} x2={x} y2={netLine} />;
-        })}
-        <line className="court-net-post" x1={left} y1={netTape - 14} x2={left} y2={netLine} />
-        <line className="court-net-post" x1={right} y1={netTape - 14} x2={right} y2={netLine} />
+            return (
+              <line key={i} className="court-net-hatch" x1={x} y1={netLine - NET_BAND} x2={x} y2={netLine + NET_BAND} />
+            );
+          })}
       </g>
 
       {arrows && arrows.length > 0 && <Arrows arrows={arrows} />}
@@ -264,6 +285,7 @@ export function Court({
           dimmed={cue && marker.id !== cue.markerId && !cue.neighbourIds.includes(marker.id)}
           dragging={editable && marker.id === drag.draggingId}
           animated={animated}
+          compact={compact}
           onPointerDown={selectable && tool === "markers" ? drag.onMarkerPointerDown : undefined}
         />
       ))}

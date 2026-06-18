@@ -83,6 +83,23 @@
   --color-warn: var(--warn);
 }
 
+/* The playing surface keeps one identity in both themes: a warm sport-floor with dark lines, like a
+   canvas the chrome themes around (see the court design plan). These court tokens, and the knock-on
+   tokens for everything drawn inside the court frame (marker cast/edge, ball/arrow neutral), are set
+   once here and never overridden per theme. The chrome tokens (--court-surface, --court-cast) stay
+   theme-variant in the blocks below: they back the frame behind the court, not the floor itself. */
+:root {
+  --court-play: oklch(0.95 0.016 84);
+  --court-zone: oklch(0.9 0.03 86);
+  --court-line: oklch(0.3 0.01 70);
+  --net: oklch(0.3 0.01 70);
+  --court-grid: oklch(0.3 0.01 70 / 0.16);
+  --ball-arrow: oklch(0.36 0.012 70);
+  --marker-cast: drop-shadow(0 3px 4px rgba(34, 31, 24, 0.24));
+  --marker-cast-lift: drop-shadow(0 9px 12px rgba(34, 31, 24, 0.3));
+  --marker-edge: oklch(0.3 0.01 70 / 0.45);
+}
+
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
@@ -91,13 +108,7 @@
   --bg-glow: rgba(78, 104, 158, 0.16);
 
   --court-surface: #161a22;
-  --court-play: #1c212b;
-  --court-zone: #232a36;
-  --court-line: rgba(228, 233, 242, 0.82);
-  --net: rgba(228, 233, 242, 0.42);
-  --court-grid: rgba(228, 233, 242, 0.11);
   --court-cast: rgba(0, 0, 0, 0.55);
-  --ball-arrow: #d7dcea;
 
   --text: #eef1f6;
   --text-dim: #97a0b1;
@@ -105,9 +116,6 @@
   --border: rgba(255, 255, 255, 0.09);
   --control: rgba(255, 255, 255, 0.05);
   --control-hover: rgba(255, 255, 255, 0.1);
-  --marker-cast: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.5));
-  --marker-cast-lift: drop-shadow(0 9px 14px rgba(0, 0, 0, 0.55));
-  --marker-edge: rgba(231, 236, 246, 0.55);
 
   --accent: #7aa2ff;
   --accent-weak: rgba(122, 162, 255, 0.16);
@@ -123,13 +131,7 @@
   --bg-glow: rgba(255, 250, 236, 0.9);
 
   --court-surface: #e7e3d8;
-  --court-play: #faf8f2;
-  --court-zone: #efeadd;
-  --court-line: #2c313c;
-  --net: rgba(44, 49, 60, 0.45);
-  --court-grid: rgba(44, 49, 60, 0.13);
   --court-cast: rgba(46, 44, 62, 0.18);
-  --ball-arrow: #2c313c;
 
   --text: #1d2129;
   --text-dim: #66707f;
@@ -137,9 +139,6 @@
   --border: rgba(20, 24, 32, 0.1);
   --control: rgba(20, 24, 32, 0.04);
   --control-hover: rgba(20, 24, 32, 0.08);
-  --marker-cast: drop-shadow(0 3px 4px rgba(34, 37, 46, 0.22));
-  --marker-cast-lift: drop-shadow(0 9px 12px rgba(34, 37, 46, 0.28));
-  --marker-edge: transparent;
 
   --accent: #2f6fe0;
   --accent-weak: rgba(47, 111, 224, 0.12);

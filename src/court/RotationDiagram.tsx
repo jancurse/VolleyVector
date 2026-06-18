@@ -22,7 +22,7 @@ const COL_W = 180; // one official zone's width, in this diagram's own SVG units
 const ROW_H = 270; // one row's height: the grid stays square (540×540) like the half-court
 const PAD = 28;
 const GRID = COL_W * 3;
-const NET_Y = PAD - 12;
+const NET_Y = PAD; // the flat net sits on the floor's top edge, like the main court's net line
 const NUM_INSET = 24; // zone numeral centre, in from the zone's top-left corner
 
 const BENCH_RADIUS = 32;
