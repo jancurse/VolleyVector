@@ -93,7 +93,7 @@ Colours: tile blue `#2f6fe0`, court white `#ffffff`, tile ball amber `#FFC61E`, 
 - Per-board OG previews. The app is an SPA on a static host, so all links share the one app-wide card; per-board
   images would need server/edge rendering.
 - A new theme/colour token for the amber accent.
-- Apple-touch-icon / PWA web manifest (home-screen install icon) — deferred.
+- Apple-touch-icon / PWA web manifest (home-screen install icon) — deferred at the time, since implemented (see Follow-up 3).
 
 ### Constraints
 
@@ -122,6 +122,7 @@ renders the old glyph (search `tests/` for brand/mark/sidebar renders).
 ## Follow-ups
 
 1. **Bring the remaining onboarding gates onto the brand lockup.** Two pre-app gates still render the old unmarked eyebrow `<p className={EYEBROW}>VolleyCoach</p>`, the exact pattern this redesign replaced on Login and SetPassword. The design sheet's instruction is "the full lockup … replacing the unmarked eyebrow", which covers them; the plan's prose just enumerated three files and missed these two instances of the same pattern. This is a gap in the plan, not a deliberate exclusion, and there is no design reason to leave the four gate screens inconsistent.
+    - **Done.** Both gates now render `<BrandLockup />` in place of the `EYEBROW` "VolleyCoach" text, with `mt-3` on the following heading and `EYEBROW` dropped from the `../ui/styles` import. The optional per-screen render assertion was skipped to match the shipped Login/SetPassword convention, where the lockup is covered once in `tests/shell/BrandMark.test.tsx`. Diagnostics and the full suite (505 tests) pass.
     - **Files (each is a full-screen gate built from the same `BACKGROUND` + `PANEL` as Login/SetPassword):**
         - `src/account/NameSetup.tsx` (~line 43): the first-login display-name gate, analogous to SetPassword.
         - `src/invites/InviteAccept.tsx` (~line 110): the invite-link landing, analogous to Login.
@@ -137,15 +138,18 @@ renders the old glyph (search `tests/` for brand/mark/sidebar renders).
         - No inline brand-glyph duplicates remain anywhere in `src` (the mark is single-sourced in `BrandMark.tsx`).
     - **Separate, optional (a design call, *not* part of this fix):** the print handouts (`src/print/BoardPrint.tsx`, `src/print/NotePrint.tsx`) carry no brand mark at all. The redesign never covered print, so this is not a missed instance of the eyebrow pattern. If branded paper handouts are wanted, a small `BrandLockup` in the print header or footer is where it would go; decide that deliberately before adding it.
 2. **Tighten `docs/brand.md` and align the new docs with the Markdown rules.** It runs ~80 lines where the plan asked for a short guide, and it breaks `AGENTS.md`'s Markdown rules.
+    - **Done.** `docs/brand.md` is rewritten to 48 lines (from 80): a real `#`/`##`/`###` hierarchy (the five flat `##` sections folded into `## The mark`, `## The lockup`, and `## Usage and single source`), asset paths collapsed into the Expressions bullets, flowing prose with no em dashes, the forward-looking asides dropped, and every required topic kept. `docs/architecture.md` and the `AGENTS.md` brand additions were audited and already read as flowing prose, so they were left unchanged.
     - **Hierarchy:** replace the flat stack of `##` sections (Colours, Expressions, Lockup, Where-each-lives, Single source) with a real `#`/`##`/`###` structure, merging the tiny and overlapping ones.
     - **Redundancy:** the asset paths repeat across the Expressions "Sources" bullets, the "Where each lives" table, and the "Single source" section, so collapse them to one place; aim for ~40-50 lines.
     - **Prose:** rewrite the one-sentence-per-line text into flowing sentences that break only at a change of thought, never mid-sentence.
     - **Asides:** drop the forward-looking ones (the "future warm theme" rationale and the "PWA deferred follow-up" note).
     - **Keep** every plan-required topic (concept, expressions with colours, the lockup rule, where each is used, the single-source note), and audit `docs/architecture.md` and the `AGENTS.md` additions for the same one-sentence-per-line issue.
-3. **Home-screen / PWA app icon**: apple-touch-icon PNG(s) + a `manifest.webmanifest` listing maskable icons +
-   `<link>`s in `index.html`, so VolleyCoach pinned to a phone/desktop home screen shows the brand tile.
-4. **Per-board share previews**: server-side / edge rendering of a board-specific OG image and per-link meta
-   tags, so a shared board link unfurls with that board rather than the generic brand card.
+3. **Home-screen / PWA app icon.** Brand the installed or pinned app icon that the redesign deferred as a non-goal, so VolleyCoach on a phone or desktop home screen shows the court tile rather than a default.
+    - **Done.** A new full-bleed colour-tile source `public/brand/icon-maskable.svg` (no rounded corners, since the OS masks its own shape) holds the court and ball scaled to 0.8 about centre, so no circular or squircle crop clips them. It rasterises with headless Chrome (as the OG card does) to `public/apple-touch-icon.png` (180), `public/icons/icon-192.png`, and `public/icons/icon-512.png`. `public/manifest.webmanifest` lists the SVG favicon as `any` plus the two PNGs as `maskable`, with brand-blue `theme_color` and `background_color`. `index.html` gains the `apple-touch-icon` and `manifest` links, and `docs/brand.md` documents the new expression and its single source.
+    - **Why both an apple-touch icon and a manifest:** iOS reads its own `apple-touch-icon` link for the home-screen icon, while Android, Chrome, and desktop read the manifest's `icons`. Shipping both covers every install surface.
+    - **No backend and no routing change:** the icons are static assets. Cloudflare Pages serves an existing file before the `_redirects` SPA fallback, so the manifest and PNGs resolve without touching `_redirects`.
+    - **Verify:** diagnostics (format, lint, typecheck) and `npm run build` pass, and the rendered 192px PNG shows the tile with the court and ball inside the maskable safe zone.
+4. **Per-board share previews (deferred).** Server-side or edge rendering of a board-specific OG image and per-link meta tags, so a shared board link unfurls with that board rather than the generic brand card. Deferred because it is not an asset task: it needs edge rendering (Cloudflare Pages Functions) and path-based share URLs a scraper can reach, since today's `#/share/<token>` hash route is invisible to crawlers. That is a separate project that cuts against the app's no-application-server architecture, so it stays out of this brand work.
 
 ## Implementation Notes
 
@@ -164,9 +168,9 @@ The in-product mark is now single-sourced in `src/shell/BrandMark.tsx` (`BrandMa
 - **The OG card was built, not extracted** (the sheet describes it but does not draw it): `public/og-image.svg` is the lockup centred on the brand-blue field, rasterised to the 1200×630 `public/og-image.png` with headless Chrome. The editable SVG pulls Bricolage Grotesque from Google Fonts via `@import`.
 - **The warm variant ships as four standalone assets** under `public/brand/` (blue and charcoal × full tile and minimal cut) plus the favicon's dark branch, so promoting the warm brand to primary is a file swap rather than a redraw.
 
-### Known gap (tracked as Follow-up 1)
+### Known gap, now resolved (Follow-up 1)
 
-- `src/account/NameSetup.tsx` and `src/invites/InviteAccept.tsx` still show the old `EYEBROW` "VolleyCoach" text. I followed the plan's explicit auth-surface list (Login, SetPassword, loading gate) and left these two, but they are the same gate pattern as the screens that were updated, so this is a gap in the plan's enumeration rather than a deliberate exclusion. It is written up in full as Follow-up 1.
+- `src/account/NameSetup.tsx` and `src/invites/InviteAccept.tsx` originally kept the old `EYEBROW` "VolleyCoach" text. The main pass followed the plan's explicit auth-surface list (Login, SetPassword, loading gate) and left these two, even though they are the same gate pattern, so this was a gap in the plan's enumeration rather than a deliberate exclusion. It was written up as Follow-up 1 and is now implemented: both gates render `<BrandLockup />`.
 
 ### Verification
 

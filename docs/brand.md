@@ -25,6 +25,7 @@ One mark is drawn for several jobs, and every expression keeps the same court, c
 - **In-app mono mark.** The only mark used inside the product, monochrome and theme-aware. The court draws in `currentColor`, so it flips with light and dark on its own. The amber ball stays the one constant accent, kept crisp over the court corner by a hairline ring in the surface colour.
 - **Minimal cut.** A 16px-tuned variant that drops the front-zone band and thickens the strokes so the court holds at favicon size: `public/brand/favicon-min-blue.svg`.
 - **Warm charcoal alternate.** The charcoal-field, warm-amber version of the colour tile and the minimal cut: `public/brand/favicon-charcoal.svg` and `public/brand/favicon-min-charcoal.svg`. It also fills the favicon's dark-mode branch (`@media (prefers-color-scheme: dark)`), warming the tab icon under dark browser chrome wherever the in-SVG query is honoured.
+- **Home-screen icon.** The colour tile rasterised for an installed or pinned app. It is full-bleed so each OS applies its own mask shape, with the court and ball pulled into the maskable safe zone. The source `public/brand/icon-maskable.svg` exports to `public/apple-touch-icon.png` and `public/icons/icon-192.png` / `icon-512.png`, wired up by `public/manifest.webmanifest` and the `apple-touch-icon` and `manifest` links in `index.html`.
 
 ## The lockup
 
@@ -36,7 +37,7 @@ One mark is drawn for several jobs, and every expression keeps the same court, c
 
 ## Usage and single source
 
-`src/shell/BrandMark.tsx` is the single source for the in-product mark: every in-app surface renders `BrandMark` or `BrandLockup`, and none inlines a copy of the glyph. The static assets restate the same geometry only because they cannot import the component. A change to the mark or favicon must therefore keep `src/shell/BrandMark.tsx`, `public/favicon.svg`, and this guide in sync, as the `AGENTS.md` lockstep rule requires. Re-export the Open Graph card `public/og-image.png` from `public/og-image.svg` whenever the lockup changes.
+`src/shell/BrandMark.tsx` is the single source for the in-product mark: every in-app surface renders `BrandMark` or `BrandLockup`, and none inlines a copy of the glyph. The static assets restate the same geometry only because they cannot import the component. A change to the mark or favicon must therefore keep `src/shell/BrandMark.tsx`, `public/favicon.svg`, and this guide in sync, as the `AGENTS.md` lockstep rule requires. Re-export the Open Graph card `public/og-image.png` from `public/og-image.svg` whenever the lockup changes, and the home-screen PNGs from `public/brand/icon-maskable.svg` whenever the tile changes.
 
 | Surface                                 | Expression                                          |
 |-----------------------------------------|-----------------------------------------------------|
@@ -46,3 +47,4 @@ One mark is drawn for several jobs, and every expression keeps the same court, c
 | Auth and onboarding gates, loading gate | `BrandLockup` above the heading.                    |
 | Share view header                       | `BrandLockup`.                                      |
 | Link preview (Open Graph)               | The lockup centred on the brand-blue field.         |
+| Home screen / installed app             | Colour tile, full-bleed maskable, via the manifest. |
