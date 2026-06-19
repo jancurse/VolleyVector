@@ -21,6 +21,8 @@ type TeamPageProps = {
   teamId: string;
   teamName: string;
   canManage: boolean;
+  /** Whether the caller is a global admin, so the invite dialog may grant invite quota. */
+  isAdmin: boolean;
   currentUserId: string | undefined;
   /** Add the caller to the roster with the chosen role; given only when they may and are not a member. */
   onJoin?: (role: TeamRole) => Promise<{ error: string | null }>;
@@ -28,7 +30,15 @@ type TeamPageProps = {
   onLeave?: () => Promise<{ error: string | null }>;
 };
 
-export function TeamPage({ teamId, teamName, canManage, currentUserId, onJoin, onLeave }: TeamPageProps): JSX.Element {
+export function TeamPage({
+  teamId,
+  teamName,
+  canManage,
+  isAdmin,
+  currentUserId,
+  onJoin,
+  onLeave,
+}: TeamPageProps): JSX.Element {
   const { members, loading, reload, setRole, remove } = useMembers(teamId);
   const { confirm, dialog } = useConfirm();
   const [memberError, setMemberError] = useState<string | null>(null);
@@ -126,7 +136,13 @@ export function TeamPage({ teamId, teamName, canManage, currentUserId, onJoin, o
       />
       {memberError && <p className="m-0 text-sm text-danger">{memberError}</p>}
 
-      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} teamId={teamId} teamName={teamName} />
+      <InviteDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        team={{ teamId, teamName }}
+        isAdmin={isAdmin}
+        currentUserId={currentUserId ?? ""}
+      />
       {dialog}
     </section>
   );

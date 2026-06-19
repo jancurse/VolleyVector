@@ -1,26 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
-import { useAuth } from "../auth/useAuth";
-import { createInvite } from "../invites/invites";
+import { createInvite, inviteAvailability } from "../invites/invites";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { ToggleGroup } from "../ui/ToggleGroup";
 import { MUTED } from "../ui/styles";
 import type { TeamRole } from "../workspace/useWorkspace";
 
-// The one invite surface, opened from the team menu so the roster stays uncluttered. A coach picks a role
-// and mints a single-use link to share through any channel; redeeming runs server-side, this only collects
-// the inputs. Inviting by email is hidden for now: it relies on Supabase's built-in sender, which is
-// rate-limited and unusable for real invites until custom SMTP is configured. The `invite` Edge Function
-// and `inviteMember` helper stay in place for when it is restored.
+// The one invite surface, reached two ways: a team's "Invite member" button (the team fixed, role chosen
+// here) or the sidebar's Invite entry (no team, an optional team picker). A link is typed at mint from
+// three independent grants — create an account (the only quota-consuming one), join a team, and (admins
+// only) grant invite quota — in any combination. Inviting by email is hidden for now (the built-in sender
+// is rate-limited), so links are the only surface; redeeming runs server-side, this only collects inputs.
+export type InviteTeam = { teamId: string; teamName: string };
+
 type InviteDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  teamId: string | null;
-  teamName: string;
+  /** When set, the dialog is scoped to this team (the team is fixed; the role is chosen here). */
+  team?: InviteTeam | null;
+  /** Teams the user may invite into, offered in the picker when no team is fixed. */
+  teams?: readonly InviteTeam[];
+  isAdmin: boolean;
+  currentUserId: string;
 };
 
 const ROLE_OPTIONS = [
@@ -28,46 +34,90 @@ const ROLE_OPTIONS = [
   { value: "player", label: "Player" },
 ];
 
-export function InviteDialog({ open, onOpenChange, teamId, teamName }: InviteDialogProps): JSX.Element {
-  const { user } = useAuth();
+const NO_TEAM = "";
 
+export function InviteDialog({
+  open,
+  onOpenChange,
+  team = null,
+  teams = [],
+  isAdmin,
+  currentUserId,
+}: InviteDialogProps): JSX.Element {
+  // null until loaded; an admin reads null (unlimited) and is never gated.
+  const [available, setAvailable] = useState<number | null>(null);
+  const [mode, setMode] = useState<"new" | "existing">("new");
+  const [teamId, setTeamId] = useState<string>(team?.teamId ?? NO_TEAM);
   const [role, setRole] = useState<TeamRole>("player");
+  const [bonus, setBonus] = useState("0");
   const [link, setLink] = useState<string | null>(null);
-  const [linkError, setLinkError] = useState<string | null>(null);
-  const [creatingLink, setCreatingLink] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [copyLabel, setCopyLabel] = useState("Copy");
+
+  // Load the caller's remaining invites fresh each open, so the count stays live across mints in a session.
+  useEffect(() => {
+    if (!open) return;
+
+    let active = true;
+
+    void inviteAvailability().then(({ available: a }) => {
+      if (active) setAvailable(a);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [open]);
 
   // Closing clears the transient state, so the next invite opens on a clean slate with no stale link.
   const handleOpenChange = (next: boolean) => {
     if (!next) {
+      setMode("new");
+      setTeamId(team?.teamId ?? NO_TEAM);
       setRole("player");
+      setBonus("0");
       setLink(null);
-      setLinkError(null);
+      setError(null);
+      setCreating(false);
       setCopyLabel("Copy");
     }
 
     onOpenChange(next);
   };
 
-  const makeLink = async () => {
-    if (!teamId || !user) return;
+  const canCreateAccount = isAdmin || (available !== null && available >= 1);
+  const allowsNewAccount = mode === "new" && canCreateAccount;
+  const grantQuota = isAdmin ? Math.max(0, Math.trunc(Number(bonus)) || 0) : 0;
+  const joinsTeam = teamId !== NO_TEAM;
+  // A link that grants nothing is not worth minting.
+  const grantsNothing = !allowsNewAccount && !joinsTeam && grantQuota <= 0;
 
-    setCreatingLink(true);
-    setLinkError(null);
+  const make = async () => {
+    setCreating(true);
+    setError(null);
     setLink(null);
     setCopyLabel("Copy");
 
-    const { url, error } = await createInvite(teamId, role, user.id);
+    const { url, error: failure } = await createInvite({
+      createdBy: currentUserId,
+      allowsNewAccount,
+      grantQuota,
+      teamId: joinsTeam ? teamId : null,
+      role: joinsTeam ? role : null,
+    });
 
-    setCreatingLink(false);
+    setCreating(false);
 
-    if (error) {
-      setLinkError(error);
+    if (failure) {
+      setError(failure);
 
       return;
     }
 
     setLink(url);
+    // Minting an account-creation link spent a slot; refresh the live count for a non-admin.
+    if (allowsNewAccount && !isAdmin) void inviteAvailability().then(({ available: a }) => setAvailable(a));
   };
 
   const copyLink = async () => {
@@ -82,24 +132,72 @@ export function InviteDialog({ open, onOpenChange, teamId, teamName }: InviteDia
     }
   };
 
+  const accountHint = isAdmin
+    ? "You can onboard new accounts without limit."
+    : available === null
+      ? ""
+      : available > 0
+        ? `${available} ${available === 1 ? "invite" : "invites"} left.`
+        : "No invites left. Ask an admin for more.";
+
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange} title={`Invite to ${teamName}`}>
-      <Field label="Role">
-        <Select
-          ariaLabel="Invite role"
-          value={role}
-          options={ROLE_OPTIONS}
-          onValueChange={(next) => setRole(next === "coach" ? "coach" : "player")}
+    <Dialog open={open} onOpenChange={handleOpenChange} title={team ? `Invite to ${team.teamName}` : "Invite"}>
+      <Field label="Link type">
+        <ToggleGroup
+          ariaLabel="Who the link is for"
+          value={allowsNewAccount ? "new" : "existing"}
+          onValueChange={(next) => setMode(next === "new" ? "new" : "existing")}
+          items={[
+            { value: "new", label: "New person", disabled: !canCreateAccount },
+            { value: "existing", label: "Existing user" },
+          ]}
         />
       </Field>
+      {accountHint && <p className={MUTED}>{accountHint}</p>}
+
+      {!team && (
+        <Field label="Team">
+          <Select
+            ariaLabel="Invite team"
+            value={teamId}
+            onValueChange={setTeamId}
+            options={[
+              { value: NO_TEAM, label: "No team" },
+              ...teams.map((t) => ({ value: t.teamId, label: t.teamName })),
+            ]}
+          />
+        </Field>
+      )}
+
+      {joinsTeam && (
+        <Field label="Role">
+          <Select
+            ariaLabel="Invite role"
+            value={role}
+            options={ROLE_OPTIONS}
+            onValueChange={(next) => setRole(next === "coach" ? "coach" : "player")}
+          />
+        </Field>
+      )}
+
+      {isAdmin && (
+        <Field label="Bonus invites">
+          <Input
+            type="number"
+            min={0}
+            value={bonus}
+            onChange={(event) => setBonus(event.target.value)}
+            aria-label="Bonus invites to grant"
+          />
+        </Field>
+      )}
 
       <div className="flex flex-col gap-3 pt-1">
         <p className={MUTED}>
-          Create a single-use link to share anywhere. The first person to open it joins as the role above; it expires
-          after 7 days.
+          Create a single-use link to share anywhere. The first person to open it claims it; it expires after 7 days.
         </p>
-        <Button onClick={() => void makeLink()} disabled={creatingLink}>
-          {creatingLink ? "Creating…" : "Create invite link"}
+        <Button onClick={() => void make()} disabled={creating || grantsNothing}>
+          {creating ? "Creating…" : "Create invite link"}
         </Button>
         {link && (
           <div className="flex items-center gap-2">
@@ -109,7 +207,7 @@ export function InviteDialog({ open, onOpenChange, teamId, teamName }: InviteDia
             </Button>
           </div>
         )}
-        {linkError && <p className="m-0 text-sm text-danger">{linkError}</p>}
+        {error && <p className="m-0 text-sm text-danger">{error}</p>}
       </div>
     </Dialog>
   );

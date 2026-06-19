@@ -40,6 +40,40 @@ function StateBadge({ state }: { state: TeamState }): JSX.Element {
   );
 }
 
+// An account's invite quota: a compact number field that commits on Set. Account creation is the only
+// quota-gated action; raising a quota is the one way to expand onboarding capacity, and only an admin can.
+function QuotaCell({ value, onSet }: { value: number; onSet: (next: number) => void }): JSX.Element {
+  const [text, setText] = useState(String(value));
+  const [committed, setCommitted] = useState(value);
+
+  // Reseed when the stored value changes (after a reload commits a new quota): the render-time
+  // adjustment React recommends over an effect.
+  if (committed !== value) {
+    setCommitted(value);
+    setText(String(value));
+  }
+
+  const parsed = Math.max(0, Math.trunc(Number(text)) || 0);
+
+  return (
+    <span className="flex items-center justify-end gap-2">
+      <span className="inline-block w-16">
+        <Input
+          type="number"
+          min={0}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          className="text-right"
+          aria-label="Invite quota"
+        />
+      </span>
+      <Button variant="ghost" size="sm" disabled={parsed === value} onClick={() => onSet(parsed)}>
+        Set
+      </Button>
+    </span>
+  );
+}
+
 function RecoveryGroup({
   title,
   items,
@@ -218,6 +252,7 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
               <thead>
                 <tr>
                   <TableHeadCell>Account</TableHeadCell>
+                  <TableHeadCell className="w-44 text-right">Invites</TableHeadCell>
                   <TableHeadCell className="w-48">
                     <span className="sr-only">Actions</span>
                   </TableHeadCell>
@@ -231,6 +266,12 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
                         <span className="truncate">{profile.email || profile.id}</span>
                         {profile.id === currentUserId && <span className={TAG}>You</span>}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <QuotaCell
+                        value={profile.inviteQuota}
+                        onSet={(value) => void act(admin.setInviteQuota(profile.id, value))}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       {profile.isAdmin ? (

@@ -28,6 +28,8 @@ export type Workspace = {
   loading: boolean;
   error: string | null;
   isAdmin: boolean;
+  /** The caller's remaining invites (invite_quota − used), or null when unlimited (an admin). */
+  inviteAvailable: number | null;
   /** The user's display name, or null when they have not set one yet (the first-login prompt). */
   displayName: string | null;
   /** Save the user's display name; returns an error message, or null on success. */
@@ -44,7 +46,7 @@ export type Workspace = {
   activeTeamId: string | null;
   /** The caller's membership role in the active team, or null when not a member (admins still edit). */
   activeRole: TeamRole | null;
-  /** Create a team (admins only) and switch to it; returns the new id, or null on failure. */
+  /** Create a team (any account) as its coach and switch to it; returns the new id, or null on failure. */
   createTeam: (name: string) => Promise<string | null>;
   /** Join an other team or the showcase with a chosen role; returns an error message or null. */
   joinTeam: (teamId: string, role: TeamRole) => Promise<{ error: string | null }>;
@@ -68,6 +70,7 @@ export function useWorkspace(): Workspace {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [inviteAvailable, setInviteAvailable] = useState<number | null>(null);
   const [displayName, setName] = useState<string | null>(null);
   const [teams, setTeams] = useState<TeamMembership[]>([]);
   const [otherTeams, setOtherTeams] = useState<TeamRef[]>([]);
@@ -103,6 +106,8 @@ export function useWorkspace(): Workspace {
       const rows = (memberships.data ?? []) as MembershipRow[];
       // RLS scopes the list: a user reads their member teams plus the showcase team, an admin reads all.
       const named = await supabase.from("teams").select("id, name, slug, is_showcase, archived_at, deleted_at");
+      // The caller's remaining invites, read through the RPC since the quota column is not selectable.
+      const avail = await supabase.rpc("invite_availability");
 
       if (!active) return;
 
@@ -124,6 +129,7 @@ export function useWorkspace(): Workspace {
       const memberIds = new Set(rows.map((m) => m.team_id));
 
       setIsAdmin(data.is_admin);
+      setInviteAvailable((avail.data as number | null) ?? null);
       setName(data.display_name);
       setTeams(list);
       setShowcase(
@@ -161,26 +167,22 @@ export function useWorkspace(): Workspace {
     async (name: string): Promise<string | null> => {
       if (!user) return null;
 
-      let slug = slugify(name);
-      let created = await supabase.from("teams").insert({ name, slug }).select("id").single();
+      // One creation path for every account: the RPC inserts the team and the creator's coach membership
+      // together and handles slug collisions server-side, returning the new id.
+      const { data, error } = await supabase.rpc("create_team", { name, slug: slugify(name) });
 
-      // Slugs are globally unique across teams; on a collision retry once with a random suffix.
-      if (created.error?.code === "23505") {
-        slug = `${slugify(name)}-${Math.random().toString(36).slice(2, 6)}`;
-        created = await supabase.from("teams").insert({ name, slug }).select("id").single();
-      }
-
-      if (created.error || !created.data) {
-        setError(created.error?.message ?? "Could not create team");
+      if (error || !data) {
+        setError(error?.message ?? "Could not create team");
 
         return null;
       }
 
-      // The creator (an admin) is deliberately not added as a member: the team lands in their "other
-      // teams", and they join explicitly with a chosen role if they want to be on the roster.
-      const teamId = (created.data as { id: string }).id;
+      const teamId = data as string;
+      // Read back the minted slug, which a collision may have suffixed away from the base.
+      const row = await supabase.from("teams").select("slug").eq("id", teamId).maybeSingle();
+      const slug = (row.data as { slug: string } | null)?.slug ?? slugify(name);
 
-      setOtherTeams((prev) => [...prev, { teamId, teamName: name, slug }]);
+      setTeams((prev) => [...prev, { teamId, teamName: name, slug, role: "coach" }]);
       setActiveSpace({ kind: "team", teamId });
 
       return teamId;
@@ -263,6 +265,7 @@ export function useWorkspace(): Workspace {
     loading,
     error,
     isAdmin,
+    inviteAvailable,
     displayName,
     setDisplayName,
     teams,

@@ -96,6 +96,23 @@ describe("AdminPage", () => {
     expect(recordedRpcs.find((c) => c.fn === "delete_team")?.params).toEqual({ team: TEST_TEAM_ID });
   });
 
+  test("setting an account's invite quota calls set_invite_quota", async () => {
+    const user = await renderPanel();
+
+    await goTab(user, "Accounts");
+    const row = screen.getByText(OTHER_MEMBER.email).closest("tr") as HTMLElement;
+    const input = within(row).getByLabelText("Invite quota");
+
+    await user.clear(input);
+    await user.type(input, "12");
+    await user.click(within(row).getByRole("button", { name: "Set" }));
+
+    expect(recordedRpcs.find((c) => c.fn === "set_invite_quota")?.params).toEqual({
+      target: OTHER_MEMBER.id,
+      value: 12,
+    });
+  });
+
   test("deleting an account invokes the delete-account function after confirming", async () => {
     const user = await renderPanel();
 

@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from "react";
-import { Lightbulb, ListTree, ShieldCheck } from "lucide-react";
+import { Lightbulb, ListTree, ShieldCheck, UserPlus } from "lucide-react";
 
 import { Tooltip } from "../ui/Tooltip";
 import { cx } from "../ui/styles";
@@ -24,6 +24,9 @@ type SidebarRailProps = {
   /** Whether the expanded-sidebar overlay is open; the Notes toggle stays highlighted while it is. */
   expanded: boolean;
   onExpand: () => void;
+  /** Whether the Invite entry shows: an admin, an account with quota, or a coach of any team. */
+  canInvite: boolean;
+  onInvite: () => void;
   isAdmin: boolean;
   adminActive: boolean;
   onOpenAdmin: () => void;
@@ -76,6 +79,8 @@ export function SidebarRail({
   onSwitchSpace,
   expanded,
   onExpand,
+  canInvite,
+  onInvite,
   isAdmin,
   adminActive,
   onOpenAdmin,
@@ -129,6 +134,12 @@ export function SidebarRail({
       </RailButton>
 
       <div className="flex-1" />
+
+      {canInvite && (
+        <RailButton label="Invite" className={cx(ITEM, TOGGLE_OFF)} onClick={onInvite}>
+          <UserPlus size={16} aria-hidden="true" />
+        </RailButton>
+      )}
 
       {isAdmin && (
         <RailButton
