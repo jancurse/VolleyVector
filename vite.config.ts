@@ -7,11 +7,22 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// Dev-only auto-login credentials live in one machine-level file outside the repo, so every worktree
-// shares a single copy and no secret is ever committed. Only this config reads it, so the values never
-// leak into other Vite projects, and because it runs only in `serve` they never reach a production build.
-// Set the VITE_DEV_* keys on process.env here; Vite then exposes them on import.meta.env like any .env file.
+// Dev-only auto-login, so the dev server (and Playwright) come up signed in. It runs only in `serve`, so
+// the credentials never reach a production build, and Vite exposes the VITE_DEV_* keys set here on
+// import.meta.env like any .env file. Against the local stack (npm run dev / dev:migrate, which export a
+// 127.0.0.1 Supabase URL) we sign in as the seeded coach (mirrors supabase/seed.sql) with no setup. Against
+// any remote database (npm run dev:prod) we read personal credentials from one machine-level file outside
+// the repo, so every worktree shares a copy and no secret is committed.
 function loadDevCredentials(): void {
+  const url = process.env.VITE_SUPABASE_URL ?? "";
+
+  if (url.includes("127.0.0.1") || url.includes("localhost")) {
+    process.env.VITE_DEV_EMAIL = "coach@volleycoach.test";
+    process.env.VITE_DEV_PASSWORD = "password";
+
+    return;
+  }
+
   const file = join(homedir(), ".config", "volleycoach", "dev.env");
 
   if (!existsSync(file)) return;

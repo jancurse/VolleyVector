@@ -5,10 +5,14 @@
   "description": "A single-page web app for volleyball tactics and drills.",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bash scripts/dev.sh",
+    "dev:prod": "echo 'Running Vite against the PRODUCTION database (Ctrl-C to abort)' && vite",
+    "dev:migrate": "bash scripts/dev-migrate.sh",
     "dev:stop": "f(){ if [ -n \"$1\" ]; then lsof -ti tcp:\"$1\" | xargs -r kill; else pkill -f 'node.*\\.bin/vite' || true; fi; }; f",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "db:reset": "bash scripts/db-reset.sh",
+    "db:clean": "bash scripts/db-clean.sh",
     "format": "prettier --write \"{src,tests}/**/*.{ts,tsx,json,css}\"",
     "format:check": "prettier --check \"{src,tests}/**/*.{ts,tsx,json,css}\"",
     "lint": "eslint src tests",
@@ -17,7 +21,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:rls": "bash scripts/test-rls.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

@@ -14,7 +14,7 @@ Integrate the current worktree into its feature branch and close it. Invoking th
 
 ## Steps
 
-1. **Commit the work.** Stage everything and commit with a concise imperative subject describing what this worktree did. Add a body only when the why is not obvious from the diff. If the tree is already clean with nothing to commit, skip to the rebase.
+1. **Commit the work.** Stage everything and commit following the `commit` skill. If the tree is already clean with nothing to commit, skip to the rebase.
 
 2. **Rebase onto the feature branch.** In the worktree: `git rebase <feature>`. If the rebase stops on a conflict that is trivial, resolve it, continue the rebase, and note it in your final message. Otherwise do not improvise: report the conflict and ask the user how to proceed.
 

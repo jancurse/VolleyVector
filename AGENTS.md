@@ -75,8 +75,8 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - **`playwright`** — browser automation against the dev server, for verifying UI changes on screen. **The `playwright` skill is mandatory**: load it before driving the browser, and before planning or prescribing any browser check — it decides when a visual check pays off, and the default is no browser at all.
 - **`frontend-design`** — invoke this skill when building or restyling UI to keep the visual language deliberate.
 - **`supabase`** — two tools serve the backend:
-    - The **Supabase MCP server** (read-only) for inspecting schema, running SELECTs, debugging RLS, and reading logs; the **Supabase CLI** for applying migrations and deploying Edge Functions.
-    - The **`supabase` skill is mandatory**: load it before any Supabase work. The project is production; never push or deploy without user confirmation.
+    - The **Supabase MCP server** (read-only) for all production reads (schema, SELECTs, RLS, logs). The **Supabase CLI** for local development only (the local stack, authoring migrations, the RLS test). Migrations and Edge Functions reach production through CI on merge, never the local CLI.
+    - The **`supabase` skill is mandatory**: load it before any Supabase work. That one project is production, and the local CLI never writes to it: production changes land only by merging a PR.
 
 ## Working Practices
 
@@ -109,7 +109,7 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 ### Git and Shell
 
 - Do not run git write operations (commit, amend, push, rebase, reset, tag, branch changes) unless the user explicitly asks; otherwise leave changes in the working tree for review.
-- **Write clean, concise commit messages**: a short imperative subject line that says what the change does, a body only when the why is not obvious from the diff. No filler, no restating every file touched.
+- **When you commit, follow the `commit` skill**: it covers what to include in the commit and how to write a clean, concise message.
 - Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
 
 ### Workspaces and worktrees

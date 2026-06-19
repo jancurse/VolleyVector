@@ -36,3 +36,25 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  rls:
+    name: RLS Policy Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ubuntu-latest ships Docker, so the throwaway stack runs here exactly as it does locally. test:rls is
+      # self-managing: it builds a fresh stack from this branch's migrations and seed, then tears it down.
+      - name: Run RLS policy tests
+        run: npm run test:rls

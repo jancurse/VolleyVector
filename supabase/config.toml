@@ -1,0 +1,66 @@
+# Local Supabase stack — the only non-production environment (see docs/development.md).
+# Reference: https://supabase.com/docs/guides/local-development/cli/config
+#
+# A fixed project_id (not the working-directory default) so every branch and worktree shares one
+# local stack: `npm run dev` from anywhere brings up the same containers, holding main's schema.
+# `npm run dev:migrate` overrides this id and the ports in a throwaway config for an isolated stack.
+project_id = "volleycoach"
+
+# Only the services the app needs locally are enabled (db, api, auth, studio). Realtime, storage,
+# edge functions, inbucket, and analytics stay off so several stacks fit on one machine at once.
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+# Must match production's Postgres major version, so a migration that fails on prod also fails here.
+major_version = 17
+
+[db.migrations]
+enabled = true
+
+# The seed is local-only fixtures (logins and sample content). A prod migration push applies
+# migrations only, never this file, so nothing production relies on may live here.
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+# The Vite dev server. Password sign-in needs no email round-trip, but redirects resolve here.
+site_url = "http://127.0.0.1:5173"
+additional_redirect_urls = ["http://127.0.0.1:5173", "http://localhost:5173"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+minimum_password_length = 6
+
+[auth.email]
+# Seeded accounts are pre-confirmed, so local sign-in never waits on a confirmation email.
+enable_confirmations = false
+
+[realtime]
+enabled = false
+
+[storage]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false

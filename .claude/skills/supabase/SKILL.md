@@ -1,66 +1,72 @@
 ---
 name: supabase
-description: Read before ANY Supabase work — CLI commands, database migrations, schema changes, Edge Function deploys, or reading/debugging the database (schema, RLS, logs). Covers login and linking, the safe migration workflow, verification, and known failure modes.
+description: Read before ANY Supabase work: reading or debugging production (read-only MCP), local database development (CLI), migrations, and Edge Functions. Covers the read/local/CI split, the local-first workflow, how changes reach production, and known failure modes.
 ---
 
 # Working with Supabase
 
 ## The setup
 
-- The backend is one Supabase project: VolleyCoach, project ref `xobsdirytehneeofjmrq`. It holds the schema (tables, RLS policies, triggers, RPCs), the auth users, and the Edge Functions. Every access rule is row-level security in the database; the client is never trusted.
-- This is a small hobby project on the **free tier**, and that one project **is production** — there is no dev or staging instance. Whatever you touch, real users see, so be deliberate with every write.
-- Two tools are available:
-    - The **Supabase MCP server**, scoped read-only to the project. Use it for all reads: schema, SELECTs, RLS debugging, logs.
-    - The **Supabase CLI** (`npx supabase ...`) for everything that writes: applying migrations and deploying Edge Functions.
+- The backend is one Supabase project: VolleyCoach, project ref `xobsdirytehneeofjmrq`. It holds the schema (tables, RLS policies, triggers, RPCs), the auth users, and the Edge Functions. Every access rule is row-level security in the database. The client is never trusted.
+- This is a small hobby project on the **free tier**, and that one project **is production**. There is no dev or staging instance. The only non-production environment is the **local Supabase stack** run by `npm run dev` (Docker-based, see @docs/development.md).
+- Three access paths, split by job:
+    - **Read production** through the **read-only Supabase MCP server**: schema, SELECTs, RLS debugging, logs. It cannot write.
+    - **Develop locally** through the **Supabase CLI** (`npx supabase ...`): the local stack, authoring and verifying migrations, running the RLS test. The CLI is local-only. It never touches production.
+    - **Write production** only through **CI on merge**: a deliberate, green-`main`-gated push. Migrations and Edge Functions both reach prod this way (below), never from a dev session.
 
 Two hard rules frame everything below:
 
-- Never run `db push` or `functions deploy` without the user's explicit go-ahead.
-- Schema changes (DDL) are reviewed migration files, never SQL pasted into the dashboard. Reads are yours to run via MCP; never ask the user to paste query results back to you.
+- **Never write to production from your machine.** No `db push`, no `functions deploy`, no `supabase link`/`login`. These are denied. Production changes land by merging a PR, and CI applies them.
+- **Schema changes (DDL) are reviewed migration files, never SQL pasted into the dashboard.** Reads are yours to run via MCP. Never ask the user to paste query results back to you.
 
-For a **simple data fix** (plain DML, like deleting a few rows), ask the user whether they want to run an ad-hoc query rather than adding a migration script. If they do, hand them the exact statement for the dashboard SQL editor, then verify the result with a read. The MCP server stays read-only: never suggest enabling writes on it.
+For a **simple data fix** (plain DML, like deleting a few rows), ask the user whether they want a one-off migration or an ad-hoc query. For an ad-hoc query, hand them the exact statement for the dashboard SQL editor, then verify the result with an MCP read. The MCP server stays read-only: never suggest enabling writes on it.
 
 ## Reading the database
 
-- Prefer the **read-only Supabase MCP server** when it is available in the session: inspect schema, run SELECTs, debug RLS, read logs. It cannot write.
-- Without MCP, read via the CLI: `npx supabase db dump --schema <schema>` (add `--data-only` for rows, e.g. of `supabase_migrations` to see the remote history with names and statements).
-- A last-resort probe is PostgREST with the publishable key from `.env`. RLS applies, so expect `permission denied` for most tables as `anon`; the error code still distinguishes a missing column (`42703`) from a missing grant (`42501`), which makes it a usable schema probe.
+- Use the **read-only MCP server** for all production reads: inspect schema, run SELECTs, debug RLS, read logs. It cannot write.
+- For local reads, query the local stack directly (its URL and key are in @docs/development.md) or `docker exec supabase_db_volleycoach psql ...`.
+- **If the MCP server is unavailable, stop and tell the user.** Do not work around it: no PostgREST probe, no linked CLI, no asking them to paste query results back. They will set MCP up for you or give you other instructions.
 
-## Login and linking
+## Local development
 
-- **Login is user-only and machine-wide. Linking is per-workspace** (it writes `supabase/.temp/`), so a fresh worktree is typically not linked even though login is done.
-- Check both at once with `npx supabase projects list`:
-    - An auth error means not logged in. Ask the user to run `npx supabase login` themselves and wait.
-    - The project list printing but with an empty LINKED column (or a "Cannot find project ref" warning) means logged in but not linked.
-- Link it yourself; no password is needed: `npx supabase link --project-ref xobsdirytehneeofjmrq`
+The local stack is where database changes are built and verified. The dev modes and seeded accounts live in @docs/development.md. In short:
+
+- `npm run dev` runs the app against the shared local stack (main's schema), starting it if it is down. It does not create the stack: if there is no shared database yet, create it from `main` with `npm run db:reset`.
+- `npm run dev:migrate` runs it against a throwaway database built from the current branch's migrations. Use it to try a migration before it merges.
+- `npm run test:rls` runs the RLS regression test against a local database. It is the same check CI runs.
+
+These commands manage the stack for you. The plain local CLI commands (`supabase start`/`stop`/`status`, `migration new`, `db diff`, `gen`) are allowed. You rarely need to run them by hand.
 
 ## Migrations
 
-Migrations are reviewed files in `supabase/migrations/`, applied with the CLI.
+Migrations are reviewed files in `supabase/migrations/`. They are authored and verified locally, then reach production through CI on merge. You never push them yourself.
 
-- **Create migrations with `npx supabase migration new <name>`** so the version prefix is a real UTC timestamp. Never hand-pick "the next number in the folder": parallel sessions pick the same one and collide (see the failure mode below).
-- The standard sequence, in order:
-    1. `npx supabase migration list` — compare local and remote versions and investigate any mismatch before going further.
-    2. `npx supabase db push --dry-run` — confirm that exactly the intended migrations (and nothing else) would apply.
-    3. Get the user's explicit confirmation, then `npx supabase db push`.
-    4. **Verify the change in the actual schema** (MCP query, or the PostgREST probe above). Do not trust "Finished db push" or the history table alone.
-- Schema rules that recur:
-    - **Grant `service_role` in migrations, not only `authenticated`.** "Auto-expose new tables" is off, so grants are explicit. `service_role` bypasses RLS but still needs the table GRANT, or Edge Functions fail with `permission denied for table ...`.
-    - End schema-changing migrations with `notify pgrst, 'reload schema';` so PostgREST picks the change up immediately.
+1. **Create the file with `npx supabase migration new <name>`** so the version prefix is a real UTC timestamp. Never hand-pick "the next number": parallel sessions pick the same one and collide (see below).
+2. Write the migration, then verify it locally with `npm run dev:migrate` and `npm run test:rls`.
+3. Open a PR. `migration-guard.yml` flags it with a label and a comment, because merging applies it to production.
+4. **On merge, `migrate-prod.yml` runs `supabase db push` against production** once CI is green. There is no manual push and no approval button: the deliberate act is merging after seeing the warning.
+5. After it merges, **verify the change in the production schema** with an MCP read. Do not trust "Finished db push" or the history table alone.
+
+Schema rules that recur:
+
+- **Grant `service_role` in migrations, not only `authenticated`.** "Auto-expose new tables" is off, so grants are explicit. `service_role` bypasses RLS but still needs the table GRANT, or Edge Functions fail with `permission denied for table ...`.
+- End schema-changing migrations with `notify pgrst, 'reload schema';` so PostgREST picks the change up immediately.
 
 ### Failure mode: duplicate version from a parallel session
 
-Parallel worktrees that each add a migration can pick the same version number. The remote history then contains that version from whichever session pushed first, and your same-numbered migration **silently appears applied while its DDL never ran**. Recognise and fix it like this:
+Two branches that each add a migration can pick the same version number. Whichever merges first claims that version in the remote history. The second branch's same-numbered migration then **looks applied while its DDL never ran**.
 
-- Symptom: `migration list` shows your version as applied on both sides, but the schema change is missing (e.g. PostgREST returns `42703 column ... does not exist`).
-- Diagnose: dump the remote history (`npx supabase db dump --schema supabase_migrations --data-only`) and read the `statements` of the colliding version. If they are not yours, you have a collision.
-- Fix: rename your migration file to a new, later real-timestamp version. If `db push` then refuses because a remote version has no local file, that file belongs to the other session's branch: ask the user to provide it (do not reach into another workspace yourself), then dry-run and push again.
+- Avoid it: always use `migration new` for a real-timestamp version, never a hand-picked number.
+- Detect it: after your migration merges, the schema change is missing (e.g. an MCP read returns `42703 column ... does not exist`). Compare your local files against the remote history via the MCP `list_migrations` tool.
+- Fix it: rename your migration file to a new, later real-timestamp version so it applies as a fresh entry on the next push.
 
 ## Edge Functions
 
-- Deploy with `npx supabase functions deploy <name>`, with user confirmation (production).
-- Functions read the secret key from the `SUPABASE_SECRET_KEYS` dict, not the legacy `SUPABASE_SERVICE_ROLE_KEY`. Keep "Verify JWT" off and authorize the caller in code.
+- Functions live in `supabase/functions/`. Edit them there. They reach production the same way migrations do: **`deploy-functions.yml` deploys all functions on merge** once CI is green, with `--no-verify-jwt` (re-uploading an unchanged one is a harmless no-op). Never run `functions deploy` yourself.
+- A PR that changes `supabase/functions/` is flagged by `migration-guard.yml`, like a migration.
+- Keep **Verify JWT off** and authorize the caller in code; functions read the secret key from the `SUPABASE_SECRET_KEYS` dict, not the legacy `SUPABASE_SERVICE_ROLE_KEY`.
+- **Function secrets** (`supabase secrets set`) are user-only and rarely change. Walk the user through setting them in the dashboard or by CLI; never set them yourself.
 
 ## User-only steps
 
-`supabase login`, dashboard configuration, and admin bootstrap are the user's. Walk them through exact, ordered steps and wait; never self-provision or log in for them.
+`supabase login` and `supabase link`, dashboard configuration, function-secret changes, and admin bootstrap are the user's. Production writes happen through CI on merge, never from your local CLI. Walk the user through any manual step with exact, ordered instructions and wait; never self-provision, log in, or link.
