@@ -86,7 +86,7 @@ The board-creator skill writes bundle JSON to the gitignored `drafts/` folder. T
 ### Testing
 
 - `npm run test` runs the Vitest suite once. It is fast and Docker-free: it runs against an in-memory Supabase fake, and CI runs it on every PR.
-- `npm run test:rls` runs the row-level-security regression test (`supabase/tests/rls_policies_test.sql`) against a local database. It brings the local stack up if needed, runs the SQL test inside the database container, and reports pass or fail. It needs Docker and is deliberately kept out of `npm run test` so the Vitest suite stays fast. It is the same check CI runs, so a local pass means a CI pass.
+- `npm run test:rls` runs the row-level-security regression test (`supabase/tests/rls_policies_test.sql`). It builds a fresh, isolated database from the current branch's migrations and seed (the `dev:migrate` stack), runs the SQL test inside it, tears it down, and reports pass or fail. Building from the branch (not the shared stack, which holds main's schema) is the point: it verifies this branch's policies, functions, and migrations before they merge. It needs Docker and is deliberately kept out of `npm run test` so the Vitest suite stays fast. It is the same check CI runs, so a local pass means a CI pass.
 
 ### Deployment and the database pipeline
 
@@ -120,22 +120,22 @@ Edge Functions deploy to production by the same green-`main` gate as migrations,
 
 ### Useful Commands
 
-| Command                 | Description                                                                        |
-|-------------------------|------------------------------------------------------------------------------------|
-| `npm run dev`           | Start Vite against the local database (port 5173), bringing it up if needed        |
-| `npm run dev:prod`      | Start Vite against the production database                                         |
-| `npm run dev:migrate`   | Start Vite against a temporary database built from the branch's migrations         |
-| `npm run build`         | Type-check and build for production                                                |
-| `npm run preview`       | Preview the production build locally                                               |
-| `npm run db:reset`      | Create or rebuild the shared local database from migrations and seed (from `main`) |
-| `npm run db:clean`      | Tear down leftover temporary `dev:migrate` databases                               |
-| `npm run format`        | Format `src`/`tests` with Prettier                                                 |
-| `npm run format:check`  | Check formatting without writing                                                   |
-| `npm run lint`          | Lint `src`/`tests` with ESLint                                                     |
-| `npm run lint:fix`      | Lint and auto-fix                                                                  |
-| `npm run typecheck`     | Type-check without emitting (`tsc --noEmit`)                                       |
-| `npm run test`          | Run the test suite once                                                            |
-| `npm run test:watch`    | Run tests in watch mode                                                            |
-| `npm run test:ui`       | Run tests with the Vitest UI                                                       |
-| `npm run test:coverage` | Run tests with a coverage report                                                   |
-| `npm run test:rls`      | Run the RLS policy test against a local database (needs Docker)                    |
+| Command                 | Description                                                                           |
+|-------------------------|---------------------------------------------------------------------------------------|
+| `npm run dev`           | Start Vite against the local database (port 5173), bringing it up if needed           |
+| `npm run dev:prod`      | Start Vite against the production database                                            |
+| `npm run dev:migrate`   | Start Vite against a temporary database built from the branch's migrations            |
+| `npm run build`         | Type-check and build for production                                                   |
+| `npm run preview`       | Preview the production build locally                                                  |
+| `npm run db:reset`      | Create or rebuild the shared local database from migrations and seed (from `main`)    |
+| `npm run db:clean`      | Tear down leftover temporary `dev:migrate` databases                                  |
+| `npm run format`        | Format `src`/`tests` with Prettier                                                    |
+| `npm run format:check`  | Check formatting without writing                                                      |
+| `npm run lint`          | Lint `src`/`tests` with ESLint                                                        |
+| `npm run lint:fix`      | Lint and auto-fix                                                                     |
+| `npm run typecheck`     | Type-check without emitting (`tsc --noEmit`)                                          |
+| `npm run test`          | Run the test suite once                                                               |
+| `npm run test:watch`    | Run tests in watch mode                                                               |
+| `npm run test:ui`       | Run tests with the Vitest UI                                                          |
+| `npm run test:coverage` | Run tests with a coverage report                                                      |
+| `npm run test:rls`      | Run the RLS policy test against a fresh database built from the branch (needs Docker) |

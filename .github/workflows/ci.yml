@@ -54,9 +54,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ubuntu-latest ships Docker, so the local Supabase stack runs here exactly as it does locally.
-      - name: Start local Supabase stack
-        run: npx supabase start
-
+      # ubuntu-latest ships Docker, so the throwaway stack runs here exactly as it does locally. test:rls is
+      # self-managing: it builds a fresh stack from this branch's migrations and seed, then tears it down.
       - name: Run RLS policy tests
         run: npm run test:rls
