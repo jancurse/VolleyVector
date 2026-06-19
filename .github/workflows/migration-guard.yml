@@ -1,0 +1,46 @@
+name: Migration Guard
+
+# Flags a PR that adds or changes files under supabase/migrations/. On merge to main those migrations are
+# applied to production automatically (see migrate-prod.yml), so this surfaces the change for review first:
+# it adds a label and posts one comment. Same-repo PRs only — the default token can label and comment.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  flag-migrations:
+    name: Flag migration changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect and flag migration changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename')
+          if ! echo "$files" | grep -q '^supabase/migrations/'; then
+            echo "No migration changes in this PR; nothing to flag."
+            exit 0
+          fi
+          echo "Migration changes detected:"
+          echo "$files" | grep '^supabase/migrations/'
+
+          gh label create "database-migration" --color B60205 \
+            --description "Changes supabase/migrations — applied to production on merge" 2>/dev/null || true
+          gh pr edit "$PR" --add-label "database-migration"
+
+          # Post the warning once, keyed off a hidden marker, so re-runs on new commits do not repeat it.
+          if gh api --paginate "repos/$REPO/issues/$PR/comments" --jq '.[].body' | grep -qF "<!-- migration-guard -->"; then
+            echo "Warning comment already present."
+          else
+            gh pr comment "$PR" --body "$(printf '%s\n' \
+              '<!-- migration-guard -->' \
+              ':warning: **This PR changes `supabase/migrations/`.**' \
+              '' \
+              'On merge to `main`, these migrations are applied to the **production** database automatically once CI passes (see `.github/workflows/migrate-prod.yml`). There is no manual approval step, so review the migration carefully before merging.')"
+          fi
