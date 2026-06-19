@@ -115,7 +115,7 @@ The project ref is public and hardcoded in the workflow. A manual `workflow_disp
 Edge Functions deploy to production by the same green-`main` gate as migrations, never from a dev session:
 
 - **A PR that changes `supabase/functions/` is flagged** by `.github/workflows/migration-guard.yml`, the same guard that flags migrations.
-- **On merge, functions are deployed automatically.** `.github/workflows/deploy-functions.yml` runs `supabase functions deploy --no-verify-jwt` after CI passes on `main`, but only when the merged commit touched `supabase/functions/`. It authenticates with the `SUPABASE_ACCESS_TOKEN` secret alone; a function deploy needs no database password.
+- **On merge, all functions are deployed automatically.** `.github/workflows/deploy-functions.yml` runs `supabase functions deploy --no-verify-jwt` for every function after CI passes on `main`, like the migration push. It deploys all of them rather than diffing the merged commit, which would miss a function change made in an earlier commit of a rebase-merged PR; re-uploading an unchanged function is a harmless no-op. It authenticates with the `SUPABASE_ACCESS_TOKEN` secret alone; a function deploy needs no database password.
 - **Function secrets are a manual, user-only step.** They change rarely: set them in the dashboard or via `supabase secrets set` by hand, never in CI.
 
 ### Useful Commands

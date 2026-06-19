@@ -62,7 +62,7 @@ Two branches that each add a migration can pick the same version number. Whichev
 
 ## Edge Functions
 
-- Functions live in `supabase/functions/`. Edit them there. They reach production the same way migrations do: **`deploy-functions.yml` deploys them on merge** once CI is green, with `--no-verify-jwt`. Never run `functions deploy` yourself.
+- Functions live in `supabase/functions/`. Edit them there. They reach production the same way migrations do: **`deploy-functions.yml` deploys all functions on merge** once CI is green, with `--no-verify-jwt` (re-uploading an unchanged one is a harmless no-op). Never run `functions deploy` yourself.
 - A PR that changes `supabase/functions/` is flagged by `migration-guard.yml`, like a migration.
 - Keep **Verify JWT off** and authorize the caller in code; functions read the secret key from the `SUPABASE_SECRET_KEYS` dict, not the legacy `SUPABASE_SERVICE_ROLE_KEY`.
 - **Function secrets** (`supabase secrets set`) are user-only and rarely change. Walk the user through setting them in the dashboard or by CLI; never set them yourself.
