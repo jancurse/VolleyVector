@@ -23,14 +23,16 @@
 - Install the recommended VSCode extensions: Prettier, ESLint, and markdownlint.
 - Install the markdown formatting CLIs once per machine: `npm i -g markdownlint-cli2 markdown-table-prettify`.
 - Install `pre-commit` and run `pre-commit install` to enable the markdown commit hooks.
-- **Dev auto-login (optional).** Add credentials to `~/.config/volleycoach/dev.env` and the dev server signs itself in instead of showing the login screen:
+- **Dev auto-login.** The dev server signs itself in so it comes up past the login screen, and which account it uses follows the database it targets:
+    - Against the local stack (`npm run dev` and `npm run dev:migrate`) it signs in as the seeded coach automatically, with no setup.
+    - Against production (`npm run dev:prod`) it reads credentials from `~/.config/volleycoach/dev.env`, if present:
 
-    ```sh
-    VITE_DEV_EMAIL=coach@volleycoach.test
-    VITE_DEV_PASSWORD=password
-    ```
+        ```sh
+        VITE_DEV_EMAIL=you@example.com
+        VITE_DEV_PASSWORD=your-password
+        ```
 
-    For `npm run dev` (the local stack) use one of the seeded accounts listed under [Local database](#local-database). For `npm run dev:prod` use a personal, low-privilege production account, never an admin. The file is read only in `serve`, so it never reaches production, and it stays out of the repo. Anyone with the file can sign in as that account, so keep it low-privilege.
+        Use a personal, low-privilege production account, never an admin. The file is read only in `serve`, so it never reaches production, and it stays out of the repo. Anyone with the file can sign in as that account, so keep it low-privilege.
 - **Claude Code**: the repo enables tools that load automatically once you trust the project. Some need a binary installed once per machine:
     - `typescript-lsp` — TypeScript code intelligence. Needs the language server: `npm i -g typescript-language-server typescript` (global; reinstall after switching Node versions).
     - `playwright` — browser automation. Needs a browser: `npx playwright install chromium`.

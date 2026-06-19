@@ -10,4 +10,5 @@ ensure_shared_up
 
 export VITE_SUPABASE_URL="$LOCAL_SUPABASE_URL"
 export VITE_SUPABASE_PUBLISHABLE_KEY="$LOCAL_SUPABASE_KEY"
+echo "Running Vite against the LOCAL Supabase stack at $LOCAL_SUPABASE_URL"
 exec npx vite "$@"
