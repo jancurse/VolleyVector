@@ -109,7 +109,7 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 ### Git and Shell
 
 - Do not run git write operations (commit, amend, push, rebase, reset, tag, branch changes) unless the user explicitly asks; otherwise leave changes in the working tree for review.
-- **Write clean, concise commit messages**: a short imperative subject line that says what the change does, a body only when the why is not obvious from the diff. No filler, no restating every file touched.
+- **When you commit, follow the `commit` skill**: it covers what to include in the commit and how to write a clean, concise message.
 - Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
 
 ### Workspaces and worktrees
