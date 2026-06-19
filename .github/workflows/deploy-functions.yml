@@ -1,0 +1,74 @@
+name: Deploy Edge Functions
+
+# Deploy Supabase Edge Functions to production only after CI is green on main, mirroring migrate-prod.yml's
+# gating. Functions reach production only by this deliberate, CI-gated deploy on merge, never from a dev
+# session. The deliberate act is merging the PR after seeing the Migration Guard warning; there is no separate
+# approval button (GitHub Environments required reviewers are unavailable on a private free repo). A manual run
+# (workflow_dispatch) deploys the default branch on demand.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# Never interrupt a deploy mid-flight: queue runs rather than cancelling them.
+concurrency:
+  group: deploy-functions-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-functions:
+    name: Deploy edge functions to production
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          fetch-depth: 2
+
+      # workflow_run carries no changed-file list, so diff the merged commit against its parent. Skip the
+      # deploy unless this commit touched supabase/functions/ (a manual dispatch always deploys), so unrelated
+      # merges do not re-upload every function.
+      - name: Detect function changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only HEAD~1 HEAD -- 'supabase/functions/' | grep -q .; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No edge-function changes in this commit; nothing to deploy."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node.js
+        if: steps.changes.outputs.deploy == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        if: steps.changes.outputs.deploy == 'true'
+        run: npm ci
+
+      # The access token authenticates the CLI; a function deploy needs no database password. The project ref
+      # is public (it is in the committed .env URL). Verify JWT stays off: each function authorizes its caller
+      # in code (see the supabase skill), matching the manual deploys this replaces.
+      - name: Deploy functions
+        if: steps.changes.outputs.deploy == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          for dir in supabase/functions/*/; do
+            name=$(basename "$dir")
+            echo "Deploying $name"
+            npx supabase functions deploy "$name" --no-verify-jwt --project-ref xobsdirytehneeofjmrq
+          done

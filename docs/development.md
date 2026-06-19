@@ -17,8 +17,9 @@
 ## Initial Setup
 
 - Install Node.js 22+.
-- Install **Docker** (Desktop or Engine). The local Supabase stack runs in Docker, and `npm run dev` starts it. The Supabase CLI itself is a dev dependency, so `npm install` provides it (run as `npx supabase`).
-- Run `npm install` to install dependencies. This also generates `package-lock.json`, which is committed and used by CI.
+- Install **Docker** (Docker Engine on Linux, Docker Desktop on macOS/Windows). The local Supabase stack runs in it, and its daemon must be running. On Linux it auto-starts on boot.
+- Run `npm install` to install dependencies, including the Supabase CLI (run as `npx supabase`). This also generates `package-lock.json`, which is committed and used by CI.
+- Create the shared local database from `main`: `npm run db:reset`. It builds the stack from the migrations and seed (the first run downloads Docker images). After this, `npm run dev` just starts it.
 - Install the recommended VSCode extensions: Prettier, ESLint, and markdownlint.
 - Install the markdown formatting CLIs once per machine: `npm i -g markdownlint-cli2 markdown-table-prettify`.
 - Install `pre-commit` and run `pre-commit install` to enable the markdown commit hooks.
@@ -37,24 +38,15 @@
 
 ## Development
 
-### Run in dev mode
-
-Run `npm run dev` to start the Vite dev server at <http://localhost:5173> with hot module reloading. It runs against the local database (see below), bringing it up first if needed.
-
 ### Local database
 
-The only non-production environment is a local Supabase stack: free, disposable, and Docker-based. It is configured in `supabase/config.toml`, built from the migrations under `supabase/migrations/`, and seeded by `supabase/seed.sql`. Develop and verify database changes here before they reach production. The stack is lean by design (database, auth, REST API, and Studio only), so several can run at once.
+For development we run Supabase locally instead of against production. It runs in Docker and is built from `supabase/config.toml`, the migrations in `supabase/migrations/`, and the `supabase/seed.sql` fixtures. It enables only Postgres, auth, the REST API, and Studio.
 
-A fixed `project_id` means every branch and worktree shares one stack, held at main's schema. The developer manages no database lifecycle: pick a dev mode and the scripts handle the rest.
+One database is shared and built from the latest `main` branch, and `npm run dev` uses it by default. You can also spin up as many temporary databases as you need, for example to try a branch's migrations before they merge (see [Dev modes](#dev-modes)).
 
-#### Dev modes
+#### Create and maintain
 
-- **`npm run dev`** runs the app against the **shared** local database, starting it if it is not already up. This is the everyday mode. The shared database holds main's schema, so this is unaffected by the migrations on your branch.
-- **`npm run dev:prod`** runs the app against the **production** database (the committed `.env` values). Use it sparingly, to reproduce something against real data.
-- **`npm run dev:migrate`** runs the app against a **fresh, isolated, temporary** database built from the current branch's migrations, and tears it down on exit. Use it to try a migration before it merges. It picks its own ports and project id, so it never collides with the shared database or another `dev:migrate` run.
-- **`npm run db:clean`** tears down any leftover temporary databases (a `dev:migrate` run that crashed before its own cleanup). It never touches the shared database.
-
-Choosing `dev` vs `dev:migrate` is the whole rule: `dev` runs against main's schema, `dev:migrate` against the current branch's. There is nothing else to learn.
+`npm run db:reset` builds the shared database from the current checkout's migrations and seed. Run it on the latest `main` to create it the first time, and again whenever new migrations merge.
 
 #### Seeded accounts
 
@@ -68,9 +60,16 @@ A fresh local database comes up with three sign-in accounts (password for all th
 
 It also seeds a demo team with sample boards and a note. The seed is local-only fixtures: a production migration push applies migrations only, never the seed.
 
-#### Refreshing the shared database
+### Dev modes
 
-`npm run dev` never changes an existing database's schema (migrations apply only when the database is first created), so the shared database stays at main's schema across branches. Refresh it from main when production has been updated: check out `main`, then run `npm run db:reset`, which rebuilds the shared database from the migrations and the seed. This is occasional maintenance, not a per-check step.
+`npm run dev` starts the Vite dev server at <http://localhost:5173> with hot reloading. The modes differ only in which database they target:
+
+- **`npm run dev`**: the shared local database (main's schema), starting the stack if it is down. The everyday mode. It errors if the shared database has never been created. Run `npm run db:reset` from `main` first.
+- **`npm run dev:prod`**: the production database (the committed `.env` values). Use sparingly, to reproduce something against real data.
+- **`npm run dev:migrate`**: a fresh, isolated, temporary database built from the current branch's migrations, torn down on exit. Use it to try a migration before it merges. It picks its own ports and id, so it never collides with the shared stack or another `dev:migrate`.
+- **`npm run db:clean`**: tear down a leftover temporary database (a `dev:migrate` that crashed before cleanup). Never touches the shared database.
+
+`dev` runs against main's schema, `dev:migrate` against the current branch's. That is the whole rule.
 
 ### Previewing board-creator drafts
 
@@ -109,24 +108,32 @@ The push needs the production credentials as repository **secrets**, set once un
 
 The project ref is public and hardcoded in the workflow. A manual `workflow_dispatch` run pushes the default branch on demand.
 
+#### Edge Functions
+
+Edge Functions deploy to production by the same green-`main` gate as migrations, never from a dev session:
+
+- **A PR that changes `supabase/functions/` is flagged** by `.github/workflows/migration-guard.yml`, the same guard that flags migrations.
+- **On merge, functions are deployed automatically.** `.github/workflows/deploy-functions.yml` runs `supabase functions deploy --no-verify-jwt` after CI passes on `main`, but only when the merged commit touched `supabase/functions/`. It authenticates with the `SUPABASE_ACCESS_TOKEN` secret alone; a function deploy needs no database password.
+- **Function secrets are a manual, user-only step.** They change rarely: set them in the dashboard or via `supabase secrets set` by hand, never in CI.
+
 ### Useful Commands
 
-| Command                 | Description                                                                  |
-|-------------------------|------------------------------------------------------------------------------|
-| `npm run dev`           | Start Vite against the local database (port 5173), bringing it up if needed  |
-| `npm run dev:prod`      | Start Vite against the production database                                   |
-| `npm run dev:migrate`   | Start Vite against a temporary database built from the branch's migrations   |
-| `npm run build`         | Type-check and build for production                                          |
-| `npm run preview`       | Preview the production build locally                                         |
-| `npm run db:reset`      | Rebuild the shared local database from migrations and seed (run from `main`) |
-| `npm run db:clean`      | Tear down leftover temporary `dev:migrate` databases                         |
-| `npm run format`        | Format `src`/`tests` with Prettier                                           |
-| `npm run format:check`  | Check formatting without writing                                             |
-| `npm run lint`          | Lint `src`/`tests` with ESLint                                               |
-| `npm run lint:fix`      | Lint and auto-fix                                                            |
-| `npm run typecheck`     | Type-check without emitting (`tsc --noEmit`)                                 |
-| `npm run test`          | Run the test suite once                                                      |
-| `npm run test:watch`    | Run tests in watch mode                                                      |
-| `npm run test:ui`       | Run tests with the Vitest UI                                                 |
-| `npm run test:coverage` | Run tests with a coverage report                                             |
-| `npm run test:rls`      | Run the RLS policy test against a local database (needs Docker)              |
+| Command                 | Description                                                                        |
+|-------------------------|------------------------------------------------------------------------------------|
+| `npm run dev`           | Start Vite against the local database (port 5173), bringing it up if needed        |
+| `npm run dev:prod`      | Start Vite against the production database                                         |
+| `npm run dev:migrate`   | Start Vite against a temporary database built from the branch's migrations         |
+| `npm run build`         | Type-check and build for production                                                |
+| `npm run preview`       | Preview the production build locally                                               |
+| `npm run db:reset`      | Create or rebuild the shared local database from migrations and seed (from `main`) |
+| `npm run db:clean`      | Tear down leftover temporary `dev:migrate` databases                               |
+| `npm run format`        | Format `src`/`tests` with Prettier                                                 |
+| `npm run format:check`  | Check formatting without writing                                                   |
+| `npm run lint`          | Lint `src`/`tests` with ESLint                                                     |
+| `npm run lint:fix`      | Lint and auto-fix                                                                  |
+| `npm run typecheck`     | Type-check without emitting (`tsc --noEmit`)                                       |
+| `npm run test`          | Run the test suite once                                                            |
+| `npm run test:watch`    | Run tests in watch mode                                                            |
+| `npm run test:ui`       | Run tests with the Vitest UI                                                       |
+| `npm run test:coverage` | Run tests with a coverage report                                                   |
+| `npm run test:rls`      | Run the RLS policy test against a local database (needs Docker)                    |

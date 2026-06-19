@@ -1,8 +1,9 @@
 name: Migration Guard
 
-# Flags a PR that adds or changes files under supabase/migrations/. On merge to main those migrations are
-# applied to production automatically (see migrate-prod.yml), so this surfaces the change for review first:
-# it adds a label and posts one comment. Same-repo PRs only — the default token can label and comment.
+# Flags a PR that changes files applied to production automatically on merge: supabase/migrations/ (pushed by
+# migrate-prod.yml) and supabase/functions/ (deployed by deploy-functions.yml). Both reach production with no
+# manual approval button, so this surfaces the change for review first: it adds a label and posts one comment.
+# Same-repo PRs only — the default token can label and comment.
 on:
   pull_request:
     branches: [main]
@@ -16,23 +17,36 @@ jobs:
     name: Flag migration changes
     runs-on: ubuntu-latest
     steps:
-      - name: Detect and flag migration changes
+      - name: Detect and flag migration or edge-function changes
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: |
           files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename')
-          if ! echo "$files" | grep -q '^supabase/migrations/'; then
-            echo "No migration changes in this PR; nothing to flag."
+          migrations=$(echo "$files" | grep '^supabase/migrations/' || true)
+          functions=$(echo "$files" | grep '^supabase/functions/' || true)
+
+          if [ -z "$migrations" ] && [ -z "$functions" ]; then
+            echo "No migration or edge-function changes in this PR; nothing to flag."
             exit 0
           fi
-          echo "Migration changes detected:"
-          echo "$files" | grep '^supabase/migrations/'
 
-          gh label create "database-migration" --color B60205 \
-            --description "Changes supabase/migrations — applied to production on merge" 2>/dev/null || true
-          gh pr edit "$PR" --add-label "database-migration"
+          warnings=()
+          if [ -n "$migrations" ]; then
+            echo "Migration changes detected:"; echo "$migrations"
+            gh label create "database-migration" --color B60205 \
+              --description "Changes supabase/migrations — applied to production on merge" 2>/dev/null || true
+            gh pr edit "$PR" --add-label "database-migration"
+            warnings+=('- :warning: **`supabase/migrations/`** — applied to the **production** database by `.github/workflows/migrate-prod.yml`.')
+          fi
+          if [ -n "$functions" ]; then
+            echo "Edge-function changes detected:"; echo "$functions"
+            gh label create "edge-function" --color 1D76DB \
+              --description "Changes supabase/functions — deployed to production on merge" 2>/dev/null || true
+            gh pr edit "$PR" --add-label "edge-function"
+            warnings+=('- :warning: **`supabase/functions/`** — deployed to the **production** project by `.github/workflows/deploy-functions.yml`.')
+          fi
 
           # Post the warning once, keyed off a hidden marker, so re-runs on new commits do not repeat it.
           if gh api --paginate "repos/$REPO/issues/$PR/comments" --jq '.[].body' | grep -qF "<!-- migration-guard -->"; then
@@ -40,7 +54,9 @@ jobs:
           else
             gh pr comment "$PR" --body "$(printf '%s\n' \
               '<!-- migration-guard -->' \
-              ':warning: **This PR changes `supabase/migrations/`.**' \
+              ':rotating_light: **This PR changes files applied to production automatically on merge.**' \
               '' \
-              'On merge to `main`, these migrations are applied to the **production** database automatically once CI passes (see `.github/workflows/migrate-prod.yml`). There is no manual approval step, so review the migration carefully before merging.')"
+              "${warnings[@]}" \
+              '' \
+              'On merge to `main`, these changes reach **production** automatically once CI passes. There is no manual approval step, so review them carefully before merging.')"
           fi

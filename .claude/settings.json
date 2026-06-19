@@ -46,7 +46,11 @@
       "Bash(npx supabase secrets set:*)",
       "Bash(supabase secrets set:*)",
       "Bash(npx supabase secrets unset:*)",
-      "Bash(supabase secrets unset:*)"
+      "Bash(supabase secrets unset:*)",
+      "Bash(npx supabase link:*)",
+      "Bash(supabase link:*)",
+      "Bash(npx supabase login:*)",
+      "Bash(supabase login:*)"
     ]
   },
   "hooks": {
