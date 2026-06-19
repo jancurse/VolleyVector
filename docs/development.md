@@ -57,10 +57,10 @@ A fresh local database comes up with three sign-in accounts (password for all th
 | Email                     | Role                                  |
 |---------------------------|---------------------------------------|
 | `admin@volleycoach.test`  | global admin (god-mode across spaces) |
-| `coach@volleycoach.test`  | coach of the demo team, owns a board  |
+| `coach@volleycoach.test`  | coach of the demo team                |
 | `player@volleycoach.test` | player on the demo team (read-only)   |
 
-It also seeds a demo team with sample boards and a note. The seed is local-only fixtures: a production migration push applies migrations only, never the seed.
+It also seeds a Demo Team (coach and player). The coach owns two sample boards (in their own space and the team library), a note linking them, and a personal scratch board; the admin owns a 5-1 rotation board and a Rotations note in the Inspiration showcase, which every account can browse and copy. The seed is local-only fixtures: a production migration push applies migrations only, never the seed.
 
 ### Dev modes
 

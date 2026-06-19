@@ -32,9 +32,9 @@ The user runs each; confirm the described behaviour.
 
 - [ ] Three logins work, password `password`: `admin@`, `coach@`, `player@volleycoach.test`.
 - [ ] Demo Team space exists with the coach and player as members.
-- [ ] Team library shows **Sample Position (Base Defence)** and **Sample Drill (Serve Receive & Sideout)**.
-- [ ] **Coach's Scratch Board** is personal — visible only as the coach.
-- [ ] **Team Playbook** note links the two team boards.
+- [ ] Coach's personal space shows **Sample Position**, **Sample Drill**, and the personal **Coach's Scratch Board**.
+- [ ] Demo Team library shows **Sample Position (Base Defence)**, **Sample Drill (Serve Receive & Sideout)**, and the **Team Playbook** note (the samples and Playbook appear in both the coach's space and the team).
+- [ ] Inspiration showcase shows the **5-1 Rotation** board and **Rotations** note, readable (and copyable) by every account, editable only by the admin.
 - [ ] Role behaviour: player read-only, coach edits team content, admin sees across spaces.
 
 ### CI & merge (verify on a real migration-bearing PR)
@@ -46,5 +46,5 @@ The user runs each; confirm the described behaviour.
 
 ## Open follow-ups (not part of testing, don't forget)
 
-- [ ] Decide exactly what the local seed should contain (precise users, boards, note, and grants).
+- [x] Decide exactly what the local seed should contain (precise users, boards, note, and grants). Done: two coach samples + Team Playbook (granted to coach + Demo Team) and a personal scratch board, plus a 5-1 Rotation board and Rotations note in the Inspiration showcase (granted to admin + showcase).
 - [ ] Audit the Supabase CLI allow/forbid list and update the `supabase` skill (CLI vs MCP usage).
