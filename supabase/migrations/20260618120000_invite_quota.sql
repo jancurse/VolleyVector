@@ -199,8 +199,8 @@ grant execute on function public.create_team(text, text) to authenticated;
 -- Seed.
 -- ---------------------------------------------------------------------------
 
--- Give the founding inviters a starting quota. Matched by display name; confirm exactly one profile
--- matches each before applying (see the apply note accompanying this migration).
-update public.profiles set invite_quota = 100 where display_name in ('Nancy', 'Nadim');
+-- Grant a starting invite quota to two specific accounts (by profile id).
+update public.profiles set invite_quota = 100
+where id in ('780f72f3-e3bf-4f51-ad80-31e51eccc03e', '9acba3b8-5a8b-4ff5-9582-bc3de13fe426');
 
 notify pgrst, 'reload schema';

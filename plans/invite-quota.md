@@ -111,17 +111,18 @@ Enforced at two points:
 ### Migration and seed
 
 - One new migration adds the columns, the `set_invite_quota`, `invite_availability`, and `create_team` RPCs, the extended `admin_list_profiles` return, the quota/grant trigger logic, the widened `teams_insert`, the creator-membership path, and the `invite_preview` signature change. Backfill `invite_quota = 0` for all profiles (the column default covers new rows).
-- Seed: set `invite_quota = 100` for Nancy and Nadim. Their exact profiles are confirmed with the user at apply time (by display name / email) before the update runs.
+- Seed: set `invite_quota = 100` for two specific accounts. Their exact profiles are confirmed with the user at apply time before the update runs, and the seed targets them by opaque profile id so no personal data is committed.
 
 ### Testing
 
-Add or update unit tests to cover the changed behaviour — no more than the changes require. Use the `react-testing` skill for frontend tests. The test harness was reworked recently: write against the current `tests/helpers/supabaseFake.ts` and `supabase/tests/rls_policies_test.sql` shapes, not older patterns.
+Add or update unit tests to cover the changed behaviour — no more than the changes require. Use the `react-testing` skill for frontend tests. Write against the current `tests/helpers/supabaseFake.ts` and `supabase/tests/rls_policies_test.sql` shapes, not older patterns. Two suites run, split by what they exercise:
 
-- Quota accounting: reserved/spent/released cases produce the right `available`.
-- Mint rejects a non-admin over quota and a non-admin setting `grant_quota`; admin is unlimited.
-- `InviteAccept` renders correctly for each combination of grants and for a team-less invite.
-- A non-admin can create a team and lands on it as coach.
-- Verify the SQL-level rules with the project's RLS test approach (`supabase/tests/`).
+- **Vitest** (`npm run test`): Docker-free, against the in-memory Supabase fake; CI runs it on every PR. Cover the client and accounting behaviour:
+    - Quota accounting: reserved/spent/released cases produce the right `available`.
+    - Mint rejects a non-admin over quota and a non-admin setting `grant_quota`; admin is unlimited.
+    - `InviteAccept` renders correctly for each combination of grants and for a team-less invite.
+    - A non-admin can create a team and lands on it as coach.
+- **RLS regression** (`npm run test:rls`): the SQL-level rules in `supabase/tests/rls_policies_test.sql`, run against a fresh local database built from this branch's migrations (needs Docker). This is the same check CI runs, so a local pass means a CI pass. Cover the database-enforced rules: the mint trigger, the quota RPCs, the widened invite policies, and `create_team`.
 
 ### Acceptance Criteria
 
@@ -131,7 +132,7 @@ Add or update unit tests to cover the changed behaviour — no more than the cha
 - A non-admin with zero quota cannot mint a "new person" link but can mint an "existing user" link and can create teams and add existing accounts to them without limit.
 - An admin can set any account's quota and is themselves unlimited.
 - An admin mints a quota-only link (no team); an existing user redeems it by signing in, their quota increases by the granted amount, no account is created, and no inviter quota is spent.
-- Nancy and Nadim have a quota of 100.
+- The two seeded accounts have a quota of 100.
 - The core invariant holds: no non-admin action raises any account's quota.
 
 ## Follow-ups
@@ -149,7 +150,7 @@ _None._
     - `invites`: `team_id`/`role` made nullable with a `(team_id is null) = (role is null)` CHECK; new `allows_new_account`, `created_account`, `grant_quota` columns; a BEFORE INSERT `invites_quota` trigger that rejects a non-admin minting an account link over quota or setting `grant_quota > 0`.
     - `invite_preview` dropped and recreated to return `allows_new_account, grant_quota, team_name, role` (LEFT JOIN for team-less links).
     - `invites_insert`/`select`/`delete` policies widened: a team-less link needs no team coaching; the creator (and an admin) lists/revokes their own.
-    - Seed: `update profiles set invite_quota = 100 where display_name in ('Nancy','Nadim')`.
+    - Seed: sets `invite_quota = 100` for two specific accounts, matched by their opaque profile id (confirmed against production via MCP) so no personal data is committed.
 - **Edge Function `redeem-invite`**: claims the link, resolves the user (signed-in caller wins over account creation), creates an account only when the link allows it and there is no caller (re-checking the inviter's quota atomically, admins exempt), adds the membership only when `team_id` is set, applies `grant_quota` additively via `add_invite_quota`, and records `created_account`/`used_by` only on full success so a released claim never counts as spent.
 - **Client**: `invites.ts` (`createInvite`/`invitePreview`/`inviteAvailability` threaded through the new shape); unified `InviteDialog` (link-type toggle, optional team picker, admin bonus-invites field, live remaining-quota); reworked `InviteAccept` (describes every grant, account setup only when allowed, team-less copy, one-click claim); `useWorkspace.createTeam` routes through `create_team` (creator becomes a coach, lands in `teams`) and exposes `inviteAvailable`; `SpaceSwitcher` "New team" dialog; sidebar/rail **Invite** entry gated on admin / quota / coach-of-any-team; admin Accounts tab gains an inline quota control (`useAdmin.setInviteQuota`).
 - **Tests**: `supabaseFake` + RLS SQL test extended; new coverage for quota accounting/mint rejection (SQL), `InviteAccept` grant combinations, non-admin team creation, and admin quota set. `npm run test` (555), `lint`, `typecheck`, and `build` all pass.
@@ -160,18 +161,23 @@ _None._
 - **Added `add_invite_quota` RPC** (not named in the plan) so the redeem function applies `grant_quota` as an atomic increment (`service_role`-only), avoiding a read-modify-write lost update on concurrent quota links. No authenticated path can raise a quota except the admin-only `set_invite_quota`.
 - **Sidebar Invite gating uses `invite_availability()`**, not a raw `invite_quota > 0` read (the column is unselectable). Effectively the same, and more correct: it hides the entry when a non-coach has spent all quota and could mint nothing useful.
 - **`create_team` returns only the id**; `createTeamAndOpen` navigates by id and lets the existing canonicalisation effect rewrite `/t/<id>` → `/t/<slug>`, matching how a new note is opened (avoids a stale-list slug lookup and a setState-in-effect lint violation).
-- **Seed matches by display name.** Reading the production accounts' PII to confirm Nancy/Nadim was correctly blocked, and the plan says their profiles are confirmed with the user at apply time. The `display_name in ('Nancy','Nadim')` match no-ops safely if names differ; confirm before applying (or switch to an email match).
+- **Seed matches by opaque profile id.** Confirmed the two production profiles via MCP read at the user's request. The originally planned bare-first-name display-name match would have missed one of them (a stored display name differs), and email or display name would put personal data into a repo any developer can read. The seed instead targets the two profile ids directly, which is exact and carries no personal data.
 - **`docs/architecture.md` not updated.** A couple of lines ("Auth, invites" link description, the admin-only "Create a team" table row, "Creating a team adds no membership") are now stale. Left untouched to keep changes minimal and because the feature is not live until the migration applies; flagged for the user.
 
-### Remaining to apply (part of this implementation — not yet done)
+### Remaining to ship (local verification, then merge)
 
-Status: code complete and verified against the test harness, but the feature is **not live**. The Supabase CLI was unavailable this session, so the steps below are outstanding. This implementation is not finished until they are done. They are user-only (production project; the `supabase` skill forbids pushing migrations or deploying functions without explicit confirmation, and DDL goes through the CLI, never the dashboard).
+Status: code complete; when these notes were first written it was verified only against the in-memory fake (the CLI was unavailable that session). The local stack added in #29 now allows real verification before merge, and production is reached by **merging the PR**, not by any hand-run push. The earlier plan to `db push` / `functions deploy` / paste SQL into the dashboard no longer applies — those paths were removed.
 
-- [ ] **Confirm the seed identities.** The seed matches `display_name in ('Nancy', 'Nadim')`. Reading the production accounts' emails to confirm was correctly blocked, so verify those are their exact display names (or switch the seed to an email match) before applying — it no-ops silently if they differ.
-- [ ] **Apply the migration:** `npx supabase migration list` → `npx supabase db push --dry-run` (confirm only `20260618120000_invite_quota` would apply) → `npx supabase db push`. Then verify `profiles.invite_quota` and the new RPCs exist (MCP query or PostgREST probe), not just the history table.
-- [ ] **Deploy the Edge Function:** `npx supabase functions deploy redeem-invite` (keep "Verify JWT" off).
-- [ ] **Verify the SQL rules:** run `supabase/tests/rls_policies_test.sql` in the SQL editor; expect `ALL RLS TESTS PASSED`.
+- [ ] **(Me) Automated database verification.** Run `npm run test:rls` (the extended RLS test against Postgres built from this branch's migrations). Report pass/fail rather than assume green, since this is the first real-database run.
+- [ ] **(You) Manually verify the app in dev.** Run the app against a real local database (`npm run dev:migrate`, a throwaway DB built from this branch's migration) and check the quota flows visually and functionally: mint a "new person" link and redeem it as a brand-new account; mint an "existing user" link and redeem it while signed in; as admin, set an account's quota and mint a quota-only (team-less) link; as a non-admin, create a team and confirm you land on it as coach. I will give exact click-by-click steps and the seed accounts before you start.
+- [x] **(You) Confirm the seed identities — done.** Resolved against production via MCP: the display-name match originally planned would have missed one of the two inviters (a stored display name differs from the bare first name). Switched the seed to match the two profiles by their opaque profile id, so no personal data is committed.
+- [ ] **(Optional) Regenerate the migration version.** `20260618120000` was hand-picked; it is unique and latest today, but the convention is `npx supabase migration new` for a real-timestamp prefix that cannot collide with a parallel session. Only matters if another migration with a higher version reaches production before this one merges (then the push sees this as out-of-order).
+- [ ] **(Together) Open the PR; confirm the gating fires.** This is the first PR to touch `supabase/migrations/` since #29 added the migration CI/merge gating, so verify that pipeline end to end here, not just this feature. On the PR:
+    - [ ] `migration-guard.yml` adds the `database-migration` label and posts its comment.
+    - [ ] the "RLS Policy Tests" CI job runs and passes against the new migration.
+- [ ] **(You) Merge to green `main`.** This is what pushes the migration and the `redeem-invite` function to production through CI.
+- [ ] **(Me) Confirm production is reached.** Read each post-merge Actions run's output with `gh` (`gh run list`, `gh run view --log`), not just that it ran: CI passes on `main`, `migrate-prod`'s `supabase db push` step succeeds, `deploy-functions` deploys `redeem-invite`, and the front-end deploy publishes. Then independently MCP-read production to confirm `profiles.invite_quota` and the new RPCs exist, not the migration history table alone.
 
 ### Critical Issues
 
-None blocking. The code is complete; the only outstanding work is the user-only Supabase apply steps above.
+None blocking. The code is complete; the only outstanding work is the local verification and merge in "Remaining to ship" above.
