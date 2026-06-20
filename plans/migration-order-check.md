@@ -63,8 +63,23 @@ _None._
 
 ## Implementation Notes
 
-_To be filled in by the implementation agent._
+### What was built
+
+- `scripts/check-migration-order.ts` — the guard. It lists the migrations on `origin/main` and the migrations the PR adds (`git diff --diff-filter=A --no-renames origin/main...HEAD`), then runs a pure `checkMigrationOrder(existing, added)`. With nothing added it prints "nothing to check" and exits 0. Otherwise it fails (exit 1) any added file whose version is not strictly after `main`'s highest, or that duplicates the version of another file added in the same PR, printing each offender and `main`'s highest version. Versions compare as numbers (`BigInt`), so a hand-picked short prefix reads as earlier than a 14-digit timestamp rather than sorting after it lexically.
+- `tests/scripts/check-migration-order.test.ts` — 11 Vitest cases over the pure `checkMigrationOrder`/`migrationVersion`: correct-later passes, out-of-order (below and equal) fails, duplicate-of-existing fails, within-PR duplicate (both later than `main`) fails, no-added is a no-op, numeric (not lexical) comparison, and the no-`main`-history case.
+- `.github/workflows/ci.yml` — a new blocking `migrations` job beside `check` and `rls`, gated `if: github.event_name == 'pull_request'`, checked out with `fetch-depth: 0` (so `origin/main` is present), running `node scripts/check-migration-order.ts`. `migration-guard.yml` and `migrate-prod.yml` are untouched.
+
+### Design choices
+
+- **A single `.ts` script run directly by Node, not `.mjs` or inline bash.** Node 22 (the runner's `node-version: "22"`, ≥ 22.18) runs `.ts` via built-in type stripping, so the workflow step needs no install or build step. Authoring it in TypeScript lets the Vitest test import the pure functions as a normal `.ts` (clean `tsc`), where a `.mjs` import trips TS7016. The script lives in `scripts/` (outside the `src`/`tests` Prettier/ESLint globs, like `board-creator`'s `validate.mjs`); the test pulls it into the TS program, so a type error in the script still fails the build.
+- **Git plumbing in the script, the verdict in a pure tested function.** The workflow step stays a one-liner, and the subtle part (the ≤/duplicate rule) is unit-tested without a git fixture.
+- **Compare against `origin/main` with a three-dot diff.** `origin/main...HEAD` diffs from the merge base, so on a PR it yields exactly the migrations the branch adds. `--no-renames` keeps a re-timestamped migration visible as an Added file so its new version is still checked.
+
+### Verification
+
+- `npm run format`, `npm run lint`, `npm run typecheck`, `npm run build`, and `npm run test` (566 tests, including the 11 new) all pass.
+- The real script was run against throwaway detached worktrees off `origin/main`: no-op (HEAD == `origin/main`) exits 0; an added migration below `main`'s highest and one duplicating an existing version both fail with the right message and a non-zero exit; two added migrations sharing a later version both fail as within-PR duplicates; a correctly later-versioned migration passes. On this branch the script also passes for real (it adds `20260618120000`, after `main`'s highest `20260617155801`).
 
 ### Critical Issues
 
-_To be filled in by the implementation agent._
+_None._
