@@ -143,7 +143,7 @@ _None._
 
 ### What was implemented
 
-- **Migration `20260618120000_invite_quota.sql`** (written, not applied):
+- **Migration `20260620121000_invite_quota.sql`** (written, not applied):
     - `profiles.invite_quota int not null default 0`, outside the `authenticated` column grant.
     - RPCs: `set_invite_quota` (admin-only write, mirrors `set_admin`), `invite_available(target)` (the derived `quota − used`, restricted to `service_role`), `invite_availability()` (the caller's own, `null` for an admin, granted to `authenticated`), `add_invite_quota(target, amount)` (atomic additive increment, `service_role` only), and `create_team(name, slug)` (inserts the team + the creator's `coach` membership, slug-collision retry, granted to `authenticated`).
     - `admin_list_profiles()` dropped and recreated with `invite_quota` in its return.
@@ -171,7 +171,7 @@ Status: code complete; when these notes were first written it was verified only 
 - [ ] **(Me) Automated database verification.** Run `npm run test:rls` (the extended RLS test against Postgres built from this branch's migrations). Report pass/fail rather than assume green, since this is the first real-database run.
 - [ ] **(You) Manually verify the app in dev.** Run the app against a real local database (`npm run dev:migrate`, a throwaway DB built from this branch's migration) and check the quota flows visually and functionally: mint a "new person" link and redeem it as a brand-new account; mint an "existing user" link and redeem it while signed in; as admin, set an account's quota and mint a quota-only (team-less) link; as a non-admin, create a team and confirm you land on it as coach. I will give exact click-by-click steps and the seed accounts before you start.
 - [x] **(You) Confirm the seed identities — done.** Resolved against production via MCP: the display-name match originally planned would have missed one of the two inviters (a stored display name differs from the bare first name). Switched the seed to match the two profiles by their opaque profile id, so no personal data is committed.
-- [ ] **(Optional) Regenerate the migration version.** `20260618120000` was hand-picked; it is unique and latest today, but the convention is `npx supabase migration new` for a real-timestamp prefix that cannot collide with a parallel session. Only matters if another migration with a higher version reaches production before this one merges (then the push sees this as out-of-order).
+- [x] **(Optional) Regenerate the migration version — done.** Renamed the hand-picked `20260618120000` to a real-timestamp prefix (`20260620121000`) with `git mv`, so it sorts as the latest migration and cannot collide with a parallel session. Content unchanged (a clean rename).
 - [ ] **(Together) Open the PR; confirm the gating fires.** This is the first PR to touch `supabase/migrations/` since #29 added the migration CI/merge gating, so verify that pipeline end to end here, not just this feature. On the PR:
     - [ ] `migration-guard.yml` adds the `database-migration` label and posts its comment.
     - [ ] the "RLS Policy Tests" CI job runs and passes against the new migration.
