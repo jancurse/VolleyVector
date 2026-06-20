@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { ShieldCheck, UserPlus } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 import type { Selection } from "../library/selection";
 import { NoteSidebar } from "../notes/NoteSidebar";
@@ -29,9 +29,6 @@ type SidebarProps = {
   onReorderNote: (id: string, dir: -1 | 1) => void;
   onNestNote: (id: string, parentId: string | null) => void;
   canEdit: boolean;
-  /** Whether the Invite entry shows: an admin, an account with quota, or a coach of any team. */
-  canInvite: boolean;
-  onInvite: () => void;
   isAdmin: boolean;
   adminActive: boolean;
   onOpenAdmin: () => void;
@@ -56,8 +53,6 @@ export function Sidebar({
   onReorderNote,
   onNestNote,
   canEdit,
-  canInvite,
-  onInvite,
   isAdmin,
   adminActive,
   onOpenAdmin,
@@ -93,32 +88,20 @@ export function Sidebar({
         />
       </div>
 
-      {(canInvite || isAdmin) && (
+      {isAdmin && (
         <div className="flex flex-col gap-px border-t border-border px-3 py-2">
-          {canInvite && (
-            <button
-              type="button"
-              className={cx(ADMIN_ENTRY, "text-text-dim hover:bg-control hover:text-text")}
-              onClick={onInvite}
-            >
-              <UserPlus size={18} aria-hidden="true" className="flex-none" />
-              Invite
-            </button>
-          )}
-          {isAdmin && (
-            <button
-              type="button"
-              aria-current={adminActive}
-              className={cx(
-                ADMIN_ENTRY,
-                adminActive ? "bg-accent-weak text-text" : "text-text-dim hover:bg-control hover:text-text"
-              )}
-              onClick={onOpenAdmin}
-            >
-              <ShieldCheck size={18} aria-hidden="true" className="flex-none" />
-              Admin
-            </button>
-          )}
+          <button
+            type="button"
+            aria-current={adminActive}
+            className={cx(
+              ADMIN_ENTRY,
+              adminActive ? "bg-accent-weak text-text" : "text-text-dim hover:bg-control hover:text-text"
+            )}
+            onClick={onOpenAdmin}
+          >
+            <ShieldCheck size={18} aria-hidden="true" className="flex-none" />
+            Admin
+          </button>
         </div>
       )}
     </aside>

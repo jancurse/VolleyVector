@@ -132,79 +132,97 @@ export function InviteDialog({
     }
   };
 
-  const accountHint = isAdmin
-    ? "You can onboard new accounts without limit."
-    : available === null
-      ? ""
-      : available > 0
-        ? `${available} ${available === 1 ? "invite" : "invites"} left.`
-        : "No invites left. Ask an admin for more.";
+  // Only relevant to a non-admin minting a "new person" link: how many account slots remain, or why the
+  // option is off. An admin is unlimited and sees nothing; existing-user links never touch quota.
+  const quotaNote =
+    isAdmin || available === null
+      ? null
+      : available === 0
+        ? "No invites left."
+        : allowsNewAccount
+          ? `${available} ${available === 1 ? "invite" : "invites"} left.`
+          : null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} title={team ? `Invite to ${team.teamName}` : "Invite"}>
-      <Field label="Link type">
-        <ToggleGroup
-          ariaLabel="Who the link is for"
-          value={allowsNewAccount ? "new" : "existing"}
-          onValueChange={(next) => setMode(next === "new" ? "new" : "existing")}
-          items={[
-            { value: "new", label: "New person", disabled: !canCreateAccount },
-            { value: "existing", label: "Existing user" },
-          ]}
-        />
-      </Field>
-      {accountHint && <p className={MUTED}>{accountHint}</p>}
-
-      {!team && (
-        <Field label="Team">
-          <Select
-            ariaLabel="Invite team"
-            value={teamId}
-            onValueChange={setTeamId}
-            options={[
-              { value: NO_TEAM, label: "No team" },
-              ...teams.map((t) => ({ value: t.teamId, label: t.teamName })),
-            ]}
-          />
+      <div className="flex flex-col gap-1.5">
+        <Field label="Link type">
+          <div>
+            <ToggleGroup
+              ariaLabel="Who the link is for"
+              value={allowsNewAccount ? "new" : "existing"}
+              onValueChange={(next) => setMode(next === "new" ? "new" : "existing")}
+              items={[
+                { value: "new", label: "New person", disabled: !canCreateAccount },
+                { value: "existing", label: "Existing user" },
+              ]}
+            />
+          </div>
         </Field>
-      )}
+        {quotaNote && <span className={MUTED}>{quotaNote}</span>}
+      </div>
 
-      {joinsTeam && (
-        <Field label="Role">
-          <Select
-            ariaLabel="Invite role"
-            value={role}
-            options={ROLE_OPTIONS}
-            onValueChange={(next) => setRole(next === "coach" ? "coach" : "player")}
-          />
-        </Field>
+      {(!team || joinsTeam) && (
+        <div className="flex flex-wrap items-start gap-4">
+          {!team && (
+            <div className="w-52">
+              <Field label="Team">
+                <Select
+                  ariaLabel="Invite team"
+                  value={teamId}
+                  onValueChange={setTeamId}
+                  options={[
+                    { value: NO_TEAM, label: "No team" },
+                    ...teams.map((t) => ({ value: t.teamId, label: t.teamName })),
+                  ]}
+                />
+              </Field>
+            </div>
+          )}
+          {joinsTeam && (
+            <div className="w-32">
+              <Field label="Role">
+                <Select
+                  ariaLabel="Invite role"
+                  value={role}
+                  options={ROLE_OPTIONS}
+                  onValueChange={(next) => setRole(next === "coach" ? "coach" : "player")}
+                />
+              </Field>
+            </div>
+          )}
+        </div>
       )}
 
       {isAdmin && (
-        <Field label="Bonus invites">
-          <Input
-            type="number"
-            min={0}
-            value={bonus}
-            onChange={(event) => setBonus(event.target.value)}
-            aria-label="Bonus invites to grant"
-          />
-        </Field>
+        <div className="w-28">
+          <Field label="Bonus invites">
+            <Input
+              type="number"
+              min={0}
+              value={bonus}
+              onChange={(event) => setBonus(event.target.value)}
+              aria-label="Bonus invites to grant"
+            />
+          </Field>
+        </div>
       )}
 
-      <div className="flex flex-col gap-3 pt-1">
-        <p className={MUTED}>
-          Create a single-use link to share anywhere. The first person to open it claims it; it expires after 7 days.
-        </p>
-        <Button onClick={() => void make()} disabled={creating || grantsNothing}>
-          {creating ? "Creating…" : "Create invite link"}
-        </Button>
+      <div className="flex flex-col gap-3">
+        <div>
+          <Button onClick={() => void make()} disabled={creating || grantsNothing}>
+            {creating ? "Creating…" : "Create invite link"}
+          </Button>
+        </div>
         {link && (
-          <div className="flex items-center gap-2">
-            <Input readOnly value={link} aria-label="Invite link" onFocus={(event) => event.target.select()} />
-            <Button variant="ghost" onClick={() => void copyLink()}>
-              {copyLabel}
-            </Button>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <Input readOnly value={link} aria-label="Invite link" onFocus={(event) => event.target.select()} />
+              <Button variant="ghost" onClick={() => void copyLink()}>
+                {copyLabel}
+              </Button>
+            </div>
+            <span className={MUTED}>Single-use, expires in 7 days.</span>
           </div>
         )}
         {error && <p className="m-0 text-sm text-danger">{error}</p>}

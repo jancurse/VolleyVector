@@ -946,8 +946,6 @@ export function App(): JSX.Element {
       onReorderNote={notes.reorderNote}
       onNestNote={notes.reparentNote}
       canEdit={canEdit}
-      canInvite={canInvite}
-      onInvite={closing(() => setInviteOpen(true))}
       isAdmin={workspace.isAdmin}
       adminActive={route.kind === "admin"}
       onOpenAdmin={closing(() => navigate({ kind: "admin", sub: "teams" }))}
@@ -966,6 +964,8 @@ export function App(): JSX.Element {
           themePreference={themePreference}
           onSetTheme={setThemePreference}
           onAccountSettings={() => navigate({ kind: "settings" })}
+          canInvite={canInvite}
+          onInvite={() => setInviteOpen(true)}
           onSignOut={() => void signOut()}
         />
       }
@@ -988,8 +988,6 @@ export function App(): JSX.Element {
               onSwitchSpace={switchSpace}
               expanded={navOpen}
               onExpand={() => setNavOpen(true)}
-              canInvite={canInvite}
-              onInvite={() => setInviteOpen(true)}
               isAdmin={workspace.isAdmin}
               adminActive={route.kind === "admin"}
               onOpenAdmin={() => navigate({ kind: "admin", sub: "teams" })}
