@@ -24,7 +24,7 @@ type Loaded =
 // signs in to claim. A link with no team renders team-less copy. Redeeming runs server-side; on success we
 // reload at the root so the workspace loads fresh.
 export function InviteAccept({ token }: { token: string }): JSX.Element {
-  const { user, signIn } = useAuth();
+  const { user, signIn, signOut } = useAuth();
 
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading", preview: null });
   const [mode, setMode] = useState<"create" | "signin">("create");
@@ -101,6 +101,17 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
     setBusy(false);
   };
 
+  // Escape hatch for a shared or borrowed device (and for testing): sign out so the link can onboard a
+  // brand-new account, or be claimed by a different existing one, instead of the auto-claimed session. The
+  // auth listener flips back to the signed-out branch; the dev auto-login runs only once, so it stays out.
+  const switchAccount = async () => {
+    setError(null);
+    setBusy(true);
+    await signOut();
+    setMode("create");
+    setBusy(false);
+  };
+
   const preview = loaded.status === "ready" ? loaded.preview : null;
   const team = preview?.teamName ?? null;
   const roleLabel = preview?.role === "coach" ? "a coach" : "a player";
@@ -152,6 +163,9 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
             ) : (
               <Button onClick={finish}>Continue</Button>
             )}
+            <Button variant="text" size="sm" disabled={busy} onClick={() => void switchAccount()}>
+              Not you? Sign out
+            </Button>
           </>
         )}
 

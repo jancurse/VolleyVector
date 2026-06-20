@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { InviteAccept } from "../../src/invites/InviteAccept";
@@ -11,13 +12,24 @@ type PreviewRow = { allows_new_account: boolean; grant_quota: number; team_name:
 
 let previewRows: PreviewRow[] = [];
 let currentSession: { user: { id: string; email: string } } | null = null;
+let authCallback: ((event: string, session: typeof currentSession) => void) | null = null;
 
 vi.mock("../../src/supabase/client", () => ({
   supabase: {
     auth: {
       getSession: () => Promise.resolve({ data: { session: currentSession }, error: null }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      onAuthStateChange: (cb: (event: string, session: typeof currentSession) => void) => {
+        authCallback = cb;
+
+        return { data: { subscription: { unsubscribe: () => {} } } };
+      },
       signInWithPassword: () => Promise.resolve({ data: { session: currentSession }, error: null }),
+      signOut: () => {
+        currentSession = null;
+        authCallback?.("SIGNED_OUT", null);
+
+        return Promise.resolve({ error: null });
+      },
     },
     rpc: (fn: string) =>
       Promise.resolve(fn === "invite_preview" ? { data: previewRows, error: null } : { data: null, error: null }),
@@ -103,5 +115,14 @@ describe("InviteAccept, signed in", () => {
 
     expect(await screen.findByText(/nothing to add to your account/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+  });
+
+  test("signing out returns to account setup so the link can onboard a new account", async () => {
+    previewRows = [{ allows_new_account: true, grant_quota: 0, team_name: "Eagles", role: "coach" }];
+    renderAccept();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Not you\? Sign out/ }));
+
+    expect(await screen.findByText(/Set up your account to join Eagles as a coach/)).toBeInTheDocument();
   });
 });
