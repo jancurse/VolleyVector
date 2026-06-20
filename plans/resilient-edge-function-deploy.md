@@ -63,4 +63,11 @@ _None._
 
 ## Implementation Notes
 
+- **Deploy loop** (`.github/workflows/deploy-functions.yml`): each function is attempted up to 4 times; on a failed attempt before the 4th it sleeps `2 ** attempt` seconds (2, 4, 8). Failed function names are collected in a `failed` array and the loop continues, so one function's failure never skips the rest. After the loop the step prints the failed list and `exit 1`, else a success line. The GitHub Actions default shell is `bash -eo pipefail`, so each deploy is guarded with `if ...; then` to keep a failure from aborting the step under `-e`.
+- **Guard comment** (`.github/workflows/migration-guard.yml`): the posted comment and per-category bullets now state the detected change (this PR adds/changes migrations and/or edge functions) instead of the old "reaches production automatically / no manual approval" framing that held for every PR. The file's header comment was reworded to match. Label logic, detection, once-per-PR posting, and the trigger are unchanged.
+- **docs/architecture.md left untouched**: its deployment section describes the pipeline design (no approval button; the guard flags migration/function PRs for review), which remains accurate. It did not carry the misleading comment-body framing, so per the plan's conditional constraint it needed no change.
+- **Verification**: validated both workflows parse as YAML, and dry-ran the deploy loop with the deploy command and `sleep` stubbed (`/tmp/test-deploy-loop.sh`, not committed): all-succeed exits 0; a function failing all 4 retries still lets the later functions (`redeem-invite`, `restore-account` — the ones skipped in #31) deploy, then the step exits 1 naming the failed function. `npm run format:check` passes. `npm run lint`/`typecheck` could not run (dependencies not installed in this environment — `@eslint/js` missing), but the change touches only workflow YAML, which ESLint (`eslint src tests`) and `tsc` do not process.
+
 ### Critical Issues
+
+No critical issues.
