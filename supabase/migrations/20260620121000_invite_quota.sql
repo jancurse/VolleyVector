@@ -9,13 +9,32 @@
 -- trigger and SECURITY DEFINER RPCs), never only in the client.
 
 -- ---------------------------------------------------------------------------
--- Per-account invite quota.
+-- Schema: the quota column and the typed-invite columns.
 -- ---------------------------------------------------------------------------
 
 -- How many new accounts this account may bring into existence (before subtracting its live and spent
 -- links). Not in the authenticated column grant, so it is neither selectable nor settable through the
 -- Data API: it is written only by the admin-only set_invite_quota() and read only through the RPCs below.
 alter table public.profiles add column invite_quota int not null default 0;
+
+-- A link now carries up to three independent grants. team_id/role go null for a team-less link (onboards
+-- an account into its personal space only); allows_new_account is the only quota-consuming grant;
+-- grant_quota is added to the redeemer's own quota at redemption; created_account records that a
+-- redemption actually created an account, so that link spends the inviter's slot rather than releasing it.
+alter table public.invites
+  alter column team_id drop not null,
+  alter column role drop not null,
+  add column allows_new_account boolean not null default true,
+  add column created_account boolean not null default false,
+  add column grant_quota int not null default 0;
+
+-- A team membership needs a role, and a team-less link carries neither.
+alter table public.invites
+  add constraint invites_team_role check ((team_id is null) = (role is null));
+
+-- ---------------------------------------------------------------------------
+-- Quota RPCs.
+-- ---------------------------------------------------------------------------
 
 -- Only an admin may set a quota, mirroring set_admin: quota is capacity created from nothing, so a
 -- non-admin can never raise anyone's, their own included.
@@ -82,23 +101,8 @@ $$;
 grant execute on function public.admin_list_profiles() to authenticated;
 
 -- ---------------------------------------------------------------------------
--- Typed invite links.
+-- Typed invite links: the mint guard, the preview, and the policies.
 -- ---------------------------------------------------------------------------
-
--- A link now carries up to three independent grants. team_id/role go null for a team-less link (onboards
--- an account into its personal space only); allows_new_account is the only quota-consuming grant;
--- grant_quota is added to the redeemer's own quota at redemption; created_account records that a
--- redemption actually created an account, so that link spends the inviter's slot rather than releasing it.
-alter table public.invites
-  alter column team_id drop not null,
-  alter column role drop not null,
-  add column allows_new_account boolean not null default true,
-  add column created_account boolean not null default false,
-  add column grant_quota int not null default 0;
-
--- A team membership needs a role, and a team-less link carries neither.
-alter table public.invites
-  add constraint invites_team_role check ((team_id is null) = (role is null));
 
 -- Quota and grant guard at mint, alongside set_invite_token. An admin is unlimited and is the only role
 -- that may mint a quota-granting link; a non-admin may mint an account-creation link only with a slot to
