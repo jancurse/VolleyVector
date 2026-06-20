@@ -81,7 +81,7 @@ Example:
 - **Security**: changes preserve confidentiality, integrity, and availability. Secrets stay out of client code, untrusted input is handled safely, and access is enforced server-side rather than trusted to the client. Personal data (emails and the like) never reaches a non-admin client: check both what RLS policies and RPCs return and what the client selects.
 - **Testing**: sufficient tests for new/changed behaviour, following the react-testing skill rules. If tests are missing or inadequate, specify what should be tested.
 - **Documentation**: behaviour, data-model, or module-structure changes are reflected in the docs (README.md, AGENTS.md, docs/architecture.md). New documentation is proportional to the change, never over-explaining a small feature to the point of drowning surrounding content.
-- **Plans**: A plan under `./plans/` is intentionally tracked on the feature branch for PR reference and is removed in a separate commit before the squash merge, so it never reaches `main`. Its presence on the branch is expected, not a finding.
+- **Plans removed before merge**: A plan under `./plans/` is intentionally tracked on the feature branch for PR reference, but it must be deleted in a separate commit before the squash merge so it never reaches `main`. A plan still present in the branch under review is an ISSUE: flag it to be removed before merging.
 - **Diagnostics**: all changed files pass formatting, linting, and type checking.
 
 ## Rigor
