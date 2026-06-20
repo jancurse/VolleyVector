@@ -5,9 +5,11 @@ import { buttonClass, cx } from "./styles";
 import type { ButtonSize, ButtonVariant } from "./styles";
 
 // The one button used across the app. Variants cover the primary action, a bordered ghost, a quiet
-// text button, a destructive text button, and the dashed "add" affordance. It forwards its ref and
-// spreads props, so Base UI primitives can drive it through their `render` prop. Set `paired` on a
-// quiet button sitting beside a primary/danger in an action row so it matches that button's height.
+// text button, a quiet inline `danger` text button, a prominent bordered `danger-strong` for a
+// standalone destructive action, a filled `danger-solid` for a modal's destructive confirm, and the
+// dashed "add" affordance. It forwards its ref and spreads props, so Base UI primitives can drive it
+// through their `render` prop. Set `paired` on a quiet button beside a full-size button so it matches
+// that button's height.
 type ButtonProps = ComponentPropsWithoutRef<"button"> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
