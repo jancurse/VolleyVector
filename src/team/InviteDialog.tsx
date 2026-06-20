@@ -209,11 +209,9 @@ export function InviteDialog({
       )}
 
       <div className="flex flex-col gap-3">
-        <div>
-          <Button onClick={() => void make()} disabled={creating || grantsNothing}>
-            {creating ? "Creating…" : "Create invite link"}
-          </Button>
-        </div>
+        <Button className="self-start" onClick={() => void make()} disabled={creating || grantsNothing}>
+          {creating ? "Creating…" : "Create invite link"}
+        </Button>
         {link && (
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
