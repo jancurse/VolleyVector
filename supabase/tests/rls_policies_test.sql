@@ -353,6 +353,112 @@ begin
 end $$;
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- 12. Invite quota: account creation is the only quota-gated grant. A non-admin spends from a quota an
+--     admin granted, can never grant quota, and cannot mint over quota; an admin is unlimited. Availability
+--     is derived from the invites table, so a reserved link counts, a spent one counts, and an
+--     account-creation link redeemed by an existing account releases its slot.
+-- ---------------------------------------------------------------------------
+
+-- Give coachA a quota of 2 (the effect of the admin-only set_invite_quota write).
+update public.profiles set invite_quota = 2 where id = 'a0000000-0000-0000-0000-000000000002';
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA
+do $$
+declare blocked boolean;
+begin
+  if public.invite_availability() <> 2 then raise exception 'FAIL quota: fresh availability is not the full quota'; end if;
+
+  -- A non-admin cannot grant quota on a link.
+  blocked := false;
+  begin
+    insert into public.invites (created_by, allows_new_account, grant_quota)
+      values ('a0000000-0000-0000-0000-000000000002', false, 5);
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL quota: a non-admin granted quota on a link'; end if;
+
+  -- A non-admin cannot set anyone's quota.
+  blocked := false;
+  begin
+    perform public.set_invite_quota('a0000000-0000-0000-0000-000000000002', 99);
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL quota: a non-admin set an invite quota'; end if;
+
+  -- Two team-less account-creation links each reserve a slot, so availability drops to zero.
+  insert into public.invites (created_by, allows_new_account) values ('a0000000-0000-0000-0000-000000000002', true);
+  insert into public.invites (created_by, allows_new_account) values ('a0000000-0000-0000-0000-000000000002', true);
+  if public.invite_availability() <> 0 then raise exception 'FAIL quota: two reserved links did not zero availability'; end if;
+
+  -- A third account-creation link is over quota and rejected; an existing-user link is always free.
+  blocked := false;
+  begin
+    insert into public.invites (created_by, allows_new_account) values ('a0000000-0000-0000-0000-000000000002', true);
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL quota: a non-admin minted an account link over quota'; end if;
+
+  insert into public.invites (created_by, allows_new_account, team_id, role)
+    values ('a0000000-0000-0000-0000-000000000002', false, 'b0000000-0000-0000-0000-00000000000a', 'player');
+end $$;
+reset role;
+
+-- The release accounting the redeem function persists (run as the owner, since clients never update an
+-- invite): one account-creation link redeemed by an existing account (created_account stays false) frees
+-- its slot, while one that created an account is spent. Availability then reads 1 (quota 2 − 1 spent).
+with acct as (
+  select token, row_number() over (order by token) as rn
+  from public.invites
+  where created_by = 'a0000000-0000-0000-0000-000000000002' and allows_new_account
+)
+update public.invites i set used_at = now() from acct where i.token = acct.token and acct.rn = 1;
+
+with acct as (
+  select token, row_number() over (order by token) as rn
+  from public.invites
+  where created_by = 'a0000000-0000-0000-0000-000000000002' and allows_new_account
+)
+update public.invites i set used_at = now(), created_account = true from acct where i.token = acct.token and acct.rn = 2;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA
+do $$
+begin
+  if public.invite_availability() <> 1 then
+    raise exception 'FAIL quota: a released slot was not freed (or a spent slot was)';
+  end if;
+end $$;
+reset role;
+
+-- An admin is unlimited: availability is null, and they may mint a quota-granting account link regardless.
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000001","role":"authenticated"}'; -- admin
+do $$
+begin
+  if public.invite_availability() is not null then raise exception 'FAIL quota: an admin is not unlimited'; end if;
+  insert into public.invites (created_by, allows_new_account, grant_quota)
+    values ('a0000000-0000-0000-0000-000000000001', true, 10);
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 13. Open team creation: any account creates a team through create_team and lands on it as a coach, even
+--     a player who coaches nothing.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000004","role":"authenticated"}'; -- playerA
+do $$
+declare new_team uuid; n int;
+begin
+  new_team := public.create_team('Player Team', 'player-team');
+  select count(*) into n from public.memberships
+    where team_id = new_team and user_id = 'a0000000-0000-0000-0000-000000000004' and role = 'coach';
+  if n <> 1 then raise exception 'FAIL create_team: the creator is not a coach of the new team'; end if;
+end $$;
+reset role;
+
 select 'ALL RLS TESTS PASSED' as result;
 
 rollback;

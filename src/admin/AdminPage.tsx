@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { JSX } from "react";
+import { Search } from "lucide-react";
 
 import type { AdminSub } from "../routing/route";
 import { Button } from "../ui/Button";
@@ -32,10 +33,75 @@ const STATE_COLOR: Record<TeamState, string> = {
 
 const TAG = "shrink-0 font-mono text-2xs font-medium uppercase tracking-[0.16em] text-text-dim";
 
+// Case-insensitive A→Z, the order both admin tables and the recovery groups sort by.
+const byLabel = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base" });
+
 function StateBadge({ state }: { state: TeamState }): JSX.Element {
   return (
     <span className={cx("font-mono text-2xs font-medium uppercase tracking-[0.16em]", STATE_COLOR[state])}>
       {STATE_LABEL[state]}
+    </span>
+  );
+}
+
+// A live text filter heading a table: a search-icon input that narrows the rows as the admin types.
+function FilterField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}): JSX.Element {
+  return (
+    <div className="relative max-w-xs">
+      <Search
+        size={14}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-dim"
+      />
+      <Input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        className="pl-8"
+      />
+    </div>
+  );
+}
+
+// An account's invite quota: a compact number field that commits on Set. Account creation is the only
+// quota-gated action; raising a quota is the one way to expand onboarding capacity, and only an admin can.
+function QuotaCell({ value, onSet }: { value: number; onSet: (next: number) => void }): JSX.Element {
+  const [text, setText] = useState(String(value));
+  const [committed, setCommitted] = useState(value);
+
+  // Reseed when the stored value changes (after a reload commits a new quota): the render-time
+  // adjustment React recommends over an effect.
+  if (committed !== value) {
+    setCommitted(value);
+    setText(String(value));
+  }
+
+  const parsed = Math.max(0, Math.trunc(Number(text)) || 0);
+
+  return (
+    <span className="flex items-center justify-end gap-2">
+      <span className="inline-block w-16">
+        <Input
+          type="number"
+          min={0}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          className="text-right"
+          aria-label="Invite quota"
+        />
+      </span>
+      <Button variant="ghost" size="sm" disabled={parsed === value} onClick={() => onSet(parsed)}>
+        Set
+      </Button>
     </span>
   );
 }
@@ -51,12 +117,14 @@ function RecoveryGroup({
 }): JSX.Element | null {
   if (items.length === 0) return null;
 
+  const sorted = [...items].sort((a, b) => byLabel(a.label, b.label));
+
   return (
     <div className="flex max-w-2xl flex-col gap-2">
       <span className={PANEL_TITLE}>{title}</span>
       <Table width="fill">
         <tbody>
-          {items.map((item) => (
+          {sorted.map((item) => (
             <tr key={item.id}>
               <TableCell className="max-w-0 truncate">{item.label}</TableCell>
               <TableCell className="w-28 text-right">
@@ -78,6 +146,8 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
   const [newTeam, setNewTeam] = useState("");
   const [createStatus, setCreateStatus] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [teamFilter, setTeamFilter] = useState("");
+  const [accountFilter, setAccountFilter] = useState("");
 
   const create = async () => {
     if (newTeam.trim() === "") return;
@@ -123,10 +193,23 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
     if (ok) void act(admin.removeAccount(profile.id));
   };
 
-  const liveTeams = admin.teams.filter((t) => t.state !== "deleted");
+  const liveTeams = useMemo(
+    () => admin.teams.filter((t) => t.state !== "deleted").sort((a, b) => byLabel(a.name, b.name)),
+    [admin.teams]
+  );
   const deletedTeams = admin.teams.filter((t) => t.state === "deleted");
-  const activeProfiles = admin.profiles.filter((p) => !p.deletedAt);
+  const activeProfiles = useMemo(
+    () => admin.profiles.filter((p) => !p.deletedAt).sort((a, b) => byLabel(a.email || a.id, b.email || b.id)),
+    [admin.profiles]
+  );
   const deletedProfiles = admin.profiles.filter((p) => p.deletedAt);
+
+  const teamQuery = teamFilter.trim().toLowerCase();
+  const shownTeams = teamQuery ? liveTeams.filter((t) => t.name.toLowerCase().includes(teamQuery)) : liveTeams;
+  const accountQuery = accountFilter.trim().toLowerCase();
+  const shownProfiles = accountQuery
+    ? activeProfiles.filter((p) => (p.email || p.id).toLowerCase().includes(accountQuery))
+    : activeProfiles;
   const hasRecovery =
     deletedTeams.length > 0 ||
     deletedProfiles.length > 0 ||
@@ -168,43 +251,50 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
           ) : liveTeams.length === 0 ? (
             <p className={MUTED}>No teams yet.</p>
           ) : (
-            <Table width="fill">
-              <thead>
-                <tr>
-                  <TableHeadCell>Team</TableHeadCell>
-                  <TableHeadCell className="w-28">State</TableHeadCell>
-                  <TableHeadCell className="w-48">
-                    <span className="sr-only">Actions</span>
-                  </TableHeadCell>
-                </tr>
-              </thead>
-              <tbody>
-                {liveTeams.map((team) => (
-                  <tr key={team.id}>
-                    <TableCell className="max-w-0 truncate">{team.name}</TableCell>
-                    <TableCell>
-                      <StateBadge state={team.state} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {team.state === "archived" ? (
-                          <Button variant="ghost" size="sm" onClick={() => void act(admin.unarchiveTeam(team.id))}>
-                            Unarchive
-                          </Button>
-                        ) : (
-                          <Button variant="ghost" size="sm" onClick={() => void act(admin.archiveTeam(team.id))}>
-                            Archive
-                          </Button>
-                        )}
-                        <Button variant="danger" size="sm" onClick={() => void confirmDeleteTeam(team)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+            <div className="flex flex-col gap-4">
+              <FilterField value={teamFilter} onChange={setTeamFilter} placeholder="Filter teams…" />
+              {shownTeams.length === 0 ? (
+                <p className={MUTED}>No teams match “{teamFilter.trim()}”.</p>
+              ) : (
+                <Table width="fill">
+                  <thead>
+                    <tr>
+                      <TableHeadCell>Team</TableHeadCell>
+                      <TableHeadCell className="w-28">State</TableHeadCell>
+                      <TableHeadCell className="w-48">
+                        <span className="sr-only">Actions</span>
+                      </TableHeadCell>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shownTeams.map((team) => (
+                      <tr key={team.id}>
+                        <TableCell className="max-w-0 truncate">{team.name}</TableCell>
+                        <TableCell>
+                          <StateBadge state={team.state} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            {team.state === "archived" ? (
+                              <Button variant="ghost" size="sm" onClick={() => void act(admin.unarchiveTeam(team.id))}>
+                                Unarchive
+                              </Button>
+                            ) : (
+                              <Button variant="ghost" size="sm" onClick={() => void act(admin.archiveTeam(team.id))}>
+                                Archive
+                              </Button>
+                            )}
+                            <Button variant="danger" size="sm" onClick={() => void confirmDeleteTeam(team)}>
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </div>
           )}
         </TabPanel>
 
@@ -214,37 +304,51 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
           ) : activeProfiles.length === 0 ? (
             <p className={MUTED}>No accounts.</p>
           ) : (
-            <Table width="fill">
-              <thead>
-                <tr>
-                  <TableHeadCell>Account</TableHeadCell>
-                  <TableHeadCell className="w-48">
-                    <span className="sr-only">Actions</span>
-                  </TableHeadCell>
-                </tr>
-              </thead>
-              <tbody>
-                {activeProfiles.map((profile) => (
-                  <tr key={profile.id}>
-                    <TableCell className="max-w-0">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="truncate">{profile.email || profile.id}</span>
-                        {profile.id === currentUserId && <span className={TAG}>You</span>}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {profile.isAdmin ? (
-                        <span className={cx(TAG, "text-accent")}>Admin</span>
-                      ) : (
-                        <Button variant="danger" size="sm" onClick={() => void confirmDeleteAccount(profile)}>
-                          Delete account
-                        </Button>
-                      )}
-                    </TableCell>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+            <div className="flex flex-col gap-4">
+              <FilterField value={accountFilter} onChange={setAccountFilter} placeholder="Filter accounts…" />
+              {shownProfiles.length === 0 ? (
+                <p className={MUTED}>No accounts match “{accountFilter.trim()}”.</p>
+              ) : (
+                <Table width="fill">
+                  <thead>
+                    <tr>
+                      <TableHeadCell>Account</TableHeadCell>
+                      <TableHeadCell className="w-44 text-right">Invites</TableHeadCell>
+                      <TableHeadCell className="w-48">
+                        <span className="sr-only">Actions</span>
+                      </TableHeadCell>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shownProfiles.map((profile) => (
+                      <tr key={profile.id}>
+                        <TableCell className="max-w-0">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="truncate">{profile.email || profile.id}</span>
+                            {profile.id === currentUserId && <span className={TAG}>You</span>}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <QuotaCell
+                            value={profile.inviteQuota}
+                            onSet={(value) => void act(admin.setInviteQuota(profile.id, value))}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {profile.isAdmin ? (
+                            <span className={cx(TAG, "text-accent")}>Admin</span>
+                          ) : (
+                            <Button variant="danger" size="sm" onClick={() => void confirmDeleteAccount(profile)}>
+                              Delete account
+                            </Button>
+                          )}
+                        </TableCell>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </div>
           )}
         </TabPanel>
 

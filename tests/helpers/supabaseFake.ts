@@ -454,11 +454,26 @@ function profileRows(): Row[] {
       id: TEST_USER.id,
       email: TEST_USER.email,
       is_admin: authz.isAdmin,
+      invite_quota: 0,
       display_name: authz.displayName,
       deleted_at: null,
     },
-    { id: OTHER_MEMBER.id, email: OTHER_MEMBER.email, is_admin: false, display_name: "Player Pat", deleted_at: null },
-    { id: DELETED_ACCOUNT.id, email: DELETED_ACCOUNT.email, is_admin: false, display_name: null, deleted_at: ISO },
+    {
+      id: OTHER_MEMBER.id,
+      email: OTHER_MEMBER.email,
+      is_admin: false,
+      invite_quota: 5,
+      display_name: "Player Pat",
+      deleted_at: null,
+    },
+    {
+      id: DELETED_ACCOUNT.id,
+      email: DELETED_ACCOUNT.email,
+      is_admin: false,
+      invite_quota: 0,
+      display_name: null,
+      deleted_at: ISO,
+    },
   ];
 }
 
@@ -577,9 +592,21 @@ function rpc(fn: string, params: Record<string, unknown>): Promise<DbResult> {
   // Orphan cleanup after a failed create: the client fires these but ignores the result.
   if (fn === "delete_orphan_board" || fn === "delete_orphan_topic") return Promise.resolve(ok(null));
 
-  // The admin-only profile list (with email); the fake serves it to any caller since it does not model
-  // authz for reads.
+  // The admin-only profile list (with email and quota); the fake serves it to any caller since it does
+  // not model authz for reads.
   if (fn === "admin_list_profiles") return Promise.resolve(ok(profileRows()));
+
+  // Invite quota: the caller's own availability (admin reads null, unlimited), the admin-only quota set,
+  // and the additive grant the redeem function applies. The team-creation RPC returns a fresh id.
+  if (fn === "invite_availability") return Promise.resolve(ok(authz.isAdmin ? null : 0));
+  if (fn === "invite_available") return Promise.resolve(ok(authz.isAdmin ? null : 0));
+  if (fn === "set_invite_quota" || fn === "add_invite_quota") return Promise.resolve(ok(null));
+  if (fn === "create_team") return Promise.resolve(ok("new-team"));
+
+  // A still-valid invite link's rights; the default is an account-creating team link, matching the team
+  // the fake seeds, so the accept screen can be exercised.
+  if (fn === "invite_preview")
+    return Promise.resolve(ok([{ allows_new_account: true, grant_quota: 0, team_name: "My Team", role: "player" }]));
 
   // Sharing outside your teams. The grant-by-email RPCs return nothing whether or not an account matched
   // (the server makes a miss indistinguishable from a hit), so the fake just accepts the call. The link

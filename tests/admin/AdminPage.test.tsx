@@ -47,6 +47,18 @@ async function renderPanel(): Promise<UserEvent> {
 
 const goTab = (user: UserEvent, name: string) => user.click(screen.getByRole("tab", { name }));
 
+// Each table heads itself with a search field that narrows its rows as the admin types.
+const filterCases = [
+  { tab: "Teams", filterLabel: "Filter teams…", query: "insp", matched: "Inspiration", excluded: "My Team" },
+  {
+    tab: "Accounts",
+    filterLabel: "Filter accounts…",
+    query: "player",
+    matched: OTHER_MEMBER.email,
+    excluded: TEST_USER.email,
+  },
+];
+
 describe("AdminPage", () => {
   test("lists teams, accounts, and grace-archived content across its tabs", async () => {
     const user = await renderPanel();
@@ -68,6 +80,27 @@ describe("AdminPage", () => {
     await goTab(user, "Recovery");
     expect(screen.getByText("Archived Board")).toBeInTheDocument();
     expect(screen.getByText("Archived Note")).toBeInTheDocument();
+  });
+
+  test("orders the teams table alphabetically", async () => {
+    await renderPanel();
+
+    const inspiration = screen.getByText("Inspiration");
+    const myTeam = screen.getByText("My Team");
+
+    expect(inspiration.compareDocumentPosition(myTeam) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  test.each(filterCases)("the $tab tab filters its rows by the search field", async (filterCase) => {
+    const user = await renderPanel();
+
+    await goTab(user, filterCase.tab);
+    expect(screen.getByText(filterCase.excluded)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(filterCase.filterLabel), filterCase.query);
+
+    expect(screen.getByText(filterCase.matched)).toBeInTheDocument();
+    expect(screen.queryByText(filterCase.excluded)).not.toBeInTheDocument();
   });
 
   test("archiving a team issues the archive write", async () => {
@@ -94,6 +127,23 @@ describe("AdminPage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Delete team" }));
 
     expect(recordedRpcs.find((c) => c.fn === "delete_team")?.params).toEqual({ team: TEST_TEAM_ID });
+  });
+
+  test("setting an account's invite quota calls set_invite_quota", async () => {
+    const user = await renderPanel();
+
+    await goTab(user, "Accounts");
+    const row = screen.getByText(OTHER_MEMBER.email).closest("tr") as HTMLElement;
+    const input = within(row).getByLabelText("Invite quota");
+
+    await user.clear(input);
+    await user.type(input, "12");
+    await user.click(within(row).getByRole("button", { name: "Set" }));
+
+    expect(recordedRpcs.find((c) => c.fn === "set_invite_quota")?.params).toEqual({
+      target: OTHER_MEMBER.id,
+      value: 12,
+    });
   });
 
   test("deleting an account invokes the delete-account function after confirming", async () => {

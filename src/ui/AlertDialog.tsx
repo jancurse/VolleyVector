@@ -57,11 +57,7 @@ export function AlertDialog({
                 </Button>
               }
             />
-            <Button
-              variant="primary"
-              className={danger ? "bg-danger! hover:brightness-110" : undefined}
-              onClick={onConfirm}
-            >
+            <Button variant={danger ? "danger-solid" : "primary"} onClick={onConfirm}>
               {confirmLabel}
             </Button>
           </div>

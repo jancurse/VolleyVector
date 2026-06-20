@@ -56,6 +56,7 @@ function tableQuery(rows: Row[]) {
     insert: () => Promise.resolve({ error: null }),
     delete: () => query,
     single: () => Promise.resolve({ data: rows[0] ?? null, error: null }),
+    maybeSingle: () => Promise.resolve({ data: rows[0] ?? null, error: null }),
     then: (onfulfilled: (value: Result) => unknown) => Promise.resolve({ data: rows, error: null }).then(onfulfilled),
   };
 
@@ -63,6 +64,9 @@ function tableQuery(rows: Row[]) {
 }
 
 const session = { user: USER };
+
+// The RPCs the workspace touches: invite_availability on load, and create_team for a new team.
+const rpcCalls: { fn: string; params: unknown }[] = [];
 
 vi.mock("../../src/supabase/client", () => ({
   supabase: {
@@ -76,6 +80,12 @@ vi.mock("../../src/supabase/client", () => ({
       if (table === "teams") return tableQuery(TEAMS);
 
       return tableQuery([]);
+    },
+    rpc: (fn: string, params: unknown) => {
+      rpcCalls.push({ fn, params });
+      if (fn === "create_team") return Promise.resolve({ data: "team-new", error: null });
+
+      return Promise.resolve({ data: isAdmin ? null : 0, error: null }); // invite_availability
     },
   },
 }));
@@ -155,5 +165,24 @@ describe("useWorkspace", () => {
     await act(() => result.current.leaveTeam("team-showcase"));
     expect(result.current.showcase?.role).toBeNull();
     expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active"]);
+  });
+
+  test("createTeam routes through the RPC and lands the creator on the team as coach (non-admin)", async () => {
+    isAdmin = false;
+
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    rpcCalls.length = 0;
+    await act(async () => {
+      await result.current.createTeam("New Team");
+    });
+
+    expect(rpcCalls).toContainEqual({ fn: "create_team", params: { name: "New Team", slug: "new-team" } });
+    expect(result.current.teams.find((t) => t.teamId === "team-new")).toMatchObject({
+      teamName: "New Team",
+      role: "coach",
+    });
   });
 });

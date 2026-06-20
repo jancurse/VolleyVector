@@ -1,8 +1,12 @@
 import { useState } from "react";
 import type { JSX, ReactNode } from "react";
-import { ChevronDown, ChevronRight, Lightbulb, Settings } from "lucide-react";
+import { ChevronDown, ChevronRight, Lightbulb, Plus, Settings } from "lucide-react";
 
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
+import { Field } from "../ui/Field";
 import { IconButton } from "../ui/IconButton";
+import { Input } from "../ui/Input";
 import { cx, FIELD_LABEL } from "../ui/styles";
 import type { Space } from "../workspace/space";
 import type { TeamMembership, TeamRef } from "../workspace/useWorkspace";
@@ -23,6 +27,8 @@ type SpaceSwitcherProps = {
   /** Whether the active team may be managed by this user (a coach of it, or an admin). */
   canManageActiveTeam: boolean;
   onManageTeam: (teamId: string) => void;
+  /** Create a team (any account) as its coach and open it; returns the new id, or null on failure. */
+  onCreateTeam: (name: string) => Promise<string | null>;
 };
 
 const ROW =
@@ -93,6 +99,7 @@ export function SpaceSwitcher({
   onSwitch,
   canManageActiveTeam,
   onManageTeam,
+  onCreateTeam,
 }: SpaceSwitcherProps): JSX.Element {
   const personalActive = activeSpace.kind === "personal";
   const [othersOpen, setOthersOpen] = useState(false);
@@ -100,76 +107,142 @@ export function SpaceSwitcher({
   const otherActive = otherTeams.some((t) => activeSpace.kind === "team" && activeSpace.teamId === t.teamId);
   const showOthers = othersOpen || otherActive;
 
+  const [creating, setCreating] = useState(false);
+  const [teamName, setTeamName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const resetCreate = () => {
+    setTeamName("");
+    setBusy(false);
+    setCreateError(null);
+  };
+
+  const submitNewTeam = async () => {
+    const name = teamName.trim();
+
+    if (name === "" || busy) return;
+
+    setBusy(true);
+    setCreateError(null);
+
+    const id = await onCreateTeam(name);
+
+    if (!id) {
+      setBusy(false);
+      setCreateError("Could not create the team.");
+
+      return;
+    }
+
+    setCreating(false);
+    resetCreate();
+  };
+
   return (
-    <div className="flex flex-col gap-1">
-      <p className={cx(FIELD_LABEL, "px-2")}>Spaces</p>
-      <div className="flex flex-col gap-px">
-        <button
-          type="button"
-          aria-current={personalActive}
-          className={cx(ROW, personalActive ? ROW_ON : ROW_OFF)}
-          onClick={() => onSwitch({ kind: "personal" })}
-        >
-          <span
-            aria-hidden="true"
-            className={cx(BADGE, personalActive ? "border-accent/40 bg-accent-weak text-accent" : "bg-control")}
+    <>
+      <div className="flex flex-col gap-1">
+        <p className={cx(FIELD_LABEL, "px-2")}>Spaces</p>
+        <div className="flex flex-col gap-px">
+          <button
+            type="button"
+            aria-current={personalActive}
+            className={cx(ROW, personalActive ? ROW_ON : ROW_OFF)}
+            onClick={() => onSwitch({ kind: "personal" })}
           >
-            P
-          </span>
-          <span className="truncate">Personal</span>
-        </button>
-
-        {teams.map((team) => (
-          <TeamRow
-            key={team.teamId}
-            team={team}
-            active={activeSpace.kind === "team" && activeSpace.teamId === team.teamId}
-            canManage={canManageActiveTeam}
-            onSwitch={onSwitch}
-            onManage={onManageTeam}
-          />
-        ))}
-
-        {showcase && (
-          <TeamRow
-            team={showcase}
-            active={activeSpace.kind === "team" && activeSpace.teamId === showcase.teamId}
-            canManage={canManageActiveTeam}
-            onSwitch={onSwitch}
-            onManage={onManageTeam}
-            icon={<Lightbulb size={13} />}
-          />
-        )}
-
-        {otherTeams.length > 0 && (
-          <>
-            <button
-              type="button"
-              aria-expanded={showOthers}
-              className={cx(ROW, ROW_OFF, "text-sm font-medium")}
-              onClick={() => setOthersOpen((open) => !open)}
+            <span
+              aria-hidden="true"
+              className={cx(BADGE, personalActive ? "border-accent/40 bg-accent-weak text-accent" : "bg-control")}
             >
-              {showOthers ? (
-                <ChevronDown size={14} aria-hidden="true" className="flex-none" />
-              ) : (
-                <ChevronRight size={14} aria-hidden="true" className="flex-none" />
-              )}
-              Other teams
-            </button>
-            {showOthers &&
-              otherTeams.map((team) => (
-                <TeamRow
-                  key={team.teamId}
-                  team={team}
-                  active={activeSpace.kind === "team" && activeSpace.teamId === team.teamId}
-                  canManage={canManageActiveTeam}
-                  onSwitch={onSwitch}
-                  onManage={onManageTeam}
-                />
-              ))}
-          </>
-        )}
+              P
+            </span>
+            <span className="truncate">Personal</span>
+          </button>
+
+          {teams.map((team) => (
+            <TeamRow
+              key={team.teamId}
+              team={team}
+              active={activeSpace.kind === "team" && activeSpace.teamId === team.teamId}
+              canManage={canManageActiveTeam}
+              onSwitch={onSwitch}
+              onManage={onManageTeam}
+            />
+          ))}
+
+          {showcase && (
+            <TeamRow
+              team={showcase}
+              active={activeSpace.kind === "team" && activeSpace.teamId === showcase.teamId}
+              canManage={canManageActiveTeam}
+              onSwitch={onSwitch}
+              onManage={onManageTeam}
+              icon={<Lightbulb size={13} />}
+            />
+          )}
+
+          {otherTeams.length > 0 && (
+            <>
+              <button
+                type="button"
+                aria-expanded={showOthers}
+                className={cx(ROW, ROW_OFF, "text-sm font-medium")}
+                onClick={() => setOthersOpen((open) => !open)}
+              >
+                {showOthers ? (
+                  <ChevronDown size={14} aria-hidden="true" className="flex-none" />
+                ) : (
+                  <ChevronRight size={14} aria-hidden="true" className="flex-none" />
+                )}
+                Other teams
+              </button>
+              {showOthers &&
+                otherTeams.map((team) => (
+                  <TeamRow
+                    key={team.teamId}
+                    team={team}
+                    active={activeSpace.kind === "team" && activeSpace.teamId === team.teamId}
+                    canManage={canManageActiveTeam}
+                    onSwitch={onSwitch}
+                    onManage={onManageTeam}
+                  />
+                ))}
+            </>
+          )}
+
+          <button type="button" className={cx(ROW, ROW_OFF)} onClick={() => setCreating(true)}>
+            <span aria-hidden="true" className={cx(BADGE, "bg-control")}>
+              <Plus size={14} />
+            </span>
+            <span className="truncate">New team</span>
+          </button>
+        </div>
       </div>
-    </div>
+
+      <Dialog
+        open={creating}
+        onOpenChange={(next) => {
+          setCreating(next);
+          if (!next) resetCreate();
+        }}
+        title="New team"
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitNewTeam();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <Field label="Team name">
+            <Input value={teamName} onChange={(event) => setTeamName(event.target.value)} autoFocus />
+          </Field>
+          {createError && <p className="m-0 text-sm text-danger">{createError}</p>}
+          <Button type="submit" disabled={busy || teamName.trim() === ""}>
+            {busy ? "Creating…" : "Create team"}
+          </Button>
+        </form>
+      </Dialog>
+    </>
   );
 }

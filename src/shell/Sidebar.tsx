@@ -21,6 +21,7 @@ type SidebarProps = {
   onSwitchSpace: (space: Space) => void;
   canManageActiveTeam: boolean;
   onManageTeam: (teamId: string) => void;
+  onCreateTeam: (name: string) => Promise<string | null>;
   notes: readonly Note[];
   selection: Selection;
   onSelectNote: (selection: Selection) => void;
@@ -44,6 +45,7 @@ export function Sidebar({
   onSwitchSpace,
   canManageActiveTeam,
   onManageTeam,
+  onCreateTeam,
   notes,
   selection,
   onSelectNote,
@@ -70,6 +72,7 @@ export function Sidebar({
           onSwitch={onSwitchSpace}
           canManageActiveTeam={canManageActiveTeam}
           onManageTeam={onManageTeam}
+          onCreateTeam={onCreateTeam}
         />
       </div>
 
@@ -86,7 +89,7 @@ export function Sidebar({
       </div>
 
       {isAdmin && (
-        <div className="border-t border-border px-3 py-2">
+        <div className="flex flex-col gap-px border-t border-border px-3 py-2">
           <button
             type="button"
             aria-current={adminActive}

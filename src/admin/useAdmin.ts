@@ -12,7 +12,13 @@ import { supabase } from "../supabase/client";
 export type TeamState = "active" | "archived" | "deleted";
 
 export type AdminTeam = { id: string; name: string; state: TeamState };
-export type AdminProfile = { id: string; email: string; isAdmin: boolean; deletedAt: string | null };
+export type AdminProfile = {
+  id: string;
+  email: string;
+  isAdmin: boolean;
+  inviteQuota: number;
+  deletedAt: string | null;
+};
 export type DeletedItem = { id: string; title: string };
 
 export type AdminData = {
@@ -27,6 +33,7 @@ export type AdminData = {
   unarchiveTeam: (id: string) => Promise<{ error: string | null }>;
   deleteTeam: (id: string) => Promise<{ error: string | null }>;
   restoreTeam: (id: string) => Promise<{ error: string | null }>;
+  setInviteQuota: (userId: string, value: number) => Promise<{ error: string | null }>;
   removeAccount: (userId: string) => Promise<{ error: string | null }>;
   recoverAccount: (userId: string) => Promise<{ error: string | null }>;
   restoreBoard: (id: string) => Promise<{ error: string | null }>;
@@ -34,7 +41,13 @@ export type AdminData = {
 };
 
 type TeamRow = { id: string; name: string; archived_at: string | null; deleted_at: string | null };
-type ProfileRow = { id: string; email: string | null; is_admin: boolean; deleted_at: string | null };
+type ProfileRow = {
+  id: string;
+  email: string | null;
+  is_admin: boolean;
+  invite_quota: number;
+  deleted_at: string | null;
+};
 type ItemRow = { id: string; title: string };
 
 function teamState(row: TeamRow): TeamState {
@@ -93,6 +106,7 @@ export function useAdmin(open: boolean): AdminData {
           id: p.id,
           email: p.email ?? "",
           isAdmin: p.is_admin,
+          inviteQuota: p.invite_quota,
           deletedAt: p.deleted_at,
         }))
       );
@@ -133,6 +147,11 @@ export function useAdmin(open: boolean): AdminData {
 
   const restoreTeam = useCallback(
     (id: string) => run(supabase.from("teams").update({ deleted_at: null }).eq("id", id)),
+    [run]
+  );
+
+  const setInviteQuota = useCallback(
+    (userId: string, value: number) => run(supabase.rpc("set_invite_quota", { target: userId, value })),
     [run]
   );
 
@@ -184,6 +203,7 @@ export function useAdmin(open: boolean): AdminData {
     unarchiveTeam,
     deleteTeam,
     restoreTeam,
+    setInviteQuota,
     removeAccount,
     recoverAccount,
     restoreBoard,

@@ -7,18 +7,22 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// Dev-only auto-login, so the dev server (and Playwright) come up signed in. It runs only in `serve`, so
-// the credentials never reach a production build, and Vite exposes the VITE_DEV_* keys set here on
-// import.meta.env like any .env file. Against the local stack (npm run dev / dev:migrate, which export a
-// 127.0.0.1 Supabase URL) we sign in as the seeded coach (mirrors supabase/seed.sql) with no setup. Against
-// any remote database (npm run dev:prod) we read personal credentials from one machine-level file outside
-// the repo, so every worktree shares a copy and no secret is committed.
+// Dev-only quick sign-in, so the dev server (and Playwright) come up signed in and a developer can switch
+// accounts from the gate. It runs only in `serve`, so the credentials never reach a production build, and
+// Vite exposes VITE_DEV_ACCOUNTS (a JSON array of { label, email, password }) on import.meta.env. The first
+// entry is the default the app auto-logs-in as. Against the local stack (npm run dev / dev:migrate, which
+// export a 127.0.0.1 Supabase URL) we list the three seeded accounts (mirrors supabase/seed.sql) with no
+// setup. Against any remote database (npm run dev:prod) we read personal accounts from one machine-level
+// file outside the repo, so every worktree shares a copy and no secret is committed.
 function loadDevCredentials(): void {
   const url = process.env.VITE_SUPABASE_URL ?? "";
 
   if (url.includes("127.0.0.1") || url.includes("localhost")) {
-    process.env.VITE_DEV_EMAIL = "coach@volleycoach.test";
-    process.env.VITE_DEV_PASSWORD = "password";
+    process.env.VITE_DEV_ACCOUNTS = JSON.stringify([
+      { label: "Coach", email: "coach@volleycoach.test", password: "password" },
+      { label: "Player", email: "player@volleycoach.test", password: "password" },
+      { label: "Admin", email: "admin@volleycoach.test", password: "password" },
+    ]);
 
     return;
   }
@@ -27,6 +31,11 @@ function loadDevCredentials(): void {
 
   if (!existsSync(file)) return;
 
+  // Each account is a (label, email, password) triple keyed by an optional label segment:
+  // VITE_DEV_<LABEL>_EMAIL / VITE_DEV_<LABEL>_PASSWORD, with the legacy unlabelled VITE_DEV_EMAIL /
+  // VITE_DEV_PASSWORD pair read as "Dev Coach". Entries keep file order; the first is the auto-login.
+  const byLabel = new Map<string, { email?: string; password?: string }>();
+
   for (const line of readFileSync(file, "utf8").split("\n")) {
     const trimmed = line.trim();
 
@@ -34,15 +43,28 @@ function loadDevCredentials(): void {
     const eq = trimmed.indexOf("=");
 
     if (eq === -1) continue;
-    const key = trimmed.slice(0, eq).trim();
+    const match = trimmed
+      .slice(0, eq)
+      .trim()
+      .match(/^VITE_DEV_(?:([A-Za-z0-9]+)_)?(EMAIL|PASSWORD)$/);
 
-    if (key.startsWith("VITE_DEV_")) {
-      process.env[key] = trimmed
-        .slice(eq + 1)
-        .trim()
-        .replace(/^["']|["']$/g, "");
-    }
+    if (!match) continue;
+    const label = match[1] ? `Dev ${match[1][0].toUpperCase()}${match[1].slice(1).toLowerCase()}` : "Dev Coach";
+    const value = trimmed
+      .slice(eq + 1)
+      .trim()
+      .replace(/^["']|["']$/g, "");
+    const entry = byLabel.get(label) ?? {};
+
+    entry[match[2] === "EMAIL" ? "email" : "password"] = value;
+    byLabel.set(label, entry);
   }
+
+  const accounts = [...byLabel].flatMap(([label, { email, password }]) =>
+    email && password ? [{ label, email, password }] : []
+  );
+
+  if (accounts.length > 0) process.env.VITE_DEV_ACCOUNTS = JSON.stringify(accounts);
 }
 
 // Split the heavy vendors into their own chunks so they cache independently and the app chunk stays

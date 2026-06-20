@@ -3,6 +3,7 @@ import type { JSX, ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 
 import { supabase } from "../supabase/client";
+import { devAccounts } from "./devAccounts";
 
 // Authentication is the app's front door: an unauthenticated visitor reaches only this gate (and, from
 // Stage 2, a share link). Sign-in is invite-only email + password; there is no public sign-up surface.
@@ -43,10 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     async function init() {
       let { data } = await supabase.auth.getSession();
 
-      // In dev, auto-login with the machine-level credentials so the dev server (and Playwright, which
-      // starts from empty storage) never stalls on the gate. The whole branch is dropped from production.
-      if (!data.session && import.meta.env.DEV && import.meta.env.VITE_DEV_EMAIL && import.meta.env.VITE_DEV_PASSWORD) {
-        await signIn(import.meta.env.VITE_DEV_EMAIL, import.meta.env.VITE_DEV_PASSWORD);
+      // In dev, auto-login as the default account (the first dev account) so the dev server (and
+      // Playwright, which starts from empty storage) never stalls on the gate. Signing out drops back to
+      // the gate, where the other dev accounts are offered as switch-account buttons. Empty in production.
+      const [defaultAccount] = devAccounts();
+
+      if (!data.session && defaultAccount) {
+        await signIn(defaultAccount.email, defaultAccount.password);
         ({ data } = await supabase.auth.getSession());
       }
 

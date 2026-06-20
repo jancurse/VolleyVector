@@ -583,6 +583,26 @@ describe("avatar menu", () => {
     expect(screen.queryByRole("menuitem", { name: "Account settings" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Account menu" })).toHaveFocus();
   });
+
+  // The Invite entry is gated on canInvite (an admin, a coach of any team, or any account with quota);
+  // the seeded user is an admin coach, so it shows and opens the invite dialog.
+  test("offers Invite to an account that may invite, opening the invite dialog", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Account menu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Invite…" }));
+
+    expect(await screen.findByRole("dialog", { name: "Invite" })).toBeInTheDocument();
+  });
+
+  test("hides Invite from an account that cannot invite", async () => {
+    setFakeAuthz({ isAdmin: false, role: "player" });
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Account menu" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Invite…" })).not.toBeInTheDocument();
+  });
 });
 
 // The flat seed files "Sample Position (Base Defence)" under Defense and "Sample Drill (Serve Receive

@@ -36,6 +36,7 @@ import { isInviteLanding } from "./auth/inviteLanding";
 import { Button } from "./ui/Button";
 import { cx, MUTED } from "./ui/styles";
 import { TeamPage } from "./team/TeamPage";
+import { InviteDialog } from "./team/InviteDialog";
 import { AdminPage } from "./admin/AdminPage";
 import { SettingsPage } from "./account/SettingsPage";
 import { NameSetup } from "./account/NameSetup";
@@ -141,6 +142,7 @@ export function App(): JSX.Element {
   const [managingNoteAccess, setManagingNoteAccess] = useState(false);
   const [importing, setImporting] = useState(false);
   const [replacing, setReplacing] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [missingBoardId, setMissingBoardId] = useState<string | null>(null);
 
   // Below the full-sidebar width the navigation lives in an overlay: expanded from the rail's Notes
@@ -443,6 +445,19 @@ export function App(): JSX.Element {
 
   const switchSpace = (next: Space) => navigate(libraryRoute(next, allTeams));
 
+  // Create a team (any account) and open it. Navigate by id; the canonicalisation effect rewrites the URL
+  // to the team's slug once the workspace list carries it, matching how a new note is opened.
+  const createTeamAndOpen = async (name: string): Promise<string | null> => {
+    const id = await workspace.createTeam(name);
+
+    if (id) {
+      setNavOpen(false);
+      navigate(libraryRoute({ kind: "team", teamId: id }, allTeams));
+    }
+
+    return id;
+  };
+
   const selectNote = (next: Selection) => {
     if (next.kind === "all") {
       navigate(homeRoute());
@@ -592,6 +607,10 @@ export function App(): JSX.Element {
   const targetTeams = workspace.isAdmin
     ? allTeams
     : [...teams.filter((t) => t.role === "coach"), ...(showcase?.role === "coach" ? [showcase] : [])];
+
+  // The Invite entry shows for anyone who can mint a useful link: an admin, an account with quota left,
+  // or a coach of any team (who can at least add existing users to it).
+  const canInvite = workspace.isAdmin || targetTeams.length > 0 || (workspace.inviteAvailable ?? 0) > 0;
 
   // A copy into the active space is a duplicate: it stays in the open list (with its note) under a
   // fresh id and title. The view moves to the copy only after the awaited insert succeeds — navigating
@@ -877,6 +896,7 @@ export function App(): JSX.Element {
           teamId={teamId}
           teamName={team.teamName}
           canManage={workspace.isAdmin || memberRole === "coach"}
+          isAdmin={workspace.isAdmin}
           currentUserId={user.id}
           onJoin={workspace.isAdmin && memberRole === null ? (role) => workspace.joinTeam(teamId, role) : undefined}
           onLeave={workspace.isAdmin && memberRole !== null ? () => workspace.leaveTeam(teamId) : undefined}
@@ -918,6 +938,7 @@ export function App(): JSX.Element {
       onSwitchSpace={closing(switchSpace)}
       canManageActiveTeam={!personal && canEdit}
       onManageTeam={closing((teamId: string) => navigate(teamRoute(teamId, allTeams)))}
+      onCreateTeam={createTeamAndOpen}
       notes={notes.notes}
       selection={selection}
       onSelectNote={closing(selectNote)}
@@ -943,6 +964,8 @@ export function App(): JSX.Element {
           themePreference={themePreference}
           onSetTheme={setThemePreference}
           onAccountSettings={() => navigate({ kind: "settings" })}
+          canInvite={canInvite}
+          onInvite={() => setInviteOpen(true)}
           onSignOut={() => void signOut()}
         />
       }
@@ -984,6 +1007,13 @@ export function App(): JSX.Element {
         </SidePanel>
       )}
       {dialog}
+      <InviteDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        teams={targetTeams}
+        isAdmin={workspace.isAdmin}
+        currentUserId={user.id}
+      />
       {canEdit && (
         <ImportDialog open={importing} onOpenChange={setImporting} notes={notes.notes} onImport={importBundle} />
       )}

@@ -102,7 +102,7 @@ export function SettingsPage({ email, displayName, onSave, onDeleteAccount }: Se
           Permanently delete your account and the content only you can see. This can’t be undone.
         </p>
         <div>
-          <Button variant="danger" onClick={onDeleteAccount}>
+          <Button variant="danger-strong" onClick={onDeleteAccount}>
             Delete account
           </Button>
         </div>

@@ -9,7 +9,7 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
 
 // ---- Buttons ----------------------------------------------------------------------------------
 
-export type ButtonVariant = "primary" | "ghost" | "text" | "danger" | "dashed";
+export type ButtonVariant = "primary" | "ghost" | "text" | "danger" | "danger-strong" | "danger-solid" | "dashed";
 export type ButtonSize = "sm" | "md";
 
 const BUTTON_BASE =
@@ -21,6 +21,9 @@ const BUTTON_VARIANT: Record<ButtonVariant, string> = {
   text: "border-0 bg-transparent text-text-dim hover:text-text hover:bg-control",
   danger:
     "border-0 bg-transparent text-text-dim hover:text-danger hover:bg-[color-mix(in_srgb,var(--danger)_12%,transparent)]",
+  "danger-strong":
+    "border border-danger bg-transparent text-danger hover:bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] active:scale-[0.98]",
+  "danger-solid": "flex-none border-0 bg-danger text-on-accent hover:brightness-[1.08] active:scale-[0.97]",
   dashed:
     "border border-dashed border-border bg-transparent text-text-dim hover:text-text hover:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))]",
 };
@@ -30,17 +33,20 @@ const BUTTON_SIZE: Record<ButtonSize, string> = {
   md: "text-base px-4.5 py-2 rounded-md",
 };
 
-// A lone ghost/text/dashed reads a touch smaller than a primary at the same size, one scale step below
-// it. A quiet button `paired` with a primary/danger in an action row instead takes the primary's size,
-// so the two align on height, font, and radius; only its quiet chrome (transparent/bordered, dim) sets
-// it apart. The primary keeps the full size regardless.
+// A lone ghost/text/dashed reads a touch smaller than a prominent button at the same size, one scale
+// step below it. A quiet button `paired` with a prominent one in an action row instead takes the full
+// size, so the two align on height, font, and radius; only its quiet chrome (transparent/bordered, dim)
+// sets it apart. The prominent variants below keep the full size regardless.
 const BUTTON_SIZE_QUIET: Record<ButtonSize, string> = {
   sm: "text-xs px-2 py-1 rounded-sm",
   md: "text-sm px-2.5 py-1.5 rounded-md",
 };
 
+// The full-size variants: a fill or a strong border carries the action, so they never drop a size step.
+const FULL_SIZE_VARIANTS = new Set<ButtonVariant>(["primary", "danger-strong", "danger-solid"]);
+
 export function buttonClass(variant: ButtonVariant, size: ButtonSize, paired = false): string {
-  const sizing = variant === "primary" || paired ? BUTTON_SIZE[size] : BUTTON_SIZE_QUIET[size];
+  const sizing = paired || FULL_SIZE_VARIANTS.has(variant) ? BUTTON_SIZE[size] : BUTTON_SIZE_QUIET[size];
 
   return cx(BUTTON_BASE, BUTTON_VARIANT[variant], sizing);
 }

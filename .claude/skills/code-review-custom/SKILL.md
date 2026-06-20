@@ -9,14 +9,67 @@ Review code for correctness, cleanliness, and codebase fit. The user will specif
 
 ## Process
 
-1. **Gather the code**: obtain the changes or files to review based on user context.
-2. **Read surrounding code**: read the full files and related modules. Do not review the diff in isolation.
-3. **Find potential issues**: evaluate every item in the checklist below. Collect candidate findings, but do not categorize or write them up yet. Only raise actual issues, and do not pad.
-4. **Investigate in parallel with subagents**: in a single message, dispatch all of the review's subagents to run concurrently. You do not evaluate candidates in your own reasoning; that is the subagents' job.
-    - **One subagent per candidate finding.** Each reads the relevant code, traces concrete scenarios, and returns confirmed (with evidence and severity: ISSUE/SUGGESTION/NOTE) or dismissed (with reasoning).
-    - **Visually verify a UI change.** When the change touches the UI, spawn one subagent to load the app and confirm the change on screen; it must load the playwright skill first. This never blocks the review: a confirmed regression is an ISSUE, and a check that can't run is one NOTE of why.
-5. **Run the diagnostics skill**: check diagnostics using the diagnostics skill on all changed files. You must use the skill, not raw tool calls.
-6. **Report**: present only confirmed findings using the format below.
+A step reading **dispatch an agent: <prompt>** is delegated: give that agent the prompt and the matching contract from [Agent output contracts](#agent-output-contracts), and use its result as returned. Run every other step yourself.
+
+1. **Decide the scope and gather the diff** from the user context.
+2. **Read the diff and the surrounding code** — the full changed files and related modules. Do not review the diff in isolation.
+3. **Find candidates**: evaluate every checklist item except Diagnostics and Documentation (each owned by a standing agent in step 4), and collect candidate findings. Do not categorize or write them up.
+4. **In one message, dispatch all of these agents at once** — never dispatch one and wait for it before the next:
+    - a visual agent, only when the change touches the UI: load the playwright skill, then start the app and confirm the change on screen;
+    - a diagnostics agent: run the diagnostics skill (not raw tool calls) on every changed file;
+    - a documentation agent: check that behaviour, data-model, and module-structure changes are reflected in README.md, AGENTS.md, and docs/architecture.md, in proportion to the change;
+    - one agent per candidate: read the relevant code, trace concrete scenarios, and judge whether the candidate is real.
+5. **Collect every agent's result.**
+6. **Report**: concatenate the confirmed findings into the format below.
+
+## Agent output contracts
+
+Each agent returns its result in report voice. Each type has a fixed contract.
+
+### Candidate agent
+
+Returns a verdict of **confirmed** or **dismissed**.
+
+- **Confirmed**: a severity (ISSUE, SUGGESTION, or NOTE), a `file:line`, a one-line finding, and the evidence.
+- **Dismissed**: the reasoning, and nothing for the report.
+
+Example:
+
+> CONFIRMED — ISSUE — `src/notes/operations.ts:142` — `appendBoardToBlocks` mutates the passed-in blocks array instead of returning a new one. Evidence: the optimistic update in `useNotes` reuses the same reference, so the prior render's state is altered before the commit resolves.
+
+### Visual agent
+
+Returns one of:
+
+- **Confirmed regression**: an ISSUE with the responsible `file:line`, a one-line finding, and what was seen on screen.
+- **Clean**: nothing for the report.
+- **Could not run**: one NOTE stating why.
+
+Example:
+
+> NOTE — visual check skipped: the dev server stopped at the login gate (no dev-login secret), so the change could not be confirmed on screen.
+
+### Diagnostics agent
+
+Returns one of:
+
+- **Clean**: nothing for the report.
+- **Failure**: one ISSUE per failure, each with its `file:line` and the tool's message as evidence.
+
+Example:
+
+> ISSUE — `src/notes/store.ts:88` — TypeScript: `Property 'order' is missing in type`. `npm run typecheck` fails on this line.
+
+### Documentation agent
+
+Returns one of:
+
+- **In sync**: nothing for the report.
+- **Gap**: one finding per gap — a severity (ISSUE, SUGGESTION, or NOTE), a `file:line`, a one-line finding, and the evidence.
+
+Example:
+
+> ISSUE — `docs/architecture.md:118` — the new appears-in add action is undocumented; the notes section omits it. Evidence: `src/notes/AppearsIn.tsx` adds a curator add-action with no matching doc update.
 
 ## Checklist
 
