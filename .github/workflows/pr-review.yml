@@ -68,15 +68,14 @@ jobs:
 
       - name: Review with Claude
         id: claude
+        # Below the job's 45 so a stuck run still leaves time for the upload below.
+        timeout-minutes: 35
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           trigger_phrase: "@claude-review"
-          # Post a live-updating progress comment, and stream the full run into the
-          # Actions log (private repo, trusted maintainers), so a stuck or slow run
-          # is diagnosable instead of opaque.
+          # Live progress comment on the PR. The full run log is the artifact below.
           track_progress: true
-          show_full_output: true
           claude_args: |
             --mcp-config '{"mcpServers": {"playwright": {"command": "npx", "args": ["@playwright/mcp@latest", "--headless", "--isolated"]}}}'
             --allowedTools mcp__playwright__*
