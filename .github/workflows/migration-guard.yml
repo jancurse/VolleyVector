@@ -1,8 +1,8 @@
 name: Migration Guard
 
-# Flags a PR that changes files applied to production automatically on merge: supabase/migrations/ (pushed by
-# migrate-prod.yml) and supabase/functions/ (deployed by deploy-functions.yml). Both reach production with no
-# manual approval button, so this surfaces the change for review first: it adds a label and posts one comment.
+# Flags a PR that adds or changes Supabase migrations (supabase/migrations/) or edge functions
+# (supabase/functions/), surfacing the change for review before merge: it adds a label and posts one comment
+# naming what changed. These define production state and are hard to roll back, unlike a front-end change.
 # The database-migration and edge-function labels are pre-created in the repo. Same-repo PRs only — the default
 # token can attach a label and comment via the REST API (gh api needs no checkout, unlike the gh pr subcommands).
 on:
@@ -37,12 +37,12 @@ jobs:
           if [ -n "$migrations" ]; then
             echo "Migration changes detected:"; echo "$migrations"
             gh api --method POST "repos/$REPO/issues/$PR/labels" -f "labels[]=database-migration" >/dev/null
-            warnings+=('- :warning: **`supabase/migrations/`** — applied to the **production** database by `.github/workflows/migrate-prod.yml`.')
+            warnings+=('- :warning: **`supabase/migrations/`** — this PR adds or changes database migrations.')
           fi
           if [ -n "$functions" ]; then
             echo "Edge-function changes detected:"; echo "$functions"
             gh api --method POST "repos/$REPO/issues/$PR/labels" -f "labels[]=edge-function" >/dev/null
-            warnings+=('- :warning: **`supabase/functions/`** — deployed to the **production** project by `.github/workflows/deploy-functions.yml`.')
+            warnings+=('- :warning: **`supabase/functions/`** — this PR adds or changes edge functions.')
           fi
 
           # Post the warning once, keyed off a hidden marker, so re-runs on new commits do not repeat it.
@@ -51,10 +51,10 @@ jobs:
           else
             body=$(printf '%s\n' \
               '<!-- migration-guard -->' \
-              ':rotating_light: **This PR changes files applied to production automatically on merge.**' \
+              ':warning: **This PR changes Supabase migrations and/or edge functions.**' \
               '' \
               "${warnings[@]}" \
               '' \
-              'On merge to `main`, these changes reach **production** automatically once CI passes. There is no manual approval step, so review them carefully before merging.')
+              'These define production state and are hard to roll back. Review the change above carefully before merging.')
             gh api --method POST "repos/$REPO/issues/$PR/comments" -f "body=$body" >/dev/null
           fi

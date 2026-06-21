@@ -47,13 +47,37 @@ jobs:
 
       # The access token authenticates the CLI; a function deploy needs no database password. The project ref
       # is public (it is in the committed .env URL). Verify JWT stays off: each function authorizes its caller
-      # in code (see the supabase skill), matching the manual deploys this replaces.
+      # in code (see the supabase skill), matching the manual deploys this replaces. Each function is retried
+      # against a transient failure (e.g. an esm.sh timeout), and every function is attempted even if another
+      # fails, so one flake cannot leave production half-deployed; the job fails at the end if any never deployed.
       - name: Deploy functions
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
+          failed=()
           for dir in supabase/functions/*/; do
             name=$(basename "$dir")
-            echo "Deploying $name"
-            npx supabase functions deploy "$name" --no-verify-jwt --project-ref xobsdirytehneeofjmrq
+            deployed=false
+            for attempt in 1 2 3 4; do
+              echo "Deploying $name (attempt $attempt/4)"
+              if npx supabase functions deploy "$name" --no-verify-jwt --project-ref xobsdirytehneeofjmrq; then
+                deployed=true
+                break
+              fi
+              if [ "$attempt" -lt 4 ]; then
+                backoff=$((2 ** attempt))
+                echo "Deploy of $name failed; retrying in ${backoff}s"
+                sleep "$backoff"
+              fi
+            done
+            if [ "$deployed" = false ]; then
+              echo "::error::Failed to deploy $name after 4 attempts"
+              failed+=("$name")
+            fi
           done
+
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "::error::Edge function deploy failed for: ${failed[*]}"
+            exit 1
+          fi
+          echo "All edge functions deployed successfully."

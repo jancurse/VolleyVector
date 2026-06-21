@@ -112,6 +112,8 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 - Do not run git write operations (commit, amend, push, rebase, reset, tag, branch changes) unless the user explicitly asks; otherwise leave changes in the working tree for review.
 - **When you commit, follow the `commit` skill**: it covers what to include in the commit and how to write a clean, concise message.
 - Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
+- **Always work on a feature branch and integrate through a squash-merged PR**, never by committing to `main` directly.
+- **Plans are tracked, then removed before merge.** A plan under `./plans/` is committed on its feature branch so it stays visible in the PR for reference (it is deliberately not gitignored). Delete it in a separate commit near the end of the branch, before the squash merge, so plans never reach `main`.
 
 ### Workspaces and worktrees
 
