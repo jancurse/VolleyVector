@@ -1,30 +1,28 @@
 # VolleyCoach brand
 
-The brand mark is the app's own board, cropped: a rounded tile holds the court (boundary and attack line) with the ball breaking the top-right corner, like a serve clearing the net. It is lifted straight from the SVG board a coach works on, so dropping the markers to a single ball at the net corner turns the diagram into the logo. The ball is a plain disc rather than branded artwork, which keeps the mark trademark-clean. The brand runs warm: a charcoal field, an off-white court, and an amber ball. The app defaults to dark, so warm is the brand's running temperature, and blue survives in two roles only: the in-app action accent and the favicon's light-chrome branch.
+The brand mark is the app's own board, cropped: the court (boundary and attack line) with the ball breaking the top-right corner, like a serve clearing the net. It is lifted straight from the SVG board a coach works on, so dropping the markers to a single ball at the net corner turns the diagram into the logo. The ball is a plain disc rather than branded artwork, which keeps the mark trademark-clean. The mark is pure line plus a solid ball, with no shading. The brand runs warm: a charcoal field, an off-white court, and an amber ball. The app defaults to dark, so warm is the brand's running temperature, and blue survives in one role only: the in-app action accent.
 
 ## The mark
 
 ### Colours
 
-The mark draws from a small fixed palette, with amber hardcoded into the mark rather than read from a theme token. The brand runs warm; blue appears only in the favicon's light-chrome branch and as the in-app action accent.
+The mark draws from a small fixed palette: a warm amber accent and two neutrals, with amber hardcoded into the mark rather than read from a theme token. Blue appears in no icon; it survives only as the in-app action accent. The retired blue tile (`#2f6fe0`) and brighter amber (`#FFC61E`) are gone from every icon.
 
-| Role               | Hex       | Where                                                                              |
-|--------------------|-----------|------------------------------------------------------------------------------------|
-| Warm tile charcoal | `#22201c` | The warm tile's field: the installed icon, the OG card, the favicon's dark branch. |
-| Warm court         | `#f3efe6` | The court and attack line on the warm tile.                                        |
-| Warm amber         | `#e8973a` | The ball on the warm tile and the constant ball in the in-app mono mark.           |
-| Accent / tile blue | `#2f6fe0` | The in-app action accent, and the favicon's light-chrome tile (the same blue).     |
-| Court white        | `#ffffff` | The court and attack line on the favicon's blue light branch.                      |
-| Tile ball amber    | `#FFC61E` | The ball on the favicon's blue light branch.                                       |
+| Role        | Hex       | Where                                                                                 |
+|-------------|-----------|---------------------------------------------------------------------------------------|
+| Charcoal    | `#22201c` | A baked tile's field (installed icon, OG card); the favicon court under light chrome. |
+| Off-white   | `#f3efe6` | The court and attack line on a warm tile; the favicon court under dark chrome.        |
+| Amber       | `#e8973a` | The ball, on every surface.                                                           |
+| Accent blue | `#2f6fe0` | The in-app action accent only; retired from every icon.                               |
 
 ### Expressions
 
-One mark is drawn for several jobs, and every expression keeps the same court, corner ball, and proportions. The app defaults to dark, so the brand's running temperature is warm: every themeless or baked surface takes the warm expression, and blue is left to the favicon's light-chrome branch. Each expression names the asset it ships as.
+One mark is drawn for several jobs, and every expression is the same drawing at a different scale: the same court, corner ball, and proportions. The app defaults to dark, so the brand's running temperature is warm: every baked surface takes the warm expression, and the favicon swaps with the browser chrome. Each expression names the asset it ships as.
 
-- **In-app mono mark.** The only mark used inside the product, monochrome and theme-aware, single-sourced in `src/shell/BrandMark.tsx`. The court draws in `currentColor`, so it flips with light and dark on its own. The amber ball (`#e8973a`) stays the one constant accent, kept crisp over the court corner by a hairline ring in the surface colour.
-- **Favicon tile.** The theme-swapping browser-tab icon, `public/favicon.svg`. Its light-chrome branch is the blue tile with the white court and the `#FFC61E` ball; a `@media (prefers-color-scheme: dark)` branch swaps to the warm tile (charcoal field, `#f3efe6` court, `#e8973a` ball) under dark browser chrome. This is the one surface that keeps a blue expression.
-- **Installed-app icon.** The warm colour tile rasterised for an installed or pinned app. It is full-bleed so each OS applies its own mask shape, with the court and ball pulled into the maskable safe zone. A baked raster cannot swap with the theme, so it takes the warm expression outright. The source `public/brand/icon-maskable.svg` exports to `public/apple-touch-icon.png` and `public/icons/icon-192.png` / `icon-512.png`, wired up by `public/manifest.webmanifest` and the `apple-touch-icon` and `manifest` links in `index.html`.
-- **Open Graph card.** The brand lockup centred on the warm charcoal field, a themeless brand surface that takes the warm expression like the installed icon. The source `public/og-image.svg` exports to `public/og-image.png`.
+- **In-app mono mark.** The only mark used inside the product, monochrome and theme-aware, rendered from `src/shell/BrandMark.tsx`. The court draws in `currentColor`, so it flips with light and dark on its own. The amber ball (`#e8973a`) is the one constant accent. Laid out edge-to-edge, the same footprint as the favicon.
+- **Favicon.** The browser-tab icon, `public/favicon.svg`, drawn on transparency with no background and maximised so the mark touches all four edges (the browser never crops it). A `@media (prefers-color-scheme: dark)` rule swaps the court: charcoal (`#22201c`) under light chrome, off-white (`#f3efe6`) under dark. The amber ball is constant.
+- **Installed-app icon.** The warm charcoal tile rasterised for an installed or pinned app. It is full-bleed so each OS applies its own mask shape, with the mark pulled into the maskable safe zone (its farthest point sits on the safe-zone radius, 40% of the icon). A baked raster cannot swap with the theme, so it takes the warm expression outright. The source `public/brand/icon-maskable.svg` rasterises to `public/apple-touch-icon.png` and `public/icons/icon-192.png` / `icon-512.png`, wired up by `public/manifest.webmanifest` and the `apple-touch-icon` and `manifest` links in `index.html`.
+- **Open Graph card.** The brand lockup centred on the warm charcoal field, a themeless brand surface that takes the warm expression like the installed icon. The source `public/og-image.svg` rasterises to `public/og-image.png`.
 
 ## The lockup
 
@@ -36,14 +34,18 @@ One mark is drawn for several jobs, and every expression keeps the same court, c
 
 ## Usage and single source
 
-`src/shell/BrandMark.tsx` is the single source for the in-product mark: every in-app surface renders `BrandMark` or `BrandLockup`, and none inlines a copy of the glyph. The static assets restate the same geometry only because they cannot import the component. A change to the mark or favicon must therefore keep `src/shell/BrandMark.tsx`, `public/favicon.svg`, and this guide in sync, as the `AGENTS.md` lockstep rule requires. Re-export the Open Graph card `public/og-image.png` from `public/og-image.svg` whenever the lockup changes, and the home-screen PNGs from `public/brand/icon-maskable.svg` whenever the tile changes.
+`src/shell/brandMarkGeometry.ts` is the one geometry source: the canonical proportions (each a ratio of the court side) and a routine that lays the mark out for any frame. Everything derives from it, so changing a constant rescales every surface with no per-file editing.
 
-| Surface                                 | Expression                                                 |
-|-----------------------------------------|------------------------------------------------------------|
-| Browser tab / favicon                   | Blue tile in light chrome, warm charcoal under dark.       |
-| Sidebar (wide)                          | `BrandLockup` at the top.                                  |
-| Sidebar (collapsed rail)                | `BrandMark` alone.                                         |
-| Auth and onboarding gates, loading gate | `BrandLockup` above the heading.                           |
-| Share view header                       | `BrandLockup`.                                             |
-| Link preview (Open Graph)               | The lockup centred on the warm charcoal field.             |
-| Home screen / installed app             | Warm charcoal tile, full-bleed maskable, via the manifest. |
+- **In-app mark.** `src/shell/BrandMark.tsx` renders the mark live from the geometry; every in-app surface renders `BrandMark` or `BrandLockup` and none inlines a copy of the glyph.
+- **Static assets are generated, never hand-edited.** `scripts/generate-brand-assets.ts` (run `npm run generate:brand`) writes `public/favicon.svg`, `public/brand/icon-maskable.svg`, and `public/og-image.svg` from the same geometry, then rasterises the PNGs with headless Chrome: the maskable tile to `public/apple-touch-icon.png` and `public/icons/icon-192.png` / `icon-512.png`, and the card to `public/og-image.png`.
+- **Lockstep.** A change to the mark edits `brandMarkGeometry.ts` (or `BrandMark.tsx`), regenerates the assets, and updates this guide, keeping the geometry source, the generated assets (`public/favicon.svg`, `public/brand/icon-maskable.svg`, `public/og-image.svg`, and their PNGs), and the docs in sync as the `AGENTS.md` rule requires.
+
+| Surface                                 | Expression                                                              |
+|-----------------------------------------|-------------------------------------------------------------------------|
+| Browser tab / favicon                   | Transparent mark; charcoal court in light chrome, off-white under dark. |
+| Sidebar (wide)                          | `BrandLockup` at the top.                                               |
+| Sidebar (collapsed rail)                | `BrandMark` alone.                                                      |
+| Auth and onboarding gates, loading gate | `BrandLockup` above the heading.                                        |
+| Share view header                       | `BrandLockup`.                                                          |
+| Link preview (Open Graph)               | The lockup centred on the warm charcoal field.                          |
+| Home screen / installed app             | Warm charcoal tile, full-bleed maskable, via the manifest.              |

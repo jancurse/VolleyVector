@@ -11,6 +11,7 @@
     "dev:stop": "f(){ if [ -n \"$1\" ]; then lsof -ti tcp:\"$1\" | xargs -r kill; else pkill -f 'node.*\\.bin/vite' || true; fi; }; f",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "generate:brand": "node scripts/generate-brand-assets.ts",
     "db:reset": "bash scripts/db-reset.sh",
     "db:clean": "bash scripts/db-clean.sh",
     "format": "prettier --write \"{src,tests}/**/*.{ts,tsx,json,css}\"",
