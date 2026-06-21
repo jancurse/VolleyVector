@@ -8,14 +8,14 @@ LOCAL_SUPABASE_KEY="sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
 
 # The shared stack's fixed project id (supabase/config.toml). Supabase names every container, volume, and
 # network "supabase_<service>_<project_id>", so this identifies the shared database's volume.
-SHARED_PROJECT="volleycoach"
+SHARED_PROJECT="volleyvector"
 
 # dev:migrate spins up throwaway stacks named "<TEMP_PREFIX>_<apiport>"; db:clean tears down anything with
-# this prefix and never the shared "volleycoach" stack.
-TEMP_PREFIX="volleycoach_mig"
+# this prefix and never the shared "volleyvector" stack.
+TEMP_PREFIX="volleyvector_mig"
 
 # Has the shared database ever been created? Its volume persists across stops and reboots, so its presence is
-# the signal. The exact-match filter ignores stale leftovers like "supabase_db_VolleyCoach".
+# the signal. The exact-match filter ignores stale leftovers like "supabase_db_VolleyVector".
 shared_db_exists() {
   [ -n "$(docker volume ls -q --filter "name=^supabase_db_${SHARED_PROJECT}$" 2>/dev/null)" ]
 }

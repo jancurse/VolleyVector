@@ -31,5 +31,5 @@ Decide by where the change falls:
 ## Repo facts
 
 - The dev server is `npm run dev`, always bare — never `--port`, since a non-standard port is not in the Supabase auth redirect allow-list. Reuse a server that is already running instead of starting another.
-- A dev build auto-logs-in as a default account (locally the seeded coach; against prod the first entry in `~/.config/volleycoach/dev.env`), so the browser opens past the login gate. To land on a different account, sign out and click its dev quick-sign-in button on the gate rather than typing credentials. Hitting the gate unexpectedly against prod means that file is missing; set it up per @docs/development.md.
+- A dev build auto-logs-in as a default account (locally the seeded coach; against prod the first entry in `~/.config/volleyvector/dev.env`), so the browser opens past the login gate. To land on a different account, sign out and click its dev quick-sign-in button on the gate rather than typing credentials. Hitting the gate unexpectedly against prod means that file is missing; set it up per @docs/development.md.
 - The hash routes outside the signed-in shell are `#/share/<token>` and `#/invite/<token>`.

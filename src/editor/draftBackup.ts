@@ -5,7 +5,7 @@ import type { Board } from "../boards/types";
 // newer than the saved board is exactly an unsaved edit. Storage failures (quota, private mode) are
 // swallowed: the backup is a safety net, never a required write.
 
-const key = (boardId: string) => `volleycoach-draft-${boardId}`;
+const key = (boardId: string) => `volleyvector-draft-${boardId}`;
 
 export function saveDraftBackup(draft: Board): void {
   try {

@@ -1,6 +1,6 @@
 ---
 name: board-creator
-description: Author VolleyCoach board bundles (JSON) from prose or documents, validate them, and hand them to the user for import. Use when the user wants boards, drills, rotations, or tactics created for the app.
+description: Author VolleyVector board bundles (JSON) from prose or documents, validate them, and hand them to the user for import. Use when the user wants boards, drills, rotations, or tactics created for the app.
 ---
 
 # Board Creator Skill

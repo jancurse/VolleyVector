@@ -25,7 +25,7 @@
 - Install `pre-commit` and run `pre-commit install` to enable the markdown commit hooks.
 - **Dev sign-in.** The dev server auto-logs-in as a default account so it comes up past the login screen, and the gate (reached by signing out) shows a quick-sign-in button per configured account to switch between them. Which accounts are offered follows the database it targets:
     - Against the local stack (`npm run dev` and `npm run dev:migrate`) it offers the three seeded accounts (Coach, Player, Admin), auto-logging-in as the coach, with no setup.
-    - Against production (`npm run dev:prod`) it reads accounts from `~/.config/volleycoach/dev.env`, if present, auto-logging-in as the first. Each account is a labelled email/password pair; the unlabelled legacy pair reads as "Dev Coach":
+    - Against production (`npm run dev:prod`) it reads accounts from `~/.config/volleyvector/dev.env`, if present, auto-logging-in as the first. Each account is a labelled email/password pair; the unlabelled legacy pair reads as "Dev Coach":
 
         ```sh
         VITE_DEV_EMAIL=coach@example.com
@@ -58,9 +58,9 @@ A fresh local database comes up with three sign-in accounts (password for all th
 
 | Email                     | Role                                  |
 |---------------------------|---------------------------------------|
-| `admin@volleycoach.test`  | global admin (god-mode across spaces) |
-| `coach@volleycoach.test`  | coach of the demo team                |
-| `player@volleycoach.test` | player on the demo team (read-only)   |
+| `admin@volleyvector.test`  | global admin (god-mode across spaces) |
+| `coach@volleyvector.test`  | coach of the demo team                |
+| `player@volleyvector.test` | player on the demo team (read-only)   |
 
 It also seeds a Demo Team (coach and player). The coach owns two sample boards (in their own space and the team library), a note linking them, and a personal scratch board; the admin owns a 5-1 rotation board and a Rotations note in the Inspiration showcase, which every account can browse and copy. The seed is local-only fixtures: a production migration push applies migrations only, never the seed.
 

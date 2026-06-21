@@ -1,6 +1,6 @@
-# VolleyCoach
+# VolleyVector
 
-VolleyCoach is a single-page web app for building, browsing, organising, and animating volleyball tactics and drills. A coach lays out players and the ball on a court and writes a markdown description. A single arrangement is a static **Position**. Chaining several steps makes a **Sequence** that plays back as a smooth animation, and its movement arrows are derived from the steps. Boards are filtered by tags and embedded in notes, a coach-curated tree of written documents.
+VolleyVector is a single-page web app for building, browsing, organising, and animating volleyball tactics and drills. A coach lays out players and the ball on a court and writes a markdown description. A single arrangement is a static **Position**. Chaining several steps makes a **Sequence** that plays back as a smooth animation, and its movement arrows are derived from the steps. Boards are filtered by tags and embedded in notes, a coach-curated tree of written documents.
 
 > **Status:** in development. The full interactive app runs in the browser, and boards and notes persist to a Supabase backend behind invite-only accounts. Accounts are organised into teams, each user also has a private personal space, and a board can be opened read-only from a share link. Access is enforced in the database by row-level security. The static front end is deployed to Cloudflare Pages.
 

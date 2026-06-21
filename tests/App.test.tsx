@@ -336,7 +336,7 @@ describe("the view/edit flow", () => {
 // a localStorage backup recovers a draft a reload would otherwise have destroyed.
 describe("reliable saves", () => {
   const POSITION_ID = "sample-perimeter-defence";
-  const BACKUP_KEY = `volleycoach-draft-${POSITION_ID}`;
+  const BACKUP_KEY = `volleyvector-draft-${POSITION_ID}`;
 
   test("a failed commit keeps the editor open with the draft, and the next Done retries", async () => {
     const user = await renderApp();
@@ -566,8 +566,8 @@ describe("avatar menu", () => {
     await user.click(within(picker).getByRole("button", { name: "Light" }));
 
     expect(document.documentElement.dataset.theme).toBe("light");
-    expect(localStorage.getItem("volleycoach-theme")).toBe("light");
-    localStorage.removeItem("volleycoach-theme");
+    expect(localStorage.getItem("volleyvector-theme")).toBe("light");
+    localStorage.removeItem("volleyvector-theme");
   });
 
   test("is keyboard-navigable and dismisses on escape", async () => {

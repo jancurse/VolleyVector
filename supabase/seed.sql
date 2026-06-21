@@ -1,12 +1,12 @@
--- VolleyCoach — local development seed (local-only fixtures, never applied to production).
+-- VolleyVector — local development seed (local-only fixtures, never applied to production).
 -- A production migration push runs migrations only, never this file, so nothing production relies on may
 -- live here. `supabase start` and `supabase db reset` run it after the migrations, so a fresh local
 -- database opens ready to use.
 --
 -- Sign-in accounts (password for all three: "password"):
---   admin@volleycoach.test  — global admin (god-mode across every space)
---   coach@volleycoach.test  — coach of the demo team
---   player@volleycoach.test — player on the demo team (read-only on its library)
+--   admin@volleyvector.test  — global admin (god-mode across every space)
+--   coach@volleyvector.test  — coach of the demo team
+--   player@volleyvector.test — player on the demo team (read-only on its library)
 --
 -- Plus a "Demo Team" (coach + player). The coach owns two boards (granted to the coach and the team) and
 -- a team note linking them, plus a personal scratch board. The admin owns a 5-1 rotation board and a
@@ -20,24 +20,24 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password, e
                         confirmation_token, email_change, email_change_token_new, recovery_token)
 values
   ('00000000-0000-0000-0000-000000000000', 'a1111111-1111-1111-1111-111111111111', 'authenticated', 'authenticated',
-   'admin@volleycoach.test', extensions.crypt('password', extensions.gen_salt('bf')), now(),
+   'admin@volleyvector.test', extensions.crypt('password', extensions.gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', 'c2222222-2222-2222-2222-222222222222', 'authenticated', 'authenticated',
-   'coach@volleycoach.test', extensions.crypt('password', extensions.gen_salt('bf')), now(),
+   'coach@volleyvector.test', extensions.crypt('password', extensions.gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', '93333333-3333-3333-3333-333333333333', 'authenticated', 'authenticated',
-   'player@volleycoach.test', extensions.crypt('password', extensions.gen_salt('bf')), now(),
+   'player@volleyvector.test', extensions.crypt('password', extensions.gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"]}', '{}', now(), now(), '', '', '', '')
 on conflict (id) do nothing;
 
 insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
 values
   ('a1111111-1111-1111-1111-111111111111', 'a1111111-1111-1111-1111-111111111111',
-   '{"sub":"a1111111-1111-1111-1111-111111111111","email":"admin@volleycoach.test","email_verified":true}', 'email', now(), now(), now()),
+   '{"sub":"a1111111-1111-1111-1111-111111111111","email":"admin@volleyvector.test","email_verified":true}', 'email', now(), now(), now()),
   ('c2222222-2222-2222-2222-222222222222', 'c2222222-2222-2222-2222-222222222222',
-   '{"sub":"c2222222-2222-2222-2222-222222222222","email":"coach@volleycoach.test","email_verified":true}', 'email', now(), now(), now()),
+   '{"sub":"c2222222-2222-2222-2222-222222222222","email":"coach@volleyvector.test","email_verified":true}', 'email', now(), now(), now()),
   ('93333333-3333-3333-3333-333333333333', '93333333-3333-3333-3333-333333333333',
-   '{"sub":"93333333-3333-3333-3333-333333333333","email":"player@volleycoach.test","email_verified":true}', 'email', now(), now(), now())
+   '{"sub":"93333333-3333-3333-3333-333333333333","email":"player@volleyvector.test","email_verified":true}', 'email', now(), now(), now())
 on conflict (provider_id, provider) do nothing;
 
 -- 2. Display names (so the first-run name gate is skipped) and the global-admin flag.

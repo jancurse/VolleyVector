@@ -82,7 +82,7 @@ export function GrantAccept({ token }: { token: string }): JSX.Element {
     <div className={BACKGROUND}>
       <div className={cx(PANEL, "w-full max-w-[24rem] gap-5")}>
         <div>
-          <p className={EYEBROW}>VolleyCoach</p>
+          <p className={EYEBROW}>VolleyVector</p>
           <h1 className="m-0 font-display text-[1.9rem] font-bold tracking-[-0.025em]">Shared with you</h1>
         </div>
 
@@ -105,7 +105,7 @@ export function GrantAccept({ token }: { token: string }): JSX.Element {
         )}
 
         <Button variant="text" size="sm" onClick={finish}>
-          Go to VolleyCoach
+          Go to VolleyVector
         </Button>
       </div>
     </div>

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # `npm run db:clean` — tear down stray dev:migrate stacks (a run that crashed before its own cleanup can
-# leave one behind). The shared "volleycoach" stack is never touched: Supabase names every container,
+# leave one behind). The shared "volleyvector" stack is never touched: Supabase names every container,
 # volume, and network "supabase_<service>_<project_id>", and only the temp prefix is matched.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."

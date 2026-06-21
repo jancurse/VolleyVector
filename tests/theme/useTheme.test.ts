@@ -28,13 +28,13 @@ function mockSystemTheme(light: boolean): { setLight: (next: boolean) => void } 
 
 describe("useTheme", () => {
   afterEach(() => {
-    localStorage.removeItem("volleycoach-theme");
+    localStorage.removeItem("volleyvector-theme");
     vi.restoreAllMocks();
   });
 
   test("a stored pick wins over the OS preference", () => {
     mockSystemTheme(true);
-    localStorage.setItem("volleycoach-theme", "dark");
+    localStorage.setItem("volleyvector-theme", "dark");
 
     const { result } = renderHook(() => useTheme());
 
@@ -54,7 +54,7 @@ describe("useTheme", () => {
 
     expect(result.current[0]).toBe("light");
     expect(document.documentElement.dataset.theme).toBe("light");
-    expect(localStorage.getItem("volleycoach-theme")).toBeNull();
+    expect(localStorage.getItem("volleyvector-theme")).toBeNull();
   });
 
   test("an explicit pick persists; returning to system clears it", () => {
@@ -64,10 +64,10 @@ describe("useTheme", () => {
 
     act(() => result.current[2]("dark"));
     expect(result.current[0]).toBe("dark");
-    expect(localStorage.getItem("volleycoach-theme")).toBe("dark");
+    expect(localStorage.getItem("volleyvector-theme")).toBe("dark");
 
     act(() => result.current[2]("system"));
     expect(result.current[0]).toBe("light");
-    expect(localStorage.getItem("volleycoach-theme")).toBeNull();
+    expect(localStorage.getItem("volleyvector-theme")).toBeNull();
   });
 });

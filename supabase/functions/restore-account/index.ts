@@ -1,4 +1,4 @@
-// VolleyCoach — restore-account Edge Function.
+// VolleyVector — restore-account Edge Function.
 // Brings back a soft-deleted account within its 3-month recovery window: clears the profile's deleted flag
 // and un-bans the auth user, so they can log in again with their personal area intact. Admin-only — a
 // soft-deleted user is banned and cannot authenticate to restore themselves. Un-banning needs the admin API,

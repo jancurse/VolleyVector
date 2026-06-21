@@ -111,8 +111,17 @@ _None._
 
 ## Implementation Notes
 
-_To be filled in by the implementation agent._
+- All occurrences were renamed except the deliberately-kept set: the `volleycoach.pages.dev` URLs (`index.html` og:url/og:image, `docs/development.md`, `docs/architecture.md`), the Cloudflare `--project-name=volleycoach` in `.github/workflows/deploy.yml`, and the header comments in applied `supabase/migrations/*.sql`.
+- Brand assets were regenerated with `npm run generate:brand`. The committed PNGs (`og-image.png`, the icon PNGs, `apple-touch-icon.png`) are rasterised from the updated SVG sources, so all four show as modified even where only an `aria-label` changed (re-rasterisation is not byte-deterministic). Only `og-image.png` carries visible text; "VolleyVector" fits the card with margin in Bricolage Grotesque.
+- Rasterising the OG card needs Chrome to load the Bricolage Grotesque webfont. In this sandbox Chromium rejected the proxy's TLS cert, so the font silently fell back. The fix used here: a Playwright Chromium at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` via `CHROME_BIN`, plus a temporary `--ignore-certificate-errors` flag added to the rasteriser, run, then reverted. The committed `scripts/generate-brand-assets.ts` does **not** carry that flag. Anyone regenerating in a normal-network environment needs neither workaround.
+- Local Supabase `project_id` changed (`volleycoach` → `volleyvector`), so the local stack's containers/volumes are renamed. Developers must run `npm run db:reset` after pulling; the existing `supabase_db_volleycoach` volume is now orphaned (clean up by hand if desired).
+- Verified: `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run test` (587 passed), and `npm run build` all pass. The RLS test (`npm run test:rls`) was not run here (needs Docker); the only RLS-test change is a header comment, and the seed-email rename is internal to the local stack.
+
+### User-only steps (outstanding)
+
+- Rename the Supabase project display name in the dashboard (cosmetic; does not change the project ref or URL).
+- Post-merge, each developer runs `npm run db:reset` and moves `~/.config/volleycoach/dev.env` → `~/.config/volleyvector/dev.env` if they keep a prod dev.env.
 
 ### Critical Issues
 
-_To be filled in by the implementation agent._
+No critical issues.

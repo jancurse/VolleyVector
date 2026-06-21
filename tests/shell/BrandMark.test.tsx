@@ -26,10 +26,10 @@ describe("BrandMark", () => {
 });
 
 describe("BrandLockup", () => {
-  test("pairs the mark with the VolleyCoach wordmark", () => {
+  test("pairs the mark with the VolleyVector wordmark", () => {
     const { container } = render(<BrandLockup />);
 
-    expect(screen.getByText("VolleyCoach")).toBeInTheDocument();
+    expect(screen.getByText("VolleyVector")).toBeInTheDocument();
     expect(container.querySelector("svg")).toBeInTheDocument();
   });
 });

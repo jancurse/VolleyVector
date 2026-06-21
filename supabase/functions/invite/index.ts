@@ -1,4 +1,4 @@
-// VolleyCoach — invite Edge Function.
+// VolleyVector — invite Edge Function.
 // Inviting a person into a team is the app's one privileged server-side action: creating an account
 // and sending the email needs a secret server key, which must never reach the browser. The caller is
 // authorized from their own login (an admin may invite into any team; a coach into a team they coach),

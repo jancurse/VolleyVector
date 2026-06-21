@@ -19,15 +19,15 @@ function loadDevCredentials(): void {
 
   if (url.includes("127.0.0.1") || url.includes("localhost")) {
     process.env.VITE_DEV_ACCOUNTS = JSON.stringify([
-      { label: "Coach", email: "coach@volleycoach.test", password: "password" },
-      { label: "Player", email: "player@volleycoach.test", password: "password" },
-      { label: "Admin", email: "admin@volleycoach.test", password: "password" },
+      { label: "Coach", email: "coach@volleyvector.test", password: "password" },
+      { label: "Player", email: "player@volleyvector.test", password: "password" },
+      { label: "Admin", email: "admin@volleyvector.test", password: "password" },
     ]);
 
     return;
   }
 
-  const file = join(homedir(), ".config", "volleycoach", "dev.env");
+  const file = join(homedir(), ".config", "volleyvector", "dev.env");
 
   if (!existsSync(file)) return;
 

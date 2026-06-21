@@ -38,7 +38,7 @@ export function BrandMark({ size = 22 }: { size?: number }): JSX.Element {
   );
 }
 
-// The mark locked to the "VolleyCoach" wordmark as one unit, never re-spaced or restyled per surface: the
+// The mark locked to the "VolleyVector" wordmark as one unit, never re-spaced or restyled per surface: the
 // mark reads a touch taller than the wordmark (the design's ~1.16 mark-to-text ratio) and the gap is about
 // a third of the mark's width. Keep at least one mark-width of clear space around it (see docs/brand.md).
 export function BrandLockup({ size = 22 }: { size?: number }): JSX.Element {
@@ -48,7 +48,7 @@ export function BrandLockup({ size = 22 }: { size?: number }): JSX.Element {
       style={{ gap: size / 3, fontSize: size / 1.16 }}
     >
       <BrandMark size={size} />
-      <span>VolleyCoach</span>
+      <span>VolleyVector</span>
     </span>
   );
 }
