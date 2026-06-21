@@ -38,7 +38,7 @@ One mark is drawn for several jobs, and every expression is the same drawing at 
 
 - **In-app mark.** `src/shell/BrandMark.tsx` renders the mark live from the geometry; every in-app surface renders `BrandMark` or `BrandLockup` and none inlines a copy of the glyph.
 - **Static assets are generated, never hand-edited.** `scripts/generate-brand-assets.ts` (run `npm run generate:brand`) writes `public/favicon.svg`, `public/brand/icon-maskable.svg`, and `public/og-image.svg` from the same geometry, then rasterises the PNGs with headless Chrome: the maskable tile to `public/apple-touch-icon.png` and `public/icons/icon-192.png` / `icon-512.png`, and the card to `public/og-image.png`.
-- **Lockstep.** A change to the mark edits `brandMarkGeometry.ts` (or `BrandMark.tsx`), regenerates the assets, and updates this guide, keeping `src/shell/BrandMark.tsx`, `public/favicon.svg`, and the docs in sync as the `AGENTS.md` rule requires.
+- **Lockstep.** A change to the mark edits `brandMarkGeometry.ts` (or `BrandMark.tsx`), regenerates the assets, and updates this guide, keeping the geometry source, the generated assets (`public/favicon.svg`, `public/brand/icon-maskable.svg`, `public/og-image.svg`, and their PNGs), and the docs in sync as the `AGENTS.md` rule requires.
 
 | Surface                                 | Expression                                                              |
 |-----------------------------------------|-------------------------------------------------------------------------|
