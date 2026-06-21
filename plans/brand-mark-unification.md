@@ -109,3 +109,21 @@ Add a unit test for the shared geometry routine: given a frame size and surface 
 ## Implementation Notes
 
 ### Critical Issues
+
+- None. The plan implemented cleanly with no blocking problems.
+
+### What was built
+
+- **One geometry source** (`src/shell/brandMarkGeometry.ts`): the proportion constants from the plan's table (each a ratio of the court side), the fixed palette (`BRAND_COLORS`: amber, charcoal, off-white), and `brandMarkGeometry(frame, { masked })` returning the court, attack-line, and ball positions. Edge fit fills the frame so the mark touches all four edges; masked fit centres the mark and sizes it so the ball's outer edge (the mark's farthest point) lands on the maskable safe-zone radius. The farthest point is derived from the constants, not hardcoded, so changing a constant rescales every surface.
+- **In-app mark** (`src/shell/BrandMark.tsx`): renders from the geometry with no inlined numbers; court in `currentColor`, constant amber ball.
+- **Generator** (`scripts/generate-brand-assets.ts`, `npm run generate:brand`): writes `public/favicon.svg`, `public/brand/icon-maskable.svg`, and `public/og-image.svg` from the same geometry, then rasterises the PNGs with headless Chrome (the maskable tile to `apple-touch-icon.png` and `icons/icon-192.png`/`icon-512.png`, the card to `og-image.png`). It skips the PNGs with a notice if no Chrome binary is found (set `CHROME_BIN`).
+- **Favicon**: transparent, no background, maximised to all four edges, with a `prefers-color-scheme` rule swapping the court charcoal (light) / off-white (dark); amber ball constant.
+- **Removed** the translucent band, the ball gradient sheen, and the retired blue (`#2f6fe0`) / brighter amber (`#FFC61E`) from every icon. Blue remains only as the in-app action accent.
+- **Tests** (`tests/shell/brandMarkGeometry.test.ts`) assert the spec (edge-touching and the safe-zone reach) rather than re-deriving the formula; the existing `BrandMark` render test still passes. Docs (`docs/brand.md`) updated to the new state.
+
+### Decisions of note
+
+- **Dropped the in-app knockout ring.** The old mark cut a surface-coloured ring behind the ball; a transparent favicon cannot carry one, so to keep the in-app mark and favicon the same footprint and match the plan's "pure line plus a solid ball", the ring is gone. Amber over the court corner reads crisply without it.
+- **Kept the OG card's `field-glow`.** The plan scopes shading removal to the mark (the band and ball sheen) and calls the OG card layout "existing/unchanged"; the glow is card ambient, not mark shading.
+- **Canonical proportions** (plan Open Issue): used the plan's table values verbatim.
+- **Verification**: format/lint/typecheck/build clean; 584 tests pass; the favicon's light/dark swap and 16px legibility confirmed in a real browser (charcoal #22201c court under light, off-white #f3efe6 under dark, amber #e8973a ball in both).
