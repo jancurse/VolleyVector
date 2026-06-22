@@ -61,13 +61,16 @@ All small and mechanical; no user interaction needed.
 - `src/team/InviteDialog.tsx`: restore the "By email" path (see below). Add/adjust tests.
 - The plan file is committed on the branch and deleted in a separate commit before the squash-merge.
 
-#### Phase 3 — Cutover and verify (user, after merge)
+#### Phase 3 — Smoke-test, cutover, and verify
 
-1. **Merge the PR.** CI-gated. On merge, `deploy.yml` publishes the build to the **new** `volleyvector` project, so `volleyvector.app` goes live. (The function redeploy on merge is a harmless no-op for the unchanged `invite` function.)
-2. **Verify the app on the new domain.** `https://volleyvector.app` loads; a share/invite deep link resolves through the SPA fallback.
-3. **Redirect the old subdomain.** Deploy a one-time redirect build to the **old** `volleycoach` project: a `dist` whose `_redirects` is `/*  https://volleyvector.app/:splat  301` (a one-off `wrangler pages deploy --project-name=volleycoach`). The deploy workflow never touches the old project again, so this redirect stays. Verify `volleycoach.pages.dev/*` 301s to `volleyvector.app`.
-4. **Test an email invite end-to-end.** Invite → By email → a real address → confirm Resend shows it sent and the inbox receives it, then the recipient sets a password and joins.
-5. **Cleanup (optional).** Once stable, drop `volleycoach.pages.dev` from the Supabase redirect allow-list.
+1. **Smoke-test the build before merge.** The PR touches app-visible UI (the restored **By link** / **By email** toggle and email-send path in `InviteDialog`), so verify it running in dev before merging, not only through the automated checks.
+    - **1a — Agent smoke test.** Run `npm run dev` and drive the `InviteDialog` "By email" path with Playwright: open Invite, toggle **By link** / **By email**, and confirm the email input, the team/role pickers, the quota gating, and the **Send** button render and behave as planned.
+    - **1b — User smoke test.** The user runs `npm run dev` and visually confirms the same change looks and behaves as required — the manual review every app-touching PR needs.
+2. **Merge the PR.** CI-gated. On merge, `deploy.yml` publishes the build to the **new** `volleyvector` project, so `volleyvector.app` goes live. (The function redeploy on merge is a harmless no-op for the unchanged `invite` function.)
+3. **Verify the app on the new domain.** `https://volleyvector.app` loads; a share/invite deep link resolves through the SPA fallback.
+4. **Redirect the old subdomain.** Deploy a one-time redirect build to the **old** `volleycoach` project: a `dist` whose `_redirects` is `/*  https://volleyvector.app/:splat  301` (a one-off `wrangler pages deploy --project-name=volleycoach`). The deploy workflow never touches the old project again, so this redirect stays. Verify `volleycoach.pages.dev/*` 301s to `volleyvector.app`.
+5. **Test an email invite end-to-end.** Invite → By email → a real address → confirm Resend shows it sent and the inbox receives it, then the recipient sets a password and joins.
+6. **Cleanup (optional).** Once stable, drop `volleycoach.pages.dev` from the Supabase redirect allow-list.
 
 ### 3. Re-enable the email invite path
 
@@ -117,9 +120,12 @@ Phase 1 (provisioning, detailed in the Phase 1 section above) was completed by t
 - **Tests** (`tests/team/InviteDialog.test.tsx`): the By email path sends to the entered address, selected team, and role and shows the sent confirmation on success and the returned error on failure; Send is disabled (and never calls the function) without a team or without invite quota. The Supabase client is the only mock.
 - **Verification**: `npm run test` (591 pass), `npm run lint`, `npm run typecheck`, and `npm run build` all pass.
 
-### Phase 3 — Cutover and verify (user, after merge)
+### Phase 3 — Smoke-test, cutover, and verify
 
-_Not yet implemented._
+The plan's Phase 3 gained a pre-merge smoke-test step (1a agent, 1b user), since an app-touching PR needs a manual dev pass, not only the automated checks. The former steps 1–5 (merge, verify domain, redirect subdomain, email round-trip, cleanup) shifted to 2–6.
+
+- **1a — Agent smoke test (done, PASS).** Drove the running dev app with Playwright. The restored **Invite by** toggle and the **By email** path render correctly: the email input, the team and role pickers, and the **Send invite** button all appear and behave. Send is gated on `busy || !email.trim() || !joinsTeam || !canCreateAccount`; on the seeded coach it stays disabled even with a valid email and team, because that account has no invite quota left ("No invites left."), which is the correct quota gating, not a defect. No console errors, no layout issues.
+- **1b and steps 2–6 remain the user's**, after merge. Note for 1b: the seeded coach has zero invite quota, so Send stays disabled there; sign in as an account with quota (e.g. admin) to see Send enabled.
 
 ### Critical Issues
 
