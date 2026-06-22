@@ -98,7 +98,7 @@ The front end and the database reach production by two separate, CI-gated paths.
 
 #### Front end
 
-The app deploys to Cloudflare Pages at <https://volleycoach.pages.dev>. `.github/workflows/deploy.yml` publishes automatically once CI passes on `main`, so there is no manual deploy step, and production config lives in GitHub Actions variables and secrets rather than the repo.
+The app deploys to the Cloudflare Pages project `volleyvector`, served at <https://volleyvector.app>; the old <https://volleycoach.pages.dev> 301-redirects to it. `.github/workflows/deploy.yml` publishes automatically once CI passes on `main`, so there is no manual deploy step, and production config lives in GitHub Actions variables and secrets rather than the repo.
 
 #### Database migrations
 

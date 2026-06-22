@@ -1,7 +1,7 @@
 // VolleyVector — redeem-invite Edge Function.
 // Redeeming a single-use invite link is a privileged server action: it claims the link, may create an
-// account (global sign-up stays disabled, so accounts are only ever born here or in the `invite`
-// function), grants invite quota, and adds a team membership. None of that can happen under the caller's
+// account (global sign-up stays disabled, so accounts are only ever born here), grants invite quota, and
+// adds a team membership. None of that can happen under the caller's
 // own privileges, so it runs here under the secret key. The link is the authority: anyone holding a valid
 // token may redeem it, either as the signed-in caller or as a brand-new account set up in the same request.
 //
