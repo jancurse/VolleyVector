@@ -16,7 +16,9 @@
 
 ## Initial Setup
 
-- Install Node.js 22+.
+- We use Node (the runtime) and nvm (its version manager):
+    - Install Node (currently 24, pinned in `.nvmrc`) from [nodejs.org](https://nodejs.org).
+    - Recommended: have nvm switch to the pinned version automatically in this project, e.g. with its [auto-switch hook](https://github.com/nvm-sh/nvm#deeper-shell-integration) in `~/.bashrc` on Ubuntu.
 - Install **Docker** (Docker Engine on Linux, Docker Desktop on macOS/Windows). The local Supabase stack runs in it, and its daemon must be running. On Linux it auto-starts on boot.
 - Run `npm install` to install dependencies, including the Supabase CLI (run as `npx supabase`). This also generates `package-lock.json`, which is committed and used by CI.
 - Create the shared local database from `main`: `npm run db:reset`. It builds the stack from the migrations and seed (the first run downloads Docker images). After this, `npm run dev` just starts it.
@@ -56,8 +58,8 @@ One database is shared and built from the latest `main` branch, and `npm run dev
 
 A fresh local database comes up with three sign-in accounts (password for all three: `password`):
 
-| Email                     | Role                                  |
-|---------------------------|---------------------------------------|
+| Email                      | Role                                  |
+|----------------------------|---------------------------------------|
 | `admin@volleyvector.test`  | global admin (god-mode across spaces) |
 | `coach@volleyvector.test`  | coach of the demo team                |
 | `player@volleyvector.test` | player on the demo team (read-only)   |
