@@ -88,8 +88,8 @@ export async function inviteAvailability(): Promise<{ available: number | null; 
   return { available: (data as number | null) ?? null, error: null };
 }
 
-async function callRedeem(body: Record<string, unknown>): Promise<{ error: string | null }> {
-  const { error } = await supabase.functions.invoke("redeem-invite", { body });
+async function invokeFunction(name: string, body: Record<string, unknown>): Promise<{ error: string | null }> {
+  const { error } = await supabase.functions.invoke(name, { body });
 
   if (!error) return { error: null };
 
@@ -110,12 +110,20 @@ async function callRedeem(body: Record<string, unknown>): Promise<{ error: strin
   return { error: error.message };
 }
 
+/**
+ * Invite a team member by email: the `send-invite` function mints a normal "New person" link as the caller
+ * (so quota is enforced) and emails its #/invite link, reserving a slot only when the email actually sends.
+ */
+export function sendEmailInvite(email: string, teamId: string, role: TeamRole): Promise<{ error: string | null }> {
+  return invokeFunction("send-invite", { email, teamId, role });
+}
+
 /** Redeem a link as a brand-new account, set up with the recipient's own email and password. */
 export function redeemInvite(token: string, email: string, password: string): Promise<{ error: string | null }> {
-  return callRedeem({ token, email, password });
+  return invokeFunction("redeem-invite", { token, email, password });
 }
 
 /** Redeem a link for the already signed-in caller, claiming every grant that applies to them. */
 export function redeemInviteAsCurrentUser(token: string): Promise<{ error: string | null }> {
-  return callRedeem({ token });
+  return invokeFunction("redeem-invite", { token });
 }

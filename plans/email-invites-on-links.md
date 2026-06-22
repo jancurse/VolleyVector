@@ -76,8 +76,30 @@ _None._
 
 ## Implementation Notes
 
-_Reserved for the implementation agent._
+### Server: the `send-invite` Edge Function
+
+- New `supabase/functions/send-invite/index.ts`. Its only secret is `RESEND_API_KEY`; it holds no Supabase service-role key, because every database action runs **as the caller** under RLS.
+- Flow per call: authorize the caller (admin, or coach of the team) for a clean 403; read the team name (caller-readable under `teams_select`); mint the `invites` row as the caller with `allows_new_account: true`, `grant_quota: 0`, the chosen `team_id`/`role` (so the `invites_insert` policy and `enforce_invite_quota` trigger gate it exactly as a copied "New person" link, and a quota-exhausted mint fails here before any send); send the email via Resend's HTTP API from `VolleyVector <noreply@volleyvector.app>`; on a non-2xx send, delete the just-minted row (releasing the slot) and return the error. The explicit authorize is the friendly message only — the mint's RLS is the real boundary, never a service-role insert.
+- The email's link is `https://volleyvector.app/#/invite/<token>` (the canonical production host, hardcoded as `APP_URL`, matching the verified Resend sender and `index.html`'s OG URLs), and names the team and role. No new env beyond `RESEND_API_KEY`.
+- No schema change: the function reuses the existing `invites` table, insert policy, quota trigger, `invite_preview`, `redeem-invite`, and `InviteAccept` unchanged. No migration, so the RLS test is untouched. The `deploy-functions.yml` loop deploys all functions, so `send-invite` ships on merge with no workflow edit.
+
+### Client
+
+- `src/invites/invites.ts`: added `sendEmailInvite(email, teamId, role)`, which calls the `send-invite` function. The private `callRedeem` was generalized to `invokeFunction(name, body)` (same error-surfacing that reads the function's HTTP body) and now backs both the redeem helpers and `sendEmailInvite`, so the extraction lives once.
+- `src/supabase/invite.ts` (the `inviteMember` helper) and `supabase/functions/invite/` (the dead Edge Function) are deleted. No code references either.
+- `src/team/InviteDialog.tsx`: the "By email" Send now calls `sendEmailInvite` instead of `inviteMember`; its dialog shape, quota gating, and team/role pickers are unchanged. Removed the shipped version's false "spends a slot" comment and its post-send `inviteAvailability` refetch, per the plan.
+
+### Docs and comments
+
+- `redeem-invite/index.ts`: dropped "or in the `invite` function" from the header, since `redeem-invite` is now the only account-creation site.
+- `docs/architecture.md` (Auth, invites, and keep-alive): rewrote the email-invite bullet to describe the `send-invite` path (mint-as-caller, Resend send, slot-on-send, redeem through the link flow), and dropped the `invite` function from the "where accounts are born" sentence.
+
+### Verification
+
+- `npm run test` (591 pass), `npm run format`, `npm run lint`, `npm run typecheck`, and `npm run build` all pass.
+- `InviteDialog.test.tsx` updated to expect the `send-invite` call (mint-and-send through the new path; sent confirmation on success; returned error on failure; Send disabled and never called without a team or without quota). Supabase is the only mock.
+- Edge Functions are not unit-tested here. The mint, the Resend send, the rollback-on-failure (no row, no slot), and end-to-end delivery from `noreply@volleyvector.app` need manual verification after merge, once `RESEND_API_KEY` is set (a user-only Edge Function secret, never CI — see Configuration above).
 
 ### Critical Issues
 
-_Reserved for the implementation agent._
+_None._

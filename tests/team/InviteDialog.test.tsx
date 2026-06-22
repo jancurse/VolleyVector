@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { InviteDialog } from "../../src/team/InviteDialog";
 
 // The dialog runs against a mocked Supabase client (the one external dependency): `invite_availability`
-// returns the caller's remaining quota, and the `invite` Edge Function records its call and returns the
+// returns the caller's remaining quota, and the `send-invite` Edge Function records its call and returns the
 // success or failure set per test. The "By email" path is exercised through these.
 type InvokeError = { message: string; context: { json: () => Promise<{ error: string }> } };
 
@@ -60,7 +60,7 @@ describe("InviteDialog, By email", () => {
     await userEvent.click(send);
 
     expect(invokeCalls).toEqual([
-      { name: "invite", body: { email: "coach@eagles.test", teamId: "t1", role: "player" } },
+      { name: "send-invite", body: { email: "coach@eagles.test", teamId: "t1", role: "player" } },
     ]);
     expect(await screen.findByText(expected)).toBeInTheDocument();
   });

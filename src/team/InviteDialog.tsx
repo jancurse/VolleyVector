@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
-import { createInvite, inviteAvailability } from "../invites/invites";
-import { inviteMember } from "../supabase/invite";
+import { createInvite, inviteAvailability, sendEmailInvite } from "../invites/invites";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
@@ -142,7 +141,7 @@ export function InviteDialog({
     setSent(null);
 
     const address = email.trim();
-    const { error: failure } = await inviteMember(address, teamId, role);
+    const { error: failure } = await sendEmailInvite(address, teamId, role);
 
     setBusy(false);
 
@@ -153,8 +152,6 @@ export function InviteDialog({
     }
 
     setSent(address);
-    // Inviting a new account spends a slot; refresh the live count for a non-admin.
-    if (!isAdmin) void inviteAvailability().then(({ available: a }) => setAvailable(a));
   };
 
   const copyLink = async () => {
