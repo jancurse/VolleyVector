@@ -36,7 +36,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version-file: ".nvmrc"
           cache: "npm"
 
       - name: Install dependencies
@@ -51,8 +51,8 @@ jobs:
 
       - name: Configure dev auto-login
         run: |
-          mkdir -p ~/.config/volleycoach
-          cat > ~/.config/volleycoach/dev.env <<EOF
+          mkdir -p ~/.config/volleyvector
+          cat > ~/.config/volleyvector/dev.env <<EOF
           VITE_DEV_EMAIL=${{ secrets.VITE_DEV_EMAIL }}
           VITE_DEV_PASSWORD=${{ secrets.VITE_DEV_PASSWORD }}
           EOF

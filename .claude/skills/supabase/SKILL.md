@@ -7,7 +7,7 @@ description: Read before ANY Supabase work: reading or debugging production (rea
 
 ## The setup
 
-- The backend is one Supabase project: VolleyCoach, project ref `xobsdirytehneeofjmrq`. It holds the schema (tables, RLS policies, triggers, RPCs), the auth users, and the Edge Functions. Every access rule is row-level security in the database. The client is never trusted.
+- The backend is one Supabase project: VolleyVector, project ref `xobsdirytehneeofjmrq`. It holds the schema (tables, RLS policies, triggers, RPCs), the auth users, and the Edge Functions. Every access rule is row-level security in the database. The client is never trusted.
 - This is a small hobby project on the **free tier**, and that one project **is production**. There is no dev or staging instance. The only non-production environment is the **local Supabase stack** run by `npm run dev` (Docker-based, see @docs/development.md).
 - Three access paths, split by job:
     - **Read production** through the **read-only Supabase MCP server**: schema, SELECTs, RLS debugging, logs. It cannot write.
@@ -24,7 +24,7 @@ For a **simple data fix** (plain DML, like deleting a few rows), ask the user wh
 ## Reading the database
 
 - Use the **read-only MCP server** for all production reads: inspect schema, run SELECTs, debug RLS, read logs. It cannot write.
-- For local reads, query the local stack directly (its URL and key are in @docs/development.md) or `docker exec supabase_db_volleycoach psql ...`.
+- For local reads, query the local stack directly (its URL and key are in @docs/development.md) or `docker exec supabase_db_volleyvector psql ...`.
 - **If the MCP server is unavailable, stop and tell the user.** Do not work around it: no PostgREST probe, no linked CLI, no asking them to paste query results back. They will set MCP up for you or give you other instructions.
 
 ## Local development

@@ -1,4 +1,4 @@
--- VolleyCoach — fix board/note creation for non-admins (access-list bootstrap).
+-- VolleyVector — fix board/note creation for non-admins (access-list bootstrap).
 -- Creating content is two writes: insert the boards/topics row (created_by = auth.uid()), then insert the
 -- creator's first owner grant. The grant insert's bootstrap clause read `created_by` with a plain subquery
 -- on the content table, but that subquery runs under RLS, and *_select only reveals a row the caller already

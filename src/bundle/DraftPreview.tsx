@@ -25,7 +25,7 @@ const drafts = import.meta.glob<string>("/drafts/*.json", { query: "?raw", impor
 const byName = new Map(Object.entries(drafts).map(([path, text]) => [path.slice(path.lastIndexOf("/") + 1), text]));
 const names = [...byName.keys()].sort();
 
-const STORAGE_KEY = "volleycoach-draft-preview-file";
+const STORAGE_KEY = "volleyvector-draft-preview-file";
 
 type DraftPreviewProps = {
   /** The active space's notes, for minting non-colliding slugs and sibling orders. */

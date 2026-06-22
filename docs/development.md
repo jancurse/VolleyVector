@@ -16,7 +16,9 @@
 
 ## Initial Setup
 
-- Install Node.js 22+.
+- We use Node (the runtime) and nvm (its version manager):
+    - Install Node (currently 24, pinned in `.nvmrc`) from [nodejs.org](https://nodejs.org).
+    - Recommended: have nvm switch to the pinned version automatically in this project, e.g. with its [auto-switch hook](https://github.com/nvm-sh/nvm#deeper-shell-integration) in `~/.bashrc` on Ubuntu.
 - Install **Docker** (Docker Engine on Linux, Docker Desktop on macOS/Windows). The local Supabase stack runs in it, and its daemon must be running. On Linux it auto-starts on boot.
 - Run `npm install` to install dependencies, including the Supabase CLI (run as `npx supabase`). This also generates `package-lock.json`, which is committed and used by CI.
 - Create the shared local database from `main`: `npm run db:reset`. It builds the stack from the migrations and seed (the first run downloads Docker images). After this, `npm run dev` just starts it.
@@ -25,7 +27,7 @@
 - Install `pre-commit` and run `pre-commit install` to enable the markdown commit hooks.
 - **Dev sign-in.** The dev server auto-logs-in as a default account so it comes up past the login screen, and the gate (reached by signing out) shows a quick-sign-in button per configured account to switch between them. Which accounts are offered follows the database it targets:
     - Against the local stack (`npm run dev` and `npm run dev:migrate`) it offers the three seeded accounts (Coach, Player, Admin), auto-logging-in as the coach, with no setup.
-    - Against production (`npm run dev:prod`) it reads accounts from `~/.config/volleycoach/dev.env`, if present, auto-logging-in as the first. Each account is a labelled email/password pair; the unlabelled legacy pair reads as "Dev Coach":
+    - Against production (`npm run dev:prod`) it reads accounts from `~/.config/volleyvector/dev.env`, if present, auto-logging-in as the first. Each account is a labelled email/password pair; the unlabelled legacy pair reads as "Dev Coach":
 
         ```sh
         VITE_DEV_EMAIL=coach@example.com
@@ -56,11 +58,11 @@ One database is shared and built from the latest `main` branch, and `npm run dev
 
 A fresh local database comes up with three sign-in accounts (password for all three: `password`):
 
-| Email                     | Role                                  |
-|---------------------------|---------------------------------------|
-| `admin@volleycoach.test`  | global admin (god-mode across spaces) |
-| `coach@volleycoach.test`  | coach of the demo team                |
-| `player@volleycoach.test` | player on the demo team (read-only)   |
+| Email                      | Role                                  |
+|----------------------------|---------------------------------------|
+| `admin@volleyvector.test`  | global admin (god-mode across spaces) |
+| `coach@volleyvector.test`  | coach of the demo team                |
+| `player@volleyvector.test` | player on the demo team (read-only)   |
 
 It also seeds a Demo Team (coach and player). The coach owns two sample boards (in their own space and the team library), a note linking them, and a personal scratch board; the admin owns a 5-1 rotation board and a Rotations note in the Inspiration showcase, which every account can browse and copy. The seed is local-only fixtures: a production migration push applies migrations only, never the seed.
 

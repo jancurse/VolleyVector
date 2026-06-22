@@ -1,4 +1,4 @@
-// VolleyCoach — purge-expired Edge Function (scheduled cleanup).
+// VolleyVector — purge-expired Edge Function (scheduled cleanup).
 // Permanently removes everything past its 3-month grace window. Two parts:
 //   1. Accounts: a soft-deleted account's auth user can only be removed via the admin API (SQL cannot), so
 //      for each profile whose deleted_at is older than the window we hard-delete the auth user. That cascades

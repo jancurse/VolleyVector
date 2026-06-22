@@ -1,4 +1,4 @@
--- VolleyCoach — service_role grants.
+-- VolleyVector — service_role grants.
 --
 -- The Data API has "automatically expose new tables" off, so the init migration granted table
 -- privileges deliberately, and only to `authenticated`. That left `service_role` — the role the invite

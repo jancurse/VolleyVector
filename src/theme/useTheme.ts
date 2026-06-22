@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 export type Theme = "light" | "dark";
 export type ThemePreference = Theme | "system";
 
-const STORAGE_KEY = "volleycoach-theme";
+const STORAGE_KEY = "volleyvector-theme";
 
 function systemTheme(): Theme {
   const prefersLight =

@@ -1,4 +1,4 @@
-// VolleyCoach — redeem-invite Edge Function.
+// VolleyVector — redeem-invite Edge Function.
 // Redeeming a single-use invite link is a privileged server action: it claims the link, may create an
 // account (global sign-up stays disabled, so accounts are only ever born here or in the `invite`
 // function), grants invite quota, and adds a team membership. None of that can happen under the caller's

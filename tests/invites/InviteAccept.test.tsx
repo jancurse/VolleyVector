@@ -71,11 +71,11 @@ describe("InviteAccept, signed out", () => {
     expect(screen.getByRole("button", { name: "Create account" })).toBeInTheDocument();
   });
 
-  test("a team-less account-only link reads Join VolleyCoach", async () => {
+  test("a team-less account-only link reads Join VolleyVector", async () => {
     previewRows = [{ allows_new_account: true, grant_quota: 0, team_name: null, role: null }];
     renderAccept();
 
-    expect(await screen.findByRole("heading", { name: "Join VolleyCoach" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Join VolleyVector" })).toBeInTheDocument();
   });
 
   test("an existing-user link offers sign-in only, with no account setup", async () => {

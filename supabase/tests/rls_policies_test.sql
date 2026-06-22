@@ -1,4 +1,4 @@
--- Row-level security tests for VolleyCoach, the access-list model.
+-- Row-level security tests for VolleyVector, the access-list model.
 --
 -- Verifies the access boundary at the policy level, not just in the UI. A board has a `created_by` label
 -- and an access list of (principal, capability) grants; the caller's effective capability is the highest

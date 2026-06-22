@@ -1,4 +1,4 @@
-// VolleyCoach — delete-account Edge Function.
+// VolleyVector — delete-account Edge Function.
 // Deleting an account is a soft-delete with a 3-month recovery window: it bans the auth user and stamps the
 // profile deleted_at, nothing more. The caller is authorized from their own login (an admin may delete any
 // non-admin account; any user may delete their own), then the privileged client bans and flags the target.

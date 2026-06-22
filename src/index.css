@@ -1,5 +1,5 @@
 /* ----------------------------------------------------------------------------------------------
-   VolleyCoach — Tailwind v4 entry and the token theme.
+   VolleyVector — Tailwind v4 entry and the token theme.
 
    - The static design tokens (fonts, easing, radius, shadow, animation) live in @theme, so Tailwind
      utilities resolve to them (rounded-lg, shadow-overlay, font-display, ease-settle, animate-rise).

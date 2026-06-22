@@ -126,7 +126,7 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
     .filter(Boolean)
     .join(" and ");
 
-  const title = team ? `Join ${team}` : quota > 0 ? "Claim your invites" : "Join VolleyCoach";
+  const title = team ? `Join ${team}` : quota > 0 ? "Claim your invites" : "Join VolleyVector";
 
   const quotaNote =
     quota > 0 ? ` You’ll also get ${quota} ${quota === 1 ? "invite" : "invites"} to bring others on.` : "";

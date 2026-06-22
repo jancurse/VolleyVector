@@ -90,7 +90,7 @@ export function ShareView({ token }: { token: string }): JSX.Element {
           <BoardView
             board={loaded.board}
             onBack={openApp}
-            backLabel={user ? "← Open VolleyCoach" : "← Sign in"}
+            backLabel={user ? "← Open VolleyVector" : "← Sign in"}
             actions={actions}
           />
         )}

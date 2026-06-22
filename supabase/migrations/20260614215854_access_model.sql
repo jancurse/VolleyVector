@@ -1,4 +1,4 @@
--- VolleyCoach — the access-list ownership model.
+-- VolleyVector — the access-list ownership model.
 -- Boards and topics no longer live in exactly one space. A piece of content has a `created_by` label (for
 -- attribution only, never load-bearing) and an access list: a set of (principal, capability) grants, where a
 -- principal is a user or a team and a capability is viewer, editor, or owner. Content appears in a space's

@@ -4,7 +4,7 @@
 # A fixed project_id (not the working-directory default) so every branch and worktree shares one
 # local stack: `npm run dev` from anywhere brings up the same containers, holding main's schema.
 # `npm run dev:migrate` overrides this id and the ports in a throwaway config for an isolated stack.
-project_id = "volleycoach"
+project_id = "volleyvector"
 
 # Only the services the app needs locally are enabled (db, api, auth, studio). Realtime, storage,
 # edge functions, inbucket, and analytics stay off so several stacks fit on one machine at once.

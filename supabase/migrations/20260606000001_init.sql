@@ -1,4 +1,4 @@
--- VolleyCoach Phase 2 — schema.
+-- VolleyVector Phase 2 — schema.
 -- Boards and topics move out of localStorage into Supabase. Accounts are organised into teams; every
 -- board and topic lives in exactly one space: a team's shared library, or a user's personal workspace.
 -- This migration creates the tables, the triggers that keep them honest, and the API grants. Row-level

@@ -1,4 +1,4 @@
-# VolleyCoach brand
+# VolleyVector brand
 
 The brand mark is the app's own board, cropped: the court (boundary and attack line) with the ball breaking the top-right corner, like a serve clearing the net. It is lifted straight from the SVG board a coach works on, so dropping the markers to a single ball at the net corner turns the diagram into the logo. The ball is a plain disc rather than branded artwork, which keeps the mark trademark-clean. The mark is pure line plus a solid ball, with no shading. The brand runs warm: a charcoal field, an off-white court, and an amber ball. The app defaults to dark, so warm is the brand's running temperature, and blue survives in one role only: the in-app action accent.
 
@@ -26,7 +26,7 @@ One mark is drawn for several jobs, and every expression is the same drawing at 
 
 ## The lockup
 
-`BrandLockup` pairs the mark with "VolleyCoach" set in Bricolage Grotesque, the app's display face, bold and at the tracking the UI already uses. The mark leads and the word follows as one locked unit, never re-spaced or restyled per surface.
+`BrandLockup` pairs the mark with "VolleyVector" set in Bricolage Grotesque, the app's display face, bold and at the tracking the UI already uses. The mark leads and the word follows as one locked unit, never re-spaced or restyled per surface.
 
 - **Mark to wordmark.** The mark reads a touch taller than the word, about a 1.16 mark-to-text ratio.
 - **Gap.** The space between mark and word is about a third of the mark's width.

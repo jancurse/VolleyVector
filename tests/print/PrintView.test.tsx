@@ -7,7 +7,7 @@ import { PrintView } from "../../src/print/PrintView";
 describe("PrintView", () => {
   test("forces the light theme and the document title while open, restoring both on leave", () => {
     document.documentElement.dataset.theme = "dark";
-    document.title = "VolleyCoach";
+    document.title = "VolleyVector";
 
     const { unmount } = render(
       <PrintView title="Rotation 1" onBack={vi.fn()}>
@@ -21,7 +21,7 @@ describe("PrintView", () => {
 
     unmount();
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(document.title).toBe("VolleyCoach");
+    expect(document.title).toBe("VolleyVector");
   });
 
   test("the toolbar prints and goes back", async () => {

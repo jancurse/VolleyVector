@@ -1,6 +1,6 @@
-# VolleyCoach architecture
+# VolleyVector architecture
 
-VolleyCoach is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills.
+VolleyVector is a single-page React 19 + TypeScript + Vite app for building, browsing, organising, and animating volleyball tactics and drills.
 A coach lays out players and the ball on a court, writes markdown notes, and either keeps a single static arrangement or chains several into an animation.
 Boards and notes persist to a Supabase backend behind invite-only accounts: accounts are organised into teams, every user also has a private personal space, and every access rule is enforced in the database by row-level security.
 

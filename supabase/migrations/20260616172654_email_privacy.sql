@@ -1,4 +1,4 @@
--- VolleyCoach — email privacy and case-insensitive email uniqueness.
+-- VolleyVector — email privacy and case-insensitive email uniqueness.
 -- A non-admin client must never receive another user's email. RLS is row-level, so a teammate may read
 -- another's profile row for the display name; email exposure is therefore controlled at the column
 -- level here. The email column is dropped from the set an authenticated client may select, and admins
