@@ -1,4 +1,4 @@
--- VolleyCoach — the Inspiration showcase space.
+-- VolleyVector — the Inspiration showcase space.
 -- One team is the showcase: a read-only, admin-curated collection of example boards and topics that
 -- every authenticated user may browse and copy from. The flag plus the widened read policies below are
 -- the whole mechanism; writes are unchanged (coaches of the showcase team and admins curate it).

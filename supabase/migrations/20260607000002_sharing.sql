@@ -1,4 +1,4 @@
--- VolleyCoach Phase 2 — Stage 2 sharing (read paths).
+-- VolleyVector Phase 2 — Stage 2 sharing (read paths).
 -- Stage 1 covered team membership, personal ownership, admin god-mode, team isolation, and the author
 -- lock. Stage 2 adds the two read paths sharing needs: a team member may read a personal board its owner
 -- has shared into their team, and a visitor with no account may resolve exactly one board from its

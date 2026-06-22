@@ -1,4 +1,4 @@
--- VolleyCoach — account, team, and membership deletion with a grace-archive.
+-- VolleyVector — account, team, and membership deletion with a grace-archive.
 -- Four removal semantics, each with its own field and mechanism:
 --   * Remove a player: drop the membership only; content untouched (no schema change — RLS already allows it).
 --   * Archive a team: a reversible, hidden-but-restorable state (teams.archived_at).

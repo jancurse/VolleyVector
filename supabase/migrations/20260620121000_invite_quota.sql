@@ -1,4 +1,4 @@
--- VolleyCoach — invite quota and open team creation.
+-- VolleyVector — invite quota and open team creation.
 -- Separates account creation (the scarce, quota-gated resource) from team membership and team creation
 -- (cheap, ungated). A per-account invite quota governs how many brand-new accounts an account may bring
 -- into existence; invite links are typed at mint (may create an account, may grant quota, may join a

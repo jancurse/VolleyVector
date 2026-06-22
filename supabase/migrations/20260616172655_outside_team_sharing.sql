@@ -1,4 +1,4 @@
--- VolleyCoach — sharing with someone outside your teams.
+-- VolleyVector — sharing with someone outside your teams.
 -- Two owner-only paths grant access to a user who is not a teammate, neither enumerating accounts nor
 -- revealing an email:
 --   * a grant link: a single-use, expiring, revocable token carrying a board/note and a capability,

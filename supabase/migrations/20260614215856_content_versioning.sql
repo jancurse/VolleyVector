@@ -1,4 +1,4 @@
--- VolleyCoach — edit history and conflict detection for boards and topics.
+-- VolleyVector — edit history and conflict detection for boards and topics.
 -- Every commit (the editor's Done) appends a full content snapshot as a revision, and a board/topic points
 -- at its current revision. Committing is a compare-and-swap: the caller passes the revision it started from,
 -- and the write only lands when that is still current; otherwise the caller resolves the conflict (overwrite,

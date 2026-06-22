@@ -78,6 +78,6 @@ jobs:
         with:
           node-version-file: ".nvmrc"
 
-      # Node 22 runs the .ts script directly via built-in type stripping; no install or build step needed.
+      # Node 24 runs the .ts script directly via built-in type stripping; no install or build step needed.
       - name: Check migration ordering
         run: node scripts/check-migration-order.ts

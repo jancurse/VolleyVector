@@ -1,4 +1,4 @@
--- VolleyCoach Phase 2 — single-use invite links.
+-- VolleyVector Phase 2 — single-use invite links.
 -- The existing invite path creates an account from an email and emails it. This adds a second path: a
 -- coach mints an unguessable link, shares it however they like (WhatsApp, etc.), and the recipient signs
 -- up with their own email and lands in the team. A link works exactly once and expires after 7 days.

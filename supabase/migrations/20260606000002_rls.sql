@@ -1,4 +1,4 @@
--- VolleyCoach Phase 2 — row-level security.
+-- VolleyVector Phase 2 — row-level security.
 -- This is the access boundary: every read and write rule holds here, in the database, even if the
 -- client is bypassed. The shared-personal and share-token read paths are added in Stage 2; this
 -- migration covers team membership, personal ownership, admin god-mode, team isolation, and the

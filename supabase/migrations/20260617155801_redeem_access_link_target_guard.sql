@@ -1,4 +1,4 @@
--- VolleyCoach — guard grant-link redemption against a deleted or missing target.
+-- VolleyVector — guard grant-link redemption against a deleted or missing target.
 -- redeem_access_link claimed the single-use link and wrote the grant without checking the target board or
 -- note still exists and is not archived, mirroring its access_link_preview sibling. A link minted before
 -- the owner deletes the content could still be consumed, leaving a stray grant that an admin restore within
