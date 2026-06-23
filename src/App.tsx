@@ -36,6 +36,7 @@ import { useAuth } from "./auth/useAuth";
 import { Login } from "./auth/Login";
 import { SetPassword } from "./auth/SetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
+import { LegalView } from "./legal/LegalView";
 import { Button } from "./ui/Button";
 import { cx, MUTED, PAGE_WIDTH } from "./ui/styles";
 import { TeamPage } from "./team/TeamPage";
@@ -602,6 +603,10 @@ export function App(): JSX.Element {
   // over the loading gate and the login screen.
   if (shareToken) return <ShareView key={shareToken} token={shareToken} />;
 
+  // The Terms & Privacy page is public: it wins over the loading gate and login so a newcomer can read
+  // it (the signup screens open it in a new tab) before they have an account.
+  if (route.kind === "terms") return <LegalView onClose={() => navigate({ kind: "root" })} />;
+
   if (loading) return loader;
 
   // An invite link is openable with or without an account: a signed-in visitor joins in one click, a
@@ -1039,6 +1044,7 @@ export function App(): JSX.Element {
           onAccountSettings={() => navigate({ kind: "settings" })}
           canInvite={canInvite}
           onInvite={() => setInviteOpen(true)}
+          onLegal={() => navigate({ kind: "terms" })}
           onSignOut={() => void signOut()}
         />
       }

@@ -700,6 +700,30 @@ begin
 end $$;
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- 20. accept_terms stamps the caller's own profile (server time + version) and touches no other row.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA
+select public.accept_terms('2026-06-23');
+reset role;
+-- Verify as the table owner: the new columns are deliberately not in the authenticated select grant.
+do $$
+begin
+  if not exists (
+    select 1 from public.profiles
+    where id = 'a0000000-0000-0000-0000-000000000002' and terms_accepted_at is not null and terms_version = '2026-06-23'
+  ) then
+    raise exception 'FAIL accept_terms: the caller''s acceptance was not recorded';
+  end if;
+  if exists (
+    select 1 from public.profiles
+    where id = 'a0000000-0000-0000-0000-000000000004' and terms_accepted_at is not null
+  ) then
+    raise exception 'FAIL accept_terms: it stamped another account''s row';
+  end if;
+end $$;
+
 select 'ALL RLS TESTS PASSED' as result;
 
 rollback;

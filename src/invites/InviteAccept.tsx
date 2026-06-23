@@ -3,8 +3,11 @@ import type { JSX } from "react";
 
 import { useAuth } from "../auth/useAuth";
 import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
+import { TermsConsentLabel } from "../legal/TermsConsentLabel";
+import { recordTermsAcceptance } from "../legal/acceptTerms";
 import { BrandLockup } from "../shell/BrandMark";
 import { cx, MUTED, PANEL } from "../ui/styles";
 import type { InvitePreview } from "./invites";
@@ -33,6 +36,7 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -101,6 +105,7 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
       return;
     }
 
+    await recordTermsAcceptance();
     finish();
   };
 
@@ -227,10 +232,15 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
                 />
               </Field>
             )}
+            {creating && (
+              <Checkbox checked={accepted} onCheckedChange={setAccepted} ariaLabel="I agree to the Terms & Privacy">
+                <TermsConsentLabel />
+              </Checkbox>
+            )}
             {error && <p className="m-0 text-sm text-danger">{error}</p>}
             <Button
               type="submit"
-              disabled={busy || email.trim() === "" || password === "" || (creating && confirm === "")}
+              disabled={busy || email.trim() === "" || password === "" || (creating && (confirm === "" || !accepted))}
             >
               {creating
                 ? busy

@@ -23,6 +23,8 @@ VolleyVector is a single-page web app for building, browsing, organising, and an
 
 A global admin can read all content, including users' personal boards. This is acceptable for the small, trusted group the app currently serves, and should be revisited before it is made available more widely.
 
+The app shows a plain-language [Terms & Privacy](src/legal/legalText.ts) notice at `/terms`, linked from the login screen and the account menu. Every new account must accept it during signup. It states that the app is provided as-is with no warranty, what data is stored and where (Supabase and Cloudflare), the admin-can-read-everything trade-off above, and how to have data removed.
+
 ## Stack
 
 - **React 19 + TypeScript + Vite** drive the single-page app.

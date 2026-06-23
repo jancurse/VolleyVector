@@ -80,6 +80,10 @@ export function Login(): JSX.Element {
       </form>
 
       {accounts.length > 0 && <DevSignIn accounts={accounts} busy={busy} onPick={runSignIn} />}
+
+      <a href="/terms" className="text-sm text-text-dim underline hover:text-text">
+        Terms &amp; Privacy
+      </a>
     </div>
   );
 }

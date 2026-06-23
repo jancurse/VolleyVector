@@ -3,8 +3,11 @@ import type { JSX } from "react";
 
 import { useAuth } from "./useAuth";
 import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
+import { TermsConsentLabel } from "../legal/TermsConsentLabel";
+import { recordTermsAcceptance } from "../legal/acceptTerms";
 import { BrandLockup } from "../shell/BrandMark";
 import { cx, MUTED, PANEL } from "../ui/styles";
 
@@ -22,6 +25,7 @@ export function SetPassword({ email, onDone }: { email: string; onDone: () => vo
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -50,6 +54,7 @@ export function SetPassword({ email, onDone }: { email: string; onDone: () => vo
       return;
     }
 
+    await recordTermsAcceptance();
     onDone();
   };
 
@@ -89,9 +94,13 @@ export function SetPassword({ email, onDone }: { email: string; onDone: () => vo
           />
         </Field>
 
+        <Checkbox checked={accepted} onCheckedChange={setAccepted} ariaLabel="I agree to the Terms & Privacy">
+          <TermsConsentLabel />
+        </Checkbox>
+
         {error && <p className="m-0 text-sm text-danger">{error}</p>}
 
-        <Button type="submit" disabled={busy || password === "" || confirm === ""}>
+        <Button type="submit" disabled={busy || password === "" || confirm === "" || !accepted}>
           {busy ? "Saving…" : "Save password"}
         </Button>
 

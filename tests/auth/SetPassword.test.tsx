@@ -38,10 +38,23 @@ describe("SetPassword", () => {
 
     await user.type(screen.getByLabelText("Password"), "strongpass1");
     await user.type(screen.getByLabelText("Confirm password"), "strongpass1");
+    await user.click(screen.getByRole("checkbox", { name: /Terms & Privacy/i }));
     await user.click(screen.getByRole("button", { name: "Save password" }));
 
     expect(update).toHaveBeenCalledWith({ password: "strongpass1" });
     expect(onDone).toHaveBeenCalled();
+  });
+
+  test("blocks saving until the terms are accepted", async () => {
+    const update = vi.spyOn(supabaseFake.auth, "updateUser");
+    const { user, onDone } = renderSetPassword();
+
+    await user.type(screen.getByLabelText("Password"), "strongpass1");
+    await user.type(screen.getByLabelText("Confirm password"), "strongpass1");
+    await user.click(screen.getByRole("button", { name: "Save password" }));
+
+    expect(update).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
   });
 
   test.each([
@@ -53,6 +66,7 @@ describe("SetPassword", () => {
 
     await user.type(screen.getByLabelText("Password"), password);
     await user.type(screen.getByLabelText("Confirm password"), confirm);
+    await user.click(screen.getByRole("checkbox", { name: /Terms & Privacy/i }));
     await user.click(screen.getByRole("button", { name: "Save password" }));
 
     expect(screen.getByText(message)).toBeInTheDocument();

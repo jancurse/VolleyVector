@@ -54,12 +54,15 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("InviteAccept, account-creation password validation", () => {
+  const accept = () => userEvent.click(screen.getByRole("checkbox", { name: /Terms & Privacy/i }));
+
   test("a too-short password is blocked client-side", async () => {
     await setUp();
 
     await userEvent.type(screen.getByLabelText("Email"), "new@eagles.test");
     await userEvent.type(screen.getByLabelText("Password"), "short");
     await userEvent.type(screen.getByLabelText("Confirm password"), "short");
+    await accept();
     await userEvent.click(screen.getByRole("button", { name: "Join Eagles" }));
 
     expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
@@ -72,9 +75,21 @@ describe("InviteAccept, account-creation password validation", () => {
     await userEvent.type(screen.getByLabelText("Email"), "new@eagles.test");
     await userEvent.type(screen.getByLabelText("Password"), "longenough1");
     await userEvent.type(screen.getByLabelText("Confirm password"), "longenough2");
+    await accept();
     await userEvent.click(screen.getByRole("button", { name: "Join Eagles" }));
 
     expect(screen.getByText(/passwords do not match/i)).toBeInTheDocument();
+    expect(invokeCalls).toHaveLength(0);
+  });
+
+  test("redemption is blocked until the terms are accepted", async () => {
+    await setUp();
+
+    await userEvent.type(screen.getByLabelText("Email"), "new@eagles.test");
+    await userEvent.type(screen.getByLabelText("Password"), "longenough1");
+    await userEvent.type(screen.getByLabelText("Confirm password"), "longenough1");
+    await userEvent.click(screen.getByRole("button", { name: "Join Eagles" }));
+
     expect(invokeCalls).toHaveLength(0);
   });
 
@@ -84,6 +99,7 @@ describe("InviteAccept, account-creation password validation", () => {
     await userEvent.type(screen.getByLabelText("Email"), "new@eagles.test");
     await userEvent.type(screen.getByLabelText("Password"), "longenough1");
     await userEvent.type(screen.getByLabelText("Confirm password"), "longenough1");
+    await accept();
     await userEvent.click(screen.getByRole("button", { name: "Join Eagles" }));
 
     expect(invokeCalls.some((c) => c.name === "redeem-invite")).toBe(true);

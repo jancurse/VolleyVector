@@ -23,6 +23,8 @@ export type Route =
   | { kind: "printBoard"; space: RouteSpace; boardId: string }
   | { kind: "printNote"; space: RouteSpace; noteSlug: string }
   | { kind: "settings" }
+  // The public Terms & Privacy page, reachable with or without an account.
+  | { kind: "terms" }
   | { kind: "team"; teamSlug: string }
   | { kind: "admin"; sub: AdminSub }
   | { kind: "notFound"; path: string };
@@ -54,6 +56,8 @@ export function parsePath(pathname: string): Route {
   if (segs.length === 0) return { kind: "root" };
 
   if (segs[0] === "settings") return segs.length === 1 ? { kind: "settings" } : notFound;
+
+  if (segs[0] === "terms") return segs.length === 1 ? { kind: "terms" } : notFound;
 
   if (segs[0] === "admin") {
     if (segs.length === 1) return { kind: "admin", sub: "teams" };
@@ -121,6 +125,8 @@ export function buildPath(route: Route): string {
       return `/t/${encodeURIComponent(route.teamSlug)}/team`;
     case "settings":
       return "/settings";
+    case "terms":
+      return "/terms";
     case "admin":
       return `/admin/${route.sub}`;
     case "notFound":
