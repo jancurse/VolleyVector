@@ -21,10 +21,21 @@ type StepStripProps = {
   onSelect: (index: number) => void;
   onAdd?: () => void;
   onRemove?: (stepId: string) => void;
+  /** A mid-gesture reorder frame: a drag streams many, a key press fires one. */
   onMove?: (from: number, to: number) => void;
+  /** End the reorder gesture, collapsing its frames to one undo entry. */
+  onMoveEnd?: () => void;
 };
 
-export function StepStrip({ steps, current, onSelect, onAdd, onRemove, onMove }: StepStripProps): JSX.Element {
+export function StepStrip({
+  steps,
+  current,
+  onSelect,
+  onAdd,
+  onRemove,
+  onMove,
+  onMoveEnd,
+}: StepStripProps): JSX.Element {
   const editable = Boolean(onAdd && onRemove);
   const reorderable = Boolean(onMove) && steps.length > 1;
   const hintId = useId();
@@ -110,7 +121,11 @@ export function StepStrip({ steps, current, onSelect, onAdd, onRemove, onMove }:
       }
     }
 
-    if (d.dragging) suppressClick.current = true;
+    if (d.dragging) {
+      suppressClick.current = true;
+      onMoveEnd?.();
+    }
+
     drag.current = null;
     setDragId(null);
     setDragDx(0);
@@ -138,6 +153,7 @@ export function StepStrip({ steps, current, onSelect, onAdd, onRemove, onMove }:
 
     event.preventDefault();
     onMove?.(index, to);
+    onMoveEnd?.();
   };
 
   return (

@@ -154,10 +154,14 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
 
     const created = newTeam.trim();
 
+    setActionError(null);
+
     if (await onCreateTeam(created)) {
       setCreateStatus(`Created ${created}`);
       setNewTeam("");
       admin.reload();
+    } else {
+      setActionError(`Could not create ${created}.`);
     }
   };
 
@@ -237,7 +241,13 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
             <span className={PANEL_TITLE}>New team</span>
             <div className="flex flex-wrap items-end gap-3">
               <Field label="Team name" className="max-w-xs flex-1">
-                <Input value={newTeam} onChange={(event) => setNewTeam(event.target.value)} />
+                <Input
+                  value={newTeam}
+                  onChange={(event) => {
+                    setNewTeam(event.target.value);
+                    setCreateStatus(null);
+                  }}
+                />
               </Field>
               <Button onClick={() => void create()} disabled={newTeam.trim() === ""}>
                 Create team

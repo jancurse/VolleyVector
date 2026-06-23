@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
-import { Settings } from "lucide-react";
+import { Ellipsis, Settings } from "lucide-react";
 
 import { createBoard } from "./boards/operations";
 import type { Board } from "./boards/types";
@@ -9,6 +9,8 @@ import { ExportMenu } from "./bundle/ExportMenu";
 import { ImportDialog } from "./bundle/ImportDialog";
 import { ReplaceBoardDialog } from "./bundle/ReplaceBoardDialog";
 import { bundleFilename, toBundle } from "./bundle/serialize";
+import type { Bundle } from "./bundle/types";
+import { useBundleExport } from "./bundle/useBundleExport";
 import { useDraftPreviewRoute } from "./bundle/useDraftPreviewRoute";
 import { BoardActionsMenu } from "./editor/BoardActionsMenu";
 import { BoardEditor } from "./editor/BoardEditor";
@@ -26,7 +28,8 @@ import { NoteView } from "./notes/NoteView";
 import { useNotes } from "./notes/useNotes";
 import type { Note } from "./notes/types";
 import { useTheme } from "./theme/useTheme";
-import { MenuItem, MenuSeparator } from "./ui/Menu";
+import { IconButton } from "./ui/IconButton";
+import { Menu, MenuItem, MenuSeparator } from "./ui/Menu";
 import { TooltipProvider } from "./ui/Tooltip";
 import { useConfirm } from "./ui/useConfirm";
 import { useAuth } from "./auth/useAuth";
@@ -34,7 +37,7 @@ import { Login } from "./auth/Login";
 import { SetPassword } from "./auth/SetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
 import { Button } from "./ui/Button";
-import { cx, MUTED } from "./ui/styles";
+import { cx, MUTED, PAGE_WIDTH } from "./ui/styles";
 import { TeamPage } from "./team/TeamPage";
 import { InviteDialog } from "./team/InviteDialog";
 import { AdminPage } from "./admin/AdminPage";
@@ -94,6 +97,69 @@ const BG =
 const DraftPreview = import.meta.env.DEV
   ? lazy(() => import("./bundle/DraftPreview").then((m) => ({ default: m.DraftPreview })))
   : null;
+
+// Whether two boards carry the same authored content, ignoring the server-stamped/volatile fields a
+// draft backup and its saved board always differ on (`updatedAt`, stamped per write, and the
+// `currentRevisionId` the commit advances). Drives the clock-skew-immune draft-restore decision.
+function sameBoardContent(a: Board, b: Board): boolean {
+  const strip = ({ updatedAt: _u, currentRevisionId: _r, ...rest }: Board) => rest;
+
+  return JSON.stringify(strip(a)) === JSON.stringify(strip(b));
+}
+
+// The note page's overflow menu, composed directly here (not through ExportMenu, which the library still
+// uses) so it can hold the canonical action order shared with the board menu: Manage access (owner) and
+// History, a separator, then Print and the JSON export, a separator, then Delete (owner). useBundleExport
+// drives the JSON items so they cannot drift from the board menu's.
+type NoteActionsMenuProps = {
+  isOwner: boolean;
+  bundle: () => Bundle;
+  filename: string;
+  onManageAccess: () => void;
+  onViewHistory: () => void;
+  onPrint: () => void;
+  onDelete: () => void;
+};
+
+function NoteActionsMenu({
+  isOwner,
+  bundle,
+  filename,
+  onManageAccess,
+  onViewHistory,
+  onPrint,
+  onDelete,
+}: NoteActionsMenuProps): JSX.Element {
+  const { copied, copy, download } = useBundleExport(bundle, filename);
+
+  return (
+    <Menu
+      tooltip="More actions"
+      trigger={
+        <IconButton variant="control" aria-label="Note actions">
+          <Ellipsis size={16} aria-hidden="true" />
+        </IconButton>
+      }
+    >
+      {isOwner && <MenuItem onClick={onManageAccess}>Manage access…</MenuItem>}
+      <MenuItem onClick={onViewHistory}>History…</MenuItem>
+      <MenuSeparator />
+      <MenuItem onClick={onPrint}>Print…</MenuItem>
+      <MenuItem closeOnClick={false} onClick={copy}>
+        {copied ? "Copied" : "Copy JSON"}
+      </MenuItem>
+      <MenuItem onClick={download}>Download JSON</MenuItem>
+      {isOwner && (
+        <>
+          <MenuSeparator />
+          <MenuItem onClick={onDelete}>
+            <span className="text-danger">Delete note…</span>
+          </MenuItem>
+        </>
+      )}
+    </Menu>
+  );
+}
 
 // The URL is the single source of truth for navigation: the active space, the browse selection, and the
 // open board are all derived from the path-based route. A draft (the editor's working copy) and the
@@ -201,6 +267,11 @@ export function App(): JSX.Element {
     setDraftNoteId(null);
   } else if (editableBoard !== null && (draft === null || draft.id !== editableBoard.id)) setDraft(editableBoard);
 
+  // Reconcile the note edit session against the route, the same way as the board draft above: drop it
+  // when the route no longer shows the note being edited, so leaving a note mid-edit ends the session
+  // (Back exits the editor) and a stale session never silently reopens on returning to the note.
+  if (editingNoteId !== null && !(selection.kind === "note" && selection.id === editingNoteId)) setEditingNoteId(null);
+
   const showEditor = editing && draft !== null && draft.id === openId;
 
   // Whether the active space already matches the route's space. Until it does (a deep link or the landing
@@ -284,10 +355,10 @@ export function App(): JSX.Element {
     };
   }, [hashRoute, needsBoardLookup, user, boardsLoading, route, activeSpace, allTeams, setActiveSpace, navigate]);
 
-  // Offer to restore a localStorage draft backup when an edit URL opens. A backup newer than the saved
-  // board — or one for a board no list holds, i.e. a never-committed draft after a reload — is work a
-  // crash or reload would otherwise have lost: restoring seeds the editor from it, declining discards
-  // it. Checked once per edit entry, so the editor's own backup writes never re-prompt mid-session.
+  // Offer to restore a localStorage draft backup when an edit URL opens. A backup whose content differs
+  // from the saved board — or one for a board no list holds, i.e. a never-committed draft after a reload
+  // — is work a crash or reload would otherwise have lost: restoring seeds the editor from it, declining
+  // discards it. Checked once per edit entry, so the editor's own backup writes never re-prompt mid-session.
   const backupChecked = useRef<string | null>(null);
 
   useEffect(() => {
@@ -309,8 +380,10 @@ export function App(): JSX.Element {
 
     const saved = boards.find((b) => b.id === id);
 
-    // A backup no newer than the saved board is a leftover from a committed session — drop it quietly.
-    if (saved && backup.updatedAt <= saved.updatedAt) {
+    // A backup whose content matches the saved board is a leftover from a committed session — drop it
+    // quietly. Comparing content (not a client-stamped vs server-stamped timestamp) is immune to clock
+    // skew, so a lagging device clock can no longer discard genuine unsaved work.
+    if (saved && sameBoardContent(backup, saved)) {
       clearDraftBackup(id);
 
       return;
@@ -378,7 +451,7 @@ export function App(): JSX.Element {
   const remove = async (id: string) => {
     const ok = await confirm({
       title: "Delete this board?",
-      description: "This cannot be undone.",
+      description: "It is hidden from the library but recoverable by an admin for 3 months, then permanently removed.",
       confirmLabel: "Delete",
       danger: true,
     });
@@ -763,8 +836,16 @@ export function App(): JSX.Element {
     } else {
       content = <p className={MUTED}>Loading…</p>;
     }
-  } else if (route.kind === "note" && !notes.loading && selectedNote === undefined) {
-    content = <NotFound onHome={() => navigate(homeRoute())} />;
+  } else if (route.kind === "note" && selectedNote === undefined) {
+    // Wait for the active space to align to the route (a cross-space link is still switching spaces)
+    // before deciding a note is missing, the same spaceReady gate the board/print branches use — so a
+    // valid cross-space note link no longer paints one NotFound frame mid-switch.
+    content =
+      !spaceReady || notes.loading ? (
+        <p className={MUTED}>Loading…</p>
+      ) : (
+        <NotFound onHome={() => navigate(homeRoute())} />
+      );
   } else if (selectedNote && editingNoteId === selectedNote.id) {
     content = (
       <NoteEditor
@@ -811,8 +892,8 @@ export function App(): JSX.Element {
         onNewBoard={newBoard}
         canEdit={canEditNote(selectedNote)}
         menu={
-          <ExportMenu
-            label="Note actions"
+          <NoteActionsMenu
+            isOwner={selectedNote.capability === "owner"}
             bundle={() => {
               // The note export carries the whole subtree and every board any note in it references.
               const subtree = subtreeIds(notes.notes, selectedNote.id);
@@ -827,19 +908,11 @@ export function App(): JSX.Element {
               );
             }}
             filename={bundleFilename(selectedNote.title)}
-          >
-            <MenuItem onClick={() => setViewingHistory(true)}>History…</MenuItem>
-            <MenuItem onClick={() => navigate(notePrintRoute(activeSpace, allTeams, selectedNote))}>Print…</MenuItem>
-            {selectedNote.capability === "owner" && (
-              <>
-                <MenuSeparator />
-                <MenuItem onClick={() => setManagingNoteAccess(true)}>Manage access…</MenuItem>
-                <MenuItem onClick={() => void removeNote(selectedNote.id)}>
-                  <span className="text-danger">Delete note…</span>
-                </MenuItem>
-              </>
-            )}
-          </ExportMenu>
+            onManageAccess={() => setManagingNoteAccess(true)}
+            onViewHistory={() => setViewingHistory(true)}
+            onPrint={() => navigate(notePrintRoute(activeSpace, allTeams, selectedNote))}
+            onDelete={() => void removeNote(selectedNote.id)}
+          />
         }
       />
     );
@@ -997,7 +1070,7 @@ export function App(): JSX.Element {
         topBar={topBar}
       >
         {(boardsError || notes.error) && (
-          <p className="mb-3 w-full max-w-[1320px] text-sm text-danger">{boardsError ?? notes.error}</p>
+          <p className={cx("mb-3", PAGE_WIDTH, "text-sm text-danger")}>{boardsError ?? notes.error}</p>
         )}
         {content}
       </AppShell>

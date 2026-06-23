@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -98,16 +98,48 @@ describe("AccessManager", () => {
     expect(update.eq.id).toBe(teamGrantId);
   });
 
-  test("removing a grant deletes it by id", async () => {
+  test("removing a grant deletes it by id only after confirming", async () => {
     const user = userEvent.setup();
 
     renderManager();
 
     await user.click(await screen.findByRole("button", { name: "Remove access" }));
 
+    // The trash icon opens a confirm dialog; nothing is deleted until the destructive action is confirmed.
+    const dialog = await screen.findByRole("alertdialog");
+
+    // The seeded grant is the only one, so removing it archives the board: the warning names that.
+    expect(within(dialog).getByText(/last access to this board, so removing it archives it/i)).toBeInTheDocument();
+    expect(recordedWrites.some((c) => c.table === "board_access" && c.op === "delete")).toBe(false);
+
+    await user.click(within(dialog).getByRole("button", { name: "Remove" }));
+
     const del = await findWrite("board_access", "delete");
 
     expect(del.eq.id).toBe(teamGrantId);
+  });
+
+  test("cancelling the remove confirm does not delete the grant", async () => {
+    const user = userEvent.setup();
+
+    renderManager();
+
+    await user.click(await screen.findByRole("button", { name: "Remove access" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(recordedWrites.some((c) => c.table === "board_access" && c.op === "delete")).toBe(false);
+  });
+
+  test("shows a loading placeholder until the access list resolves", async () => {
+    renderManager();
+
+    // The grants start empty; the manager shows Loading… rather than rendering an empty list as "nobody".
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Loading…")).not.toBeInTheDocument());
+    expect(await screen.findByText("Who has access")).toBeInTheDocument();
   });
 
   test("sharing by exact email calls the resolve-and-grant RPC and confirms the same for any address", async () => {
@@ -124,7 +156,7 @@ describe("AccessManager", () => {
     const call = recordedRpcs.find((c) => c.fn === "grant_board_by_email");
 
     expect(call?.params).toMatchObject({ board: board.id, addr: "stranger@example.com", cap: "viewer" });
-    expect(await screen.findByText(/it now has access to this board/i)).toBeInTheDocument();
+    expect(await screen.findByText(/it can now view this board/i)).toBeInTheDocument();
   });
 
   test("the share link mints a single-use link and copies it to the clipboard", async () => {
@@ -135,7 +167,7 @@ describe("AccessManager", () => {
 
     renderManager();
 
-    await user.click(screen.getByRole("button", { name: "Copy share link" }));
+    await user.click(await screen.findByRole("button", { name: "Copy share link" }));
 
     const insert = await findWrite("access_links", "insert");
 

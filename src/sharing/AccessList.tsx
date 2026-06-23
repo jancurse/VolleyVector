@@ -6,6 +6,7 @@ import type { AccessRow, Capability } from "../supabase/rows";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Select } from "../ui/Select";
+import { useConfirm } from "../ui/useConfirm";
 import { MUTED, PANEL_TITLE } from "../ui/styles";
 import type { TeamRef } from "../workspace/useWorkspace";
 import { CAPABILITY_OPTIONS, principalName } from "./access";
@@ -59,6 +60,33 @@ export function AccessList({
 }: AccessListProps): JSX.Element {
   const [addPrincipal, setAddPrincipal] = useState("");
   const [addCapability, setAddCapability] = useState<Capability>("editor");
+  const { confirm, dialog } = useConfirm();
+
+  // Removing a grant is destructive and irreversible from the client (the last grant grace-archives the
+  // content, leaving only admin recovery), so it routes through the confirm dialog like every other delete.
+  // The copy distinguishes leaving (your own grant) from removing someone else's, and warns when it is the
+  // last grant on the list, since that archives the content.
+  const removeWithConfirm = async (grant: AccessRow) => {
+    const own = grant.user_id === currentUserId;
+    const last = grants.length === 1;
+    // Removing the last grant grace-archives the content, recoverable only by an admin for three months.
+    const archives = `This is the last access to this ${entityNoun}, so ${
+      own ? "leaving" : "removing it"
+    } archives it. An admin can recover it for 3 months.`;
+
+    const ok = await confirm({
+      title: own ? `Leave this ${entityNoun}?` : "Remove access?",
+      description: last
+        ? archives
+        : own
+          ? `You will lose access to this ${entityNoun}.`
+          : `They will lose access to this ${entityNoun}.`,
+      confirmLabel: own ? "Leave" : "Remove",
+      danger: true,
+    });
+
+    if (ok) onRemove(grant);
+  };
 
   const grantedUserIds = new Set(grants.map((g) => g.user_id).filter(Boolean));
   const grantedTeamIds = new Set(grants.map((g) => g.team_id).filter(Boolean));
@@ -95,6 +123,7 @@ export function AccessList({
 
   return (
     <section className="flex flex-col gap-5">
+      {dialog}
       <div className="flex flex-col gap-3">
         <span className={PANEL_TITLE}>Who has access</span>
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
@@ -121,7 +150,7 @@ export function AccessList({
                 <IconButton
                   variant="plain"
                   aria-label={own ? `Leave this ${entityNoun}` : "Remove access"}
-                  onClick={() => onRemove(grant)}
+                  onClick={() => void removeWithConfirm(grant)}
                 >
                   <Trash2 size={16} aria-hidden="true" />
                 </IconButton>

@@ -167,12 +167,14 @@ describe("useWorkspace", () => {
     expect(result.current.teams.map((t) => t.teamId)).toEqual(["team-active"]);
   });
 
-  test("createTeam routes through the RPC and lands the creator on the team as coach (non-admin)", async () => {
-    isAdmin = false;
+  test("createTeam routes through the RPC and lands the new team in the team list as coach, never switching space", async () => {
+    isAdmin = true;
 
     const { result } = renderHook(() => useWorkspace(), { wrapper });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const spaceBefore = result.current.activeSpace;
 
     rpcCalls.length = 0;
     await act(async () => {
@@ -180,9 +182,13 @@ describe("useWorkspace", () => {
     });
 
     expect(rpcCalls).toContainEqual({ fn: "create_team", params: { name: "New Team", slug: "new-team" } });
+    // Open team creation: the creator coaches the new team, which joins the team list without a silent
+    // space switch (the switcher's create flow opens it explicitly).
     expect(result.current.teams.find((t) => t.teamId === "team-new")).toMatchObject({
       teamName: "New Team",
       role: "coach",
     });
+    expect(result.current.otherTeams.some((t) => t.teamId === "team-new")).toBe(false);
+    expect(result.current.activeSpace).toEqual(spaceBefore);
   });
 });

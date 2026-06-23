@@ -43,6 +43,7 @@ type Board = {
   createdBy: string | null; // the author account (attribution only), or null once their account is deleted
   capability: Capability; // the viewer's own access: "viewer" | "editor" | "owner"; derived, never stored
   currentRevisionId: string | null; // the revision this board's content matches, for conflict detection
+  autoArrows: boolean; // whether the derived movement arrows are shown (default true); manual arrow annotations are unaffected
   rotationStrict: boolean; // rotation enforcement: strict clamps illegal drags, loose only flags
   createdAt: number;
   updatedAt: number;
@@ -154,14 +155,19 @@ The `editor/` module is where boards are read and written. It follows one flow t
 
 ## Motion and playback
 
-Motion is part of the product, so animation is built into the model rather than bolted on. A Sequence animates by interpolating each marker by identity, and the arrows that show movement are derived, never authored.
+Motion is part of the product, so animation is built into the model rather than bolted on. A Sequence animates by interpolating each marker by identity. Movement between steps is shown two ways: arrows the app derives from the marker deltas, and arrows a coach draws by hand as annotations.
 
 ### Derived movement arrows
 
 - `stepMoves(board, index)` diffs two consecutive steps by marker identity and returns each marker's `from`/`to`, dropping markers that barely move so a tiny adjustment draws no arrow.
 - `arrowsForStep` colours each move to its marker, a player in its own colour and the ball in a theme-adaptive neutral, producing the `Arrow` list the court overlays.
 - `Arrows` insets each line so it clears the source and target discs and ends in an arrowhead. A move too short to clear both discs is skipped, so near-overlapping moves never render a degenerate arrow.
-- Arrows are recomputed on demand and never stored. A coach shapes them only by moving markers between steps. They show on the editor's active step and, during playback, preview the upcoming move while paused.
+- Derived arrows are recomputed on demand and never stored. A coach shapes them only by moving markers between steps. They show on the editor's active step and, during playback, preview the upcoming move while paused.
+- `autoArrows` on the board (default on, toggled from the court settings popover for a Sequence) gates them: off, the derived arrows vanish from every surface, leaving only the markers and any drawn annotations.
+
+### Hand-drawn arrows
+
+- The `arrow` annotation (see [Annotations](#annotations)) is a coach-drawn arrow on one step: it runs `from`→`to`, bent into a quadratic curve through a `via` point when present. Unlike a derived arrow it is authored, stored on the step, and independent of the marker deltas, so it survives `autoArrows` being off and can point anywhere the diagram needs.
 
 ### The playback clock
 
@@ -254,7 +260,7 @@ Boards and notes live in Supabase, not the browser. The access boundary is row-l
 | Co-edit a board granted to them       | ✓      | ✓            | ✓               |
 | Their own personal space              | full   | full         | full + god-mode |
 | Invite a member                       | —      | ✓ (own team) | ✓ (any team)    |
-| Create a team                         | —      | —            | ✓               |
+| Create a team                         | ✓      | ✓            | ✓               |
 | Delete their own account              | ✓      | ✓            | ✓               |
 | Archive or delete a team              | —      | —            | ✓               |
 | Restore deleted content or an account | —      | —            | ✓               |
@@ -299,11 +305,12 @@ Every commit (the editor's Done) is a revision, so boards and notes carry a line
 ### Stores and persistence
 
 - `useBoards` and `useNotes` hold the active space's board list and note tree in React state and expose the mutations the UI calls. Both load from Supabase when the active space changes, by the space's principal on the access list (a team's grants by team, the personal space's by the user), and attach the viewer's `capability` to each item. They write content edits through the commit RPC (which records a revision and rejects a stale base) and access-list edits through `board_access`/`topic_access`. Edits apply optimistically; a failed write surfaces an error and refetches to reconcile.
-- The active space comes from `workspace/useWorkspace.ts`, which loads the user's teams, role per team, and admin flag, and tracks which space is on screen. The space switcher moves between the personal space and each team, and everyone also sees the read-only Inspiration showcase as its own icon-badged row. A showcase membership (a curator) is carried on `showcase.role` rather than in the team list, so the showcase stays one row whether or not the user is on its roster. An admin also reaches every remaining team behind a collapsed "Other teams" disclosure, so the switcher stays short as teams grow. Creating a team adds no membership: the new team lands in the admin's other teams. The team page lets an admin join any reachable team (including the showcase) with a chosen role and leave again, since their access never depended on membership.
+- The active space comes from `workspace/useWorkspace.ts`, which loads the user's teams, role per team, and admin flag, and tracks which space is on screen. The space switcher moves between the personal space and each team, and everyone also sees the read-only Inspiration showcase as its own icon-badged row. A showcase membership (a curator) is carried on `showcase.role` rather than in the team list, so the showcase stays one row whether or not the user is on its roster. An admin also reaches every remaining team behind a collapsed "Other teams" disclosure, so the switcher stays short as teams grow. Any account can create a team through the switcher's New team action, and the RPC makes the creator its coach, so the new team joins their own team list rather than the admin's other teams. Creating a team never repoints the active space: the admin panel stays put, and the switcher's create flow opens the new team explicitly. The team page lets an admin join any reachable team (including the showcase) with a chosen role and leave again, since their access never depended on membership.
 - The stores keep the two models honest. A note's board groups carry their own explicit order, so curating a note never touches a board, and structural note moves (reordering siblings, nesting from the sidebar) only touch the note tree — neither churns the library's newest-first order. The first team's library is seeded once, server-side, by the setup seed.
 
 ### Navigation and the app shell
 
+- `App` owns navigation over two supporting modules. `src/routing/` parses the URL hash into a route and exposes it as a hook, builds typed links, slugs titles, and renders the NotFound page. `src/shell/` is the chrome `App` renders the surfaces inside: the sidebar, its icon rail and drawer, the top bar, breadcrumb, space switcher, account avatar menu, and the brand mark.
 - `App` is the top-level owner of navigation and ties the stores together. A share link or invite link wins over everything, since both open with no account; otherwise an unauthenticated visitor sees the login gate. After sign-in two one-time gates can precede the app: an invite-email recipient sets a password (their account is created without one), and a first-time user sets a display name. Past the gates it chooses between three surfaces by precedence: a draft in the editor wins, otherwise an open board shows its view, otherwise the browse surface.
 - Creating a board makes a single-step Position in the active space and opens it in the editor; created from a note page, its first commit also appends it to that note's document. Committing returns to the board's view. Deleting a board, or a note (which grace-archives the subtree and leaves boards alone), is confirmed first and stays recoverable by an admin within the window.
 - The top bar carries the breadcrumb and the single account control: a menu for the display name and sign-in email, an **Invite** action (shown to an admin, a coach, or any account with invite quota), the theme toggle, and sign-out. **Delete account** lives on the Account settings page, behind its confirm dialog. In drawer mode it gains a leading toggle that opens the navigation overlay. The brand, the space switcher, and the **Admin** entry (admins only, for teams, accounts, and content recovery) live in the sidebar, or its icon rail, not the header.

@@ -17,14 +17,22 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
-/** The default label for a new marker of `role`, numbered to stay distinct from its siblings. */
+/** The default label for a new marker of `role`, numbered at the lowest free index so it stays
+ *  distinct from its siblings even after a lower-numbered one was removed. The bare code is index 1
+ *  for a singular role. */
 export function nextLabel(role: MarkerRole, markers: readonly Marker[]): string | undefined {
   if (role === "ball") return undefined;
 
-  const count = markers.filter((m) => m.role === role).length;
   const code = ROLES[role].code;
+  const taken = new Set(
+    markers.filter((m) => m.role === role).map((m) => (m.label === code ? 1 : Number(m.label?.slice(code.length))))
+  );
 
-  return NUMBERED_ROLES.has(role) || count > 0 ? `${code}${count + 1}` : code;
+  let n = 1;
+
+  while (taken.has(n)) n++;
+
+  return NUMBERED_ROLES.has(role) || taken.size > 0 ? `${code}${n}` : code;
 }
 
 // New markers land on a "bench" — a row in the free zone just below the end line — so they never
@@ -82,13 +90,21 @@ export function createBoard(now: number, mode: CourtMode = "positions", title = 
   };
 }
 
-/** Step `index`'s markers as full `Marker`s (identity plus that step's position), ready for the Court. */
+/** Step `index`'s markers as full `Marker`s (identity plus that step's position), ready for the Court.
+ *  A marker missing a position for this step is benched, matching the bundle parser, so a corrupt row
+ *  never feeds `undefined` into the renderer. */
 export function stepMarkers(board: Board, index: number): Marker[] {
   const step = board.steps[index];
 
   if (!step) return [];
 
-  return board.markers.map((m) => ({ ...m, position: step.positions[m.id] }));
+  const placed: Marker[] = [];
+
+  for (const m of board.markers) {
+    placed.push({ ...m, position: step.positions[m.id] ?? benchPosition(placed) });
+  }
+
+  return placed;
 }
 
 /** A marker's movement between two steps — the delta arrows are derived from and playback animates. */

@@ -14,17 +14,34 @@ export function childrenOf(notes: readonly Note[], parentId: string | null): Not
   return notes.filter((t) => t.parentId === parentId).sort((a, b) => a.order - b.order);
 }
 
-/** A note's id plus every descendant id — for cascade deletes and cycle guards. */
-export function subtreeIds(notes: readonly Note[], id: string): string[] {
-  return [id, ...notes.filter((t) => t.parentId === id).flatMap((child) => subtreeIds(notes, child.id))];
+/** A note's id plus every descendant id — for cascade deletes and cycle guards. A `seen` set bounds
+ *  the recursion so a corrupted cyclic parent chain terminates instead of overflowing the stack. */
+export function subtreeIds(notes: readonly Note[], id: string, seen: Set<string> = new Set()): string[] {
+  if (seen.has(id)) return [];
+
+  seen.add(id);
+
+  return [id, ...notes.filter((t) => t.parentId === id).flatMap((child) => subtreeIds(notes, child.id, seen))];
 }
 
 /** A note paired with its depth in the tree, in depth-first sibling order. */
 export type FlatNote = { note: Note; depth: number };
 
-/** Flatten the tree depth-first, tagging each note with its depth — for the picker and the sidebar. */
-export function flattenNotes(notes: readonly Note[], parentId: string | null = null, depth = 0): FlatNote[] {
-  return childrenOf(notes, parentId).flatMap((note) => [{ note, depth }, ...flattenNotes(notes, note.id, depth + 1)]);
+/** Flatten the tree depth-first, tagging each note with its depth — for the picker and the sidebar.
+ *  A `seen` set bounds the recursion so a corrupted cyclic parent chain terminates gracefully. */
+export function flattenNotes(
+  notes: readonly Note[],
+  parentId: string | null = null,
+  depth = 0,
+  seen: Set<string> = new Set()
+): FlatNote[] {
+  return childrenOf(notes, parentId).flatMap((note) => {
+    if (seen.has(note.id)) return [];
+
+    seen.add(note.id);
+
+    return [{ note, depth }, ...flattenNotes(notes, note.id, depth + 1, seen)];
+  });
 }
 
 function nextOrder(notes: readonly Note[], parentId: string | null): number {

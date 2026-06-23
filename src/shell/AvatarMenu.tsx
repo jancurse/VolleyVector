@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
 
 import type { ThemePreference } from "../theme/useTheme";
-import { Menu, MenuItem } from "../ui/Menu";
+import { Menu, MenuItem, MenuSeparator } from "../ui/Menu";
 import { ToggleGroup } from "../ui/ToggleGroup";
 import { initials } from "../ui/initials";
 import { cx } from "../ui/styles";
@@ -35,7 +35,6 @@ const AVATAR = cx(
 );
 
 const HEADER = "flex flex-col gap-0.5 px-2 pt-1.5 pb-2";
-const DIVIDER = "my-1 h-px bg-border";
 
 export function AvatarMenu({
   displayName,
@@ -61,10 +60,10 @@ export function AvatarMenu({
         <p className="truncate font-ui text-base font-semibold text-text">{displayName || "Your account"}</p>
         <p className="truncate font-ui text-xs text-text-dim">{email}</p>
       </div>
-      <div className={DIVIDER} />
+      <MenuSeparator />
       <MenuItem onClick={onAccountSettings}>Account settings</MenuItem>
       {canInvite && <MenuItem onClick={onInvite}>Invite…</MenuItem>}
-      <div className={DIVIDER} />
+      <MenuSeparator />
       <div className="flex items-center justify-between gap-4 px-2 py-1.5">
         <span className="font-ui text-sm font-medium text-text-dim">Theme</span>
         <ToggleGroup
@@ -74,7 +73,7 @@ export function AvatarMenu({
           onValueChange={(value) => onSetTheme(value === "light" || value === "dark" ? value : "system")}
         />
       </div>
-      <div className={DIVIDER} />
+      <MenuSeparator />
       <MenuItem onClick={onSignOut}>Sign out</MenuItem>
     </Menu>
   );

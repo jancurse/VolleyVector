@@ -80,10 +80,29 @@ describe("childrenOf", () => {
   });
 });
 
+// A corrupted tree whose parent chain loops: X is its own child (X.parentId === "X"), and Y/Z form a
+// two-note cycle. A naive recursion would overflow the stack walking either.
+const note = (id: string, parentId: string | null): Note => ({
+  id,
+  title: id,
+  slug: id.toLowerCase(),
+  blocks: [],
+  parentId,
+  order: 0,
+  capability: "owner",
+  currentRevisionId: null,
+});
+const CYCLIC: Note[] = [note("X", "X"), note("Y", "Z"), note("Z", "Y")];
+
 describe("subtreeIds", () => {
   test("collects a note and all its descendants", () => {
     expect(new Set(subtreeIds(TREE, "A"))).toEqual(new Set(["A", "A1", "A2", "A1a"]));
     expect(subtreeIds(TREE, "B")).toEqual(["B"]);
+  });
+
+  test("terminates on a cyclic parent chain instead of overflowing the stack", () => {
+    expect(subtreeIds(CYCLIC, "X")).toEqual(["X"]); // self-loop visited once
+    expect(new Set(subtreeIds(CYCLIC, "Y"))).toEqual(new Set(["Y", "Z"])); // each side of the cycle once
   });
 });
 
@@ -96,6 +115,13 @@ describe("flattenNotes", () => {
       ["A2", 1],
       ["B", 0],
     ]);
+  });
+
+  test("terminates entering a cyclic parent chain instead of overflowing the stack", () => {
+    // A self-loop note is its own child, so descending into it recurses forever without the guard.
+    expect(flattenNotes(CYCLIC, "X").map(({ note }) => note.id)).toEqual(["X"]);
+    // The mutual Y↔Z cycle: each side is visited once.
+    expect(new Set(flattenNotes(CYCLIC, "Y").map(({ note }) => note.id))).toEqual(new Set(["Z", "Y"]));
   });
 });
 

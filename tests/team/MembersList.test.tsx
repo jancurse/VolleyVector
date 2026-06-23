@@ -13,6 +13,7 @@ const member = (over: Partial<Member> = {}): Member => ({
 
 const base = {
   loading: false,
+  error: null,
   canManage: false,
   currentUserId: undefined,
   onSetRole: () => {},

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
 import { writeWithRetries } from "../supabase/retry";
 import type { BoardRow, Capability } from "../supabase/rows";
 import { boardFromRow, boardToContent, boardToInsert } from "../supabase/rows";
+import { insertOwnerGrant, useSpaceStore } from "../supabase/useSpaceStore";
 import type { TeamRole } from "../workspace/useWorkspace";
 import type { Space } from "../workspace/space";
 import type { Board } from "./types";
@@ -53,78 +54,18 @@ function selectSpaceBoards(space: Space, userId: string) {
 export function useBoards(space: Space | null, isAdmin: boolean, activeRole: TeamRole | null): BoardsStore {
   const { user } = useAuth();
 
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const read = useCallback((space: Space, userId: string) => selectSpaceBoards(space, userId), []);
 
-  const capabilityOf = useCallback(
-    (grant: Capability | undefined): Capability => {
-      if (isAdmin) return "owner";
-      if (!grant) return "viewer";
-      if (space?.kind === "team") return activeRole === "coach" ? grant : "viewer";
-
-      return grant;
-    },
-    [isAdmin, activeRole, space]
-  );
-
-  const mapRows = useCallback(
-    (rows: LoadedBoardRow[]): Board[] =>
+  const map = useCallback(
+    (rows: LoadedBoardRow[], capabilityOf: (grant: Capability | undefined) => Capability): Board[] =>
       rows
         .map((row) => boardFromRow(row, capabilityOf(row.board_access[0]?.capability)))
         .sort((a, b) => b.updatedAt - a.updatedAt),
-    [capabilityOf]
+    []
   );
 
-  const refetch = useCallback(async () => {
-    if (!space || !user) return;
-
-    const { data, error: queryError } = await selectSpaceBoards(space, user.id);
-
-    if (!queryError && data) setBoards(mapRows(data as LoadedBoardRow[]));
-  }, [space, user, mapRows]);
-
-  useEffect(() => {
-    let active = true;
-
-    void (async () => {
-      if (!space || !user) {
-        setBoards([]);
-        setLoading(false);
-
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      const { data, error: queryError } = await selectSpaceBoards(space, user.id);
-
-      if (!active) return;
-
-      if (queryError) {
-        setError(queryError.message);
-        setLoading(false);
-
-        return;
-      }
-
-      setBoards(mapRows(data as LoadedBoardRow[]));
-      setLoading(false);
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [space, user, mapRows]);
-
-  const fail = useCallback(
-    (message: string) => {
-      setError(message);
-      void refetch();
-    },
-    [refetch]
-  );
+  const store = useSpaceStore<LoadedBoardRow, Board>({ space, isAdmin, activeRole, user, read, map });
+  const { items: boards, setItems: setBoards, loading, error, fail } = store;
 
   const addBoard = useCallback(
     async (board: Board): Promise<string | null> => {
@@ -145,60 +86,59 @@ export function useBoards(space: Space | null, isAdmin: boolean, activeRole: Tea
 
       // The creator's first grant: the access list is empty until now, so the bootstrap insert policy lets
       // the creator add it. A team board is owned by its team (coaches manage); a personal board by the user.
-      const grant = {
-        board_id: stamped.id,
-        user_id: space.kind === "team" ? null : user.id,
-        team_id: space.kind === "team" ? space.teamId : null,
-        capability: "owner" as Capability,
-      };
+      const grantError = await insertOwnerGrant(
+        "board_access",
+        {
+          board_id: stamped.id,
+          user_id: space.kind === "team" ? null : user.id,
+          team_id: space.kind === "team" ? space.teamId : null,
+          capability: "owner" as Capability,
+        },
+        { rpc: "delete_orphan_board", args: { board: stamped.id } }
+      );
 
-      const grantError = await writeWithRetries(async () => {
-        const result = await supabase.from("board_access").insert(grant);
-
-        return result.error?.code === "23505" ? { error: null } : result;
-      });
-
-      // The grant write failed after the row landed: remove the orphaned row so a failed create leaves
-      // nothing behind. A plain delete cannot (board deletes are admin-only), so go through the RPC.
-      if (grantError !== null) {
-        await supabase.rpc("delete_orphan_board", { board: stamped.id });
-
-        return grantError;
-      }
+      if (grantError !== null) return grantError;
 
       setBoards((prev) => [stamped, ...prev]);
 
       return null;
     },
-    [space, user]
+    [space, user, setBoards]
   );
 
-  const updateBoard = useCallback(async (board: Board, opts?: { overwrite?: boolean }): Promise<string | null> => {
-    let base = board.currentRevisionId;
+  const updateBoard = useCallback(
+    async (board: Board, opts?: { overwrite?: boolean }): Promise<string | null> => {
+      let base = board.currentRevisionId;
 
-    if (opts?.overwrite) {
-      const { data: current } = await supabase.from("boards").select("current_revision_id").eq("id", board.id).single();
+      if (opts?.overwrite) {
+        const { data: current } = await supabase
+          .from("boards")
+          .select("current_revision_id")
+          .eq("id", board.id)
+          .single();
 
-      base = (current as { current_revision_id: string | null } | null)?.current_revision_id ?? null;
-    }
+        base = (current as { current_revision_id: string | null } | null)?.current_revision_id ?? null;
+      }
 
-    const { data, error: rpcError } = await supabase.rpc("commit_board", {
-      board: board.id,
-      content: boardToContent(board),
-      base,
-    });
+      const { data, error: rpcError } = await supabase.rpc("commit_board", {
+        board: board.id,
+        content: boardToContent(board),
+        base,
+      });
 
-    if (rpcError) return rpcError.message;
-    if (data === null) return COMMIT_CONFLICT;
+      if (rpcError) return rpcError.message;
+      if (data === null) return COMMIT_CONFLICT;
 
-    const updated = { ...board, currentRevisionId: data as string, updatedAt: Date.now() };
+      const updated = { ...board, currentRevisionId: data as string, updatedAt: Date.now() };
 
-    setBoards((prev) =>
-      prev.some((b) => b.id === board.id) ? prev.map((b) => (b.id === board.id ? updated : b)) : [updated, ...prev]
-    );
+      setBoards((prev) =>
+        prev.some((b) => b.id === board.id) ? prev.map((b) => (b.id === board.id ? updated : b)) : [updated, ...prev]
+      );
 
-    return null;
-  }, []);
+      return null;
+    },
+    [setBoards]
+  );
 
   // Deletion detaches the caller's grant: their user grant in the personal space, the team's grant in a team
   // space. An after-delete trigger grace-archives the board only once its last grant is gone.
@@ -213,7 +153,7 @@ export function useBoards(space: Space | null, isAdmin: boolean, activeRole: Tea
 
       void scoped.then(({ error: writeError }) => writeError && fail(writeError.message));
     },
-    [space, user, fail]
+    [space, user, fail, setBoards]
   );
 
   return { boards, loading, error, addBoard, deleteBoard, updateBoard };

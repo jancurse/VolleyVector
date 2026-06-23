@@ -1,4 +1,5 @@
 import { supabase } from "../supabase/client";
+import { invokeFunction } from "../supabase/invokeFunction";
 import type { TeamRole } from "../workspace/useWorkspace";
 
 // The client side of single-use invite links. Creating a link is a plain insert RLS allows (a team's
@@ -86,28 +87,6 @@ export async function inviteAvailability(): Promise<{ available: number | null; 
   if (error) return { available: null, error: error.message };
 
   return { available: (data as number | null) ?? null, error: null };
-}
-
-async function invokeFunction(name: string, body: Record<string, unknown>): Promise<{ error: string | null }> {
-  const { error } = await supabase.functions.invoke(name, { body });
-
-  if (!error) return { error: null };
-
-  // A failed call carries the function's HTTP Response; surface the reason it returned rather than the
-  // generic "Edge Function returned a non-2xx status code".
-  const context = (error as { context?: { json?: () => Promise<{ error?: string }> } }).context;
-
-  if (context?.json) {
-    try {
-      const failure = await context.json();
-
-      if (failure?.error) return { error: failure.error };
-    } catch {
-      // Body was not readable JSON; fall back to the generic message.
-    }
-  }
-
-  return { error: error.message };
 }
 
 /**

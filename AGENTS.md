@@ -24,7 +24,9 @@ VolleyVector is a single-page React 19 + TypeScript + Vite app for building, bro
 - `src/history/`: the revision list, the read-only board and note history views, the structured board/note diff, and the revision-loading hooks.
 - `src/theme/` and `src/ui/`: the light/dark theme hook, and the shared Base UI + Tailwind control wrappers (buttons, inputs, and overlays) every surface renders through, plus the theme toggle.
 - `src/supabase/`, `src/auth/`, `src/account/`, `src/workspace/`, `src/team/`, `src/admin/`, `src/invites/`, `src/sharing/`: the Supabase client and row mappers, the auth gate and login, the account panel and display-name setup, the active-space and team membership state, team management (roles, invite links), admin management (teams, accounts, deleted-content recovery), the invite-link flow (preview, accept, set-password), and the sharing flows (the board and note access managers, the relationship-scoped principal picker, copy-as-fork, the share-token route and read-only viewer, and sharing outside your teams by grant link or exact email).
-- `src/App.tsx`: the top-level shell that owns navigation and wires the stores together.
+- `src/routing/`: the hash-route parsing and the current route hook, the typed link builders, the title slug helpers, and the NotFound page.
+- `src/shell/`: the app shell and its sidebar, icon rail, and drawer; the top bar, breadcrumb, space switcher, and account avatar menu; and the brand mark drawn from one geometry source.
+- `src/App.tsx`: the top-level component that owns navigation and wires the stores into the shell.
 
 See @docs/architecture.md for how these fit together and the detail behind each.
 

@@ -50,6 +50,10 @@ export function snapToGrid(point: NormalizedPoint, divisions: number): Normalize
 }
 
 function snapAxis(value: number, divisions: number): number {
+  // A value already off the court (a benched marker past the end line) never snaps onto the
+  // boundary, however close a coarse grid puts the line: it would yank the marker onto the court.
+  if (value < 0 || value > 1) return value;
+
   const cell = 1 / divisions;
   const line = Math.max(0, Math.min(divisions, Math.round(value / cell))) * cell;
 

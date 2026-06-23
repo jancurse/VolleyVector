@@ -86,6 +86,33 @@ insert into public.board_access (board_id, user_id, capability) values
   ('d0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000003', 'editor'), -- co-edited: coachA2
   ('f0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'owner');  -- the other grant
 
+-- A note coachA owns, anchored to and granted to team A, used by the access-UPDATE guard test.
+insert into public.topics (id, created_by, team_id, title, slug) values
+  ('70000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-00000000000a', 'Team A note', 'team-a-note');
+insert into public.topic_access (topic_id, team_id, capability) values
+  ('70000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000a', 'owner');
+insert into public.topic_access (topic_id, user_id, capability) values
+  ('70000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'owner');
+
+-- A note anchored to and granted to team A, then shared out to coachB. When team A is purged it must
+-- survive on the out-of-team grant alone, so its only other grant is coachB's (no coachA grant here).
+insert into public.topics (id, created_by, team_id, title, slug) values
+  ('70000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-00000000000a', 'Shared-out note', 'shared-out-note');
+insert into public.topic_access (topic_id, team_id, capability) values
+  ('70000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-00000000000a', 'owner');
+insert into public.topic_access (topic_id, user_id, capability) values
+  ('70000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000005', 'editor'); -- coachB, outside team A
+
+-- A board coachA owns and already shares with coachB at viewer, plus an editor link coachA minted on it.
+-- Used by the upgrade-or-grant test: redeeming as coachB must raise viewer to editor, not no-op.
+insert into public.boards (id, created_by, title) values
+  ('d0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000002', 'Coach A upgrade board');
+insert into public.board_access (board_id, user_id, capability) values
+  ('d0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000002', 'owner'),
+  ('d0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000005', 'viewer'); -- coachB holds viewer
+insert into public.access_links (token, board_id, capability, created_by) values
+  ('11111111111111111111111111111111', 'd0000000-0000-0000-0000-000000000003', 'editor', 'a0000000-0000-0000-0000-000000000002');
+
 -- ---------------------------------------------------------------------------
 -- 1. Team owner grant: a coach gets the grant's capability (owner), a player gets viewer, an outside coach
 --    gets nothing.
@@ -456,6 +483,220 @@ begin
   select count(*) into n from public.memberships
     where team_id = new_team and user_id = 'a0000000-0000-0000-0000-000000000004' and role = 'coach';
   if n <> 1 then raise exception 'FAIL create_team: the creator is not a coach of the new team'; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 14. Access-list UPDATE coach guard: an owner may not repoint a grant onto a team they do not coach, and
+--     a non-coach (player, outside coach) may not update the grant at all. (board_access and topic_access.)
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA, owner of c0...001 and 70...001
+do $$
+declare blocked boolean; updated int;
+begin
+  -- coachA owns the board (team A owner grant) but does not coach team B, so repointing onto team B is blocked.
+  blocked := false;
+  begin
+    update public.board_access set team_id = 'b0000000-0000-0000-0000-00000000000b'
+      where board_id = 'c0000000-0000-0000-0000-000000000001' and team_id = 'b0000000-0000-0000-0000-00000000000a';
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL access update: an owner repointed a board grant onto a team they do not coach'; end if;
+
+  -- The same on topic_access.
+  blocked := false;
+  begin
+    update public.topic_access set team_id = 'b0000000-0000-0000-0000-00000000000b'
+      where topic_id = '70000000-0000-0000-0000-000000000001' and team_id = 'b0000000-0000-0000-0000-00000000000a';
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL access update: an owner repointed a note grant onto a team they do not coach'; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000004","role":"authenticated"}'; -- playerA, no manage rights
+do $$
+declare updated int;
+begin
+  update public.board_access set team_id = 'b0000000-0000-0000-0000-00000000000a'
+    where board_id = 'c0000000-0000-0000-0000-000000000001' and team_id = 'b0000000-0000-0000-0000-00000000000a';
+  get diagnostics updated = row_count;
+  if updated <> 0 then raise exception 'FAIL access update: a player updated a board grant (% rows)', updated; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}'; -- coachB, coaches another team
+do $$
+declare updated int;
+begin
+  update public.board_access set team_id = 'b0000000-0000-0000-0000-00000000000b'
+    where board_id = 'c0000000-0000-0000-0000-000000000001' and team_id = 'b0000000-0000-0000-0000-00000000000a';
+  get diagnostics updated = row_count;
+  if updated <> 0 then raise exception 'FAIL access update: an outside coach updated a board grant (% rows)', updated; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 15. Team-purge note survival: a note shared out of team A survives team A's purge. The team-A grant
+--     cascades away, archive_orphaned_topic leaves the note alive because the coachB grant remains, and the
+--     note row is not hard-deleted. (Run as the fixture owner; purge_expired is service_role only.)
+-- ---------------------------------------------------------------------------
+do $$
+declare archived timestamptz; team_grants int; other_grant int; n int;
+begin
+  -- Grace-archive and age team A past the 3-month purge window.
+  update public.teams set deleted_at = now() - interval '4 months' where id = 'b0000000-0000-0000-0000-00000000000a';
+  set local role service_role;
+  perform public.purge_expired();
+  reset role;
+
+  -- The team is gone; its grant on the shared-out note cascaded; the note and coachB's grant remain.
+  select count(*) into n from public.topics where id = '70000000-0000-0000-0000-000000000002';
+  if n <> 1 then raise exception 'FAIL purge survival: a shared-out note was hard-deleted with its team'; end if;
+  select deleted_at into archived from public.topics where id = '70000000-0000-0000-0000-000000000002';
+  if archived is not null then raise exception 'FAIL purge survival: a shared-out note was archived though a grant remained'; end if;
+  select count(*) into team_grants from public.topic_access
+    where topic_id = '70000000-0000-0000-0000-000000000002' and team_id = 'b0000000-0000-0000-0000-00000000000a';
+  if team_grants <> 0 then raise exception 'FAIL purge survival: the purged team grant did not cascade off the note'; end if;
+  select count(*) into other_grant from public.topic_access
+    where topic_id = '70000000-0000-0000-0000-000000000002' and user_id = 'a0000000-0000-0000-0000-000000000005';
+  if other_grant <> 1 then raise exception 'FAIL purge survival: the out-of-team grant did not survive the purge'; end if;
+end $$;
+
+-- Team A and its memberships are gone now. The remaining sections target only out-of-team principals
+-- (coachA, coachB) and content not anchored to team A, so they are unaffected.
+
+-- ---------------------------------------------------------------------------
+-- 16. Upgrade-or-grant: redeeming a link for a recipient who already holds a lower grant raises the
+--     capability rather than reporting success while leaving the grant unchanged. The grant_board_by_email
+--     path upgrades the same way.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}'; -- coachB, holds viewer on d0...003
+do $$
+declare cap text;
+begin
+  perform public.redeem_access_link('11111111111111111111111111111111'); -- the link carries editor
+  select capability into cap from public.board_access
+    where board_id = 'd0000000-0000-0000-0000-000000000003' and user_id = 'a0000000-0000-0000-0000-000000000005';
+  if cap is distinct from 'editor' then raise exception 'FAIL upgrade: redeeming a link did not raise a lower grant (got %)', cap; end if;
+end $$;
+reset role;
+
+-- An email grant from coachA (owner) upgrades coachB from editor to owner; a lower-or-equal email grant is a no-op.
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA, owner of d0...003
+do $$
+declare cap text;
+begin
+  perform public.grant_board_by_email('d0000000-0000-0000-0000-000000000003', 'rls-coachB@test.local', 'owner');
+  select capability into cap from public.board_access
+    where board_id = 'd0000000-0000-0000-0000-000000000003' and user_id = 'a0000000-0000-0000-0000-000000000005';
+  if cap is distinct from 'owner' then raise exception 'FAIL upgrade: an email grant did not raise a lower grant (got %)', cap; end if;
+
+  perform public.grant_board_by_email('d0000000-0000-0000-0000-000000000003', 'rls-coachB@test.local', 'viewer');
+  select capability into cap from public.board_access
+    where board_id = 'd0000000-0000-0000-0000-000000000003' and user_id = 'a0000000-0000-0000-0000-000000000005';
+  if cap is distinct from 'owner' then raise exception 'FAIL upgrade: a lower email grant downgraded an existing grant (got %)', cap; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 17. Email grant is no oracle: it returns nothing for both a matching and a non-matching address, and the
+--     owner check runs before and independent of the lookup (a non-owner is rejected for any address).
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA, owner of d0...003
+do $$
+declare hit_rows int; miss_rows int;
+begin
+  -- The RPC returns void, so a hit and a miss are indistinguishable to the caller: both succeed silently and
+  -- yield no row. Calling it as a table source, both return a single void row and never a result value.
+  select count(*) into hit_rows from public.grant_board_by_email('d0000000-0000-0000-0000-000000000003', 'rls-coachB@test.local', 'viewer');
+  select count(*) into miss_rows from public.grant_board_by_email('d0000000-0000-0000-0000-000000000003', 'nobody@test.local', 'viewer');
+  if hit_rows is distinct from miss_rows then
+    raise exception 'FAIL oracle: a matching and a non-matching email grant differ (% vs %)', hit_rows, miss_rows;
+  end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}'; -- coachB, holds nothing on d0...002
+do $$
+declare blocked boolean := false;
+begin
+  -- The owner check fires regardless of whether the address resolves: a non-owner is rejected even for a real account.
+  begin
+    perform public.grant_board_by_email('d0000000-0000-0000-0000-000000000002', 'rls-coachA@test.local', 'viewer');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL oracle: a non-owner granted by email'; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 18. Link is single-use and binds to its redeemer; admin_list_profiles is admin-only and the only path
+--     that returns email.
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}'; -- coachB redeemed link 1111... in section 16
+do $$
+declare used_by_id uuid; blocked boolean := false;
+begin
+  -- The first redemption (section 16) marked the link used and stamped used_by as coachB.
+  select used_by into used_by_id from public.access_links where token = '11111111111111111111111111111111';
+  if used_by_id is distinct from 'a0000000-0000-0000-0000-000000000005' then
+    raise exception 'FAIL single-use: the link did not bind to its redeemer';
+  end if;
+  -- A second redemption of the spent link is rejected.
+  begin
+    perform public.redeem_access_link('11111111111111111111111111111111');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL single-use: a spent link was redeemed again'; end if;
+
+  -- A non-admin gets nothing from admin_list_profiles (no rows, no email leak).
+  if exists (select 1 from public.admin_list_profiles()) then
+    raise exception 'FAIL email: admin_list_profiles returned rows for a non-admin';
+  end if;
+  -- A non-admin cannot select email off the profiles table either (the column is not in their grant).
+  blocked := false;
+  begin
+    perform email from public.profiles where id = 'a0000000-0000-0000-0000-000000000002';
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL email: a non-admin selected the email column'; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000001","role":"authenticated"}'; -- admin
+do $$
+declare n int;
+begin
+  select count(*) into n from public.admin_list_profiles() where email is not null;
+  if n < 1 then raise exception 'FAIL email: admin_list_profiles returned no emails for an admin'; end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 19. Invite insert guard: a non-coach cannot mint an invite for a team they do not coach. (coachB coaches
+--     team B only; team A is purged, so coachA no longer coaches any team and is rejected for team B too.)
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA, coaches no surviving team
+do $$
+declare blocked boolean := false;
+begin
+  begin
+    insert into public.invites (created_by, allows_new_account, team_id, role)
+      values ('a0000000-0000-0000-0000-000000000002', false, 'b0000000-0000-0000-0000-00000000000b', 'player');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL invite guard: a non-coach minted an invite for a team they do not coach'; end if;
 end $$;
 reset role;
 

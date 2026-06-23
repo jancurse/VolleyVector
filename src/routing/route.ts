@@ -38,10 +38,18 @@ function spacePrefix(space: RouteSpace): string {
   return space.kind === "personal" ? "/personal" : `/t/${encodeURIComponent(space.teamSlug)}`;
 }
 
-/** Read a pathname into a `Route`. Pure and total: an unrecognised path yields `notFound`. */
+/** Read a pathname into a `Route`. Pure and total: an unrecognised path — including one with a malformed
+ *  `%` escape that `decodeURIComponent` would throw on — yields `notFound`. */
 export function parsePath(pathname: string): Route {
-  const segs = pathname.split("/").filter(Boolean).map(decodeURIComponent);
   const notFound: Route = { kind: "notFound", path: pathname };
+
+  let segs: string[];
+
+  try {
+    segs = pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  } catch {
+    return notFound;
+  }
 
   if (segs.length === 0) return { kind: "root" };
 

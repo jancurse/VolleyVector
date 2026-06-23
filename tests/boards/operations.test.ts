@@ -80,6 +80,15 @@ describe("nextLabel", () => {
   test("leaves the ball unlabelled", () => {
     expect(nextLabel("ball", MARKERS)).toBeUndefined();
   });
+
+  test("fills the lowest free index for a role, not one past the count", () => {
+    const at = (id: string, label: string): Marker => ({ id, role: "outside", label, position: { x: 0, y: 0 } });
+
+    // OH2 was removed: the next outside reuses index 2 rather than re-minting OH3 (which exists).
+    expect(nextLabel("outside", [at("a", "OH1"), at("c", "OH3")])).toBe("OH2");
+    // The lowest-numbered was removed: the next outside reclaims OH1.
+    expect(nextLabel("outside", [at("b", "OH2")])).toBe("OH1");
+  });
 });
 
 describe("makeMarker", () => {
@@ -143,6 +152,17 @@ describe("stepMarkers", () => {
 
   test("returns nothing for an out-of-range step", () => {
     expect(stepMarkers(SEQUENCE, 9)).toEqual([]);
+  });
+
+  test("benches a marker missing a position for the step instead of yielding undefined", () => {
+    const corrupt: Board = {
+      ...SEQUENCE,
+      steps: [{ id: "s1", instruction: "", positions: { a: { x: 0.2, y: 0.2 } } }], // "b" has no position
+    };
+    const markers = stepMarkers(corrupt, 0);
+
+    expect(markers.find((m) => m.id === "a")?.position).toEqual({ x: 0.2, y: 0.2 });
+    expect(markers.find((m) => m.id === "b")?.position.y).toBeGreaterThan(1); // benched, never undefined
   });
 });
 

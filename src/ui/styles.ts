@@ -57,7 +57,7 @@ export type IconButtonVariant = "control" | "accent" | "plain";
 export type IconButtonSize = "xs" | "sm" | "md" | "lg";
 
 const ICON_BASE =
-  "inline-grid place-items-center cursor-pointer transition-[background-color,filter,transform,opacity,color] duration-200 ease-settle disabled:cursor-default disabled:opacity-35";
+  "inline-grid place-items-center cursor-pointer transition-[background-color,filter,transform,opacity,color] duration-200 ease-settle disabled:cursor-default disabled:opacity-40";
 
 const ICON_VARIANT: Record<IconButtonVariant, string> = {
   control:
@@ -110,9 +110,15 @@ export const EYEBROW = "m-0 mb-[0.4rem] font-mono text-xs font-medium uppercase 
 /** The large display title shared by the board view, library, and note pages. */
 export const TITLE = "m-0 font-display text-[clamp(1.7rem,3.5vw,2.6rem)] font-bold leading-[1.05] tracking-[-0.025em]";
 
+/** The full-width, max-width fragment every page-width surface shares (board view/editor, notes, history). */
+export const PAGE_WIDTH = "w-full max-w-[1320px]";
+
 /** The centred, max-width column the library and note pages share. */
-export const PAGE =
-  "mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(1rem,3vh,1.6rem)] animate-rise motion-reduce:animate-none";
+export const PAGE = cx(
+  "mx-auto flex",
+  PAGE_WIDTH,
+  "flex-col gap-[clamp(1rem,3vh,1.6rem)] animate-rise motion-reduce:animate-none"
+);
 
 /** The title-and-actions bar atop a page. */
 export const PAGE_BAR = "flex flex-wrap items-end justify-between gap-4 max-[760px]:items-start";
@@ -124,6 +130,10 @@ export const INPUT =
 /** The floating overlay surface (border, fill, shadow) without padding, so a caller can set its own. It
     rides the dedicated elevated `overlay` token, the lightest layer, so every popup reads as lifted. */
 export const OVERLAY_SURFACE = "z-20 rounded-lg border border-border bg-overlay shadow-overlay outline-none";
+
+/** The dimming scrim behind a modal (the centred dialogs and the side panel), fading with the overlay. */
+export const BACKDROP =
+  "fixed inset-0 z-40 bg-black/40 transition-opacity duration-150 ease-settle data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none";
 
 /** A floating overlay surface for menus, listboxes, and combobox popups. */
 export const OVERLAY = cx(OVERLAY_SURFACE, "p-1");

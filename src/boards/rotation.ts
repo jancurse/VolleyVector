@@ -228,7 +228,9 @@ export function legalRegion(
 }
 
 /** Clamp a dragged marker to the region strict mode allows ({@link legalRegion}). An unassigned
- *  marker passes through untouched. */
+ *  marker passes through untouched. When the outer pair overlaps, an axis's region inverts
+ *  (`lo > hi`) and has no legal point; that axis holds at the marker's current position rather than
+ *  snapping to a degenerate boundary, which would teleport the marker onto its neighbour. */
 export function clampToLegal(
   assignment: Record<RotationSlot, string>,
   positions: Record<string, NormalizedPoint>,
@@ -240,8 +242,11 @@ export function clampToLegal(
   if (!region) return desired;
 
   const { loX, hiX, loY, hiY } = region;
+  const current = positions[markerId];
+  const onAxis = (lo: number, hi: number, want: number, held: number) =>
+    lo > hi ? held : Math.min(hi, Math.max(lo, want));
 
-  return { x: Math.min(hiX, Math.max(loX, desired.x)), y: Math.min(hiY, Math.max(loY, desired.y)) };
+  return { x: onAxis(loX, hiX, desired.x, current.x), y: onAxis(loY, hiY, desired.y, current.y) };
 }
 
 // Board transforms for rotation, mirroring the step edits in operations.ts: each targets one step.

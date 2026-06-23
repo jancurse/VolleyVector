@@ -31,7 +31,7 @@ type NoteViewProps = {
   menu?: ReactNode;
 };
 
-const SUBTOPIC =
+const SUBNOTE =
   "cursor-pointer rounded-pill border border-border bg-control px-[0.66rem] py-[0.28rem] font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:bg-control-hover hover:text-text";
 
 export function NoteView({
@@ -85,7 +85,7 @@ export function NoteView({
               <Button variant="ghost" onClick={onAddSubnote}>
                 + Subnote
               </Button>
-              <Button variant="ghost" onClick={onEdit}>
+              <Button variant="primary" onClick={onEdit}>
                 Edit
               </Button>
             </>
@@ -97,7 +97,7 @@ export function NoteView({
       {subnotes.length > 0 && (
         <nav className="flex flex-wrap gap-[0.4rem]" aria-label="Subnotes">
           {subnotes.map((sub) => (
-            <button key={sub.id} type="button" className={SUBTOPIC} onClick={() => onSelectNote(sub.id)}>
+            <button key={sub.id} type="button" className={SUBNOTE} onClick={() => onSelectNote(sub.id)}>
               {sub.title}
             </button>
           ))}

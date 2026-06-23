@@ -94,10 +94,18 @@ Deno.serve(async (req) => {
 
   // Account deletion is a soft-delete with a 3-month recovery window. We do NOT hard-delete the auth user
   // here, and we leave the user's grants intact so restore is lossless; the scheduled purge cascades the
-  // grants away after the window. Two steps:
-  //   1. Flag the profile deleted (the recovery window applies to the user's personal area + login).
-  //   2. Ban the auth user so they cannot log in. Restore (restore-account) un-bans and clears the flag.
+  // grants away after the window. Two steps, ban before flag so the two never diverge into a hidden-but-
+  // loginable account:
+  //   1. Ban the auth user so they cannot log in. Restore (restore-account) un-bans and clears the flag.
+  //   2. Flag the profile deleted (the recovery window applies to the user's personal area + login). A flag
+  //      that fails after the ban leaves a banned, unflagged account — hidden from login, just not yet in the
+  //      recovery list — never a hidden-but-loginable one.
   const now = new Date().toISOString();
+
+  // Ban far into the future (~100 years). Restore sets ban_duration back to "none".
+  const { error: banError } = await admin.auth.admin.updateUserById(target, { ban_duration: "876000h" });
+
+  if (banError) return json({ error: `Could not disable account: ${banError.message}` }, 400);
 
   const flagged = await admin
     .from("profiles")
@@ -105,11 +113,6 @@ Deno.serve(async (req) => {
     .eq("id", target);
 
   if (flagged.error) return json({ error: `Could not flag account: ${flagged.error.message}` }, 400);
-
-  // Ban far into the future (~100 years). Restore sets ban_duration back to "none".
-  const { error: banError } = await admin.auth.admin.updateUserById(target, { ban_duration: "876000h" });
-
-  if (banError) return json({ error: `Could not disable account: ${banError.message}` }, 400);
 
   return json({ ok: true });
 });

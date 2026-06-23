@@ -22,7 +22,7 @@ import { Button } from "../ui/Button";
 import { CourtFrame } from "../ui/CourtFrame";
 import { Markdown } from "../ui/Markdown";
 import { Toolbar, ToolbarButton } from "../ui/Toolbar";
-import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TAG_CHIP, TITLE, cx } from "../ui/styles";
+import { EYEBROW, MUTED, PAGE_WIDTH, PANEL, PANEL_TITLE, TAG_CHIP, TITLE, cx } from "../ui/styles";
 import { RotationBoard } from "./RotationBoard";
 import { violationMessages } from "./RotationPanel";
 import { StepStrip } from "./StepStrip";
@@ -167,7 +167,13 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions, m
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(1rem,3vh,1.75rem)] animate-rise motion-reduce:animate-none">
+      <div
+        className={cx(
+          "mx-auto flex",
+          PAGE_WIDTH,
+          "flex-col gap-[clamp(1rem,3vh,1.75rem)] animate-rise motion-reduce:animate-none"
+        )}
+      >
         <Button variant="text" size="sm" className="self-start pl-0" onClick={onBack}>
           {backLabel}
         </Button>

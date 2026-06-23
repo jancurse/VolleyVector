@@ -46,7 +46,8 @@ export type Workspace = {
   activeTeamId: string | null;
   /** The caller's membership role in the active team, or null when not a member (admins still edit). */
   activeRole: TeamRole | null;
-  /** Create a team (any account) as its coach and switch to it; returns the new id, or null on failure. */
+  /** Create a team (any account) as its coach, without repointing the active space; returns the new id,
+   *  or null on failure. */
   createTeam: (name: string) => Promise<string | null>;
   /** Join an other team or the showcase with a chosen role; returns an error message or null. */
   joinTeam: (teamId: string, role: TeamRole) => Promise<{ error: string | null }>;
@@ -167,8 +168,8 @@ export function useWorkspace(): Workspace {
     async (name: string): Promise<string | null> => {
       if (!user) return null;
 
-      // One creation path for every account: the RPC inserts the team and the creator's coach membership
-      // together and handles slug collisions server-side, returning the new id.
+      // One creation path for every account: the RPC inserts the team and handles slug collisions
+      // server-side, returning the new id.
       const { data, error } = await supabase.rpc("create_team", { name, slug: slugify(name) });
 
       if (error || !data) {
@@ -182,8 +183,10 @@ export function useWorkspace(): Workspace {
       const row = await supabase.from("teams").select("slug").eq("id", teamId).maybeSingle();
       const slug = (row.data as { slug: string } | null)?.slug ?? slugify(name);
 
+      // Open team creation: the RPC makes the creator the new team's coach, so it joins their team list.
+      // The active space is not repointed. The admin panel stays put, and the space switcher's create
+      // flow opens the new team explicitly.
       setTeams((prev) => [...prev, { teamId, teamName: name, slug, role: "coach" }]);
-      setActiveSpace({ kind: "team", teamId });
 
       return teamId;
     },

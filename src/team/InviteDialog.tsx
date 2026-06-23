@@ -9,6 +9,7 @@ import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { ToggleGroup } from "../ui/ToggleGroup";
 import { MUTED } from "../ui/styles";
+import { useCopyLabel } from "../ui/useCopyLabel";
 import type { TeamRole } from "../workspace/useWorkspace";
 
 // The one invite surface, reached two ways: a team's "Invite member" button (the team fixed, role chosen
@@ -56,7 +57,7 @@ export function InviteDialog({
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [copyLabel, setCopyLabel] = useState("Copy");
+  const { copied, copy, reset: resetCopied } = useCopyLabel();
 
   // Load the caller's remaining invites fresh each open, so the count stays live across mints in a session.
   useEffect(() => {
@@ -86,7 +87,7 @@ export function InviteDialog({
       setSent(null);
       setError(null);
       setBusy(false);
-      setCopyLabel("Copy");
+      resetCopied();
     }
 
     onOpenChange(next);
@@ -98,7 +99,7 @@ export function InviteDialog({
     setLink(null);
     setSent(null);
     setError(null);
-    setCopyLabel("Copy");
+    resetCopied();
   };
 
   const canCreateAccount = isAdmin || (available !== null && available >= 1);
@@ -112,7 +113,7 @@ export function InviteDialog({
     setBusy(true);
     setError(null);
     setLink(null);
-    setCopyLabel("Copy");
+    resetCopied();
 
     const { url, error: failure } = await createInvite({
       createdBy: currentUserId,
@@ -152,18 +153,13 @@ export function InviteDialog({
     }
 
     setSent(address);
+    // The email send spent a slot; refresh the live count for a non-admin so the quota note and Send button
+    // do not go stale.
+    if (!isAdmin) void inviteAvailability().then(({ available: a }) => setAvailable(a));
   };
 
-  const copyLink = async () => {
-    if (!link) return;
-
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopyLabel("Copied");
-      window.setTimeout(() => setCopyLabel("Copy"), 1500);
-    } catch {
-      // The clipboard call can reject (no permission or an insecure context); leave the label as is.
-    }
+  const copyLink = () => {
+    if (link) copy(link);
   };
 
   // Only relevant to a non-admin who will create an account (a "new person" link or any email invite): how
@@ -278,8 +274,8 @@ export function InviteDialog({
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2">
                   <Input readOnly value={link} aria-label="Invite link" onFocus={(event) => event.target.select()} />
-                  <Button variant="ghost" onClick={() => void copyLink()}>
-                    {copyLabel}
+                  <Button variant="ghost" onClick={copyLink}>
+                    {copied ? "Copied" : "Copy"}
                   </Button>
                 </div>
                 <span className={MUTED}>Single-use, expires in 7 days.</span>

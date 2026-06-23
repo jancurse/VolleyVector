@@ -46,6 +46,7 @@ import { Combobox } from "../ui/Combobox";
 import { CourtFrame } from "../ui/CourtFrame";
 import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
+import { cx, PAGE_WIDTH } from "../ui/styles";
 import { AnnotationInspector } from "./AnnotationInspector";
 import { AnnotationToolbar } from "./AnnotationToolbar";
 import { DEFAULT_ANNOTATION_STYLE } from "./annotationStyle";
@@ -159,10 +160,16 @@ export function BoardEditor({
     return (p: NormalizedPoint) => snapAnnotationPoint(p, points, divisions);
   }, [draft, stepIndex, grid, snapOn]);
 
-  // Back the working draft up to localStorage on every change, so a reload mid-edit loses nothing.
-  // The untouched initial draft writes no backup, so merely opening the editor never prompts a restore.
+  // Back the working draft up to localStorage as it changes, so a reload mid-edit loses nothing. The
+  // untouched initial draft writes no backup, so merely opening the editor never prompts a restore. A
+  // continuous gesture (a drag) churns the draft every frame, so the write is debounced rather than run
+  // synchronously per frame: only the settled draft is serialized, never every intermediate position.
   useEffect(() => {
-    if (draft !== board) saveDraftBackup(draft);
+    if (draft === board) return;
+
+    const timer = setTimeout(() => saveDraftBackup(draft), 400);
+
+    return () => clearTimeout(timer);
   }, [draft, board]);
 
   // Done commits the draft. While the save is in flight the editor stays open and Done cannot be
@@ -379,7 +386,11 @@ export function BoardEditor({
 
   return (
     <div
-      className="mx-auto flex w-full min-w-0 max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-[rise_0.6s_0.05s_var(--ease-settle)_both] motion-reduce:animate-none"
+      className={cx(
+        "mx-auto flex min-w-0",
+        PAGE_WIDTH,
+        "flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-[rise_0.6s_0.05s_var(--ease-settle)_both] motion-reduce:animate-none"
+      )}
       onBlur={commit}
     >
       <div className="flex items-center gap-4">
@@ -556,7 +567,8 @@ export function BoardEditor({
                 onSelect={(i) => setActiveStepId(draft.steps[i]?.id ?? draft.steps[0].id)}
                 onAdd={appendStep}
                 onRemove={deleteStep}
-                onMove={(from, to) => set((d) => moveStep(d, from, to))}
+                onMove={(from, to) => replace((d) => moveStep(d, from, to))}
+                onMoveEnd={commit}
               />
             ) : (
               <Button variant="dashed" onClick={appendStep} aria-label="Add step">
@@ -596,6 +608,7 @@ export function BoardEditor({
               value={activeStep.instruction}
               onChange={(value) => replace((d) => setStepInstruction(d, activeStepId, value))}
               placeholder="What happens on this step? (markdown)"
+              compact
             />
           )}
         </aside>

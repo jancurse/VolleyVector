@@ -14,6 +14,7 @@ import type { Member } from "./useMembers";
 type MembersListProps = {
   members: readonly Member[];
   loading: boolean;
+  error: string | null;
   canManage: boolean;
   currentUserId: string | undefined;
   onSetRole: (userId: string, role: TeamRole) => void;
@@ -46,12 +47,14 @@ export function memberLabel(member: Member): string {
 export function MembersList({
   members,
   loading,
+  error,
   canManage,
   currentUserId,
   onSetRole,
   onRemove,
 }: MembersListProps): JSX.Element {
   if (loading) return <p className={MUTED}>Loading…</p>;
+  if (error) return <p className="m-0 text-sm text-danger">{error}</p>;
   if (members.length === 0) return <p className={MUTED}>No members yet.</p>;
 
   return (

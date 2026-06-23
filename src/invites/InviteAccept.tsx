@@ -13,6 +13,8 @@ import { invitePreview, redeemInvite, redeemInviteAsCurrentUser } from "./invite
 const BACKGROUND =
   "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)]";
 
+const MIN_LENGTH = 8;
+
 type Loaded =
   | { status: "loading"; preview: null }
   | { status: "invalid"; preview: null }
@@ -30,6 +32,7 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
   const [mode, setMode] = useState<"create" | "signin">("create");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -64,6 +67,18 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
   };
 
   const signUp = async () => {
+    if (password.length < MIN_LENGTH) {
+      setError(`Use at least ${MIN_LENGTH} characters.`);
+
+      return;
+    }
+
+    if (password !== confirm) {
+      setError("The passwords do not match.");
+
+      return;
+    }
+
     setError(null);
     setBusy(true);
 
@@ -201,8 +216,22 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
                 required
               />
             </Field>
+            {creating && (
+              <Field label="Confirm password">
+                <Input
+                  type="password"
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </Field>
+            )}
             {error && <p className="m-0 text-sm text-danger">{error}</p>}
-            <Button type="submit" disabled={busy || email.trim() === "" || password === ""}>
+            <Button
+              type="submit"
+              disabled={busy || email.trim() === "" || password === "" || (creating && confirm === "")}
+            >
               {creating
                 ? busy
                   ? "Working…"

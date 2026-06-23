@@ -191,7 +191,7 @@ export function boardFromRevision(row: BoardRevisionRow, board: Board): Board {
     createdBy: row.created_by,
     capability: board.capability,
     currentRevisionId: row.id,
-    autoArrows: (c.auto_arrows as boolean) ?? false,
+    autoArrows: (c.auto_arrows as boolean) ?? true,
     rotationStrict: (c.rotation_strict as boolean) ?? false,
     createdAt: board.createdAt,
     updatedAt: Date.parse(row.created_at),
