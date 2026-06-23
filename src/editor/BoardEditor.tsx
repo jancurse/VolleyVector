@@ -53,13 +53,13 @@ import { DEFAULT_ANNOTATION_STYLE } from "./annotationStyle";
 import { CourtSettings } from "./CourtSettings";
 import { DescriptionEditor } from "./DescriptionEditor";
 import { saveDraftBackup } from "./draftBackup";
-import { MarkerInspector } from "./MarkerInspector";
+import { MARKER_BAR, MarkerInspector } from "./MarkerInspector";
 import { MarkerPalette } from "./MarkerPalette";
 import { RotationPanel } from "./RotationPanel";
 import { StepStrip } from "./StepStrip";
 import { useDraftHistory } from "./useDraftHistory";
 import { useEditorShortcuts } from "./useEditorShortcuts";
-import { useWideEditor } from "./useWideEditor";
+import { useToolRail } from "./useToolRail";
 
 const NUDGE = 0.01;
 const NUDGE_LARGE = 0.05;
@@ -119,7 +119,7 @@ export function BoardEditor({
   const frameRef = useRef<HTMLElement>(null);
   // Set while Escape is cancelling the text editor, so the following blur undoes instead of keeping.
   const textCancelled = useRef(false);
-  const wide = useWideEditor();
+  const toolRail = useToolRail();
 
   const snap = useMemo(
     () => (grid > 0 && snapOn ? (p: NormalizedPoint) => snapToGrid(p, grid) : undefined),
@@ -367,8 +367,8 @@ export function BoardEditor({
     onTool: changeTool,
   });
 
-  // The gear lives in whichever tool rail is on screen: opening rightward off the wide vertical
-  // rail, or downward from the narrow horizontal toolbar.
+  // The gear lives in whichever tool rail is on screen: opening rightward off the vertical rail
+  // beside the court, or downward from the horizontal toolbar below it at phone widths.
   const courtSettings = (side: "right" | "bottom") => (
     <CourtSettings
       side={side}
@@ -428,7 +428,7 @@ export function BoardEditor({
 
       <div className="grid grid-cols-[minmax(0,calc(min(74vh,620px)_+_54px))_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]">
         <div className="flex min-w-0 items-start justify-center gap-3">
-          {wide && (
+          {toolRail && (
             <AnnotationToolbar
               tool={tool}
               onToolChange={changeTool}
@@ -438,6 +438,69 @@ export function BoardEditor({
           )}
 
           <div className="flex w-full min-w-0 max-w-[min(74vh,620px)] flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
+            {/* The contextual inspector sits above the court so it never overlaps the diagram. In
+                markers mode it is a fixed-height bar, present whether or not a marker is selected, so
+                clicking a marker never shifts the court down. It stays outside the focusable figure so
+                typing in it never nudges a marker. */}
+            {tool === "markers" ? (
+              selected ? (
+                <MarkerInspector
+                  marker={selected}
+                  mode={draft.mode}
+                  onChangeRole={(role) => set((d) => setMarker(d, selected.id, { role }))}
+                  onChangeColor={(color) => set((d) => setMarker(d, selected.id, { color }))}
+                  onChangeLabel={(label) =>
+                    replace((d) => setMarker(d, selected.id, { label: label.trim() === "" ? undefined : label }))
+                  }
+                  onDelete={() => {
+                    set((d) => removeMarker(d, selected.id));
+                    setSelectedId(null);
+                  }}
+                />
+              ) : (
+                <p className={cx(MARKER_BAR, "text-sm text-text-dim")}>
+                  Select a marker to edit it, or drag one from the palette below.
+                </p>
+              )
+            ) : (
+              <div className="w-full">
+                <AnnotationInspector
+                  style={selectedAnnotation ?? annotationStyle}
+                  selected={Boolean(selectedAnnotation)}
+                  fill={
+                    selectedAnnotation
+                      ? hasFill(selectedAnnotation)
+                        ? selectedAnnotation.fill
+                        : undefined
+                      : isFillTool(tool)
+                        ? annotationStyle.fill
+                        : undefined
+                  }
+                  dash={
+                    selectedAnnotation
+                      ? hasDash(selectedAnnotation)
+                        ? (selectedAnnotation.dash ?? "solid")
+                        : undefined
+                      : isDashTool(tool)
+                        ? annotationStyle.dash
+                        : undefined
+                  }
+                  onChangeColor={(color) => styleAnnotation({ color })}
+                  onChangeWidth={(width) => styleAnnotation({ width })}
+                  onChangeFill={(fill) => styleAnnotation({ fill })}
+                  onChangeDash={(dash) => styleAnnotation({ dash })}
+                  onRemove={
+                    selectedAnnotation
+                      ? () => {
+                          set((d) => removeAnnotation(d, activeStepId, selectedAnnotation.id));
+                          setSelectedAnnotationId(null);
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+            )}
+
             <div className="relative w-full">
               <CourtFrame
                 ref={frameRef}
@@ -489,66 +552,6 @@ export function BoardEditor({
                   />
                 )}
               </CourtFrame>
-
-              {/* The contextual inspector floats over the court's top-right corner at wide widths, so
-                  selecting a marker or arming a tool never reflows the page; below the breakpoint it
-                  drops back into the flow under the court. It sits outside the focusable figure so
-                  typing in it never nudges a marker. */}
-              {(selected || tool !== "markers" || selectedAnnotation) && (
-                <div className="absolute right-3 top-3 z-20 w-[300px] rounded-xl shadow-overlay max-[1040px]:static max-[1040px]:mt-[clamp(0.75rem,2vh,1.25rem)] max-[1040px]:w-full max-[1040px]:shadow-none">
-                  {selected && (
-                    <MarkerInspector
-                      marker={selected}
-                      mode={draft.mode}
-                      onChangeRole={(role) => set((d) => setMarker(d, selected.id, { role }))}
-                      onChangeColor={(color) => set((d) => setMarker(d, selected.id, { color }))}
-                      onChangeLabel={(label) =>
-                        replace((d) => setMarker(d, selected.id, { label: label.trim() === "" ? undefined : label }))
-                      }
-                      onDelete={() => {
-                        set((d) => removeMarker(d, selected.id));
-                        setSelectedId(null);
-                      }}
-                    />
-                  )}
-                  {(tool !== "markers" || selectedAnnotation) && (
-                    <AnnotationInspector
-                      style={selectedAnnotation ?? annotationStyle}
-                      selected={Boolean(selectedAnnotation)}
-                      fill={
-                        selectedAnnotation
-                          ? hasFill(selectedAnnotation)
-                            ? selectedAnnotation.fill
-                            : undefined
-                          : isFillTool(tool)
-                            ? annotationStyle.fill
-                            : undefined
-                      }
-                      dash={
-                        selectedAnnotation
-                          ? hasDash(selectedAnnotation)
-                            ? (selectedAnnotation.dash ?? "solid")
-                            : undefined
-                          : isDashTool(tool)
-                            ? annotationStyle.dash
-                            : undefined
-                      }
-                      onChangeColor={(color) => styleAnnotation({ color })}
-                      onChangeWidth={(width) => styleAnnotation({ width })}
-                      onChangeFill={(fill) => styleAnnotation({ fill })}
-                      onChangeDash={(dash) => styleAnnotation({ dash })}
-                      onRemove={
-                        selectedAnnotation
-                          ? () => {
-                              set((d) => removeAnnotation(d, activeStepId, selectedAnnotation.id));
-                              setSelectedAnnotationId(null);
-                            }
-                          : undefined
-                      }
-                    />
-                  )}
-                </div>
-              )}
             </div>
 
             {/* The multi-click polygon gesture is the one tool whose finish isn't obvious, so spell it
@@ -582,7 +585,9 @@ export function BoardEditor({
               </Button>
             )}
 
-            {!wide && <AnnotationToolbar tool={tool} onToolChange={changeTool} settings={courtSettings("bottom")} />}
+            {!toolRail && (
+              <AnnotationToolbar tool={tool} onToolChange={changeTool} settings={courtSettings("bottom")} />
+            )}
 
             <MarkerPalette mode={draft.mode} onAdd={add} />
           </div>
