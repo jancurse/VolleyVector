@@ -50,6 +50,18 @@ function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+// The email and message are visitor-supplied and public, so escape them before they go into the
+// notification's HTML body. Otherwise a requester could inject markup or a phishing link into the inbox
+// an admin reads. The text part needs no escaping.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function notifyEmail(email: string, message: string): { subject: string; html: string; text: string } {
   const subject = "New access request for VolleyVector";
   const note = message ? `\n\nMessage:\n${message}` : "";
@@ -61,8 +73,8 @@ function notifyEmail(email: string, message: string): { subject: string; html: s
         <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:12px;padding:32px;">
           <tr><td style="font-size:18px;font-weight:600;padding-bottom:12px;">VolleyVector</td></tr>
           <tr><td style="font-size:15px;line-height:1.5;padding-bottom:12px;">Someone asked for access to VolleyVector.</td></tr>
-          <tr><td style="font-size:15px;line-height:1.5;padding-bottom:8px;"><strong>Email:</strong> ${email}</td></tr>
-          ${message ? `<tr><td style="font-size:15px;line-height:1.5;white-space:pre-wrap;"><strong>Message:</strong><br />${message}</td></tr>` : ""}
+          <tr><td style="font-size:15px;line-height:1.5;padding-bottom:8px;"><strong>Email:</strong> ${escapeHtml(email)}</td></tr>
+          ${message ? `<tr><td style="font-size:15px;line-height:1.5;white-space:pre-wrap;"><strong>Message:</strong><br />${escapeHtml(message)}</td></tr>` : ""}
         </table>
       </td></tr>
     </table>
@@ -92,7 +104,8 @@ Deno.serve(async (req) => {
   }
 
   const email = (body.email ?? "").trim().toLowerCase();
-  const message = (body.message ?? "").trim();
+  // Cap the message so a public caller cannot store an unbounded blob.
+  const message = (body.message ?? "").trim().slice(0, 2000);
 
   if (!looksLikeEmail(email)) return json({ error: "Enter a valid email address." }, 400);
 

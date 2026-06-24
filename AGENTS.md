@@ -27,6 +27,7 @@ VolleyVector is a single-page React 19 + TypeScript + Vite app for building, bro
 - `src/legal/`: the user-facing Terms & Privacy notice, its public `/terms` page, and the signup acceptance-checkbox label.
 - `src/routing/`: the hash-route parsing and the current route hook, the typed link builders, the title slug helpers, and the NotFound page.
 - `src/shell/`: the app shell and its sidebar, icon rail, and drawer; the top bar, breadcrumb, space switcher, and account avatar menu; the top-level error boundary; and the brand mark drawn from one geometry source.
+- `src/landing/`: the logged-out landing page and what it floats over the hero: the shared sign-in/sign-up auth modal, the request-access form, the rotation showcase, and the no-account `#/try` sandbox that builds a board in memory without touching Supabase. The example boards render through the app's own board surfaces, so they cannot drift.
 - `src/App.tsx`: the top-level component that owns navigation and wires the stores into the shell.
 
 See @docs/architecture.md for how these fit together and the detail behind each.
