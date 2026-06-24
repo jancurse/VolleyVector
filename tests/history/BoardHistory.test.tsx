@@ -35,10 +35,10 @@ test("restoring a past revision passes its snapshot up", async () => {
   render(<BoardHistory board={board} onBack={() => {}} onRestore={onRestore} />);
 
   const list = await screen.findByRole("complementary", { name: "Revision history" });
-  // Only the past (non-current) revision offers Restore.
-  const restore = await within(list).findByRole("button", { name: "Restore this version" });
 
-  await user.click(restore);
+  // Restore lives inside the selected past row, so the past revision must be picked first.
+  await user.click(await within(list).findByRole("button", { name: /Created/ }));
+  await user.click(await within(list).findByRole("button", { name: "Restore this version" }));
 
   expect(onRestore).toHaveBeenCalledTimes(1);
   expect(onRestore.mock.calls[0][0].title).toContain("(draft)");
