@@ -35,6 +35,7 @@ import { useConfirm } from "./ui/useConfirm";
 import { useAuth } from "./auth/useAuth";
 import { Login } from "./auth/Login";
 import { SetPassword } from "./auth/SetPassword";
+import { ResetPassword } from "./auth/ResetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
 import { LegalView } from "./legal/LegalView";
 import { Button } from "./ui/Button";
@@ -169,7 +170,7 @@ function NoteActionsMenu({
 
 export function App(): JSX.Element {
   const [, themePreference, setThemePreference] = useTheme();
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, recovering, clearRecovery } = useAuth();
   const workspace = useWorkspace();
   const shareToken = useShareRoute();
   const inviteToken = useInviteRoute();
@@ -618,6 +619,10 @@ export function App(): JSX.Element {
   // A grant link binds its grant to the signed-in caller, so it sits behind the gate above: once signed
   // in, it owns the screen to preview and claim the share before the app loads.
   if (grantToken) return <GrantAccept key={grantToken} token={grantToken} />;
+
+  // A recovery link signs the user in and fires PASSWORD_RECOVERY; collect a new password before the app,
+  // ahead of the invite and name gates below.
+  if (recovering) return <ResetPassword email={user.email ?? ""} onDone={clearRecovery} />;
 
   // An invite email signs its recipient in as a freshly created, passwordless account. Collect a password
   // before the app, so the account is usable for ordinary sign-in afterwards.
