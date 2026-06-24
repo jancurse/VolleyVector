@@ -432,7 +432,7 @@ export function BoardEditor({
       )}
 
       <div className="grid grid-cols-[minmax(0,calc(var(--court-size)_+_54px))_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-court:grid-cols-[minmax(0,1fr)]">
-        <div className="flex min-w-0 items-start justify-center gap-3">
+        <div className="flex min-w-0 items-start justify-center gap-3 max-court:order-2">
           {toolRail && (
             <AnnotationToolbar
               tool={tool}
@@ -598,30 +598,42 @@ export function BoardEditor({
           </div>
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-4 max-court:w-full">
-          <RotationPanel
-            draft={draft}
-            stepIndex={stepIndex}
-            violations={violations}
-            selectedId={selectedId}
-            links={overlay?.links}
-            onChangeRotation={changeRotation}
-            onPlace={place}
-            onChangeStrict={(rotationStrict) => set((d) => ({ ...d, rotationStrict }))}
-          />
-          <DescriptionEditor
-            value={draft.description}
-            onChange={(description) => replace((d) => ({ ...d, description }))}
-          />
+        {/* Narrow, the detail panel dissolves into the grid (contents) so its pieces order around the
+            board: description-beside-rotation above (order-1), the board (order-2), the step
+            instruction below (order-3) — the same one-column order the read-only view uses. The pairing
+            stretches to one card height (items-stretch) and wraps once they no longer fit. */}
+        <aside className="flex min-w-0 flex-col gap-4 max-court:contents">
+          <div className="flex flex-col-reverse gap-4 max-court:order-1 max-court:flex-row max-court:flex-wrap max-court:items-stretch">
+            <div className="grid min-w-0 max-court:flex-1 max-court:min-w-[16rem]">
+              <DescriptionEditor
+                value={draft.description}
+                onChange={(description) => replace((d) => ({ ...d, description }))}
+              />
+            </div>
+            <div className="grid max-court:max-w-[17rem]">
+              <RotationPanel
+                draft={draft}
+                stepIndex={stepIndex}
+                violations={violations}
+                selectedId={selectedId}
+                links={overlay?.links}
+                onChangeRotation={changeRotation}
+                onPlace={place}
+                onChangeStrict={(rotationStrict) => set((d) => ({ ...d, rotationStrict }))}
+              />
+            </div>
+          </div>
           {sequence && (
-            <DescriptionEditor
-              key={activeStep.id}
-              title={`Step ${stepIndex + 1} instruction`}
-              value={activeStep.instruction}
-              onChange={(value) => replace((d) => setStepInstruction(d, activeStepId, value))}
-              placeholder="What happens on this step? (markdown)"
-              compact
-            />
+            <div className="max-court:order-3">
+              <DescriptionEditor
+                key={activeStep.id}
+                title={`Step ${stepIndex + 1} instruction`}
+                value={activeStep.instruction}
+                onChange={(value) => replace((d) => setStepInstruction(d, activeStepId, value))}
+                placeholder="What happens on this step? (markdown)"
+                compact
+              />
+            </div>
           )}
         </aside>
       </div>

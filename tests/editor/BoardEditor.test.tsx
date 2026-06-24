@@ -141,13 +141,20 @@ describe("BoardEditor court settings", () => {
 });
 
 describe("BoardEditor aside", () => {
-  test("orders the rotation panel above the description", () => {
+  test("renders the rotation panel above the description", () => {
     setup();
 
     const rotation = screen.getByRole("region", { name: "Rotation" });
     const description = screen.getByText("Description");
 
-    expect(rotation.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The pair shares a flex-col-reverse row (description first in the DOM, rotation second), which
+    // renders the rotation on top while keeping the reading order description-then-rotation, matching
+    // the read-only view and the landing showcase.
+    const row = rotation.closest(".flex-col-reverse");
+
+    expect(row).not.toBeNull();
+    expect(row).toContainElement(description);
+    expect(rotation.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 });
 

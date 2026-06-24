@@ -343,7 +343,7 @@ export function RotationShowcase({ board, script }: { board: Board; script: read
                 {editing ? (
                   <div
                     ref={descRef}
-                    className={cx("rounded-xl transition-shadow duration-200", beat.descTyping && FIELD_GLOW)}
+                    className={cx("grid rounded-xl transition-shadow duration-200", beat.descTyping && FIELD_GLOW)}
                   >
                     <DescriptionEditor value={beat.descTyping ? `${descText}│` : descText} onChange={noop} compact />
                   </div>
