@@ -35,8 +35,10 @@ const PREV_ICON = <ChevronLeft size={18} strokeWidth={2.2} aria-hidden="true" />
 
 const NEXT_ICON = <ChevronRight size={18} strokeWidth={2.2} aria-hidden="true" />;
 
+// The court+description body decides its one- vs two-column layout from its own width (a container
+// query), not the viewport, so it stacks correctly when embedded in history's narrowed preview column.
 const VIEW_BODY =
-  "grid grid-cols-[min(74vh,620px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]";
+  "grid grid-cols-[min(74vh,620px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] @max-[1040px]:grid-cols-[minmax(0,1fr)]";
 
 // The rotation board and its label, visible whenever the shown step's rotation is active. The label
 // stays visible while the board itself collapses (no hover reveal: hover does not exist on touch).
@@ -169,7 +171,7 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions, m
     <MotionConfig reducedMotion="user">
       <div
         className={cx(
-          "mx-auto flex",
+          "mx-auto flex @container",
           PAGE_WIDTH,
           "flex-col gap-[clamp(1rem,3vh,1.75rem)] animate-rise motion-reduce:animate-none"
         )}
@@ -198,7 +200,7 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions, m
         {sequence ? (
           <div className={VIEW_BODY}>
             <div className="flex min-w-0 flex-col items-center gap-[clamp(0.7rem,2vh,1.15rem)]">
-              <CourtFrame className="max-[1040px]:justify-self-center">
+              <CourtFrame className="@max-[1040px]:justify-self-center">
                 <Court
                   animated
                   markers={markers}
@@ -271,7 +273,7 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions, m
           </div>
         ) : (
           <div className={VIEW_BODY}>
-            <CourtFrame className="max-[1040px]:justify-self-center">
+            <CourtFrame className="@max-[1040px]:justify-self-center">
               <Court
                 markers={markers}
                 annotations={annotations}
