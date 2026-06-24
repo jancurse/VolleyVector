@@ -200,7 +200,8 @@ const FAULT_POS: Record<string, NormalizedPoint> = { ...RECEIVE_POS, s: { x: 0.7
 
 const TITLE_BASE = "5-1: Rotation 1";
 const TITLE_ALT = "Rotation 1: Opposite receives";
-const DESC_BASE = "OH1 receives on the right side, with OH2 and Libero taking most of the court and the Setter tucked behind OH1.";
+const DESC_BASE =
+  "OH1 receives on the right side, with OH2 and Libero taking most of the court and the Setter tucked behind OH1.";
 const DESC_ALT = "Opposite in reception with Libero and OH2 covering more court. OH1 and Setter stack in Zone 2.";
 
 /** Where the coach's pointer rests for a beat. A UI anchor (`edit`/`done`/`title`/`desc`), a marker by
