@@ -90,10 +90,15 @@ export async function inviteAvailability(): Promise<{ available: number | null; 
 }
 
 /**
- * Invite a team member by email: the `send-invite` function mints a normal "New person" link as the caller
- * (so quota is enforced) and emails its #/invite link, reserving a slot only when the email actually sends.
+ * Invite someone by email: the `send-invite` function mints a normal "New person" link as the caller (so
+ * quota is enforced) and emails its #/invite link, reserving a slot only when the email actually sends. A
+ * null team/role makes a team-less invite that onboards an account into its personal space only.
  */
-export function sendEmailInvite(email: string, teamId: string, role: TeamRole): Promise<{ error: string | null }> {
+export function sendEmailInvite(
+  email: string,
+  teamId: string | null,
+  role: TeamRole | null
+): Promise<{ error: string | null }> {
   return invokeFunction("send-invite", { email, teamId, role });
 }
 

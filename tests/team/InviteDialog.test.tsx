@@ -65,17 +65,31 @@ describe("InviteDialog, By email", () => {
     expect(await screen.findByText(expected)).toBeInTheDocument();
   });
 
-  test.each([
-    { kind: "no team is selected", team: null, quota: 5, note: "Select a team to send an email invite." },
-    { kind: "no invites remain", team, quota: 0, note: "No invites left." },
-  ])("disables Send when $kind", async ({ team: scoped, quota, note }) => {
-    available = quota;
-    renderDialog({ team: scoped });
+  test("sends a team-less invite (null team and role) when no team is selected", async () => {
+    renderDialog({ team: null });
+
+    await userEvent.click(screen.getByRole("button", { name: "By email" }));
+    await userEvent.type(screen.getByRole("textbox"), "newbie@example.test");
+
+    const send = screen.getByRole("button", { name: "Send invite" });
+
+    await waitFor(() => expect(send).toBeEnabled());
+    await userEvent.click(send);
+
+    expect(invokeCalls).toEqual([
+      { name: "send-invite", body: { email: "newbie@example.test", teamId: null, role: null } },
+    ]);
+    expect(await screen.findByText("Invite sent to newbie@example.test.")).toBeInTheDocument();
+  });
+
+  test("disables Send when no invites remain", async () => {
+    available = 0;
+    renderDialog();
 
     await userEvent.click(screen.getByRole("button", { name: "By email" }));
     await userEvent.type(screen.getByRole("textbox"), "x@y.test");
 
-    expect(await screen.findByText(note)).toBeInTheDocument();
+    expect(await screen.findByText("No invites left.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send invite" })).toBeDisabled();
     expect(invokeCalls).toHaveLength(0);
   });

@@ -1,5 +1,7 @@
 // VolleyVector — send-invite Edge Function.
-// An email invite is an ordinary "New person" team invite link, delivered by email instead of copied.
+// An email invite is an ordinary "New person" invite link, delivered by email instead of copied. It carries
+// a team (the recipient joins it on redeem) or none (a team-less link onboards an account into its personal
+// space only), mirroring a copied link.
 // The only thing that must stay server-side is the Resend API key, so this function exists purely to mint
 // the link and send the email under that key. Everything else runs as the caller under row-level security:
 // the row is minted by the caller's own client, so the `invites_insert` policy and the `enforce_invite_quota`
@@ -31,9 +33,15 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function inviteEmail(teamName: string, role: string, link: string): { subject: string; html: string; text: string } {
-  const subject = `You're invited to ${teamName} on VolleyVector`;
-  const intro = `You've been invited to join ${teamName} as a ${role} on VolleyVector, an app for volleyball tactics and drills.`;
+function inviteEmail(
+  teamName: string | null,
+  role: string | null,
+  link: string
+): { subject: string; html: string; text: string } {
+  const subject = teamName ? `You're invited to ${teamName} on VolleyVector` : "You're invited to VolleyVector";
+  const intro = teamName
+    ? `You've been invited to join ${teamName} as a ${role} on VolleyVector, an app for volleyball tactics and drills.`
+    : "You've been invited to join VolleyVector, an app for volleyball tactics and drills.";
   const html = `<!doctype html>
 <html>
   <body style="margin:0;padding:24px;background:#f4f4f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#18181b;">
@@ -84,38 +92,49 @@ Deno.serve(async (req) => {
   }
 
   const email = (body.email ?? "").trim().toLowerCase();
-  const teamId = body.teamId ?? "";
-  const role = body.role === "coach" ? "coach" : "player";
+  const teamId = (body.teamId ?? "").trim();
+  const joinsTeam = teamId !== "";
+  const role = joinsTeam ? (body.role === "coach" ? "coach" : "player") : null;
 
-  if (!email || !teamId) return json({ error: "email and teamId are required" }, 400);
+  if (!email) return json({ error: "email is required" }, 400);
 
-  // Authorize for a clean message: an admin may invite anywhere; otherwise the caller must coach this team.
-  // The mint below re-enforces this under RLS, so this is the friendly 403, not the security boundary.
-  const { data: profile } = await caller.from("profiles").select("is_admin").eq("id", who.user.id).maybeSingle();
+  // Authorize for a clean message. A team invite needs an admin or a coach of that team; a team-less invite
+  // needs only a signed-in account (the insert policy and quota trigger gate it under RLS at the mint below).
+  // The mint re-enforces this, so this is the friendly 403, not the security boundary.
+  if (joinsTeam) {
+    const { data: profile } = await caller.from("profiles").select("is_admin").eq("id", who.user.id).maybeSingle();
 
-  let allowed = profile?.is_admin === true;
+    let allowed = profile?.is_admin === true;
 
-  if (!allowed) {
-    const { data: membership } = await caller
-      .from("memberships")
-      .select("role")
-      .eq("team_id", teamId)
-      .eq("user_id", who.user.id)
-      .maybeSingle();
+    if (!allowed) {
+      const { data: membership } = await caller
+        .from("memberships")
+        .select("role")
+        .eq("team_id", teamId)
+        .eq("user_id", who.user.id)
+        .maybeSingle();
 
-    allowed = membership?.role === "coach";
+      allowed = membership?.role === "coach";
+    }
+
+    if (!allowed) return json({ error: "Not allowed to invite into this team." }, 403);
   }
 
-  if (!allowed) return json({ error: "Not allowed to invite into this team." }, 403);
-
-  const { data: team } = await caller.from("teams").select("name").eq("id", teamId).maybeSingle();
-  const teamName = team?.name ?? "your team";
+  const teamName = joinsTeam
+    ? ((await caller.from("teams").select("name").eq("id", teamId).maybeSingle()).data?.name ?? "your team")
+    : null;
 
   // Mint the invite as the caller: identical to a copied "New person" link, so the insert policy and the
   // quota trigger gate it. A quota-exhausted mint raises here and never reaches the send.
   const { data: minted, error: mintError } = await caller
     .from("invites")
-    .insert({ created_by: who.user.id, allows_new_account: true, grant_quota: 0, team_id: teamId, role })
+    .insert({
+      created_by: who.user.id,
+      allows_new_account: true,
+      grant_quota: 0,
+      team_id: joinsTeam ? teamId : null,
+      role,
+    })
     .select("token")
     .single();
 
