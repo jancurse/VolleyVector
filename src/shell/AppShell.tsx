@@ -15,8 +15,7 @@ type AppShellProps = {
   children: ReactNode;
 };
 
-const SHELL =
-  "grid min-h-[100dvh] [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)] transition-[background-color] duration-[400ms]";
+const SHELL = "grid min-h-[100dvh] [background:var(--app-backdrop)] transition-[background-color] duration-[400ms]";
 
 const COLUMNS: Record<SidebarMode, string> = {
   full: "grid-cols-[16rem_minmax(0,1fr)]",

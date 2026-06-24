@@ -24,26 +24,37 @@ export type Playback = {
   prev: () => void;
 };
 
-export function useBoardPlayback(stepCount: number): Playback {
+// `loop` keeps playback running past the last step, dwelling on it then restarting from the first
+// (the auto-playing landing showcase); off, playback stops at the end as the app's view does.
+export function useBoardPlayback(stepCount: number, loop = false): Playback {
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
 
   const last = Math.max(0, stepCount - 1);
   const atEnd = step >= last;
 
-  // While playing, advance one step at a time; landing on the last step stops playback. The advance
-  // and the stop both happen in the timer callback, so the effect itself never sets state.
+  // While playing, advance one step at a time. Landing on the last step stops playback, or, when
+  // looping, dwells there and restarts from the first. The advance, stop, and restart all happen in
+  // the timer callback, so the effect itself never sets state.
   useEffect(() => {
-    if (!playing || step >= last) return;
+    if (!playing) return;
+
+    if (step >= last) {
+      if (!loop || last === 0) return;
+
+      const handle = setTimeout(() => setStep(0), ADVANCE_MS);
+
+      return () => clearTimeout(handle);
+    }
 
     const next = step + 1;
     const handle = setTimeout(() => {
       setStep(next);
-      if (next >= last) setPlaying(false);
+      if (next >= last && !loop) setPlaying(false);
     }, ADVANCE_MS);
 
     return () => clearTimeout(handle);
-  }, [playing, step, last]);
+  }, [playing, step, last, loop]);
 
   const goTo = useCallback(
     (next: number) => {

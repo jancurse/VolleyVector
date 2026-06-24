@@ -11,9 +11,10 @@ import {
   presetAssignment,
   rotationAssignment,
   rotationLabel,
+  rotationLinks,
   rotationViolations,
   setStepRotation,
-  violationFlags,
+  spotlightMarkers,
 } from "../../src/boards/rotation";
 import type { Board, BoardMarker, RotationSlot, StepRotation } from "../../src/boards/types";
 import type { NormalizedPoint } from "../../src/court/geometry";
@@ -199,14 +200,66 @@ describe("clampToLegal", () => {
   });
 });
 
-describe("violationFlags", () => {
-  test("flags both markers of a broken pair with a tie, and a solo violation alone", () => {
-    expect(
-      violationFlags(ROTATION_1, [
-        { kind: "pair", a: 1, b: 2 },
-        { kind: "outside", slot: 4 },
-      ])
-    ).toEqual({ markerIds: ["s", "oh1", "opp"], ties: [{ a: "s", b: "oh1" }] });
+describe("rotationLinks", () => {
+  const onNet = { ...onSpots(ROTATION_1), s: { x: 0.8, y: 0.1 } }; // setter (back) in front of its counterpart
+  const pairViolation = rotationViolations(ROTATION_1, onNet, FIVE_ONE); // [{ pair, 1, 2 }]
+
+  test("a violated pair is a persistent violation edge, with nothing selected", () => {
+    expect(rotationLinks(ROTATION_1, pairViolation, null)).toEqual({
+      links: [{ a: "s", b: "oh1", state: "violation" }],
+      faultIds: [],
+    });
+  });
+
+  test("selecting a player draws a cue edge to each legal constraining neighbour", () => {
+    expect(rotationLinks(ROTATION_1, [], "s").links).toEqual([
+      { a: "s", b: "oh1", state: "cue" },
+      { a: "s", b: "mb2", state: "cue" },
+    ]);
+  });
+
+  test("a selected player in a violation keeps that edge red and turns its other edges blue", () => {
+    expect(rotationLinks(ROTATION_1, pairViolation, "s").links).toEqual([
+      { a: "s", b: "oh1", state: "violation" },
+      { a: "s", b: "mb2", state: "cue" },
+    ]);
+  });
+
+  test("a player outside the playing area is a fault halo with no edge", () => {
+    const positions = { ...onSpots(ROTATION_1), oh1: { x: 1.05, y: 0.22 } };
+
+    expect(rotationLinks(ROTATION_1, rotationViolations(ROTATION_1, positions, FIVE_ONE), null)).toEqual({
+      links: [],
+      faultIds: ["oh1"],
+    });
+  });
+
+  test("a libero on a front-row slot is a fault halo with no edge", () => {
+    const assignment = { ...presetAssignment(WITH_LIBERO, 1)! };
+
+    [assignment[3], assignment[6]] = [assignment[6], assignment[3]]; // libero swapped into the front row
+
+    expect(rotationLinks(assignment, rotationViolations(assignment, onSpots(assignment), WITH_LIBERO), null)).toEqual({
+      links: [],
+      faultIds: ["lib"],
+    });
+  });
+});
+
+describe("spotlightMarkers", () => {
+  const links = rotationLinks(ROTATION_1, [], "s").links;
+
+  test("is null with nothing selected, so nothing dims", () => {
+    expect(spotlightMarkers(links, null)).toBeNull();
+  });
+
+  test("is the selected player with its linked markers", () => {
+    expect(spotlightMarkers(links, "s")).toEqual(new Set(["s", "oh1", "mb2"]));
+  });
+
+  test("is null for a marker with no edges (the ball, or rotation off)", () => {
+    expect(spotlightMarkers(links, "ball")).toBeNull();
+    expect(spotlightMarkers([], "s")).toBeNull();
   });
 });
 

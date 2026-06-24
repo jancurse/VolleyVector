@@ -28,9 +28,9 @@ import {
   isFrontRow,
   placeRotationMarker,
   rotationAssignment,
+  rotationLinks,
   rotationViolations,
   setStepRotation,
-  violationFlags,
 } from "../boards/rotation";
 import type { Annotation, Board, RotationSlot, StepRotation } from "../boards/types";
 import { isSequence } from "../boards/types";
@@ -140,7 +140,9 @@ export function BoardEditor({
   const sequence = isSequence(draft);
 
   // The active step's rotation, resolved: a complete assignment drives the overlap checks (in both
-  // enforcement flavours) and the court's violation flags; an inactive rotation drives neither.
+  // enforcement flavours) and the court's rotation overlay; an inactive rotation drives neither. The
+  // overlay's persistent violation edges and solo-fault halos recompute live as a player is dragged,
+  // and the selected player gains blue cue edges to its still-legal neighbours.
   const assignment = useMemo(
     () => rotationAssignment(draft.markers, activeStep.rotation),
     [draft.markers, activeStep.rotation]
@@ -149,7 +151,10 @@ export function BoardEditor({
     () => (assignment ? rotationViolations(assignment, activeStep.positions, draft.markers) : []),
     [assignment, activeStep.positions, draft.markers]
   );
-  const warnings = assignment && violations.length > 0 ? violationFlags(assignment, violations) : undefined;
+  const overlay = useMemo(
+    () => (assignment ? rotationLinks(assignment, violations, selectedId) : undefined),
+    [assignment, violations, selectedId]
+  );
 
   // Drawn/reshaped points snap to the court's features and the active step's markers; the grid joins
   // in only while grid snapping is on. Alt bypasses inside the draw hook.
@@ -426,7 +431,7 @@ export function BoardEditor({
         </p>
       )}
 
-      <div className="grid grid-cols-[minmax(0,calc(min(74vh,620px)_+_54px))_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,calc(var(--court-size)_+_54px))_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-court:grid-cols-[minmax(0,1fr)]">
         <div className="flex min-w-0 items-start justify-center gap-3">
           {toolRail && (
             <AnnotationToolbar
@@ -437,7 +442,7 @@ export function BoardEditor({
             />
           )}
 
-          <div className="flex w-full min-w-0 max-w-[min(74vh,620px)] flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
+          <div className="flex w-full min-w-0 max-w-[var(--court-size)] flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
             {/* The contextual inspector sits above the court so it never overlaps the diagram. In
                 markers mode it is a fixed-height bar, present whether or not a marker is selected, so
                 clicking a marker never shifts the court down. It stays outside the focusable figure so
@@ -515,7 +520,7 @@ export function BoardEditor({
                   markers={markers}
                   arrows={arrows}
                   annotations={annotations}
-                  warnings={warnings}
+                  rotation={overlay}
                   grid={grid}
                   snap={snap}
                   label={draft.title || "Untitled board"}
@@ -593,11 +598,13 @@ export function BoardEditor({
           </div>
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-4 max-[1040px]:w-full">
+        <aside className="flex min-w-0 flex-col gap-4 max-court:w-full">
           <RotationPanel
             draft={draft}
             stepIndex={stepIndex}
             violations={violations}
+            selectedId={selectedId}
+            links={overlay?.links}
             onChangeRotation={changeRotation}
             onPlace={place}
             onChangeStrict={(rotationStrict) => set((d) => ({ ...d, rotationStrict }))}

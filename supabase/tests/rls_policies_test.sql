@@ -724,6 +724,51 @@ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- 21. Access requests: the row is written only by the server (service role), and only an admin may read
+--     or update it. An ordinary client can neither read, insert, nor update a request.
+-- ---------------------------------------------------------------------------
+-- Seeded as the table owner, standing in for the Edge Function's service-role insert (which bypasses RLS).
+insert into public.access_requests (email, message) values ('hopeful@example.com', 'Please let me in');
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA (non-admin)
+do $$
+declare n int; updated int; blocked boolean := false;
+begin
+  select count(*) into n from public.access_requests;
+  if n <> 0 then raise exception 'FAIL access requests: a non-admin read an access request'; end if;
+
+  begin
+    insert into public.access_requests (email) values ('sneak@example.com');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL access requests: a non-admin inserted an access request'; end if;
+
+  update public.access_requests set handled_at = now();
+  get diagnostics updated = row_count;
+  if updated <> 0 then raise exception 'FAIL access requests: a non-admin updated an access request (% rows)', updated; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000001","role":"authenticated"}'; -- admin
+do $$
+declare n int; handled int; dismissed int;
+begin
+  select count(*) into n from public.access_requests;
+  if n <> 1 then raise exception 'FAIL access requests: an admin could not read the request'; end if;
+
+  update public.access_requests set handled_at = now() where email = 'hopeful@example.com';
+  get diagnostics handled = row_count;
+  if handled <> 1 then raise exception 'FAIL access requests: an admin could not mark a request handled'; end if;
+
+  update public.access_requests set deleted_at = now() where email = 'hopeful@example.com';
+  get diagnostics dismissed = row_count;
+  if dismissed <> 1 then raise exception 'FAIL access requests: an admin could not dismiss a request'; end if;
+end $$;
+reset role;
+
 select 'ALL RLS TESTS PASSED' as result;
 
 rollback;

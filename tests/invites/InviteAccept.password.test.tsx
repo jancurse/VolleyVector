@@ -3,12 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { InviteAccept } from "../../src/invites/InviteAccept";
+import type { InvitePreview } from "../../src/invites/invites";
+import type { InvitePreviewState } from "../../src/invites/useInvitePreview";
 import { AuthProvider } from "../../src/auth/useAuth";
 
-// The account-creation path validates the password client-side (a minimum length and a confirm-match field),
-// like the parallel SetPassword screen, so a typo cannot create an unusable account. The screen runs against
-// a mocked Supabase client: a signed-out session and an account-creation preview reach the create form, and
-// the recorded function invocations prove redemption only fires once the password passes validation.
+// The account-creation path validates the password client-side (a minimum length and a confirm-match field)
+// and gates redemption on Terms acceptance, so a typo cannot create an unusable account and signup always
+// records consent. The surface owns the preview fetch, so the test passes the resolved state in and mocks
+// only Supabase; the recorded function invocations prove redemption fires only once validation passes.
 const invokeCalls: { name: string; body: unknown }[] = [];
 
 vi.mock("../../src/supabase/client", () => ({
@@ -19,12 +21,7 @@ vi.mock("../../src/supabase/client", () => ({
       signInWithPassword: () => Promise.resolve({ data: { session: null }, error: null }),
       signOut: () => Promise.resolve({ error: null }),
     },
-    rpc: (fn: string) =>
-      Promise.resolve(
-        fn === "invite_preview"
-          ? { data: [{ allows_new_account: true, grant_quota: 0, team_name: "Eagles", role: "coach" }], error: null }
-          : { data: null, error: null }
-      ),
+    rpc: () => Promise.resolve({ data: null, error: null }),
     functions: {
       invoke: (name: string, opts: { body: unknown }) => {
         invokeCalls.push({ name, body: opts.body });
@@ -35,17 +32,22 @@ vi.mock("../../src/supabase/client", () => ({
   },
 }));
 
-function renderAccept() {
-  render(
-    <AuthProvider>
-      <InviteAccept token="t" />
-    </AuthProvider>
-  );
+function ready(preview: InvitePreview): InvitePreviewState {
+  return { status: "ready", preview };
 }
 
-async function setUp() {
-  renderAccept();
-  await screen.findByRole("heading", { name: "Join Eagles" });
+function setUp(): Promise<HTMLElement> {
+  render(
+    <AuthProvider>
+      <InviteAccept
+        token="t"
+        state={ready({ allowsNewAccount: true, grantQuota: 0, teamName: "Eagles", role: "coach" })}
+        initialMode="create"
+      />
+    </AuthProvider>
+  );
+
+  return screen.findByRole("heading", { name: "Join Eagles" });
 }
 
 beforeEach(() => {

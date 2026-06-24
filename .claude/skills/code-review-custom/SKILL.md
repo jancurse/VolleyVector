@@ -17,7 +17,7 @@ A step reading **dispatch an agent: <prompt>** is delegated: give that agent the
 4. **In one message, dispatch all of these agents at once** — never dispatch one and wait for it before the next:
     - a visual agent, only when the change touches the UI: load the playwright skill, then start the app and confirm the change on screen;
     - a diagnostics agent: run the diagnostics skill (not raw tool calls) on every changed file;
-    - a documentation agent: check that behaviour, data-model, and module-structure changes are reflected in README.md, AGENTS.md, and docs/architecture.md, in proportion to the change;
+    - a documentation agent: check that behaviour, data-model, and module-structure changes are reflected in README.md, CLAUDE.md, and docs/architecture.md, in proportion to the change;
     - one agent per candidate: read the relevant code, trace concrete scenarios, and judge whether the candidate is real.
 5. **Collect every agent's result.**
 6. **Report**: concatenate the confirmed findings into the format below.
@@ -73,14 +73,14 @@ Example:
 
 ## Checklist
 
-- **Style & conventions**: complies with the style guide (@docs/style_guide.md) and AGENTS.md rules.
+- **Style & conventions**: complies with the style guide (@docs/style_guide.md) and CLAUDE.md rules.
 - **Cleanliness**: no dead code, unused imports, debugging artifacts, unnecessary variables, or speculative abstractions.
 - **Simplification**: can any logic be simplified, with fewer branches, less indirection, or consolidated repetition?
 - **Codebase fit**: no duplication of existing functionality. Search for similar patterns before approving new ones. Consistent naming and patterns with surrounding code.
 - **Correctness**: the logic does what it's meant to, handling the expected inputs and the edge cases without bugs.
 - **Security**: changes preserve confidentiality, integrity, and availability. Secrets stay out of client code, untrusted input is handled safely, and access is enforced server-side rather than trusted to the client. Personal data (emails and the like) never reaches a non-admin client: check both what RLS policies and RPCs return and what the client selects.
 - **Testing**: sufficient tests for new/changed behaviour, following the react-testing skill rules. If tests are missing or inadequate, specify what should be tested.
-- **Documentation**: behaviour, data-model, or module-structure changes are reflected in the docs (README.md, AGENTS.md, docs/architecture.md). New documentation is proportional to the change, never over-explaining a small feature to the point of drowning surrounding content.
+- **Documentation**: behaviour, data-model, or module-structure changes are reflected in the docs (README.md, CLAUDE.md, docs/architecture.md). New documentation is proportional to the change, never over-explaining a small feature to the point of drowning surrounding content.
 - **Plans removed before merge**: A plan under `./plans/` is intentionally tracked on the feature branch for PR reference, but it must be deleted in a separate commit before the squash merge so it never reaches `main`. A plan still present in the branch under review is an ISSUE: flag it to be removed before merging.
 - **Diagnostics**: all changed files pass formatting, linting, and type checking.
 

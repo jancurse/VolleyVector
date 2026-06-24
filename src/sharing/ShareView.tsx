@@ -13,8 +13,7 @@ import { boardByToken, copyBoardToSpace } from "./share";
 import { CopyToPersonalButton } from "./CopyToPersonalButton";
 import { PromoteToTeamMenu } from "./PromoteToTeamMenu";
 
-const BG =
-  "flex min-h-[100dvh] flex-col [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)]";
+const BG = "flex min-h-[100dvh] flex-col [background:var(--app-backdrop)]";
 const STAGE = "flex min-h-0 flex-1 flex-col items-center px-[clamp(1.1rem,4vw,2.75rem)] pb-[clamp(1.5rem,4vh,2.5rem)]";
 
 type Loaded = { status: "loading" | "missing"; board: null } | { status: "ready"; board: Board };

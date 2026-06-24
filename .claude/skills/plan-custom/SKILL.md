@@ -1,12 +1,12 @@
 ---
-name: plan
-description: Collaboratively draft a feature plan. Writes plans to ./plans/, asks clarifying questions, never prescribes code, never offers to implement.
+name: plan-custom
+description: Collaboratively draft a feature plan file under ./plans/. This is the project's planning skill, distinct from the built-in plan mode; invoke it whenever the user asks to plan a feature or types /plan-custom. Asks clarifying questions, never prescribes code, never offers to implement.
 hooks:
   PreToolUse:
     - matcher: "Edit|Write"
       hooks:
         - type: command
-          command: ./.claude/skills/plan/hooks/restrict-paths.sh
+          command: ./.claude/skills/plan-custom/hooks/restrict-paths.sh
 ---
 
 # Plan Skill

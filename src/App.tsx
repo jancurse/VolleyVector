@@ -33,7 +33,10 @@ import { Menu, MenuItem, MenuSeparator } from "./ui/Menu";
 import { TooltipProvider } from "./ui/Tooltip";
 import { useConfirm } from "./ui/useConfirm";
 import { useAuth } from "./auth/useAuth";
-import { Login } from "./auth/Login";
+import { LandingPage } from "./landing/LandingPage";
+import { Sandbox } from "./landing/Sandbox";
+import { AuthModal } from "./landing/AuthModal";
+import { closeTry, openTry, useTryRoute } from "./landing/useTryRoute";
 import { SetPassword } from "./auth/SetPassword";
 import { ResetPassword } from "./auth/ResetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
@@ -53,8 +56,8 @@ import { useShareRoute } from "./sharing/useShareRoute";
 import { ShareView } from "./sharing/ShareView";
 import { useGrantRoute } from "./sharing/useGrantRoute";
 import { GrantAccept } from "./sharing/GrantAccept";
-import { useInviteRoute } from "./invites/useInviteRoute";
-import { InviteAccept } from "./invites/InviteAccept";
+import { clearInvite, useInviteRoute } from "./invites/useInviteRoute";
+import { useInvitePreview } from "./invites/useInvitePreview";
 import { AccessManager } from "./sharing/AccessManager";
 import { NoteAccessManager } from "./sharing/NoteAccessManager";
 import { CopyToMenu } from "./sharing/CopyToMenu";
@@ -92,7 +95,7 @@ import { SidePanel } from "./ui/SidePanel";
 // The page background: a radial glow over the theme base, used by the full-screen gates (loading, error).
 // The authenticated shell paints its own matching background in AppShell.
 const BG =
-  "flex min-h-[100dvh] flex-col [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)] transition-[background-color] duration-[400ms]";
+  "flex min-h-[100dvh] flex-col [background:var(--app-backdrop)] transition-[background-color] duration-[400ms]";
 
 // The dev-only draft preview (`#/preview`) lazy-loads behind the DEV check, so its drafts/ glob — and
 // every draft's contents — tree-shakes out of the production bundle entirely.
@@ -169,19 +172,24 @@ function NoteActionsMenu({
 // renders the persistent shell; the share and invite hash links still win over everything.
 
 export function App(): JSX.Element {
-  const [, themePreference, setThemePreference] = useTheme();
+  const [theme, themePreference, setThemePreference] = useTheme();
   const { user, loading, signOut, recovering, clearRecovery } = useAuth();
   const workspace = useWorkspace();
   const shareToken = useShareRoute();
   const inviteToken = useInviteRoute();
   const grantToken = useGrantRoute();
+  const tryOpen = useTryRoute();
   const draftPreviewOpen = useDraftPreviewRoute() && import.meta.env.DEV;
   const { route, navigate } = useRoute();
+  // A signed-in visitor's invite link floats the shared surface over the app, so resolve its preview here
+  // (only while signed in; a logged-out visitor's landing resolves its own). The fetch happens once.
+  const inviteState = useInvitePreview(user ? inviteToken : null);
 
   // A share or invite link rides the hash and owns the whole screen (it opens with or without an account),
-  // a grant link rides it too (but only once signed in), and the dev-only draft preview rides it inside the
-  // shell, so the path router stays dormant while one is active: its effects must not navigate the hash.
-  const hashRoute = shareToken !== null || inviteToken !== null || grantToken !== null || draftPreviewOpen;
+  // a grant link rides it too (but only once signed in), the no-account "Try it" sandbox rides it as well,
+  // and the dev-only draft preview rides it inside the shell, so the path router stays dormant while one is
+  // active: its effects must not navigate the hash.
+  const hashRoute = shareToken !== null || inviteToken !== null || grantToken !== null || tryOpen || draftPreviewOpen;
 
   // Hold content loads until the workspace has resolved the landing space, so the app does not fetch the
   // personal space and then immediately re-fetch the defaulted team.
@@ -608,13 +616,16 @@ export function App(): JSX.Element {
   // it (the signup screens open it in a new tab) before they have an account.
   if (route.kind === "terms") return <LegalView onClose={() => navigate({ kind: "root" })} />;
 
+  // The "Try it" sandbox needs no account and never touches Supabase, so it owns the screen like a share
+  // link, ahead of the auth gate. Exiting clears the hash and returns to the landing page.
+  if (tryOpen) return <Sandbox theme={theme} onSetTheme={setThemePreference} onExit={closeTry} />;
+
   if (loading) return loader;
 
-  // An invite link is openable with or without an account: a signed-in visitor joins in one click, a
-  // newcomer sets up an account. Resolve auth first so it knows which, then let it win over the gate.
-  if (inviteToken) return <InviteAccept key={inviteToken} token={inviteToken} />;
-
-  if (!user) return <Login />;
+  // A logged-out visitor always sees the landing page, at the root, a deep link, or an invite link: its
+  // header offers Sign in and Sign up, and an invite link raises an Accept banner. Both open one shared
+  // auth surface. A signed-in visitor's invite link instead floats that surface over the app (below).
+  if (!user) return <LandingPage theme={theme} onSetTheme={setThemePreference} inviteToken={inviteToken} />;
 
   // A grant link binds its grant to the signed-in caller, so it sits behind the gate above: once signed
   // in, it owns the screen to preview and claim the share before the app loads.
@@ -1125,6 +1136,19 @@ export function App(): JSX.Element {
           memberTeams={teams}
           teamName={(teamId) => allTeams.find((t) => t.teamId === teamId)?.teamName ?? "a team"}
           currentUserId={user.id}
+        />
+      )}
+      {/* A signed-in invite link floats the shared surface over the app: Accept claims in one click,
+          Decline (or dismissing) clears the token and leaves the app untouched. Mounted only while a
+          token is present, so clearing it removes the overlay rather than flipping its body. */}
+      {inviteToken && (
+        <AuthModal
+          open
+          onOpenChange={() => clearInvite()}
+          initialSide="signin"
+          inviteToken={inviteToken}
+          state={inviteState}
+          onTry={openTry}
         />
       )}
     </TooltipProvider>

@@ -111,7 +111,11 @@ export const EYEBROW = "m-0 mb-[0.4rem] font-mono text-xs font-medium uppercase 
 export const TITLE = "m-0 font-display text-[clamp(1.7rem,3.5vw,2.6rem)] font-bold leading-[1.05] tracking-[-0.025em]";
 
 /** The full-width, max-width fragment every page-width surface shares (board view/editor, notes, history). */
-export const PAGE_WIDTH = "w-full max-w-[1320px]";
+export const PAGE_WIDTH = "w-full max-w-[var(--shell-max)]";
+
+/** The board view's court-beside-detail grid: court column then a flexible panel, stacked at the court breakpoint. */
+export const VIEW_BODY =
+  "grid grid-cols-[var(--court-size)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-court:grid-cols-[minmax(0,1fr)]";
 
 /** The centred, max-width column the library and note pages share. */
 export const PAGE = cx(
@@ -179,17 +183,22 @@ export const LEGEND_BUTTON =
   "inline-flex cursor-pointer items-center gap-2 rounded-pill border border-border bg-control py-1 pr-3 pl-1.5 text-text transition-[background-color,transform] duration-150 ease-settle hover:bg-control-hover active:scale-[0.96]";
 
 /** One step chip in the step strip: a bordered segment holding the step number and, when editable, a
-    remove control. The `group` lets the remove reveal on hover/focus-within; `relative` anchors the
-    drag lift above its neighbours. */
+    remove control. The fill and border colour come from the active/inactive variant below, never here,
+    so the two never both set a background (cx concatenates, it does not merge). The `group` lets the
+    remove reveal on hover/focus-within; `relative` anchors the drag lift above its neighbours. */
 export const STEP_CHIP =
-  "group relative inline-flex select-none items-center rounded-lg border border-border bg-control transition-[border-color,background-color,box-shadow] duration-150 ease-settle";
-/** The active step chip's accent fill and ring. */
-export const STEP_CHIP_ON = "border-[color-mix(in_srgb,var(--accent)_55%,transparent)] bg-accent-weak";
+  "group relative inline-flex select-none items-center rounded-lg border transition-[border-color,background-color,box-shadow] duration-150 ease-settle";
+/** An inactive step chip: the quiet control fill and default border. */
+export const STEP_CHIP_OFF = "border-border bg-control";
+/** The active step chip: a solid accent fill, so the current step reads at a glance on any background
+    (the faint tint did not). Its number switches to on-accent for contrast in StepStrip. */
+export const STEP_CHIP_ON = "border-transparent bg-accent shadow-sm";
 /** A chip lifted mid-drag: raised above its neighbours with the overlay cast and an accent edge. */
 export const STEP_CHIP_DRAGGING = "z-10 border-accent shadow-overlay";
-/** The step-number button inside a chip — the scrub target and the pointer drag handle. */
+/** The step-number button inside a chip — the scrub target and the pointer drag handle. The text colour
+    comes from the active/inactive branch in StepStrip, not here, for the same no-merge reason. */
 export const STEP_NUM =
-  "min-w-9 rounded-md border-0 bg-transparent px-2.5 py-2 font-mono text-sm font-semibold text-text outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
+  "min-w-9 rounded-md border-0 bg-transparent px-2.5 py-2 font-mono text-sm font-semibold outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
 /** The remove control inside an editable chip: a comfortable target that reveals on hover/focus. */
 export const STEP_REMOVE =
   "mr-1 grid size-6.5 flex-none place-items-center rounded-md text-text-dim opacity-0 outline-none transition-[opacity,color,background-color] duration-150 ease-settle hover:bg-control-hover hover:text-danger focus-visible:opacity-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent group-hover:opacity-100 group-focus-within:opacity-100";

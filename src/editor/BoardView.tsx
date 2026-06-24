@@ -1,31 +1,30 @@
 import { MotionConfig } from "motion/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 
 import { arrowsForStep } from "../boards/arrows";
 import { stepAnnotations, stepMarkers } from "../boards/operations";
-import {
-  constrainingNeighbours,
-  rotationAssignment,
-  rotationLabel,
-  rotationViolations,
-  violationFlags,
-} from "../boards/rotation";
-import type { RotationViolation } from "../boards/rotation";
+import { rotationAssignment, rotationLabel, rotationLinks, rotationViolations } from "../boards/rotation";
+import type { RotationLink, RotationViolation } from "../boards/rotation";
 import type { Board, StepRotation } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { useBoardPlayback } from "../boards/useBoardPlayback";
 import { Court } from "../court/Court";
-import type { CourtCue } from "../court/Court";
+import { usePrefersReducedMotion } from "../court/usePrefersReducedMotion";
 import { Button } from "../ui/Button";
 import { CourtFrame } from "../ui/CourtFrame";
 import { Markdown } from "../ui/Markdown";
 import { Toolbar, ToolbarButton } from "../ui/Toolbar";
-import { EYEBROW, MUTED, PAGE_WIDTH, PANEL, PANEL_TITLE, TAG_CHIP, TITLE, cx } from "../ui/styles";
+import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TAG_CHIP, TITLE, cx } from "../ui/styles";
 import { RotationBoard } from "./RotationBoard";
 import { violationMessages } from "./RotationPanel";
 import { StepStrip } from "./StepStrip";
+
+// The court+description body decides its one- vs two-column layout from its own width (a container
+// query), not the viewport, so it stacks correctly when embedded in history's narrowed preview column.
+const VIEW_BODY =
+  "grid grid-cols-[var(--court-size)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] @max-[1040px]:grid-cols-[minmax(0,1fr)]";
 
 const PLAY_ICON = <Play size={20} fill="currentColor" aria-hidden="true" />;
 
@@ -35,25 +34,22 @@ const PREV_ICON = <ChevronLeft size={18} strokeWidth={2.2} aria-hidden="true" />
 
 const NEXT_ICON = <ChevronRight size={18} strokeWidth={2.2} aria-hidden="true" />;
 
-// The court+description body decides its one- vs two-column layout from its own width (a container
-// query), not the viewport, so it stacks correctly when embedded in history's narrowed preview column.
-const VIEW_BODY =
-  "grid grid-cols-[min(74vh,620px)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] @max-[1040px]:grid-cols-[minmax(0,1fr)]";
-
 // The rotation board and its label, visible whenever the shown step's rotation is active. The label
 // stays visible while the board itself collapses (no hover reveal: hover does not exist on touch).
-// The diagram shares the court's tap cue: tapping a disc here keys it off too.
-function RotationViewPanel({
+// The diagram mirrors the court's selection and constraint edges: tapping a disc here selects it on both.
+export function RotationViewPanel({
   board,
   rotation,
   violations,
-  cue,
+  selectedId,
+  links,
   onSelect,
 }: {
   board: Board;
   rotation: StepRotation;
   violations: readonly RotationViolation[];
-  cue?: CourtCue;
+  selectedId: string | null;
+  links: readonly RotationLink[];
   onSelect?: (id: string | null) => void;
 }): JSX.Element {
   return (
@@ -61,7 +57,7 @@ function RotationViewPanel({
       <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
         <span className={PANEL_TITLE}>{rotationLabel(rotation)}</span>
         {violationMessages(violations).map((message) => (
-          <span key={message} className="text-sm font-semibold text-warn">
+          <span key={message} className="text-sm font-semibold text-danger">
             {message}
           </span>
         ))}
@@ -72,7 +68,13 @@ function RotationViewPanel({
         />
       </summary>
       <div className="w-full max-w-[260px] self-center">
-        <RotationBoard markers={board.markers} rotation={rotation} cue={cue} onSelect={onSelect} />
+        <RotationBoard
+          markers={board.markers}
+          rotation={rotation}
+          selectedId={selectedId}
+          links={links}
+          onSelect={onSelect}
+        />
       </div>
     </details>
   );
@@ -80,7 +82,7 @@ function RotationViewPanel({
 
 // In a Sequence the description caps its height and scrolls internally, so the rotation card and the
 // step instruction stay beside the court however long it grows; a Position leaves it unbounded.
-function DescriptionPanel({ markdown, capped = false }: { markdown: string; capped?: boolean }): JSX.Element {
+export function DescriptionPanel({ markdown, capped = false }: { markdown: string; capped?: boolean }): JSX.Element {
   return (
     <section className={cx(PANEL, "min-w-0")} aria-label="Description">
       <span className={PANEL_TITLE}>Description</span>
@@ -98,19 +100,36 @@ function DescriptionPanel({ markdown, capped = false }: { markdown: string; capp
 // menu and Edit; the share page injects its copy and promote affordances.
 type BoardViewProps = {
   board: Board;
-  onBack: () => void;
+  /** Back action and its button. Omit on a surface with no back navigation (the landing showcase). */
+  onBack?: () => void;
   /** Label for the back button. Defaults to the library; the share page overrides it. */
   backLabel?: string;
   /** Action buttons for the title row (the app's edit/share cluster, or the share page's copying). */
   actions?: ReactNode;
   /** Quiet metadata under the tags (the app injects the appears-in note links; the share page has none). */
   meta?: ReactNode;
+  /** Auto-start and loop a Sequence for the read-only landing showcase; held still under reduced motion. */
+  autoPlay?: boolean;
 };
 
-export function BoardView({ board, onBack, backLabel = "← Library", actions, meta }: BoardViewProps): JSX.Element {
+export function BoardView({
+  board,
+  onBack,
+  backLabel = "← Library",
+  actions,
+  meta,
+  autoPlay = false,
+}: BoardViewProps): JSX.Element {
   const sequence = isSequence(board);
-  const playback = useBoardPlayback(board.steps.length);
-  const { step, playing, atEnd } = playback;
+  const reduced = usePrefersReducedMotion();
+  const looping = autoPlay && sequence && !reduced;
+  const playback = useBoardPlayback(board.steps.length, looping);
+  const { step, playing, atEnd, play } = playback;
+
+  // The showcase starts playing on its own; the app's view waits for the visitor to press play.
+  useEffect(() => {
+    if (looping) play();
+  }, [looping, play]);
 
   const markers = useMemo(() => stepMarkers(board, step), [board, step]);
   const annotations = useMemo(() => stepAnnotations(board, step), [board, step]);
@@ -123,37 +142,40 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions, m
   const instruction = board.steps[step]?.instruction ?? "";
 
   // The shown step's rotation, resolved: when active it drives the rotation panel and the court's
-  // violation flags (shown here too — an illegal arrangement may be deliberately authored).
+  // rotation overlay (shown here too — an illegal arrangement may be deliberately authored).
   const rotation = board.steps[step]?.rotation;
   const assignment = useMemo(() => rotationAssignment(board.markers, rotation), [board.markers, rotation]);
   const violations = useMemo(
     () => (assignment ? rotationViolations(assignment, board.steps[step].positions, board.markers) : []),
     [assignment, board, step]
   );
-  const warnings = assignment && violations.length > 0 ? violationFlags(assignment, violations) : undefined;
-
-  // The "who do I key off" cue: while the shown step's rotation is active, tapping an assigned player
-  // (on the court or the rotation board) ties them to their constraining neighbours on both surfaces
-  // while everyone else steps back; tapping either surface clears it, and an unassigned marker (ball,
-  // coach, extras) is inert. The cue follows the shown step — a step whose assignment no longer
-  // includes the player simply shows nothing.
-  const [cueId, setCueId] = useState<string | null>(null);
+  // The rotation overlay: persistent red violation edges and the two solo-fault halos, plus — while a
+  // player is tapped — blue cue edges to its still-legal neighbours, with everyone else dimmed.
+  // Tapping an assigned player (on the court or the rotation board) selects it on both surfaces;
+  // tapping either surface clears it, and an unassigned marker (ball, coach, extras) is inert. The
+  // selection follows the shown step: it gates to null once the assignment no longer holds the player.
+  const [tappedId, setTappedId] = useState<string | null>(null);
   const tap = assignment
     ? (id: string | null) => {
-        if (id === null) setCueId(null);
-        else if (Object.values(assignment).includes(id)) setCueId(id);
+        if (id === null) setTappedId(null);
+        else if (Object.values(assignment).includes(id)) setTappedId(id);
       }
     : undefined;
-  const cue = useMemo(() => {
-    if (!cueId || !assignment) return undefined;
+  const selectedId = tappedId && assignment && Object.values(assignment).includes(tappedId) ? tappedId : null;
+  const overlay = useMemo(
+    () => (assignment ? rotationLinks(assignment, violations, selectedId) : undefined),
+    [assignment, violations, selectedId]
+  );
 
-    const neighbourIds = constrainingNeighbours(assignment, cueId);
-
-    return neighbourIds.length > 0 ? { markerId: cueId, neighbourIds } : undefined;
-  }, [cueId, assignment]);
-
-  const rotationPanel = rotation && assignment && (
-    <RotationViewPanel board={board} rotation={rotation} violations={violations} cue={cue} onSelect={tap} />
+  const rotationPanel = rotation && assignment && overlay && (
+    <RotationViewPanel
+      board={board}
+      rotation={rotation}
+      violations={violations}
+      selectedId={selectedId}
+      links={overlay.links}
+      onSelect={tap}
+    />
   );
 
   // The instruction changing reads as a move between two notes: the incoming one slides in from the
@@ -169,16 +191,12 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions, m
 
   return (
     <MotionConfig reducedMotion="user">
-      <div
-        className={cx(
-          "mx-auto flex @container",
-          PAGE_WIDTH,
-          "flex-col gap-[clamp(1rem,3vh,1.75rem)] animate-rise motion-reduce:animate-none"
+      <div className="mx-auto flex @container w-full max-w-[var(--shell-max)] flex-col gap-[clamp(1rem,3vh,1.75rem)] animate-rise motion-reduce:animate-none">
+        {onBack && (
+          <Button variant="text" size="sm" className="self-start pl-0" onClick={onBack}>
+            {backLabel}
+          </Button>
         )}
-      >
-        <Button variant="text" size="sm" className="self-start pl-0" onClick={onBack}>
-          {backLabel}
-        </Button>
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className={EYEBROW}>{sequence ? "Sequence" : "Position"}</p>
@@ -199,65 +217,72 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions, m
 
         {sequence ? (
           <div className={VIEW_BODY}>
-            <div className="flex min-w-0 flex-col items-center gap-[clamp(0.7rem,2vh,1.15rem)]">
+            <div className="flex min-w-0 flex-col items-center gap-[clamp(0.7rem,2vh,1.15rem)] @max-[1040px]:order-2">
               <CourtFrame className="@max-[1040px]:justify-self-center">
                 <Court
                   animated
                   markers={markers}
                   arrows={arrows}
                   annotations={annotations}
-                  warnings={warnings}
-                  cue={cue}
-                  selectedId={cue?.markerId ?? null}
+                  rotation={overlay}
+                  selectedId={selectedId}
                   onSelect={tap}
                   label={board.title || "Untitled board"}
                 />
               </CourtFrame>
 
-              <Toolbar ariaLabel="Playback" className="gap-[0.55rem]">
-                <ToolbarButton
-                  icon={{ variant: "control", size: "md" }}
-                  aria-label="Previous step"
-                  tooltip="Previous step"
-                  onClick={playback.prev}
-                  disabled={step === 0}
-                >
-                  {PREV_ICON}
-                </ToolbarButton>
-                <ToolbarButton
-                  icon={{ variant: "accent", size: "lg" }}
-                  aria-label={playing ? "Pause" : "Play"}
-                  tooltip={playing ? "Pause" : "Play"}
-                  onClick={playback.toggle}
-                >
-                  {playing ? PAUSE_ICON : PLAY_ICON}
-                </ToolbarButton>
-                <ToolbarButton
-                  icon={{ variant: "control", size: "md" }}
-                  aria-label="Next step"
-                  tooltip="Next step"
-                  onClick={playback.next}
-                  disabled={atEnd}
-                >
-                  {NEXT_ICON}
-                </ToolbarButton>
-                <span className="ml-[0.35rem] min-w-[3ch] font-mono text-sm text-text-dim">
-                  {step + 1} / {board.steps.length}
-                </span>
-              </Toolbar>
+              {/* Transport and step scrubber share one row: the highlighted chip is the position
+                  indicator, so a separate "n / total" counter would just duplicate it. */}
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+                <Toolbar ariaLabel="Playback" className="gap-[0.55rem]">
+                  <ToolbarButton
+                    icon={{ variant: "control", size: "md" }}
+                    aria-label="Previous step"
+                    tooltip="Previous step"
+                    onClick={playback.prev}
+                    disabled={step === 0}
+                  >
+                    {PREV_ICON}
+                  </ToolbarButton>
+                  <ToolbarButton
+                    icon={{ variant: "accent", size: "lg" }}
+                    aria-label={playing ? "Pause" : "Play"}
+                    tooltip={playing ? "Pause" : "Play"}
+                    onClick={playback.toggle}
+                  >
+                    {playing ? PAUSE_ICON : PLAY_ICON}
+                  </ToolbarButton>
+                  <ToolbarButton
+                    icon={{ variant: "control", size: "md" }}
+                    aria-label="Next step"
+                    tooltip="Next step"
+                    onClick={playback.next}
+                    disabled={atEnd}
+                  >
+                    {NEXT_ICON}
+                  </ToolbarButton>
+                </Toolbar>
 
-              <StepStrip steps={board.steps} current={step} onSelect={playback.goTo} />
+                <StepStrip steps={board.steps} current={step} onSelect={playback.goTo} />
+              </div>
             </div>
 
-            <div className="flex min-w-0 flex-col gap-4">
-              {rotationPanel && (
-                <div key={`rotation-${step}`} className={cx(stepDirection, "motion-reduce:animate-none")}>
-                  {rotationPanel}
+            <div className="flex min-w-0 flex-col gap-4 @max-[1040px]:contents">
+              <div className="flex flex-col-reverse gap-4 @max-[1040px]:order-1 @max-[1040px]:flex-row @max-[1040px]:flex-wrap @max-[1040px]:items-stretch">
+                <div className="grid min-w-0 @max-[1040px]:flex-1 @max-[1040px]:min-w-[16rem]">
+                  <DescriptionPanel markdown={board.description} capped />
                 </div>
-              )}
-              <DescriptionPanel markdown={board.description} capped />
+                {rotationPanel && (
+                  <div
+                    key={`rotation-${step}`}
+                    className={cx(stepDirection, "motion-reduce:animate-none grid @max-[1040px]:max-w-[17rem]")}
+                  >
+                    {rotationPanel}
+                  </div>
+                )}
+              </div>
 
-              <section className={cx(PANEL, "min-w-0")} aria-label="Step instruction">
+              <section className={cx(PANEL, "min-w-0 @max-[1040px]:order-3")} aria-label="Step instruction">
                 <span className={PANEL_TITLE}>Step {step + 1}</span>
                 <div className="min-h-[3.25rem]" aria-live="polite">
                   <div key={step} className={cx(stepDirection, "motion-reduce:animate-none")}>
@@ -273,20 +298,21 @@ export function BoardView({ board, onBack, backLabel = "← Library", actions, m
           </div>
         ) : (
           <div className={VIEW_BODY}>
-            <CourtFrame className="@max-[1040px]:justify-self-center">
+            <CourtFrame className="@max-[1040px]:order-2 @max-[1040px]:justify-self-center">
               <Court
                 markers={markers}
                 annotations={annotations}
-                warnings={warnings}
-                cue={cue}
-                selectedId={cue?.markerId ?? null}
+                rotation={overlay}
+                selectedId={selectedId}
                 onSelect={tap}
                 label={board.title || "Untitled board"}
               />
             </CourtFrame>
-            <div className="flex min-w-0 flex-col gap-4">
-              {rotationPanel}
-              <DescriptionPanel markdown={board.description} />
+            <div className="flex min-w-0 flex-col-reverse gap-4 @max-[1040px]:order-1 @max-[1040px]:flex-row @max-[1040px]:flex-wrap @max-[1040px]:items-stretch">
+              <div className="grid min-w-0 @max-[1040px]:flex-1 @max-[1040px]:min-w-[16rem]">
+                <DescriptionPanel markdown={board.description} />
+              </div>
+              {rotationPanel && <div className="grid @max-[1040px]:max-w-[17rem]">{rotationPanel}</div>}
             </div>
           </div>
         )}

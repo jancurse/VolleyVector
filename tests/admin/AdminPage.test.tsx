@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { AdminPage } from "../../src/admin/AdminPage";
 import type { AdminSub } from "../../src/routing/route";
 import {
+  ACCESS_REQUEST,
   DELETED_ACCOUNT,
   DELETED_TEAM,
   OTHER_MEMBER,
@@ -194,5 +195,35 @@ describe("AdminPage", () => {
     await user.click(within(row).getByRole("button", { name: "Restore" }));
 
     expect(recordedInvokes.find((c) => c.name === "restore-account")?.body).toEqual({ userId: DELETED_ACCOUNT.id });
+  });
+
+  test("lists access requests and marks one handled", async () => {
+    const user = await renderPanel();
+
+    await goTab(user, "Requests");
+    const row = screen.getByText(ACCESS_REQUEST.email).closest("tr") as HTMLElement;
+
+    expect(within(row).getByText(ACCESS_REQUEST.message)).toBeInTheDocument();
+
+    await user.click(within(row).getByRole("button", { name: "Mark handled" }));
+
+    const write = recordedWrites.find((c) => c.table === "access_requests" && c.op === "update");
+
+    expect(write?.eq).toEqual({ id: ACCESS_REQUEST.id });
+    expect(typeof write?.payload?.handled_at).toBe("string");
+  });
+
+  test("dismissing an access request soft-deletes it", async () => {
+    const user = await renderPanel();
+
+    await goTab(user, "Requests");
+    const row = screen.getByText(ACCESS_REQUEST.email).closest("tr") as HTMLElement;
+
+    await user.click(within(row).getByRole("button", { name: "Dismiss" }));
+
+    const write = recordedWrites.find((c) => c.table === "access_requests" && c.op === "update");
+
+    expect(write?.eq).toEqual({ id: ACCESS_REQUEST.id });
+    expect(typeof write?.payload?.deleted_at).toBe("string");
   });
 });

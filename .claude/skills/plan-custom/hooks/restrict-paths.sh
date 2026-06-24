@@ -1,5 +1,5 @@
 #!/bin/bash
-# PreToolUse hook for the `plan` skill.
+# PreToolUse hook for the `plan-custom` skill.
 # Blocks Write/Edit tool calls whose file_path is not under ./plans/.
 
 set -euo pipefail
@@ -22,6 +22,6 @@ jq -n --arg path "$file_path" '{
   hookSpecificOutput: {
     hookEventName: "PreToolUse",
     permissionDecision: "deny",
-    permissionDecisionReason: ("Plan mode: Write/Edit is only allowed under ./plans/. Blocked path: " + $path)
+    permissionDecisionReason: ("plan-custom skill: Write/Edit is only allowed under ./plans/. Blocked path: " + $path)
   }
 }'

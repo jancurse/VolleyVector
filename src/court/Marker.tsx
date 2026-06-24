@@ -29,9 +29,10 @@ type MarkerProps = {
   /** Position in the entrance stagger; later markers settle in slightly after earlier ones. */
   index?: number;
   selected?: boolean;
-  /** Marks an overlap violation: the selection halo's grammar in the warning token. */
-  warning?: boolean;
-  /** Steps the marker back while another marker's cue is showing. */
+  /** A solo overlap fault (outside the area, or a libero up front): the selection halo's grammar in
+   *  the danger token. A pair violation carries no halo — its red edge does. */
+  fault?: boolean;
+  /** Steps the marker back while another player's selection spotlight is showing. */
   dimmed?: boolean;
   dragging?: boolean;
   /** When true the marker glides to new positions (drill playback) instead of jumping there. */
@@ -46,7 +47,7 @@ export function Marker({
   marker,
   index = 0,
   selected = false,
-  warning = false,
+  fault = false,
   dimmed = false,
   dragging = false,
   animated = false,
@@ -64,7 +65,7 @@ export function Marker({
   const body = (
     <>
       <circle
-        className={`court-halo${selected || warning ? " court-halo--on" : ""}${!selected && warning ? " court-halo--warn" : ""}`}
+        className={`court-halo${selected || fault ? " court-halo--on" : ""}${!selected && fault ? " court-halo--fault" : ""}`}
         r={radius + 9}
       />
       <g

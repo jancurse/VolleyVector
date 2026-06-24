@@ -9,8 +9,7 @@ import { cx, EYEBROW, MUTED, PANEL } from "../ui/styles";
 import { accessLinkPreview, fetchNoteSlug, redeemAccessLink } from "./grants";
 import type { GrantLinkPreview } from "./grants";
 
-const BACKGROUND =
-  "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)]";
+const BACKGROUND = "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:var(--app-backdrop)]";
 
 type Loaded =
   | { status: "loading"; preview: null }

@@ -162,28 +162,6 @@ export function rotationViolations(
   return violations;
 }
 
-/** The court's render data for a set of violations: every flagged marker (both ends of each broken
- *  pair, plus solo flags) and the tie to draw per broken pair. */
-export function violationFlags(
-  assignment: Record<RotationSlot, string>,
-  violations: readonly RotationViolation[]
-): { markerIds: string[]; ties: { a: string; b: string }[] } {
-  const markerIds = new Set<string>();
-  const ties: { a: string; b: string }[] = [];
-
-  for (const v of violations) {
-    if (v.kind === "pair") {
-      markerIds.add(assignment[v.a]);
-      markerIds.add(assignment[v.b]);
-      ties.push({ a: assignment[v.a], b: assignment[v.b] });
-    } else {
-      markerIds.add(assignment[v.slot]);
-    }
-  }
-
-  return { markerIds: [...markerIds], ties };
-}
-
 /** The bounds an assigned player may legally occupy, in normalized coordinates. */
 export type LegalRegion = { loX: number; hiX: number; loY: number; hiY: number };
 
@@ -197,6 +175,53 @@ export function constrainingNeighbours(assignment: Record<RotationSlot, string>,
   return [...Y_PAIRS, ...X_PAIRS]
     .filter(([a, b]) => a === slot || b === slot)
     .map(([a, b]) => assignment[a === slot ? b : a]);
+}
+
+/** One rotation constraint edge between two assigned players, in one of two states: a `violation`
+ *  (the pair breaks its overlap relation) or a `cue` (a still-legal edge to the selected player). */
+export type RotationLink = { a: string; b: string; state: "violation" | "cue" };
+
+/** The court's rotation overlay: the constraint edges to draw, and the markers carrying a solo-fault
+ *  halo (an `outside` or `libero` violation, which has no edge). */
+export type RotationOverlay = { links: readonly RotationLink[]; faultIds: readonly string[] };
+
+/** The one set of links every rotation surface draws. Each broken pair is a persistent `violation`
+ *  edge, shown with nothing selected; the two solo violations (`outside`, `libero`) carry no edge and
+ *  surface as a fault halo instead. With a player selected, each of its still-legal constraining
+ *  neighbours gains a `cue` edge — a neighbour it already overlaps stays the red violation edge. */
+export function rotationLinks(
+  assignment: Record<RotationSlot, string>,
+  violations: readonly RotationViolation[],
+  selectedId: string | null
+): RotationOverlay {
+  const links: RotationLink[] = [];
+  const faultIds: string[] = [];
+
+  for (const v of violations) {
+    if (v.kind === "pair") links.push({ a: assignment[v.a], b: assignment[v.b], state: "violation" });
+    else faultIds.push(assignment[v.slot]);
+  }
+
+  const violated = (id: string) =>
+    links.some((l) => (l.a === selectedId && l.b === id) || (l.b === selectedId && l.a === id));
+
+  if (selectedId)
+    for (const neighbour of constrainingNeighbours(assignment, selectedId))
+      if (!violated(neighbour)) links.push({ a: selectedId, b: neighbour, state: "cue" });
+
+  return { links, faultIds };
+}
+
+/** The selection spotlight: the selected player and the markers it links to, the set a surface keeps
+ *  lit. Null when there is no selection, or it has no edges (the ball, rotation off), so nothing dims. */
+export function spotlightMarkers(links: readonly RotationLink[], selectedId: string | null): Set<string> | null {
+  if (!selectedId) return null;
+
+  const linked = links.filter((l) => l.a === selectedId || l.b === selectedId);
+
+  if (linked.length === 0) return null;
+
+  return new Set<string>([selectedId, ...linked.map((l) => (l.a === selectedId ? l.b : l.a))]);
 }
 
 /** The region the overlap rules leave `markerId`, relative to the other assigned players' current

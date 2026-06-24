@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import type { JSX, PointerEvent } from "react";
 
-import type { CourtCue } from "./Court";
+import { spotlightMarkers } from "../boards/rotation";
+import type { RotationLink } from "../boards/rotation";
 import type { NormalizedPoint } from "./geometry";
 import { labelFontSize, markerName, PLAYER_RADIUS } from "./Marker";
 import { MARKER_COLORS, markerLabel, ROLES } from "./roles";
@@ -129,10 +130,12 @@ type RotationDiagramProps = {
   label?: string;
   /** Custom mode: dropping a marker assigns it to `spots[index]`, or benches it with null. */
   onPlace?: (markerId: string, spotIndex: number | null) => void;
-  /** View mode: tapping a disc reports it, tapping the surface reports null (the cue). */
+  /** View mode: tapping a disc reports it, tapping the surface reports null (clears the selection). */
   onSelect?: (id: string | null) => void;
-  /** The court's "who do I key off" cue, mirrored between the involved zones. */
-  cue?: CourtCue;
+  /** The selected player, for its selection halo and the spotlight dimming, mirrored from the court. */
+  selectedId?: string | null;
+  /** The rotation constraint edges mirrored from the court: violation and cue, between the zones. */
+  links?: readonly RotationLink[];
 };
 
 export function RotationDiagram({
@@ -141,13 +144,15 @@ export function RotationDiagram({
   label = "Rotation board",
   onPlace,
   onSelect,
-  cue,
+  selectedId = null,
+  links,
 }: RotationDiagramProps): JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<{ id: string; point: NormalizedPoint } | null>(null);
   // The bench band exists only while someone waits on it, so a fully assigned card stays compact.
   const height = onPlace && bench.length > 0 ? BENCH_Y + BENCH_BOTTOM : PAD + GRID + PAD;
   const tappable = Boolean(onSelect) && !onPlace;
+  const spotlight = spotlightMarkers(links ?? [], selectedId);
 
   const press = onPlace
     ? (id: string, event: PointerEvent<SVGGElement>) => {
@@ -183,7 +188,7 @@ export function RotationDiagram({
     setDrag(null);
   };
 
-  /** The zone centre an assigned marker renders at, for the cue's ties. */
+  /** The zone centre an assigned marker renders at, for the links between zones. */
   const centreOf = (id: string): NormalizedPoint | null => {
     const spot = spots.find((s) => s.marker?.id === id);
 
@@ -251,22 +256,14 @@ export function RotationDiagram({
         );
       })}
 
-      {cue &&
-        (() => {
-          const p = centreOf(cue.markerId);
+      {links?.map(({ a, b, state }, i) => {
+        const p = centreOf(a);
+        const q = centreOf(b);
 
-          if (!p) return null;
-
-          return (
-            <g aria-hidden="true">
-              {cue.neighbourIds.map((id) => {
-                const q = centreOf(id);
-
-                return q && <line key={id} className="court-cue-tie" x1={p.x} y1={p.y} x2={q.x} y2={q.y} />;
-              })}
-            </g>
-          );
-        })()}
+        return (
+          p && q && <line key={i} className={`court-link court-link--${state}`} x1={p.x} y1={p.y} x2={q.x} y2={q.y} />
+        );
+      })}
 
       {discs.map(({ marker, point, radius }) => (
         <Disc
@@ -274,8 +271,8 @@ export function RotationDiagram({
           marker={marker}
           point={drag?.id === marker.id ? toLocal(drag.point) : point}
           radius={radius}
-          selected={marker.id === cue?.markerId}
-          dimmed={Boolean(cue && marker.id !== cue.markerId && !cue.neighbourIds.includes(marker.id))}
+          selected={marker.id === selectedId}
+          dimmed={spotlight !== null && !spotlight.has(marker.id)}
           dragging={drag?.id === marker.id}
           onPointerDown={press}
         />

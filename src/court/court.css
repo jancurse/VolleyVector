@@ -1,7 +1,8 @@
 /* ----------------------------------------------------------------------------------------------
    Court-scoped styles: the artful SVG internals that stay hand-authored rather than utility-styled.
-   Everything here is rendered by the court/ module (Court, Marker, Arrows). It reads the theme tokens
-   (var(--court-*), var(--accent), …) defined in src/index.css, so it swaps with [data-theme] too.
+   Everything here is rendered by the court/ module (Court, Marker, Arrows). It reads the court tokens
+   (var(--court-*)) defined in src/index.css, which keep one identity in both themes: the court does
+   not swap with [data-theme].
 
    Classes are scoped with a `court-` prefix (block name `court`), the module's own convention.
 ---------------------------------------------------------------------------------------------- */
@@ -126,7 +127,7 @@
 
 .court-halo {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--court-accent);
   stroke-width: 5;
   opacity: 0;
   transform-box: fill-box;
@@ -140,26 +141,15 @@
 .court-halo--on {
   opacity: 0.95;
   transform: scale(1);
-  filter: drop-shadow(0 0 4px var(--accent));
+  filter: drop-shadow(0 0 4px var(--court-accent));
 }
 
-/* The warning halo: the selection halo's grammar in the theme warning token, so it reads as state
-   (an overlap violation) rather than identity. Selection takes precedence while it lasts. */
-.court-halo--warn {
-  stroke: var(--warn);
-  filter: drop-shadow(0 0 4px var(--warn));
-}
-
-/* A violated pair's tie: a thin warning-coloured line between the two markers of a broken overlap
-   relation, beneath the discs. A marker in several bad relations carries several ties. */
-.court-tie {
-  stroke: var(--warn);
-  stroke-width: 5;
-  stroke-dasharray: 14 12;
-  stroke-linecap: round;
-  opacity: 0.85;
-  pointer-events: none;
-  animation: court-fade 0.3s var(--ease-settle) both;
+/* The solo-fault halo: the selection halo's grammar in the danger token, so it reads as state (an
+   overlap fault) rather than identity. Carried only by the two solo violations that have no edge — a
+   player outside the area, a libero up front. Selection takes precedence while it lasts. */
+.court-halo--fault {
+  stroke: var(--court-danger);
+  filter: drop-shadow(0 0 4px var(--court-danger));
 }
 
 /* An empty official zone's drop destination on the rotation diagram: a dashed disc-sized outline,
@@ -205,18 +195,30 @@
   dominant-baseline: central;
 }
 
-/* The view's "who do I key off" cue, in the accent language so it reads as guidance, not a fault: a
-   solid tie from the tapped player to each constraining neighbour, while everyone else steps back. */
-.court-cue-tie {
-  stroke: var(--accent);
+/* One rotation constraint edge between two assigned players, beneath the discs. Both states differ by
+   line style as well as colour, so they stay distinct under colour-blindness and on the grayscale
+   print surface. A violation is persistent; a cue shows only while its player is selected. */
+.court-link {
   stroke-width: 5;
   stroke-linecap: round;
-  opacity: 0.8;
   pointer-events: none;
   animation: court-fade 0.3s var(--ease-settle) both;
 }
 
-/* While the cue shows, uninvolved markers step back so the tapped player and their neighbours lead. */
+/* A still-legal edge to the selected player: a solid accent line, the "who do I key off" guidance. */
+.court-link--cue {
+  stroke: var(--court-accent);
+  opacity: 0.8;
+}
+
+/* A broken overlap relation: a persistent danger-coloured dashed line, shown with nothing selected. */
+.court-link--violation {
+  stroke: var(--court-danger);
+  stroke-dasharray: 14 12;
+  opacity: 0.85;
+}
+
+/* While a player is selected, uninvolved markers step back so it and its linked neighbours lead. */
 .court-marker--dim {
   opacity: 0.3;
   transition: opacity 0.18s ease;
@@ -292,7 +294,7 @@
 }
 
 .court-annotation--selected {
-  filter: drop-shadow(0 0 6px var(--accent));
+  filter: drop-shadow(0 0 6px var(--court-accent));
 }
 
 /* Under the select tool an unselected shape glows softly in its own colour on hover, an invitation
@@ -324,7 +326,7 @@
 
 .court-annotation-handle-dot {
   fill: var(--bg);
-  stroke: var(--accent);
+  stroke: var(--court-accent);
   stroke-width: 4;
 }
 
@@ -367,7 +369,7 @@
    "click here to finish" cue. */
 .court-poly-target {
   fill: var(--bg);
-  stroke: var(--accent);
+  stroke: var(--court-accent);
   stroke-width: 4;
   pointer-events: none;
   transform-box: fill-box;
@@ -377,18 +379,18 @@
 }
 
 .court-poly-target--hot {
-  fill: var(--accent);
-  filter: drop-shadow(0 0 6px var(--accent));
+  fill: var(--court-accent);
+  filter: drop-shadow(0 0 6px var(--court-accent));
 }
 
 /* The snap indicator: a small accent dot popping in where a drawn point locks onto a target. */
 .court-snap-dot {
-  fill: var(--accent);
+  fill: var(--court-accent);
   pointer-events: none;
   transform-box: fill-box;
   transform-origin: center;
   animation: court-pop 0.15s var(--ease-settle) both;
-  filter: drop-shadow(0 0 4px var(--accent));
+  filter: drop-shadow(0 0 4px var(--court-accent));
 }
 
 @keyframes court-pop {
