@@ -1,6 +1,6 @@
 import type { Board } from "../boards/types";
 import { boardRoute, findNoteId, libraryRoute, spaceForRouteSpace, noteRoute } from "../routing/links";
-import { routeSpace, type Route } from "../routing/route";
+import { routeSpace, type AdminSub, type Route } from "../routing/route";
 import type { Note } from "../notes/types";
 import type { TeamRef } from "../workspace/useWorkspace";
 
@@ -29,9 +29,10 @@ export function collapseCrumbs(crumbs: readonly Crumb[], max = 4): CrumbItem[] {
   ];
 }
 
-const ADMIN_LABELS: Record<"teams" | "accounts" | "recovery", string> = {
+const ADMIN_LABELS: Record<AdminSub, string> = {
   teams: "Teams",
   accounts: "Accounts",
+  requests: "Requests",
   recovery: "Recovery",
 };
 

@@ -36,6 +36,10 @@ const TAG = "shrink-0 font-mono text-2xs font-medium uppercase tracking-[0.16em]
 // Case-insensitive A→Z, the order both admin tables and the recovery groups sort by.
 const byLabel = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base" });
 
+// A request's submission date, compact and locale-aware, for the Requests table's Received column.
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
 function StateBadge({ state }: { state: TeamState }): JSX.Element {
   return (
     <span className={cx("font-mono text-2xs font-medium uppercase tracking-[0.16em]", STATE_COLOR[state])}>
@@ -233,6 +237,7 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
         <TabList ariaLabel="Admin sections">
           <Tab value="teams">Teams</Tab>
           <Tab value="accounts">Accounts</Tab>
+          <Tab value="requests">Requests</Tab>
           <Tab value="recovery">Recovery</Tab>
         </TabList>
 
@@ -359,6 +364,56 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
                 </Table>
               )}
             </div>
+          )}
+        </TabPanel>
+
+        <TabPanel value="requests">
+          {admin.loading ? (
+            <p className={MUTED}>Loading…</p>
+          ) : admin.accessRequests.length === 0 ? (
+            <p className={MUTED}>No access requests.</p>
+          ) : (
+            <Table width="fill">
+              <thead>
+                <tr>
+                  <TableHeadCell>Email</TableHeadCell>
+                  <TableHeadCell>Message</TableHeadCell>
+                  <TableHeadCell className="w-32">Received</TableHeadCell>
+                  <TableHeadCell className="w-52">
+                    <span className="sr-only">Actions</span>
+                  </TableHeadCell>
+                </tr>
+              </thead>
+              <tbody>
+                {admin.accessRequests.map((req) => (
+                  <tr key={req.id}>
+                    <TableCell className="max-w-0">
+                      <span className="block truncate">{req.email}</span>
+                    </TableCell>
+                    <TableCell className="max-w-0">
+                      <span className="block truncate text-text-dim" title={req.message}>
+                        {req.message || "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-text-dim">{formatDate(req.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {req.handledAt ? (
+                          <span className={cx(TAG, "text-accent")}>Handled</span>
+                        ) : (
+                          <Button variant="ghost" size="sm" onClick={() => void act(admin.handleRequest(req.id))}>
+                            Mark handled
+                          </Button>
+                        )}
+                        <Button variant="danger" size="sm" onClick={() => void act(admin.dismissRequest(req.id))}>
+                          Dismiss
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
           )}
         </TabPanel>
 

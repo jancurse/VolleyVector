@@ -3,7 +3,16 @@ import type { JSX, KeyboardEvent, PointerEvent } from "react";
 import { X } from "lucide-react";
 
 import { Toolbar, ToolbarButton } from "../ui/Toolbar";
-import { STEP_CHIP, STEP_CHIP_DRAGGING, STEP_CHIP_ON, STEP_NUM, STEP_REMOVE, buttonClass, cx } from "../ui/styles";
+import {
+  STEP_CHIP,
+  STEP_CHIP_DRAGGING,
+  STEP_CHIP_OFF,
+  STEP_CHIP_ON,
+  STEP_NUM,
+  STEP_REMOVE,
+  buttonClass,
+  cx,
+} from "../ui/styles";
 
 // A pointer needs to move this far before a press becomes a drag rather than a step-selecting click.
 const DRAG_THRESHOLD = 4;
@@ -170,11 +179,16 @@ export function StepStrip({
                 if (el) chips.current.set(step.id, el);
                 else chips.current.delete(step.id);
               }}
-              className={cx(STEP_CHIP, i === current && STEP_CHIP_ON, dragging && STEP_CHIP_DRAGGING)}
+              className={cx(STEP_CHIP, i === current ? STEP_CHIP_ON : STEP_CHIP_OFF, dragging && STEP_CHIP_DRAGGING)}
               style={dragging ? { transform: `translateX(${dragDx}px) scale(1.03)` } : undefined}
             >
               <ToolbarButton
-                className={cx(STEP_NUM, cursor, reorderable && "touch-none", i === current && "text-accent")}
+                className={cx(
+                  STEP_NUM,
+                  cursor,
+                  reorderable && "touch-none",
+                  i === current ? "text-on-accent" : "text-text"
+                )}
                 aria-label={`Step ${i + 1}`}
                 aria-current={i === current}
                 aria-keyshortcuts={reorderable ? "Shift+ArrowLeft Shift+ArrowRight" : undefined}

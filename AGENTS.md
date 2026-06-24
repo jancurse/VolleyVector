@@ -27,6 +27,7 @@ VolleyVector is a single-page React 19 + TypeScript + Vite app for building, bro
 - `src/legal/`: the user-facing Terms & Privacy notice, its public `/terms` page, and the signup acceptance-checkbox label.
 - `src/routing/`: the hash-route parsing and the current route hook, the typed link builders, the title slug helpers, and the NotFound page.
 - `src/shell/`: the app shell and its sidebar, icon rail, and drawer; the top bar, breadcrumb, space switcher, and account avatar menu; the top-level error boundary; and the brand mark drawn from one geometry source.
+- `src/landing/`: the logged-out landing page and what it floats over the hero: the shared sign-in/sign-up auth modal, the request-access form, the rotation showcase, and the no-account `#/try` sandbox that builds a board in memory without touching Supabase. The example boards render through the app's own board surfaces, so they cannot drift.
 - `src/App.tsx`: the top-level component that owns navigation and wires the stores into the shell.
 
 See @docs/architecture.md for how these fit together and the detail behind each.
@@ -47,18 +48,11 @@ See @docs/architecture.md for how these fit together and the detail behind each.
 
 ## Writing Markdown
 
-- **Every sentence must carry concrete content.** Cut any sentence whose only job is to assert importance, relevance, or consequence without conveying the substance that backs the claim.
-- **Write concisely, with no padding.** Cut any word or sentence that adds length without adding information. Say each point once.
-- **Match the document you edit.** When updating a doc (README, architecture, style guide), keep a new entry or section no longer or denser than the ones already there. Do not let an addition dominate the document.
-- **Write direct, plainly-structured prose. Do not pile clauses onto one sentence.** Prefer simple subject-verb-object sentences, and split a compound thought into separate sentences.
-    - Use punctuation for the job each mark does: a colon to introduce what follows, a period to end a thought. Do not reach for an em dash where a colon or full stop is what you mean.
-    - Heavy use of em dashes, semicolons, and stacked commas is the main tell of fragmented "AI" prose. If a sentence leans on several of them, rewrite it as two or three plain ones.
-- **Use a real heading hierarchy.** Give a longer document `#` title, `##` section, `###` subsection, and deeper where the content earns it; nest as far as it helps.
-    - Do not leave a flat stack of `##` headings with nothing beneath them. If everything sits at one level, the structure is doing no work — push detail down into subsections.
-    - Avoid a pile of one- or two-line sections. A heading must earn its place; if several are tiny, merge them or demote them to bullets under a parent. (An occasional short section is fine — just not the default.)
-    - Match depth to length: a short note needs no nesting, while a long one usually wants several levels.
-- **Use bullets and sub-bullets heavily** to organise detail inside a section, instead of adding more headings or writing dense paragraphs.
-- **Don't run markdownlint by hand.** A hook auto-formats Markdown after you write or edit a `.md` file: it runs `markdownlint-cli2 --fix` and aligns tables.
+Read the **writing-style** skill before writing or revising any prose: Markdown docs, but also UI copy, board titles and instructions, comments, and commit and PR messages. The core rules, which always apply:
+
+- **Every sentence carries concrete content.** Cut anything whose only job is to assert importance without conveying the substance behind the claim.
+- **Be concise, with no padding.** Cut words and sentences that add length without information. Say each point once.
+- **Write plain, direct sentences.** Prefer subject-verb-object and split a compound thought in two. Do not reach for an em dash where a colon or period is what you mean. Stacked em dashes, semicolons, and commas are the main tell of "AI" prose.
 
 ## Running Code
 
@@ -122,8 +116,8 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 
 - Each feature has its own folder. Inside it, the feature branch's checkout and its worktrees sit side by side, each in its own sibling folder.
 - Work in the feature branch's checkout or a worktree, never on `main`.
-- **When you create a worktree, use the EnterWorktree tool**, not `git` by hand. It runs a custom hook that creates the worktree in a parallel folder and adds it to VS Code.
-- **Name every branch `<issue_number>-<name>`, where `<issue_number>` is the GitHub issue this work belongs to** (matched to its branch and PR). A different number means a different issue.
+- **When you create a worktree, use the EnterWorktree tool**, not `git` by hand. It runs a custom hook that creates the worktree in a parallel folder, branches it off the current feature branch's HEAD (never off `main`), and adds it to VS Code. Ignore the tool's own description if it claims it branches off `main`: the hook overrides that.
+- **Name every branch `<issue_number>-<name>`, where `<issue_number>` is the GitHub issue this work belongs to** (matched to its branch and PR). A different number means a different issue. If there is no issue, use `0` (so `0-landing-page`, `0-worktree-redesign`).
 - **Name every worktree's branch and folder `<issue_number>-worktree-<slug>`.** A worktree shares its feature's issue number, so off `11-follow-ups` use `11-worktree-redesign`, never `12-...`.
 - **Stay in your workspace.** You belong to exactly one workspace, either the feature branch's primary checkout or a worktree. Edit only its files. Never edit, move, copy into, or delete files in another workspace or branch, and never reach around a guard that blocks this (with Bash file ops, by disabling the guard, or otherwise).
 - **Read your own workspace first.** Reach into the feature branch or another worktree only when you genuinely need context missing from yours, and then only to read.

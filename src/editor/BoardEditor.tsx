@@ -28,9 +28,9 @@ import {
   isFrontRow,
   placeRotationMarker,
   rotationAssignment,
+  rotationLinks,
   rotationViolations,
   setStepRotation,
-  violationFlags,
 } from "../boards/rotation";
 import type { Annotation, Board, RotationSlot, StepRotation } from "../boards/types";
 import { isSequence } from "../boards/types";
@@ -140,7 +140,9 @@ export function BoardEditor({
   const sequence = isSequence(draft);
 
   // The active step's rotation, resolved: a complete assignment drives the overlap checks (in both
-  // enforcement flavours) and the court's violation flags; an inactive rotation drives neither.
+  // enforcement flavours) and the court's rotation overlay; an inactive rotation drives neither. The
+  // overlay's persistent violation edges and solo-fault halos recompute live as a player is dragged,
+  // and the selected player gains blue cue edges to its still-legal neighbours.
   const assignment = useMemo(
     () => rotationAssignment(draft.markers, activeStep.rotation),
     [draft.markers, activeStep.rotation]
@@ -149,7 +151,10 @@ export function BoardEditor({
     () => (assignment ? rotationViolations(assignment, activeStep.positions, draft.markers) : []),
     [assignment, activeStep.positions, draft.markers]
   );
-  const warnings = assignment && violations.length > 0 ? violationFlags(assignment, violations) : undefined;
+  const overlay = useMemo(
+    () => (assignment ? rotationLinks(assignment, violations, selectedId) : undefined),
+    [assignment, violations, selectedId]
+  );
 
   // Drawn/reshaped points snap to the court's features and the active step's markers; the grid joins
   // in only while grid snapping is on. Alt bypasses inside the draw hook.
@@ -426,8 +431,8 @@ export function BoardEditor({
         </p>
       )}
 
-      <div className="grid grid-cols-[minmax(0,calc(min(74vh,620px)_+_54px))_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-[1040px]:grid-cols-[minmax(0,1fr)]">
-        <div className="flex min-w-0 items-start justify-center gap-3">
+      <div className="grid grid-cols-[minmax(0,calc(var(--court-size)_+_54px))_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-court:grid-cols-[minmax(0,1fr)]">
+        <div className="flex min-w-0 items-start justify-center gap-3 max-court:order-2">
           {toolRail && (
             <AnnotationToolbar
               tool={tool}
@@ -437,7 +442,7 @@ export function BoardEditor({
             />
           )}
 
-          <div className="flex w-full min-w-0 max-w-[min(74vh,620px)] flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
+          <div className="flex w-full min-w-0 max-w-[var(--court-size)] flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
             {/* The contextual inspector sits above the court so it never overlaps the diagram. In
                 markers mode it is a fixed-height bar, present whether or not a marker is selected, so
                 clicking a marker never shifts the court down. It stays outside the focusable figure so
@@ -515,7 +520,7 @@ export function BoardEditor({
                   markers={markers}
                   arrows={arrows}
                   annotations={annotations}
-                  warnings={warnings}
+                  rotation={overlay}
                   grid={grid}
                   snap={snap}
                   label={draft.title || "Untitled board"}
@@ -593,28 +598,42 @@ export function BoardEditor({
           </div>
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-4 max-[1040px]:w-full">
-          <RotationPanel
-            draft={draft}
-            stepIndex={stepIndex}
-            violations={violations}
-            onChangeRotation={changeRotation}
-            onPlace={place}
-            onChangeStrict={(rotationStrict) => set((d) => ({ ...d, rotationStrict }))}
-          />
-          <DescriptionEditor
-            value={draft.description}
-            onChange={(description) => replace((d) => ({ ...d, description }))}
-          />
+        {/* Narrow, the detail panel dissolves into the grid (contents) so its pieces order around the
+            board: description-beside-rotation above (order-1), the board (order-2), the step
+            instruction below (order-3) — the same one-column order the read-only view uses. The pairing
+            stretches to one card height (items-stretch) and wraps once they no longer fit. */}
+        <aside className="flex min-w-0 flex-col gap-4 max-court:contents">
+          <div className="flex flex-col-reverse gap-4 max-court:order-1 max-court:flex-row max-court:flex-wrap max-court:items-stretch">
+            <div className="grid min-w-0 max-court:flex-1 max-court:min-w-[16rem]">
+              <DescriptionEditor
+                value={draft.description}
+                onChange={(description) => replace((d) => ({ ...d, description }))}
+              />
+            </div>
+            <div className="grid max-court:max-w-[17rem]">
+              <RotationPanel
+                draft={draft}
+                stepIndex={stepIndex}
+                violations={violations}
+                selectedId={selectedId}
+                links={overlay?.links}
+                onChangeRotation={changeRotation}
+                onPlace={place}
+                onChangeStrict={(rotationStrict) => set((d) => ({ ...d, rotationStrict }))}
+              />
+            </div>
+          </div>
           {sequence && (
-            <DescriptionEditor
-              key={activeStep.id}
-              title={`Step ${stepIndex + 1} instruction`}
-              value={activeStep.instruction}
-              onChange={(value) => replace((d) => setStepInstruction(d, activeStepId, value))}
-              placeholder="What happens on this step? (markdown)"
-              compact
-            />
+            <div className="max-court:order-3">
+              <DescriptionEditor
+                key={activeStep.id}
+                title={`Step ${stepIndex + 1} instruction`}
+                value={activeStep.instruction}
+                onChange={(value) => replace((d) => setStepInstruction(d, activeStepId, value))}
+                placeholder="What happens on this step? (markdown)"
+                compact
+              />
+            </div>
           )}
         </aside>
       </div>

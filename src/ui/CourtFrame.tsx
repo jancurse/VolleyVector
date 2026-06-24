@@ -14,7 +14,7 @@ const FRAME =
   "m-0 aspect-square max-w-full rounded-3xl border border-border bg-court-surface shadow-court transition-[background-color,border-color] duration-[400ms] animate-[rise_0.7s_var(--ease-settle)_both] focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-accent-weak motion-reduce:animate-none";
 
 export const CourtFrame = forwardRef<HTMLElement, CourtFrameProps>(function CourtFrame(
-  { className, width = "w-[min(74vh,620px)]", ...props },
+  { className, width = "w-[var(--court-size)]", ...props },
   ref
 ) {
   return <figure ref={ref} className={cx(FRAME, width, className)} {...props} />;

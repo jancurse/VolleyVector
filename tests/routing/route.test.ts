@@ -26,6 +26,7 @@ const cases: { route: Route; path: string }[] = [
   { route: { kind: "settings" }, path: "/settings" },
   { route: { kind: "admin", sub: "teams" }, path: "/admin/teams" },
   { route: { kind: "admin", sub: "accounts" }, path: "/admin/accounts" },
+  { route: { kind: "admin", sub: "requests" }, path: "/admin/requests" },
   { route: { kind: "admin", sub: "recovery" }, path: "/admin/recovery" },
 ];
 

@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 
 import { presetAssignment, presetOrder, rotationAssignment, rotationPlayers } from "../boards/rotation";
-import type { RotationViolation } from "../boards/rotation";
+import type { RotationLink, RotationViolation } from "../boards/rotation";
 import type { Board, RotationSlot, StepRotation } from "../boards/types";
 import { Select } from "../ui/Select";
 import { ToggleGroup } from "../ui/ToggleGroup";
@@ -32,6 +32,9 @@ type RotationPanelProps = {
   draft: Board;
   stepIndex: number;
   violations: readonly RotationViolation[];
+  /** The selected player and the constraint edges, mirrored from the court onto the rotation board. */
+  selectedId?: string | null;
+  links?: readonly RotationLink[];
   onChangeRotation: (rotation: StepRotation | undefined) => void;
   onPlace: (markerId: string, slot: RotationSlot | null) => void;
   onChangeStrict: (strict: boolean) => void;
@@ -41,6 +44,8 @@ export function RotationPanel({
   draft,
   stepIndex,
   violations,
+  selectedId,
+  links,
   onChangeRotation,
   onPlace,
   onChangeStrict,
@@ -108,11 +113,13 @@ export function RotationPanel({
               markers={draft.markers}
               rotation={rotation}
               onPlace={rotation.kind === "custom" ? onPlace : undefined}
+              selectedId={selectedId}
+              links={links}
             />
           </div>
           <div className="flex min-w-[150px] flex-1 flex-col gap-3">
             {violationMessages(violations).map((message) => (
-              <p key={message} className="m-0 text-sm font-semibold text-warn">
+              <p key={message} className="m-0 text-sm font-semibold text-danger">
                 {message}
               </p>
             ))}

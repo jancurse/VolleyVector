@@ -7,8 +7,7 @@ import { Input } from "../ui/Input";
 import { BrandLockup } from "../shell/BrandMark";
 import { cx, MUTED, PANEL } from "../ui/styles";
 
-const BACKGROUND =
-  "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)]";
+const BACKGROUND = "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:var(--app-backdrop)]";
 
 // The first-login gate: shown after sign-in while a user has no display name, blocking the app until
 // they set one. The app swaps this for the shell as soon as the name saves.

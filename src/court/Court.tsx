@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import type { JSX } from "react";
 
 import type { AnnotationHandle } from "../boards/operations";
+import { spotlightMarkers } from "../boards/rotation";
+import type { RotationOverlay } from "../boards/rotation";
 import { Annotations } from "./Annotations";
 import { Arrows } from "./Arrows";
 import type { SnapResult } from "./snapping";
@@ -40,18 +42,6 @@ const noDraw = (_annotation: Annotation): void => {};
 const noTranslate = (_id: string, _dx: number, _dy: number): void => {};
 const DEFAULT_ANNOTATION_STYLE: NewAnnotationStyle = { color: "blue", width: 6, fill: "tint", dash: "solid" };
 
-export type CourtWarnings = {
-  markerIds: readonly string[];
-  ties: readonly { a: string; b: string }[];
-};
-
-/** The view's "who do I key off" cue for one tapped player: a tie to each marker that constrains
- *  them, with every uninvolved marker dimmed. */
-export type CourtCue = {
-  markerId: string;
-  neighbourIds: readonly string[];
-};
-
 type CourtProps = {
   markers: readonly MarkerData[];
   /** Accessible name for the whole diagram. */
@@ -63,10 +53,9 @@ type CourtProps = {
   arrows?: readonly Arrow[];
   /** The step's drawn annotations, rendered between the arrows and the markers. */
   annotations?: readonly Annotation[];
-  /** Overlap-violation flags: markers carrying a warning halo, and a tie per broken pair. */
-  warnings?: CourtWarnings;
-  /** The tapped player's overlap-relationship cue (the read-only view). */
-  cue?: CourtCue;
+  /** The rotation overlay: persistent violation edges, a cue edge from the selected player to each
+   *  legal neighbour, and the solo-fault halo markers. `selectedId` drives the cue and the dimming. */
+  rotation?: RotationOverlay;
   /** Faint reference grid: the number of cells per axis (0 = off). An authoring aid. */
   grid?: number;
   /** Thumbnail mode (~200px): the net collapses to a line, labels drop, and discs grow so the
@@ -103,8 +92,7 @@ export function Court({
   animated = false,
   arrows,
   annotations,
-  warnings,
-  cue,
+  rotation,
   grid = 0,
   compact = false,
   snap,
@@ -142,6 +130,9 @@ export function Court({
 
   const surface = drawingTool ? draw : selectable ? drag : null;
   const crosshair = drawingTool && tool !== "select";
+
+  // The selection spotlight: the selected player and its linked markers lead; everyone else dims.
+  const spotlight = spotlightMarkers(rotation?.links ?? [], selectedId);
 
   return (
     <svg
@@ -240,30 +231,7 @@ export function Court({
         />
       )}
 
-      {cue &&
-        (() => {
-          const player = markers.find((m) => m.id === cue.markerId);
-
-          if (!player) return null;
-
-          const p = toSvgPoint(player.position);
-
-          return (
-            <g aria-hidden="true">
-              {cue.neighbourIds.map((id) => {
-                const neighbour = markers.find((m) => m.id === id);
-
-                if (!neighbour) return null;
-
-                const q = toSvgPoint(neighbour.position);
-
-                return <line key={id} className="court-cue-tie" x1={p.x} y1={p.y} x2={q.x} y2={q.y} />;
-              })}
-            </g>
-          );
-        })()}
-
-      {warnings?.ties.map(({ a, b }, i) => {
+      {rotation?.links.map(({ a, b, state }, i) => {
         const from = markers.find((m) => m.id === a);
         const to = markers.find((m) => m.id === b);
 
@@ -272,7 +240,7 @@ export function Court({
         const p = toSvgPoint(from.position);
         const q = toSvgPoint(to.position);
 
-        return <line key={i} className="court-tie" x1={p.x} y1={p.y} x2={q.x} y2={q.y} />;
+        return <line key={i} className={`court-link court-link--${state}`} x1={p.x} y1={p.y} x2={q.x} y2={q.y} />;
       })}
 
       {markers.map((marker, i) => (
@@ -281,8 +249,8 @@ export function Court({
           marker={marker}
           index={i}
           selected={marker.id === selectedId}
-          warning={warnings?.markerIds.includes(marker.id)}
-          dimmed={cue && marker.id !== cue.markerId && !cue.neighbourIds.includes(marker.id)}
+          fault={rotation?.faultIds.includes(marker.id)}
+          dimmed={spotlight !== null && !spotlight.has(marker.id)}
           dragging={editable && marker.id === drag.draggingId}
           animated={animated}
           compact={compact}

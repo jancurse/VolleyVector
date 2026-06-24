@@ -59,6 +59,23 @@
   --shadow-overlay: 0 18px 40px -22px var(--court-cast);
   --shadow-court: 0 34px 70px -30px var(--court-cast), 0 2px 0 rgba(255, 255, 255, 0.03) inset;
 
+  /* The rendered court's target size: a square capped at 620px, else 74% of viewport height. Referenced
+     as [var(--court-size)] by every court surface (CourtFrame, the view/editor grids, the landing). */
+  --court-size: min(74vh, 620px);
+
+  /* The court/editor stacking breakpoint: the court column and its detail panel sit side by side above
+     this width and stack below it. As a --breakpoint-* token it generates the `max-court:` variant
+     (@media (width < 1040px)), used by the editor; the board view stacks on its own width through the
+     matching `@max-[1040px]` container query instead, so it collapses in history's narrow preview. */
+  --breakpoint-court: 1040px;
+
+  /* The shell/page max width, referenced as [var(--shell-max)] by every page and shell column. */
+  --shell-max: 1320px;
+
+  /* The app backdrop: a warm glow falling from the top over the page colour. One named layer shared by
+     every full-page surface (the app shell, share/auth/grant screens, and the landing). */
+  --app-backdrop: radial-gradient(135% 90% at 50% -10%, var(--bg-glow), transparent 55%), var(--bg);
+
   --animate-rise: rise 0.6s var(--ease-settle) both;
   /* The step instruction changing reads as a move between two notes: the incoming one slides in from
      the direction of travel as the wording settles. Forward when advancing, back when stepping back. */
@@ -81,13 +98,12 @@
   --color-accent-weak: var(--accent-weak);
   --color-on-accent: var(--on-accent);
   --color-danger: var(--danger);
-  --color-warn: var(--warn);
 }
 
 /* The playing surface keeps one identity in both themes: a warm sport-floor with dark lines, like a
    canvas the chrome themes around (see the court design plan). These court tokens, and the knock-on
-   tokens for everything drawn inside the court frame (marker cast/edge, ball/arrow neutral), are set
-   once here and never overridden per theme. The chrome tokens (--court-surface, --court-cast) stay
+   tokens for everything drawn inside the court frame (marker cast/edge, ball/arrow neutral, and the
+   selection/fault accent and danger), are set once here and never overridden per theme. The chrome tokens (--court-surface, --court-cast) stay
    theme-variant in the blocks below: they back the frame behind the court, not the floor itself. */
 :root {
   --court-play: oklch(0.95 0.016 84);
@@ -96,6 +112,8 @@
   --net: oklch(0.3 0.01 70);
   --court-grid: oklch(0.3 0.01 70 / 0.16);
   --ball-arrow: oklch(0.36 0.012 70);
+  --court-accent: #2f6fe0;
+  --court-danger: #d6442b;
   --marker-cast: drop-shadow(0 3px 4px rgba(34, 31, 24, 0.24));
   --marker-cast-lift: drop-shadow(0 9px 12px rgba(34, 31, 24, 0.3));
   --marker-edge: oklch(0.3 0.01 70 / 0.45);
@@ -126,7 +144,6 @@
   --accent-weak: rgba(122, 162, 255, 0.18);
   --on-accent: #0b1020;
   --danger: #ef6a52;
-  --warn: #f0a83c;
 }
 
 [data-theme="light"] {
@@ -152,7 +169,6 @@
   --accent-weak: rgba(47, 111, 224, 0.12);
   --on-accent: #ffffff;
   --danger: #d6442b;
-  --warn: #b97a0d;
 }
 
 html,

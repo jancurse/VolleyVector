@@ -1,56 +1,52 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { JSX } from "react";
 
 import { useAuth } from "../auth/useAuth";
+import { AuthTabs } from "../auth/AuthTabs";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
+import { BrandLockup } from "../shell/BrandMark";
 import { TermsConsentLabel } from "../legal/TermsConsentLabel";
 import { recordTermsAcceptance } from "../legal/acceptTerms";
-import { BrandLockup } from "../shell/BrandMark";
-import { cx, MUTED, PANEL } from "../ui/styles";
-import type { InvitePreview } from "./invites";
-import { invitePreview, redeemInvite, redeemInviteAsCurrentUser } from "./invites";
+import { cx, MUTED, OVERLAY_SURFACE } from "../ui/styles";
+import type { InvitePreviewState } from "./useInvitePreview";
+import { redeemInvite, redeemInviteAsCurrentUser } from "./invites";
 
-const BACKGROUND =
-  "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)]";
+const CARD = cx(OVERLAY_SURFACE, "flex w-full max-w-[24rem] flex-col gap-5 px-[1.15rem] pt-[1.1rem] pb-[1.25rem]");
 
 const MIN_LENGTH = 8;
 
-type Loaded =
-  | { status: "loading"; preview: null }
-  | { status: "invalid"; preview: null }
-  | { status: "ready"; preview: InvitePreview };
-
-// The one no-account entry point besides a share link: an invite link. It describes every right the link
-// carries (join a team, receive invites, set up an account) and adapts to each: a signed-in visitor claims
-// what applies in one click; a signed-out visitor sets up an account when the link allows it, or otherwise
-// signs in to claim. A link with no team renders team-less copy. Redeeming runs server-side; on success we
-// reload at the root so the workspace loads fresh.
-export function InviteAccept({ token }: { token: string }): JSX.Element {
+// The invite body of the shared auth surface. It describes every right the link carries (join a team,
+// receive invites, set up an account) and adapts to each: a signed-in visitor claims what applies in one
+// click; a signed-out visitor sets up an account when the link allows it, or otherwise signs in to claim.
+// A link with no team renders team-less copy. The preview is resolved by the surface and passed in, so
+// this component owns no fetch. Redeeming runs server-side; on success we reload at the root so the
+// workspace loads fresh.
+export function InviteAccept({
+  token,
+  state,
+  initialMode = "create",
+  onDecline,
+}: {
+  token: string;
+  /** The link's resolved preview, owned by the surface so the fetch happens once. */
+  state: InvitePreviewState;
+  /** Which side the surface opened on: account setup ("create") or sign-in. */
+  initialMode?: "create" | "signin";
+  /** Dismiss the surface, used by the signed-in claim overlay's Decline. */
+  onDecline?: () => void;
+}): JSX.Element {
   const { user, signIn, signOut } = useAuth();
 
-  const [loaded, setLoaded] = useState<Loaded>({ status: "loading", preview: null });
-  const [mode, setMode] = useState<"create" | "signin">("create");
+  const [mode, setMode] = useState<"create" | "signin">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    void invitePreview(token).then(({ preview }) => {
-      if (active) setLoaded(preview ? { status: "ready", preview } : { status: "invalid", preview: null });
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [token]);
 
   const finish = () => window.location.replace(window.location.origin);
 
@@ -109,7 +105,7 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
     finish();
   };
 
-  // Signing in is enough here: the auth listener flips this screen to the signed-in branch, whose
+  // Signing in is enough here: the auth listener flips this surface to the signed-in branch, whose
   // one-click claim confirms which account is claiming before anything is redeemed.
   const signInExisting = async () => {
     setError(null);
@@ -132,7 +128,7 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
     setBusy(false);
   };
 
-  const preview = loaded.status === "ready" ? loaded.preview : null;
+  const preview = state.status === "ready" ? state.preview : null;
   const team = preview?.teamName ?? null;
   const roleLabel = preview?.role === "coach" ? "a coach" : "a player";
   const quota = preview?.grantQuota ?? 0;
@@ -153,43 +149,57 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
   const creating = allowsNewAccount && mode === "create";
 
   return (
-    <div className={BACKGROUND}>
-      <div className={cx(PANEL, "w-full max-w-[24rem] gap-5")}>
-        <div>
-          <BrandLockup />
-          <h1 className="m-0 mt-3 font-display text-[1.9rem] font-bold tracking-[-0.025em]">
-            {loaded.status === "ready" ? title : "Invite"}
-          </h1>
-        </div>
+    <div className={CARD}>
+      <div>
+        <BrandLockup />
+        <h1 className="m-0 mt-3 font-display text-[1.9rem] font-bold tracking-[-0.025em]">
+          {state.status === "ready" ? title : "Invite"}
+        </h1>
+      </div>
 
-        {loaded.status === "loading" && <p className={MUTED}>Loading…</p>}
+      {(state.status === "loading" || state.status === "none") && <p className={MUTED}>Loading…</p>}
 
-        {loaded.status === "invalid" && (
-          <p className={MUTED}>This invite link is no longer valid. It may have been used already or expired.</p>
-        )}
+      {state.status === "invalid" && (
+        <p className={MUTED}>This invite link is no longer valid. It may have been used already or expired.</p>
+      )}
 
-        {loaded.status === "ready" && user && (
-          <>
-            <p className={MUTED}>
-              {claims
-                ? `You’re signed in as ${user.email}. This link will ${claims}.`
-                : `You’re signed in as ${user.email}. This link has nothing to add to your account.`}
-            </p>
-            {error && <p className="m-0 text-sm text-danger">{error}</p>}
-            {claims ? (
-              <Button onClick={() => void claim()} disabled={busy}>
-                {busy ? "Working…" : team ? `Join ${team}` : "Claim invites"}
-              </Button>
-            ) : (
-              <Button onClick={finish}>Continue</Button>
-            )}
-            <Button variant="text" size="sm" disabled={busy} onClick={() => void switchAccount()}>
-              Not you? Sign out
+      {state.status === "ready" && user && (
+        <>
+          <p className={MUTED}>
+            {claims
+              ? `You’re signed in as ${user.email}. This link will ${claims}.`
+              : `You’re signed in as ${user.email}. This link has nothing to add to your account.`}
+          </p>
+          {error && <p className="m-0 text-sm text-danger">{error}</p>}
+          {claims ? (
+            <Button onClick={() => void claim()} disabled={busy}>
+              {busy ? "Working…" : team ? `Join ${team}` : "Claim invites"}
             </Button>
-          </>
-        )}
+          ) : (
+            <Button onClick={finish}>Continue</Button>
+          )}
+          {onDecline && (
+            <Button variant="ghost" paired disabled={busy} onClick={onDecline}>
+              Decline
+            </Button>
+          )}
+          <Button variant="text" size="sm" disabled={busy} onClick={() => void switchAccount()}>
+            Not you? Sign out
+          </Button>
+        </>
+      )}
 
-        {loaded.status === "ready" && !user && (
+      {state.status === "ready" && !user && (
+        <>
+          {allowsNewAccount && (
+            <AuthTabs
+              value={creating ? "signup" : "signin"}
+              onValueChange={(side) => {
+                setMode(side === "signup" ? "create" : "signin");
+                setError(null);
+              }}
+            />
+          )}
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -252,22 +262,9 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
                   ? "Signing in…"
                   : "Sign in"}
             </Button>
-            {allowsNewAccount && (
-              <Button
-                variant="text"
-                size="sm"
-                disabled={busy}
-                onClick={() => {
-                  setMode(mode === "create" ? "signin" : "create");
-                  setError(null);
-                }}
-              >
-                {mode === "create" ? "Already have an account? Sign in" : "New here? Set up an account"}
-              </Button>
-            )}
           </form>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }

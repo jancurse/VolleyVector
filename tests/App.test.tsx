@@ -411,12 +411,11 @@ describe("positions and sequences", () => {
     await openSequence(user);
 
     expect(screen.getByRole("heading", { name: "Sample Drill (Serve Receive & Sideout)" })).toBeInTheDocument();
-    expect(screen.getByText("1 / 4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Step 1" })).toHaveAttribute("aria-current", "true");
     expect(screen.getByText(/each cover 40% of the court/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next step" }));
 
-    expect(screen.getByText("2 / 4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Step 2" })).toHaveAttribute("aria-current", "true");
   });
 
@@ -426,7 +425,6 @@ describe("positions and sequences", () => {
     await openSequence(user);
     await user.click(screen.getByRole("button", { name: "Step 3" }));
 
-    expect(screen.getByText("3 / 4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Step 3" })).toHaveAttribute("aria-current", "true");
   });
 

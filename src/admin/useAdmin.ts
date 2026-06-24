@@ -20,12 +20,14 @@ export type AdminProfile = {
   deletedAt: string | null;
 };
 export type DeletedItem = { id: string; title: string };
+export type AccessRequest = { id: string; email: string; message: string; createdAt: string; handledAt: string | null };
 
 export type AdminData = {
   teams: AdminTeam[];
   profiles: AdminProfile[];
   deletedBoards: DeletedItem[];
   deletedNotes: DeletedItem[];
+  accessRequests: AccessRequest[];
   loading: boolean;
   error: string | null;
   reload: () => void;
@@ -38,6 +40,8 @@ export type AdminData = {
   recoverAccount: (userId: string) => Promise<{ error: string | null }>;
   restoreBoard: (id: string) => Promise<{ error: string | null }>;
   restoreNote: (id: string) => Promise<{ error: string | null }>;
+  handleRequest: (id: string) => Promise<{ error: string | null }>;
+  dismissRequest: (id: string) => Promise<{ error: string | null }>;
 };
 
 type TeamRow = { id: string; name: string; archived_at: string | null; deleted_at: string | null };
@@ -49,6 +53,7 @@ type ProfileRow = {
   deleted_at: string | null;
 };
 type ItemRow = { id: string; title: string };
+type RequestRow = { id: string; email: string; message: string | null; created_at: string; handled_at: string | null };
 
 function teamState(row: TeamRow): TeamState {
   if (row.deleted_at) return "deleted";
@@ -62,6 +67,7 @@ export function useAdmin(open: boolean): AdminData {
   const [profiles, setProfiles] = useState<AdminProfile[]>([]);
   const [deletedBoards, setDeletedBoards] = useState<DeletedItem[]>([]);
   const [deletedNotes, setDeletedNotes] = useState<DeletedItem[]>([]);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -82,16 +88,21 @@ export function useAdmin(open: boolean): AdminData {
       // team or account removal alike. Team deletion still flags only the team; its rows cascade on purge.
       // Email is admin-only, served by a security-definer RPC rather than a column any client could
       // select, so the admin panel reads the profile list through it.
-      const [teamsR, profilesR, boardsR, notesR] = await Promise.all([
+      const [teamsR, profilesR, boardsR, notesR, requestsR] = await Promise.all([
         supabase.from("teams").select("id, name, archived_at, deleted_at"),
         supabase.rpc("admin_list_profiles"),
         supabase.from("boards").select("id, title, deleted_at").not("deleted_at", "is", null),
         supabase.from("topics").select("id, title, deleted_at").not("deleted_at", "is", null),
+        supabase
+          .from("access_requests")
+          .select("id, email, message, created_at, handled_at")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false }),
       ]);
 
       if (!active) return;
 
-      const failed = teamsR.error ?? profilesR.error ?? boardsR.error ?? notesR.error;
+      const failed = teamsR.error ?? profilesR.error ?? boardsR.error ?? notesR.error ?? requestsR.error;
 
       if (failed) {
         setError(failed.message);
@@ -112,6 +123,15 @@ export function useAdmin(open: boolean): AdminData {
       );
       setDeletedBoards((boardsR.data ?? []) as ItemRow[]);
       setDeletedNotes((notesR.data ?? []) as ItemRow[]);
+      setAccessRequests(
+        ((requestsR.data ?? []) as RequestRow[]).map((r) => ({
+          id: r.id,
+          email: r.email,
+          message: r.message ?? "",
+          createdAt: r.created_at,
+          handledAt: r.handled_at,
+        }))
+      );
       setLoading(false);
     })();
 
@@ -191,11 +211,23 @@ export function useAdmin(open: boolean): AdminData {
     [run]
   );
 
+  const handleRequest = useCallback(
+    (id: string) => run(supabase.from("access_requests").update({ handled_at: new Date().toISOString() }).eq("id", id)),
+    [run]
+  );
+
+  // Dismiss is a soft-delete, so a dropped request drops out of the open list but stays in the table.
+  const dismissRequest = useCallback(
+    (id: string) => run(supabase.from("access_requests").update({ deleted_at: new Date().toISOString() }).eq("id", id)),
+    [run]
+  );
+
   return {
     teams,
     profiles,
     deletedBoards,
     deletedNotes,
+    accessRequests,
     loading,
     error,
     reload,
@@ -208,5 +240,7 @@ export function useAdmin(open: boolean): AdminData {
     recoverAccount,
     restoreBoard,
     restoreNote,
+    handleRequest,
+    dismissRequest,
   };
 }
