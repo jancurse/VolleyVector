@@ -3,8 +3,11 @@ import type { JSX } from "react";
 
 import { useAuth } from "../auth/useAuth";
 import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
+import { TermsConsentLabel } from "../legal/TermsConsentLabel";
+import { recordTermsAcceptance } from "../legal/acceptTerms";
 import { BrandLockup } from "../shell/BrandMark";
 import { cx, MUTED, PANEL } from "../ui/styles";
 import type { InvitePreview } from "./invites";
@@ -12,6 +15,8 @@ import { invitePreview, redeemInvite, redeemInviteAsCurrentUser } from "./invite
 
 const BACKGROUND =
   "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)]";
+
+const MIN_LENGTH = 8;
 
 type Loaded =
   | { status: "loading"; preview: null }
@@ -30,6 +35,8 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
   const [mode, setMode] = useState<"create" | "signin">("create");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -64,6 +71,18 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
   };
 
   const signUp = async () => {
+    if (password.length < MIN_LENGTH) {
+      setError(`Use at least ${MIN_LENGTH} characters.`);
+
+      return;
+    }
+
+    if (password !== confirm) {
+      setError("The passwords do not match.");
+
+      return;
+    }
+
     setError(null);
     setBusy(true);
 
@@ -86,6 +105,7 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
       return;
     }
 
+    await recordTermsAcceptance();
     finish();
   };
 
@@ -201,8 +221,27 @@ export function InviteAccept({ token }: { token: string }): JSX.Element {
                 required
               />
             </Field>
+            {creating && (
+              <Field label="Confirm password">
+                <Input
+                  type="password"
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </Field>
+            )}
+            {creating && (
+              <Checkbox checked={accepted} onCheckedChange={setAccepted} ariaLabel="I agree to the Terms & Privacy">
+                <TermsConsentLabel />
+              </Checkbox>
+            )}
             {error && <p className="m-0 text-sm text-danger">{error}</p>}
-            <Button type="submit" disabled={busy || email.trim() === "" || password === ""}>
+            <Button
+              type="submit"
+              disabled={busy || email.trim() === "" || password === "" || (creating && (confirm === "" || !accepted))}
+            >
               {creating
                 ? busy
                   ? "Working…"

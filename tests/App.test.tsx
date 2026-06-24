@@ -702,6 +702,24 @@ describe("notes", () => {
     expect(screen.getByText("Out of system play.")).toBeInTheDocument();
   });
 
+  // Note edit mode is reconciled against the route like the board draft: leaving the note mid-edit ends
+  // the session, so returning shows the read-only view (not a silently-resumed editor) and Back exits it.
+  test("navigating away from a note mid-edit ends the edit session", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Defense" }));
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByLabelText("Note title")).toBeInTheDocument(); // the editor is open
+
+    // Navigate away to All Boards, then back to the note.
+    await user.click(screen.getByRole("button", { name: "All Boards" }));
+    await user.click(screen.getByRole("button", { name: "Defense" }));
+
+    // The editor did not silently reopen: the read-only view shows, offering Edit again.
+    expect(screen.queryByLabelText("Note title")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
   test("deleting a note drops it from the sidebar, leaving its boards in the library", async () => {
     const user = await renderApp();
 

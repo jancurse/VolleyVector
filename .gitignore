@@ -28,6 +28,9 @@ pnpm-debug.log*
 # Board-creator draft bundles (read by the dev-only #/preview route)
 drafts/
 
+# Local scratch notes (never committed)
+tmp/
+
 # Playwright MCP scratch output
 .playwright-mcp/
 

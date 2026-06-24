@@ -7,7 +7,13 @@ import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { FIELD_LABEL, MUTED, PANEL_TITLE } from "../ui/styles";
+import { useCopyLabel } from "../ui/useCopyLabel";
 import { CAPABILITY_OPTIONS } from "./access";
+
+// The access the recipient ends up with: an email grant is upgrade-or-grant, so a recipient already holding
+// a higher grant keeps it, but the reply names only the capability the owner chose, never the recipient's
+// real state, so it stays uniform whether or not an account matched (no account-existence oracle).
+const CAPABILITY_NOUN: Record<Capability, string> = { viewer: "view", editor: "edit", owner: "own" };
 
 // Granting access to someone outside the sharer's teams, owner-only (the manager is owner-gated). Two
 // paths, neither of which enumerates accounts or reveals an email:
@@ -24,10 +30,10 @@ type OutsideTeamShareProps = {
 export function OutsideTeamShare({ entityNoun, onCreateLink, onGrantByEmail }: OutsideTeamShareProps): JSX.Element {
   const [capability, setCapability] = useState<Capability>("viewer");
   const [email, setEmail] = useState("");
-  const [linkLabel, setLinkLabel] = useState("Copy share link");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { copied, copy } = useCopyLabel();
 
   // Mint a fresh single-use link and copy it straight to the clipboard, matching the view-only link's
   // one-click copy. The link is still generated on the fly each time; only the way it's handed over is shared.
@@ -43,15 +49,7 @@ export function OutsideTeamShare({ entityNoun, onCreateLink, onGrantByEmail }: O
 
       return;
     }
-    if (!url) return;
-
-    try {
-      await navigator.clipboard.writeText(url);
-      setLinkLabel("Copied");
-      window.setTimeout(() => setLinkLabel("Copy share link"), 1500);
-    } catch {
-      // The clipboard call can reject (no permission or an insecure context); leave the label as is.
-    }
+    if (url) copy(url);
   };
 
   const grantByEmail = async () => {
@@ -73,8 +71,9 @@ export function OutsideTeamShare({ entityNoun, onCreateLink, onGrantByEmail }: O
     }
 
     setEmail("");
-    // The same reply whether or not an account matched, so the email is not an existence oracle.
-    setMessage(`If an account with that email exists, it now has access to this ${entityNoun}.`);
+    // The same reply whether or not an account matched, so the email is not an existence oracle: it names the
+    // capability the owner granted (at least which the recipient now holds), never the recipient's real state.
+    setMessage(`If an account with that email exists, it can now ${CAPABILITY_NOUN[capability]} this ${entityNoun}.`);
   };
 
   return (
@@ -115,7 +114,7 @@ export function OutsideTeamShare({ entityNoun, onCreateLink, onGrantByEmail }: O
           <span className={FIELD_LABEL}>By link</span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={() => void shareLink()} disabled={busy}>
-              {busy ? "Working…" : linkLabel}
+              {busy ? "Working…" : copied ? "Copied" : "Copy share link"}
             </Button>
             <span className={MUTED}>Unique single-use link</span>
           </div>

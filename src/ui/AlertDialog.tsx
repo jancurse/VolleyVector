@@ -1,7 +1,7 @@
 import { AlertDialog as BaseAlertDialog } from "@base-ui/react/alert-dialog";
 
 import { Button } from "./Button";
-import { cx, OVERLAY_MOTION } from "./styles";
+import { BACKDROP, cx, OVERLAY_MOTION, OVERLAY_SURFACE } from "./styles";
 
 // A modal confirmation with a focus trap, focus return, escape/outside-click dismissal, and the title
 // wired as its accessible name. Controlled by the caller (see useConfirm).
@@ -16,11 +16,9 @@ export type AlertDialogProps = {
   onConfirm: () => void;
 };
 
-const BACKDROP =
-  "fixed inset-0 z-40 bg-black/40 transition-opacity duration-150 ease-settle data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none";
-
 const POPUP = cx(
-  "fixed top-1/2 left-1/2 z-40 -mt-8 flex w-96 max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg border border-border bg-overlay p-5 text-text shadow-overlay",
+  OVERLAY_SURFACE,
+  "fixed top-1/2 left-1/2 z-40 -mt-8 flex w-96 max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 p-5 text-text",
   OVERLAY_MOTION
 );
 

@@ -9,13 +9,15 @@ import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { ToggleGroup } from "../ui/ToggleGroup";
 import { MUTED } from "../ui/styles";
+import { useCopyLabel } from "../ui/useCopyLabel";
 import type { TeamRole } from "../workspace/useWorkspace";
 
 // The one invite surface, reached two ways: a team's "Invite member" button (the team fixed, role chosen
 // here) or the sidebar's Invite entry (no team, an optional team picker). A top-level method picks how the
 // person is invited. By link mints a single-use link typed from three independent grants — create an
 // account (the only quota-consuming one), join a team, and (admins only) grant invite quota. By email
-// sends a server-side invite into a team. Both run server-side; this only collects inputs.
+// sends that same server-side invite, into the chosen team or team-less. Both run server-side; this only
+// collects inputs.
 export type InviteTeam = { teamId: string; teamName: string };
 
 type InviteDialogProps = {
@@ -56,7 +58,7 @@ export function InviteDialog({
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [copyLabel, setCopyLabel] = useState("Copy");
+  const { copied, copy, reset: resetCopied } = useCopyLabel();
 
   // Load the caller's remaining invites fresh each open, so the count stays live across mints in a session.
   useEffect(() => {
@@ -86,7 +88,7 @@ export function InviteDialog({
       setSent(null);
       setError(null);
       setBusy(false);
-      setCopyLabel("Copy");
+      resetCopied();
     }
 
     onOpenChange(next);
@@ -98,7 +100,7 @@ export function InviteDialog({
     setLink(null);
     setSent(null);
     setError(null);
-    setCopyLabel("Copy");
+    resetCopied();
   };
 
   const canCreateAccount = isAdmin || (available !== null && available >= 1);
@@ -112,7 +114,7 @@ export function InviteDialog({
     setBusy(true);
     setError(null);
     setLink(null);
-    setCopyLabel("Copy");
+    resetCopied();
 
     const { url, error: failure } = await createInvite({
       createdBy: currentUserId,
@@ -141,7 +143,7 @@ export function InviteDialog({
     setSent(null);
 
     const address = email.trim();
-    const { error: failure } = await sendEmailInvite(address, teamId, role);
+    const { error: failure } = await sendEmailInvite(address, joinsTeam ? teamId : null, joinsTeam ? role : null);
 
     setBusy(false);
 
@@ -152,18 +154,13 @@ export function InviteDialog({
     }
 
     setSent(address);
+    // The email send spent a slot; refresh the live count for a non-admin so the quota note and Send button
+    // do not go stale.
+    if (!isAdmin) void inviteAvailability().then(({ available: a }) => setAvailable(a));
   };
 
-  const copyLink = async () => {
-    if (!link) return;
-
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopyLabel("Copied");
-      window.setTimeout(() => setCopyLabel("Copy"), 1500);
-    } catch {
-      // The clipboard call can reject (no permission or an insecure context); leave the label as is.
-    }
+  const copyLink = () => {
+    if (link) copy(link);
   };
 
   // Only relevant to a non-admin who will create an account (a "new person" link or any email invite): how
@@ -278,8 +275,8 @@ export function InviteDialog({
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2">
                   <Input readOnly value={link} aria-label="Invite link" onFocus={(event) => event.target.select()} />
-                  <Button variant="ghost" onClick={() => void copyLink()}>
-                    {copyLabel}
+                  <Button variant="ghost" onClick={copyLink}>
+                    {copied ? "Copied" : "Copy"}
                   </Button>
                 </div>
                 <span className={MUTED}>Single-use, expires in 7 days.</span>
@@ -291,11 +288,10 @@ export function InviteDialog({
             <Button
               className="self-start"
               onClick={() => void send()}
-              disabled={busy || !email.trim() || !joinsTeam || !canCreateAccount}
+              disabled={busy || !email.trim() || !canCreateAccount}
             >
               {busy ? "Sending…" : "Send invite"}
             </Button>
-            {!joinsTeam && <span className={MUTED}>Select a team to send an email invite.</span>}
             {sent && <p className="m-0 text-sm text-text">Invite sent to {sent}.</p>}
           </>
         )}

@@ -3,6 +3,7 @@ import type { JSX } from "react";
 
 import type { Board } from "../boards/types";
 import { BoardView } from "../editor/BoardView";
+import { cx, PAGE_WIDTH } from "../ui/styles";
 import { RevisionList } from "./RevisionList";
 import { useBoardRevisions } from "./useRevisions";
 
@@ -16,8 +17,11 @@ type BoardHistoryProps = {
   onRestore?: (snapshot: Board) => void;
 };
 
-const LAYOUT =
-  "mx-auto grid w-full max-w-[1320px] grid-cols-[20rem_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-[900px]:grid-cols-[minmax(0,1fr)]";
+const LAYOUT = cx(
+  "mx-auto grid",
+  PAGE_WIDTH,
+  "grid-cols-[20rem_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-[900px]:grid-cols-[minmax(0,1fr)]"
+);
 
 export function BoardHistory({ board, onBack, onRestore }: BoardHistoryProps): JSX.Element {
   const { entries, loading, error } = useBoardRevisions(board);

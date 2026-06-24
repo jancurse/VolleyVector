@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../supabase/client";
 import { writeWithRetries } from "../supabase/retry";
 import type { Capability, NoteRow } from "../supabase/rows";
 import { noteFromRow, noteToInsert } from "../supabase/rows";
+import { insertOwnerGrant, useSpaceStore } from "../supabase/useSpaceStore";
 import { uniqueSlug } from "../routing/slug";
 import type { TeamRole } from "../workspace/useWorkspace";
 import type { Space } from "../workspace/space";
@@ -69,26 +70,16 @@ type LoadedNoteRow = NoteRow & { topic_access: { capability: Capability }[] };
 export function useNotes(space: Space | null, isAdmin: boolean, activeRole: TeamRole | null): NotesStore {
   const { user } = useAuth();
 
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const read = useCallback((space: Space, userId: string) => selectSpaceNotes(space, userId), []);
 
-  const capabilityOf = useCallback(
-    (grant: Capability | undefined): Capability => {
-      if (isAdmin) return "owner";
-      if (!grant) return "viewer";
-      if (space?.kind === "team") return activeRole === "coach" ? grant : "viewer";
-
-      return grant;
-    },
-    [isAdmin, activeRole, space]
-  );
-
-  const mapRows = useCallback(
-    (rows: LoadedNoteRow[]): Note[] =>
+  const map = useCallback(
+    (rows: LoadedNoteRow[], capabilityOf: (grant: Capability | undefined) => Capability): Note[] =>
       rows.map((row) => noteFromRow(row, capabilityOf(row.topic_access[0]?.capability))),
-    [capabilityOf]
+    []
   );
+
+  const store = useSpaceStore<LoadedNoteRow, Note>({ space, isAdmin, activeRole, user, read, map });
+  const { items: notes, setItems: setNotes, loading, error, fail } = store;
 
   // `addNote` returns the new id synchronously, and structural moves diff against the current tree,
   // so both read the latest notes from a ref rather than a stale closure.
@@ -98,56 +89,6 @@ export function useNotes(space: Space | null, isAdmin: boolean, activeRole: Team
     latest.current = notes;
   }, [notes]);
 
-  const refetch = useCallback(async () => {
-    if (!space || !user) return;
-
-    const { data, error: queryError } = await selectSpaceNotes(space, user.id);
-
-    if (!queryError && data) setNotes(mapRows(data as LoadedNoteRow[]));
-  }, [space, user, mapRows]);
-
-  useEffect(() => {
-    let active = true;
-
-    void (async () => {
-      if (!space || !user) {
-        setNotes([]);
-        setLoading(false);
-
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      const { data, error: queryError } = await selectSpaceNotes(space, user.id);
-
-      if (!active) return;
-
-      if (queryError) {
-        setError(queryError.message);
-        setLoading(false);
-
-        return;
-      }
-
-      setNotes(mapRows(data as LoadedNoteRow[]));
-      setLoading(false);
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [space, user, mapRows]);
-
-  const fail = useCallback(
-    (message: string) => {
-      setError(message);
-      void refetch();
-    },
-    [refetch]
-  );
-
   // Insert one note row and the principal's owner grant for the active space, retrying the row on a slug
   // collision. Shared by create and import.
   const insertNote = useCallback(
@@ -156,7 +97,7 @@ export function useNotes(space: Space | null, isAdmin: boolean, activeRole: Team
 
       const teamId = space.kind === "team" ? space.teamId : null;
       let row = note;
-      let writeError = await writeWithRetries(async () => {
+      const writeError = await writeWithRetries(async () => {
         const result = await supabase.from("topics").insert(noteToInsert(row, user.id, teamId));
 
         if (result.error?.code === "23505") {
@@ -171,26 +112,20 @@ export function useNotes(space: Space | null, isAdmin: boolean, activeRole: Team
 
       if (writeError !== null) return writeError;
 
-      const grant = {
-        topic_id: note.id,
-        user_id: teamId !== null ? null : user.id,
-        team_id: teamId,
-        capability: "owner",
-      };
-
-      writeError = await writeWithRetries(async () => {
-        const result = await supabase.from("topic_access").insert(grant);
-
-        return result.error?.code === "23505" ? { error: null } : result;
-      });
-
       // The grant write failed after the row landed: remove the orphaned row so a failed create leaves
       // nothing behind. A plain delete cannot (topic deletes are admin-only), so go through the RPC.
-      if (writeError !== null) await supabase.rpc("delete_orphan_topic", { topic: note.id });
-
-      return writeError;
+      return insertOwnerGrant(
+        "topic_access",
+        {
+          topic_id: note.id,
+          user_id: teamId !== null ? null : user.id,
+          team_id: teamId,
+          capability: "owner",
+        },
+        { rpc: "delete_orphan_topic", args: { topic: note.id } }
+      );
     },
-    [space, user]
+    [space, user, setNotes]
   );
 
   const addNote = useCallback(
@@ -205,7 +140,7 @@ export function useNotes(space: Space | null, isAdmin: boolean, activeRole: Team
 
       return id;
     },
-    [insertNote, fail]
+    [insertNote, fail, setNotes]
   );
 
   const insertNotes = useCallback(
@@ -220,7 +155,7 @@ export function useNotes(space: Space | null, isAdmin: boolean, activeRole: Team
 
       return null;
     },
-    [insertNote]
+    [insertNote, setNotes]
   );
 
   const updateNote = useCallback(
@@ -255,7 +190,7 @@ export function useNotes(space: Space | null, isAdmin: boolean, activeRole: Team
 
       return null;
     },
-    []
+    [setNotes]
   );
 
   const removeNote = useCallback(
@@ -268,7 +203,7 @@ export function useNotes(space: Space | null, isAdmin: boolean, activeRole: Team
         .rpc("soft_delete_topic", { root: id })
         .then(({ error: writeError }) => writeError && fail(writeError.message));
     },
-    [fail]
+    [fail, setNotes]
   );
 
   const persistMove = useCallback(
@@ -289,7 +224,7 @@ export function useNotes(space: Space | null, isAdmin: boolean, activeRole: Team
         }
       })();
     },
-    [fail]
+    [fail, setNotes]
   );
 
   const reparentNote = useCallback(

@@ -92,7 +92,7 @@ describe("NoteAccessManager", () => {
     const call = recordedRpcs.find((c) => c.fn === "grant_topic_by_email");
 
     expect(call?.params).toMatchObject({ root: "root", addr: "stranger@example.com", cap: "viewer" });
-    expect(await screen.findByText(/it now has access to this note/i)).toBeInTheDocument();
+    expect(await screen.findByText(/it can now view this note/i)).toBeInTheDocument();
   });
 
   test("the note grant link inserts an access_links row with the topic id", async () => {
@@ -103,7 +103,7 @@ describe("NoteAccessManager", () => {
 
     renderManager();
 
-    await user.click(screen.getByRole("button", { name: "Copy share link" }));
+    await user.click(await screen.findByRole("button", { name: "Copy share link" }));
 
     const insert = await waitFor(() => {
       const write = recordedWrites.find((c) => c.table === "access_links" && c.op === "insert");

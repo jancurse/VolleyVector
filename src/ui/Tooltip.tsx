@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { Tooltip as BaseTooltip } from "@base-ui/react/tooltip";
 
-import { cx, OVERLAY_MOTION } from "./styles";
+import { cx, OVERLAY_MOTION, OVERLAY_SURFACE } from "./styles";
 
 // A shared delay for every tooltip; once one is open, neighbours open instantly. Mount once near the
 // app root so all icon-only controls share it.
@@ -17,7 +17,8 @@ type TooltipProps = {
 };
 
 const POPUP = cx(
-  "z-30 max-w-[16rem] rounded-sm border border-border bg-overlay px-2 py-1 text-xs font-semibold text-text shadow-overlay",
+  OVERLAY_SURFACE,
+  "z-30 max-w-[16rem] rounded-sm px-2 py-1 text-xs font-semibold text-text",
   OVERLAY_MOTION
 );
 

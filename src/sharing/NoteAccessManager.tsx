@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { supabase } from "../supabase/client";
@@ -9,11 +8,8 @@ import { Dialog } from "../ui/Dialog";
 import { MUTED } from "../ui/styles";
 import type { TeamRef } from "../workspace/useWorkspace";
 import { AccessList } from "./AccessList";
-import { fetchAccess } from "./access";
-import type { AccessData, Profile } from "./access";
-import { fetchShareCandidates } from "./candidates";
-import type { ShareCandidate } from "./candidates";
 import { createTopicGrantLink, grantTopicByEmail } from "./grants";
+import { useAccessManager } from "./useAccessManager";
 
 // The owner's access manager for one note, sharing its whole subtree at once. A note is a document and a tree
 // node; sharing applies to the note and every subnote beneath it, so a grant is written per node (reads stay
@@ -45,46 +41,9 @@ export function NoteAccessManager({
   teamName,
   currentUserId,
 }: NoteAccessManagerProps): JSX.Element {
-  const [grants, setGrants] = useState<AccessRow[]>([]);
-  const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
-  const [candidates, setCandidates] = useState<ShareCandidate[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
   // Sharing writes one grant per node in the note's subtree, so reads (which select by the space's principal)
   // never need to walk the tree.
   const ids = subtreeIds(notes, note.id);
-
-  const apply = (data: AccessData) => {
-    setError(data.error);
-    setGrants(data.grants);
-    setProfiles(data.profiles);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-
-    let active = true;
-
-    void fetchAccess("topic_access", "topic_id", note.id).then((data) => active && apply(data));
-    void fetchShareCandidates(memberTeams, currentUserId).then((r) => {
-      if (!active) return;
-
-      setCandidates(r.candidates);
-      // Surface a memberships/profiles load failure without clobbering a concurrent access-fetch error.
-      if (r.error) setError(r.error);
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [open, note.id, memberTeams, currentUserId]);
-
-  const run = async (op: PromiseLike<{ error: { message: string } | null }>) => {
-    const { error: writeError } = await op;
-
-    if (writeError) setError(writeError.message);
-    else apply(await fetchAccess("topic_access", "topic_id", note.id));
-  };
 
   // A capability change or a removal targets one principal across the whole subtree.
   const byPrincipal = (op: "update" | "delete", grant: AccessRow, capability?: Capability) => {
@@ -96,36 +55,53 @@ export function NoteAccessManager({
     return grant.team_id ? base.eq("team_id", grant.team_id) : base.eq("user_id", grant.user_id);
   };
 
+  const access = useAccessManager(
+    open,
+    {
+      table: "topic_access",
+      idColumn: "topic_id",
+      id: note.id,
+      add: (kind, id, capability) =>
+        supabase.from("topic_access").insert(
+          ids.map((topicId) => ({
+            topic_id: topicId,
+            user_id: kind === "team" ? null : id,
+            team_id: kind === "team" ? id : null,
+            capability,
+          }))
+        ),
+      changeCapability: (grant, capability) => byPrincipal("update", grant, capability),
+      remove: (grant) => byPrincipal("delete", grant),
+      createLink: (capability) => createTopicGrantLink(note.id, capability, currentUserId),
+      grantByEmail: (email, capability) => grantTopicByEmail(note.id, email, capability),
+    },
+    memberTeams,
+    currentUserId
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Manage access">
-      <AccessList
-        grants={grants}
-        profiles={profiles}
-        error={error}
-        coachedTeams={coachedTeams}
-        candidates={candidates}
-        teamName={teamName}
-        currentUserId={currentUserId}
-        entityNoun="note"
-        onCreateLink={(capability) => createTopicGrantLink(note.id, capability, currentUserId)}
-        onGrantByEmail={(email, capability) => grantTopicByEmail(note.id, email, capability)}
-        onAdd={(kind, id, capability) =>
-          void run(
-            supabase.from("topic_access").insert(
-              ids.map((topicId) => ({
-                topic_id: topicId,
-                user_id: kind === "team" ? null : id,
-                team_id: kind === "team" ? id : null,
-                capability,
-              }))
-            )
-          )
-        }
-        onChangeCapability={(grant, capability) => void run(byPrincipal("update", grant, capability))}
-        onRemove={(grant) => void run(byPrincipal("delete", grant))}
-      >
-        <span className={MUTED}>Sharing applies to this note and all its subnotes.</span>
-      </AccessList>
+      {access.loading ? (
+        <p className={MUTED}>Loading…</p>
+      ) : (
+        <AccessList
+          grants={access.grants}
+          profiles={access.profiles}
+          error={access.error}
+          coachedTeams={coachedTeams}
+          candidates={access.candidates}
+          teamName={teamName}
+          currentUserId={currentUserId}
+          entityNoun="note"
+          onCreateLink={access.onCreateLink}
+          onGrantByEmail={access.onGrantByEmail}
+          onAdd={access.onAdd}
+          onChangeCapability={access.onChangeCapability}
+          onRemove={access.onRemove}
+        >
+          <span className={MUTED}>Sharing applies to this note and all its subnotes.</span>
+        </AccessList>
+      )}
     </Dialog>
   );
 }

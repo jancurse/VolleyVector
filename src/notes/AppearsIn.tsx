@@ -24,7 +24,13 @@ const ADD_LINK =
 
 export function AppearsIn({ boardId, notes, onOpenNote, onAddToNote }: AppearsInProps): JSX.Element | null {
   const linked = notesReferencing(notes, boardId);
-  const addable = onAddToNote ? flattenNotes(notes).filter(({ note }) => !linked.includes(note)) : [];
+  // Only notes the viewer may edit can take a board: a viewer-only note would fail the commit, so it is
+  // absent from the list (matching how NoteView gates its Edit action by the same per-note capability).
+  const addable = onAddToNote
+    ? flattenNotes(notes).filter(
+        ({ note }) => !linked.includes(note) && (note.capability === "editor" || note.capability === "owner")
+      )
+    : [];
 
   if (linked.length === 0 && addable.length === 0) return null;
 

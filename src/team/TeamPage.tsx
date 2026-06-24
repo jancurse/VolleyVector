@@ -39,7 +39,7 @@ export function TeamPage({
   onJoin,
   onLeave,
 }: TeamPageProps): JSX.Element {
-  const { members, loading, reload, setRole, remove } = useMembers(teamId);
+  const { members, loading, error: loadError, reload, setRole, remove } = useMembers(teamId);
   const { confirm, dialog } = useConfirm();
   const [memberError, setMemberError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -129,6 +129,7 @@ export function TeamPage({
       <MembersList
         members={members}
         loading={loading}
+        error={loadError}
         canManage={canManage}
         currentUserId={currentUserId}
         onSetRole={changeRole}

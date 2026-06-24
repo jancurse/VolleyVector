@@ -15,12 +15,14 @@ type ProfileRow = { id: string; display_name: string | null };
 export function useMembers(teamId: string | null): {
   members: Member[];
   loading: boolean;
+  error: string | null;
   reload: () => void;
   setRole: (userId: string, role: TeamRole) => Promise<{ error: string | null }>;
   remove: (userId: string) => Promise<{ error: string | null }>;
 } {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
@@ -67,6 +69,7 @@ export function useMembers(teamId: string | null): {
       }
 
       setLoading(true);
+      setError(null);
 
       const memberships = await supabase.from("memberships").select("user_id, role").eq("team_id", teamId);
 
@@ -81,6 +84,15 @@ export function useMembers(teamId: string | null): {
         : null;
 
       if (!active) return;
+
+      // Surface a load failure rather than falling through to an empty roster, which reads as a team with no
+      // members. A profiles error only happens when there were memberships to fetch profiles for.
+      if (memberships.error || profiles?.error) {
+        setError(memberships.error?.message ?? profiles?.error?.message ?? "Failed to load members");
+        setLoading(false);
+
+        return;
+      }
 
       const live = new Map(((profiles?.data ?? []) as ProfileRow[]).map((p) => [p.id, p]));
 
@@ -102,5 +114,5 @@ export function useMembers(teamId: string | null): {
     };
   }, [teamId, tick]);
 
-  return { members, loading, reload, setRole, remove };
+  return { members, loading, error, reload, setRole, remove };
 }

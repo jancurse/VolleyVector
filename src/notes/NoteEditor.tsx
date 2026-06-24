@@ -5,6 +5,7 @@ import type { Board } from "../boards/types";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
+import { cx, PAGE_WIDTH } from "../ui/styles";
 import { BoardGroupBlock } from "./BoardGroupBlock";
 import {
   appendBlock,
@@ -50,7 +51,13 @@ export function NoteEditor({ note, boards, onDone, onCancel }: NoteEditorProps):
   };
 
   return (
-    <section className="mx-auto flex w-full max-w-[1320px] flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-rise motion-reduce:animate-none">
+    <section
+      className={cx(
+        "mx-auto flex",
+        PAGE_WIDTH,
+        "flex-col gap-[clamp(0.75rem,2vh,1.25rem)] animate-rise motion-reduce:animate-none"
+      )}
+    >
       <div className="flex items-center gap-4">
         <Input
           variant="title"

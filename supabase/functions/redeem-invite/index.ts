@@ -95,22 +95,30 @@ Deno.serve(async (req) => {
   if (claimError) return json({ error: `Could not redeem link: ${claimError.message}` }, 400);
   if (!claimed) return json({ error: "This invite link is no longer valid." }, 410);
 
+  // Compensating rollback: undo every durable side effect this redemption made, then reopen the link so it
+  // ends usable only when nothing persisted. Membership and the new account are torn down in reverse order;
+  // the auth user is deleted only when we created it (an existing caller's account is never touched).
+  let userId: string | undefined;
+  let addedMembership = false;
+  let createdAccount = false;
+
   const release = async () => {
+    if (addedMembership && claimed.team_id && userId) {
+      await admin.from("memberships").delete().eq("team_id", claimed.team_id).eq("user_id", userId);
+    }
+
+    if (createdAccount && userId) await admin.auth.admin.deleteUser(userId);
     await admin.from("invites").update({ used_at: null, used_by: null }).eq("token", token);
   };
 
   // Resolve the user the link is for: the signed-in caller, or a new account from the supplied email and
   // password. An existing caller always wins over the account-creation grant.
-  let userId: string | undefined;
-
   if (authHeader) {
     const caller = createClient(url, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: who } = await caller.auth.getUser();
 
     userId = who.user?.id;
   }
-
-  let createdAccount = false;
 
   if (!userId) {
     if (!claimed.allows_new_account) {
@@ -166,20 +174,24 @@ Deno.serve(async (req) => {
   }
 
   // Add the membership when the link carries a team. Leave an existing membership untouched so a stale
-  // link can never silently re-role someone who is already on the team.
+  // link can never silently re-role someone who is already on the team; the returned rows tell us whether
+  // this call inserted one, so a later failure only ever rolls back a membership we created.
   if (claimed.team_id) {
-    const { error: linkError } = await admin
+    const { data: inserted, error: linkError } = await admin
       .from("memberships")
       .upsert(
         { team_id: claimed.team_id, user_id: userId, role: claimed.role },
         { onConflict: "team_id,user_id", ignoreDuplicates: true }
-      );
+      )
+      .select("user_id");
 
     if (linkError) {
       await release();
 
       return json({ error: `Could not add you to the team: ${linkError.message}` }, 400);
     }
+
+    addedMembership = (inserted?.length ?? 0) > 0;
   }
 
   // Apply the quota grant additively (an atomic increment, so concurrent grants never lose an update).

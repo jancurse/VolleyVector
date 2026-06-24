@@ -2,13 +2,14 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { useAuth } from "./useAuth";
+import { ForgotPassword } from "./ForgotPassword";
 import { devAccounts } from "./devAccounts";
 import type { DevAccount } from "./devAccounts";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
 import { BrandLockup } from "../shell/BrandMark";
-import { cx, PANEL, PANEL_TITLE } from "../ui/styles";
+import { cx, MUTED, PANEL, PANEL_TITLE } from "../ui/styles";
 
 const BACKGROUND =
   "flex min-h-[100dvh] flex-col items-center justify-center px-6 [background:radial-gradient(135%_90%_at_50%_-10%,var(--bg-glow),transparent_55%),var(--bg)]";
@@ -22,6 +23,7 @@ export function Login(): JSX.Element {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   const runSignIn = async (account: { email: string; password: string }) => {
     setError(null);
@@ -36,6 +38,8 @@ export function Login(): JSX.Element {
   };
 
   const accounts = devAccounts();
+
+  if (forgot) return <ForgotPassword onBack={() => setForgot(false)} />;
 
   return (
     <div className={cx(BACKGROUND, "gap-4")}>
@@ -77,9 +81,21 @@ export function Login(): JSX.Element {
         <Button type="submit" disabled={busy || email === "" || password === ""}>
           {busy ? "Signing in…" : "Sign in"}
         </Button>
+
+        <button
+          type="button"
+          onClick={() => setForgot(true)}
+          className={cx(MUTED, "m-0 cursor-pointer border-0 bg-transparent text-sm underline")}
+        >
+          Forgot password?
+        </button>
       </form>
 
       {accounts.length > 0 && <DevSignIn accounts={accounts} busy={busy} onPick={runSignIn} />}
+
+      <a href="/terms" className="text-sm text-text-dim underline hover:text-text">
+        Terms &amp; Privacy
+      </a>
     </div>
   );
 }

@@ -187,6 +187,16 @@ describe("clampToLegal", () => {
   test("leaves an unassigned marker untouched", () => {
     expect(clampToLegal(ROTATION_1, positions, "ball", { x: -0.05, y: 1.1 })).toEqual({ x: -0.05, y: 1.1 });
   });
+
+  test("holds the marker in place on an axis whose region inverted (outer pair overlaps)", () => {
+    // Slot 3 (mb1) is bounded on x by its left neighbour slot 4 (opp) and right neighbour slot 2 (oh1).
+    // Drag those outer players past each other so loX > hiX: the x-region is empty.
+    const inverted = { ...positions, opp: { x: 0.9, y: 0.22 }, oh1: { x: 0.1, y: 0.22 }, mb1: { x: 0.5, y: 0.22 } };
+
+    // The y-axis is unconstrained here, so it still clamps; the empty x holds at the current x (0.5),
+    // never collapsing onto a neighbour's x.
+    expect(clampToLegal(ROTATION_1, inverted, "mb1", { x: 0.05, y: 0.4 })).toEqual({ x: 0.5, y: 0.4 });
+  });
 });
 
 describe("violationFlags", () => {

@@ -31,6 +31,21 @@ export type NoteRevisionEntry = {
 
 type RevisionState<T> = { entries: T[]; loading: boolean; error: string | null };
 
+type RevisionRow = { id: string; created_by: string | null; created_at: string };
+
+/** The metadata shared by every entry, set apart from the versioned item it carries. */
+type EntryMeta = { authorName: string | null; createdAt: number; summary: string };
+
+/** What separates a board's history from a note's: the revisions table and its id column, the mapper from a
+ *  snapshot row to a versioned item, the diff between two versions, and how each version sits in its entry. */
+type RevisionConfig<TItem, TRow extends RevisionRow, TEntry> = {
+  table: string;
+  idColumn: string;
+  fromRevision: (row: TRow, item: TItem) => TItem;
+  diff: (before: TItem, after: TItem) => string[];
+  toEntry: (id: string, version: TItem, meta: EntryMeta) => TEntry;
+};
+
 /** Display names for a set of author ids, so the list can name each commit. Unknown or nameless authors are
  *  simply absent from the map. */
 async function authorNames(ids: readonly (string | null)[]): Promise<Map<string, string>> {
@@ -48,14 +63,19 @@ async function authorNames(ids: readonly (string | null)[]): Promise<Map<string,
   return names;
 }
 
-export function useBoardRevisions(board: Board | null): RevisionState<BoardRevisionEntry> {
-  const [state, setState] = useState<RevisionState<BoardRevisionEntry>>({ entries: [], loading: true, error: null });
+/** Loads an item's revision list, newest first, mapping each snapshot back to a versioned item and pairing it
+ *  with its author's name and a change summary against the previous revision. */
+function useRevisions<TItem extends { id: string }, TRow extends RevisionRow, TEntry>(
+  item: TItem | null,
+  config: RevisionConfig<TItem, TRow, TEntry>
+): RevisionState<TEntry> {
+  const [state, setState] = useState<RevisionState<TEntry>>({ entries: [], loading: true, error: null });
 
   useEffect(() => {
     let active = true;
 
     void (async () => {
-      if (!board) {
+      if (!item) {
         setState({ entries: [], loading: false, error: null });
 
         return;
@@ -64,9 +84,9 @@ export function useBoardRevisions(board: Board | null): RevisionState<BoardRevis
       setState((s) => ({ ...s, loading: true, error: null }));
 
       const { data, error } = await supabase
-        .from("board_revisions")
+        .from(config.table)
         .select("*")
-        .eq("board_id", board.id)
+        .eq(config.idColumn, item.id)
         .order("created_at", { ascending: false });
 
       if (!active) return;
@@ -77,21 +97,21 @@ export function useBoardRevisions(board: Board | null): RevisionState<BoardRevis
         return;
       }
 
-      const rows = ((data as BoardRevisionRow[] | null) ?? [])
+      const rows = ((data as TRow[] | null) ?? [])
         .slice()
         .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
       const names = await authorNames(rows.map((r) => r.created_by));
 
       if (!active) return;
 
-      const boards = rows.map((row) => boardFromRevision(row, board));
-      const entries = rows.map((row, i) => ({
-        id: row.id,
-        board: boards[i],
-        authorName: row.created_by ? (names.get(row.created_by) ?? null) : null,
-        createdAt: Date.parse(row.created_at),
-        summary: i + 1 < boards.length ? changeSummary(diffBoard(boards[i + 1], boards[i])) : "Created",
-      }));
+      const versions = rows.map((row) => config.fromRevision(row, item));
+      const entries = rows.map((row, i) =>
+        config.toEntry(row.id, versions[i], {
+          authorName: row.created_by ? (names.get(row.created_by) ?? null) : null,
+          createdAt: Date.parse(row.created_at),
+          summary: i + 1 < versions.length ? changeSummary(config.diff(versions[i + 1], versions[i])) : "Created",
+        })
+      );
 
       setState({ entries, loading: false, error: null });
     })();
@@ -99,64 +119,31 @@ export function useBoardRevisions(board: Board | null): RevisionState<BoardRevis
     return () => {
       active = false;
     };
-  }, [board]);
+  }, [item, config]);
 
   return state;
 }
 
+const BOARD_REVISIONS: RevisionConfig<Board, BoardRevisionRow, BoardRevisionEntry> = {
+  table: "board_revisions",
+  idColumn: "board_id",
+  fromRevision: boardFromRevision,
+  diff: diffBoard,
+  toEntry: (id, board, base) => ({ id, board, ...base }),
+};
+
+const NOTE_REVISIONS: RevisionConfig<Note, NoteRevisionRow, NoteRevisionEntry> = {
+  table: "topic_revisions",
+  idColumn: "topic_id",
+  fromRevision: noteFromRevision,
+  diff: diffNote,
+  toEntry: (id, note, base) => ({ id, note, ...base }),
+};
+
+export function useBoardRevisions(board: Board | null): RevisionState<BoardRevisionEntry> {
+  return useRevisions(board, BOARD_REVISIONS);
+}
+
 export function useNoteRevisions(note: Note | null): RevisionState<NoteRevisionEntry> {
-  const [state, setState] = useState<RevisionState<NoteRevisionEntry>>({ entries: [], loading: true, error: null });
-
-  useEffect(() => {
-    let active = true;
-
-    void (async () => {
-      if (!note) {
-        setState({ entries: [], loading: false, error: null });
-
-        return;
-      }
-
-      setState((s) => ({ ...s, loading: true, error: null }));
-
-      const { data, error } = await supabase
-        .from("topic_revisions")
-        .select("*")
-        .eq("topic_id", note.id)
-        .order("created_at", { ascending: false });
-
-      if (!active) return;
-
-      if (error) {
-        setState({ entries: [], loading: false, error: error.message });
-
-        return;
-      }
-
-      const rows = ((data as NoteRevisionRow[] | null) ?? [])
-        .slice()
-        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
-      const names = await authorNames(rows.map((r) => r.created_by));
-
-      if (!active) return;
-
-      const noteVersions = rows.map((row) => noteFromRevision(row, note));
-      const entries = rows.map((row, i) => ({
-        id: row.id,
-        note: noteVersions[i],
-        authorName: row.created_by ? (names.get(row.created_by) ?? null) : null,
-        createdAt: Date.parse(row.created_at),
-        summary:
-          i + 1 < noteVersions.length ? changeSummary(diffNote(noteVersions[i + 1], noteVersions[i])) : "Created",
-      }));
-
-      setState({ entries, loading: false, error: null });
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [note]);
-
-  return state;
+  return useRevisions(note, NOTE_REVISIONS);
 }

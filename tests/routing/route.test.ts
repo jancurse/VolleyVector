@@ -79,6 +79,13 @@ describe("parsePath / buildPath", () => {
     expect(parsePath(path)).toEqual({ kind: "notFound", path });
   });
 
+  // A malformed percent escape makes decodeURIComponent throw; parsePath stays pure and total, yielding
+  // not-found rather than propagating the throw (which, before the top-level error boundary, blanked the app).
+  test.each(["/personal/board/%", "/t/%E0%A4%A/x", "/%zz"])("returns not-found for malformed escape %s", (path) => {
+    expect(() => parsePath(path)).not.toThrow();
+    expect(parsePath(path)).toEqual({ kind: "notFound", path });
+  });
+
   it("does not interpret the URL hash (share and invite links ride the hash)", () => {
     // parsePath reads only the pathname; a share/invite hash leaves the path as root.
     expect(parsePath("/")).toEqual({ kind: "root" });

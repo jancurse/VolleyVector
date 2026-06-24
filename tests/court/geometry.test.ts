@@ -86,6 +86,8 @@ describe("snapToGrid", () => {
     [{ x: 0.5, y: 0.07 }, 27, { x: 0.5, y: 2 / 27 }],
     // A 9×9 line pulls a nearby axis (0.47 → 4/9), while a y already past the end line stays put.
     [{ x: 0.47, y: 1.08 }, 9, { x: 4 / 9, y: 1.08 }],
+    // A coarse 3×3 grid would otherwise pull a benched marker (y ≈ 1.07) onto the end line; it stays put.
+    [{ x: 0.5, y: 1.07 }, 3, { x: 0.5, y: 1.07 }],
   ])("snaps %o on a %i-grid to %o", (point, divisions, expected) => {
     const result = snapToGrid(point, divisions);
 

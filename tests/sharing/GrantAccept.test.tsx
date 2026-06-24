@@ -15,9 +15,9 @@ vi.mock("../../src/supabase/client", async () => {
 beforeEach(() => resetRecorded());
 afterEach(() => vi.clearAllMocks());
 
-test("a grant link previews its content and redeems it on accept", async () => {
+test("a grant link previews its content, redeems it, then opens it on confirm", async () => {
   const user = userEvent.setup();
-  // Accepting reloads at the root; stub the navigation so the test environment is not asked to navigate.
+  // Opening reloads at the content; stub the navigation so the test environment is not asked to navigate.
   const replace = vi.spyOn(window.location, "replace").mockImplementation(() => {});
 
   render(<GrantAccept token="grant-token" />);
@@ -26,7 +26,12 @@ test("a grant link previews its content and redeems it on accept", async () => {
 
   await user.click(screen.getByRole("button", { name: "Accept" }));
 
+  // Redeeming surfaces the resulting capability instead of navigating away silently.
   await vi.waitFor(() => expect(recordedRpcs.some((c) => c.fn === "redeem_access_link")).toBe(true));
+  expect(await screen.findByText(/you now have edit access to this board/i)).toBeInTheDocument();
+  expect(replace).not.toHaveBeenCalled();
+
+  await user.click(screen.getByRole("button", { name: "Open board" }));
   expect(replace).toHaveBeenCalled();
 
   replace.mockRestore();
@@ -39,7 +44,7 @@ test("an invalid link shows the no-longer-valid message and offers no Accept", a
   expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument();
 });
 
-test("accepting a board grant lands on the board in the personal space", async () => {
+test("opening a redeemed board grant lands on the board in the personal space", async () => {
   const user = userEvent.setup();
   const replace = vi.spyOn(window.location, "replace").mockImplementation(() => {});
 
@@ -47,6 +52,7 @@ test("accepting a board grant lands on the board in the personal space", async (
 
   expect(await screen.findByText(/edit the board “Shared Tactic”/i)).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Accept" }));
+  await user.click(await screen.findByRole("button", { name: "Open board" }));
 
   await vi.waitFor(() =>
     expect(replace).toHaveBeenCalledWith(expect.stringContaining("/personal/board/shared-board-1"))
@@ -55,7 +61,7 @@ test("accepting a board grant lands on the board in the personal space", async (
   replace.mockRestore();
 });
 
-test("accepting a note grant lands on the note in the personal space", async () => {
+test("opening a redeemed note grant lands on the note in the personal space", async () => {
   setGrantTarget("note");
   const user = userEvent.setup();
   const replace = vi.spyOn(window.location, "replace").mockImplementation(() => {});
@@ -64,6 +70,7 @@ test("accepting a note grant lands on the note in the personal space", async () 
 
   expect(await screen.findByText(/view the note “Rotations”/i)).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Accept" }));
+  await user.click(await screen.findByRole("button", { name: "Open note" }));
 
   await vi.waitFor(() => expect(replace).toHaveBeenCalledWith(expect.stringContaining("/personal/note/rotations")));
 
