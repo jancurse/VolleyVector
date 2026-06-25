@@ -769,6 +769,53 @@ begin
 end $$;
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- 22. Feedback: the row is written only by the server (service role), and only an admin may read or update
+--     it. An ordinary client can neither read, insert, nor update a report.
+-- ---------------------------------------------------------------------------
+-- Seeded as the table owner, standing in for the Edge Function's service-role insert (which bypasses RLS).
+insert into public.feedback (reporter, type, message)
+values ('a0000000-0000-0000-0000-000000000002', 'bug', 'The court overlaps the net');
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA (non-admin)
+do $$
+declare n int; updated int; blocked boolean := false;
+begin
+  select count(*) into n from public.feedback;
+  if n <> 0 then raise exception 'FAIL feedback: a non-admin read a report'; end if;
+
+  begin
+    insert into public.feedback (reporter, type, message)
+    values ('a0000000-0000-0000-0000-000000000002', 'feature', 'sneaky');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL feedback: a non-admin inserted a report'; end if;
+
+  update public.feedback set handled_at = now();
+  get diagnostics updated = row_count;
+  if updated <> 0 then raise exception 'FAIL feedback: a non-admin updated a report (% rows)', updated; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000001","role":"authenticated"}'; -- admin
+do $$
+declare n int; handled int; dismissed int;
+begin
+  select count(*) into n from public.feedback;
+  if n <> 1 then raise exception 'FAIL feedback: an admin could not read the report'; end if;
+
+  update public.feedback set handled_at = now() where type = 'bug';
+  get diagnostics handled = row_count;
+  if handled <> 1 then raise exception 'FAIL feedback: an admin could not mark a report handled'; end if;
+
+  update public.feedback set deleted_at = now() where type = 'bug';
+  get diagnostics dismissed = row_count;
+  if dismissed <> 1 then raise exception 'FAIL feedback: an admin could not dismiss a report'; end if;
+end $$;
+reset role;
+
 select 'ALL RLS TESTS PASSED' as result;
 
 rollback;

@@ -24,13 +24,17 @@ These rules apply to **all text**, not just Markdown. The prose-quality rules be
 
 - Prefer simple subject-verb-object sentences. Do not pile clauses onto one sentence.
 - Split a compound thought into separate sentences.
+- Write prose in complete sentences, each with a subject and a finite verb. A verbless fragment is fine only for a label or heading, never for a sentence of running prose.
 - **Punctuation does a job. Use the mark that does the job you mean.**
     - A colon introduces what follows. A period ends a thought.
     - **Do not reach for an em dash where a colon or a full stop is what you mean.** Heavy use of em dashes, semicolons, and stacked commas is the main tell of fragmented "AI" prose.
     - If a sentence leans on several of these, rewrite it as two or three plain sentences.
     - This holds for the shortest strings too: a button label or a one-line tooltip gets the same plain punctuation, no em dashes.
-    - Before: "Set your lineup and the board lays out every rotation — where each player stands, front and back — and it flags an overlap, too."
-    - After: "Set your lineup and the board lays out every rotation: where each player stands, front row and back. It flags an overlap if two players cross."
+        - Before: "Set your lineup and the board lays out every rotation — where each player stands, front and back — and it flags an overlap, too."
+        - After: "Set your lineup and the board lays out every rotation: where each player stands, front row and back. It flags an overlap if two players cross."
+    - Put a short inline example or aside in parentheses, not after a colon. Reserve the colon for introducing a list or a longer clause.
+        - Before: "Issues are welcome: bug reports, ideas, and questions."
+        - After: "Issues are welcome (bug reports, ideas, questions)."
 
 ## Don't oversell
 

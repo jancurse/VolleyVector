@@ -445,6 +445,12 @@ function makeQuery(table: string, rows: Row[], created: Row | null): Query {
 export const DELETED_ACCOUNT = { id: "gone-1", email: "gone@volley.test" };
 export const DELETED_TEAM = { id: "old-team-1", name: "Old Team" };
 export const ACCESS_REQUEST = { id: "req-1", email: "hopeful@volley.test", message: "A coach told me about this" };
+export const FEEDBACK_REPORT = {
+  id: "fb-1",
+  type: "bug" as const,
+  reporter: OTHER_MEMBER.id,
+  message: "The court overlaps the net on my phone",
+};
 
 // The profile rows, shared by the `profiles` table reads (display name only for an ordinary client) and
 // the admin-only `admin_list_profiles` RPC (which adds email). Email is never selectable through the
@@ -545,6 +551,23 @@ function from(table: string): Query {
             id: ACCESS_REQUEST.id,
             email: ACCESS_REQUEST.email,
             message: ACCESS_REQUEST.message,
+            created_at: ISO,
+            handled_at: null,
+            deleted_at: null,
+            deleted_by: null,
+          },
+        ],
+        null
+      );
+    case "feedback":
+      return makeQuery(
+        table,
+        [
+          {
+            id: FEEDBACK_REPORT.id,
+            type: FEEDBACK_REPORT.type,
+            reporter: FEEDBACK_REPORT.reporter,
+            message: FEEDBACK_REPORT.message,
             created_at: ISO,
             handled_at: null,
             deleted_at: null,

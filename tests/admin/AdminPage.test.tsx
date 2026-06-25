@@ -10,6 +10,7 @@ import {
   ACCESS_REQUEST,
   DELETED_ACCOUNT,
   DELETED_TEAM,
+  FEEDBACK_REPORT,
   OTHER_MEMBER,
   recordedInvokes,
   recordedRpcs,
@@ -224,6 +225,37 @@ describe("AdminPage", () => {
     const write = recordedWrites.find((c) => c.table === "access_requests" && c.op === "update");
 
     expect(write?.eq).toEqual({ id: ACCESS_REQUEST.id });
+    expect(typeof write?.payload?.deleted_at).toBe("string");
+  });
+
+  test("lists feedback with its reporter resolved, and marks one handled", async () => {
+    const user = await renderPanel();
+
+    await goTab(user, "Feedback");
+    const row = screen.getByText(FEEDBACK_REPORT.message).closest("tr") as HTMLElement;
+
+    // The reporter id resolves to the profile's display name.
+    expect(within(row).getByText("Player Pat")).toBeInTheDocument();
+
+    await user.click(within(row).getByRole("button", { name: "Mark handled" }));
+
+    const write = recordedWrites.find((c) => c.table === "feedback" && c.op === "update");
+
+    expect(write?.eq).toEqual({ id: FEEDBACK_REPORT.id });
+    expect(typeof write?.payload?.handled_at).toBe("string");
+  });
+
+  test("dismissing a feedback report soft-deletes it", async () => {
+    const user = await renderPanel();
+
+    await goTab(user, "Feedback");
+    const row = screen.getByText(FEEDBACK_REPORT.message).closest("tr") as HTMLElement;
+
+    await user.click(within(row).getByRole("button", { name: "Dismiss" }));
+
+    const write = recordedWrites.find((c) => c.table === "feedback" && c.op === "update");
+
+    expect(write?.eq).toEqual({ id: FEEDBACK_REPORT.id });
     expect(typeof write?.payload?.deleted_at).toBe("string");
   });
 });

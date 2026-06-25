@@ -10,7 +10,7 @@ import { Tab, TabList, TabPanel, Tabs } from "../ui/Tabs";
 import { Table, TableCell, TableHeadCell } from "../ui/Table";
 import { cx, EYEBROW, MUTED, PAGE, PAGE_BAR, PANEL, PANEL_TITLE, TITLE } from "../ui/styles";
 import { useConfirm } from "../ui/useConfirm";
-import type { AdminProfile, AdminTeam, TeamState } from "./useAdmin";
+import type { AdminProfile, AdminTeam, FeedbackType, TeamState } from "./useAdmin";
 import { useAdmin } from "./useAdmin";
 
 // The admin area: concerns that span teams rather than living inside one. A dedicated sidebar entry,
@@ -32,6 +32,8 @@ const STATE_COLOR: Record<TeamState, string> = {
 };
 
 const TAG = "shrink-0 font-mono text-2xs font-medium uppercase tracking-[0.16em] text-text-dim";
+
+const FEEDBACK_LABEL: Record<FeedbackType, string> = { bug: "Bug", feature: "Feature" };
 
 // Case-insensitive A→Z, the order both admin tables and the recovery groups sort by.
 const byLabel = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: "base" });
@@ -212,6 +214,13 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
   );
   const deletedProfiles = admin.profiles.filter((p) => p.deletedAt);
 
+  // A feedback row stores the reporter's id; resolve it to a name through the admin profile list.
+  const reporterName = useMemo(() => {
+    const byId = new Map(admin.profiles.map((p) => [p.id, p.displayName || p.email || p.id]));
+
+    return (id: string) => byId.get(id) ?? id ?? "—";
+  }, [admin.profiles]);
+
   const teamQuery = teamFilter.trim().toLowerCase();
   const shownTeams = teamQuery ? liveTeams.filter((t) => t.name.toLowerCase().includes(teamQuery)) : liveTeams;
   const accountQuery = accountFilter.trim().toLowerCase();
@@ -238,6 +247,7 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
           <Tab value="teams">Teams</Tab>
           <Tab value="accounts">Accounts</Tab>
           <Tab value="requests">Requests</Tab>
+          <Tab value="feedback">Feedback</Tab>
           <Tab value="recovery">Recovery</Tab>
         </TabList>
 
@@ -406,6 +416,58 @@ export function AdminPage({ sub, onNavigateSub, onCreateTeam, currentUserId }: A
                           </Button>
                         )}
                         <Button variant="danger" size="sm" onClick={() => void act(admin.dismissRequest(req.id))}>
+                          Dismiss
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </TabPanel>
+
+        <TabPanel value="feedback">
+          {admin.loading ? (
+            <p className={MUTED}>Loading…</p>
+          ) : admin.feedback.length === 0 ? (
+            <p className={MUTED}>No feedback yet.</p>
+          ) : (
+            <Table width="fill">
+              <thead>
+                <tr>
+                  <TableHeadCell className="w-24">Type</TableHeadCell>
+                  <TableHeadCell className="w-40">Reporter</TableHeadCell>
+                  <TableHeadCell>Message</TableHeadCell>
+                  <TableHeadCell className="w-32">Received</TableHeadCell>
+                  <TableHeadCell className="w-52">
+                    <span className="sr-only">Actions</span>
+                  </TableHeadCell>
+                </tr>
+              </thead>
+              <tbody>
+                {admin.feedback.map((report) => (
+                  <tr key={report.id}>
+                    <TableCell className="text-text-dim">{FEEDBACK_LABEL[report.type]}</TableCell>
+                    <TableCell className="max-w-0">
+                      <span className="block truncate">{reporterName(report.reporter)}</span>
+                    </TableCell>
+                    <TableCell className="max-w-0">
+                      <span className="block truncate text-text-dim" title={report.message}>
+                        {report.message}
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-text-dim">{formatDate(report.createdAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {report.handledAt ? (
+                          <span className={cx(TAG, "text-accent")}>Handled</span>
+                        ) : (
+                          <Button variant="ghost" size="sm" onClick={() => void act(admin.handleFeedback(report.id))}>
+                            Mark handled
+                          </Button>
+                        )}
+                        <Button variant="danger" size="sm" onClick={() => void act(admin.dismissFeedback(report.id))}>
                           Dismiss
                         </Button>
                       </div>
