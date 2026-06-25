@@ -1,0 +1,13 @@
+# Cache policy for the static SPA on Cloudflare Pages.
+# Rules apply top to bottom; a later rule overrides an earlier one for the same header.
+
+# Default: never cache the app shell. index.html (served directly and as the SPA
+# fallback for every deep link) must always revalidate, so a deploy's new asset
+# hashes are picked up at once instead of pointing a stale shell at deleted chunks.
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Build output is content-hashed, so a given URL never changes contents: cache it
+# forever. This rule comes after /* so it wins for the hashed bundles.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
