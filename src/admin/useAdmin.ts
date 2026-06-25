@@ -15,12 +15,22 @@ export type AdminTeam = { id: string; name: string; state: TeamState };
 export type AdminProfile = {
   id: string;
   email: string;
+  displayName: string;
   isAdmin: boolean;
   inviteQuota: number;
   deletedAt: string | null;
 };
 export type DeletedItem = { id: string; title: string };
 export type AccessRequest = { id: string; email: string; message: string; createdAt: string; handledAt: string | null };
+export type FeedbackType = "bug" | "feature";
+export type FeedbackReport = {
+  id: string;
+  type: FeedbackType;
+  reporter: string;
+  message: string;
+  createdAt: string;
+  handledAt: string | null;
+};
 
 export type AdminData = {
   teams: AdminTeam[];
@@ -28,6 +38,7 @@ export type AdminData = {
   deletedBoards: DeletedItem[];
   deletedNotes: DeletedItem[];
   accessRequests: AccessRequest[];
+  feedback: FeedbackReport[];
   loading: boolean;
   error: string | null;
   reload: () => void;
@@ -42,18 +53,29 @@ export type AdminData = {
   restoreNote: (id: string) => Promise<{ error: string | null }>;
   handleRequest: (id: string) => Promise<{ error: string | null }>;
   dismissRequest: (id: string) => Promise<{ error: string | null }>;
+  handleFeedback: (id: string) => Promise<{ error: string | null }>;
+  dismissFeedback: (id: string) => Promise<{ error: string | null }>;
 };
 
 type TeamRow = { id: string; name: string; archived_at: string | null; deleted_at: string | null };
 type ProfileRow = {
   id: string;
   email: string | null;
+  display_name: string | null;
   is_admin: boolean;
   invite_quota: number;
   deleted_at: string | null;
 };
 type ItemRow = { id: string; title: string };
 type RequestRow = { id: string; email: string; message: string | null; created_at: string; handled_at: string | null };
+type FeedbackRow = {
+  id: string;
+  type: FeedbackType;
+  reporter: string | null;
+  message: string;
+  created_at: string;
+  handled_at: string | null;
+};
 
 function teamState(row: TeamRow): TeamState {
   if (row.deleted_at) return "deleted";
@@ -68,6 +90,7 @@ export function useAdmin(open: boolean): AdminData {
   const [deletedBoards, setDeletedBoards] = useState<DeletedItem[]>([]);
   const [deletedNotes, setDeletedNotes] = useState<DeletedItem[]>([]);
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+  const [feedback, setFeedback] = useState<FeedbackReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -88,7 +111,7 @@ export function useAdmin(open: boolean): AdminData {
       // team or account removal alike. Team deletion still flags only the team; its rows cascade on purge.
       // Email is admin-only, served by a security-definer RPC rather than a column any client could
       // select, so the admin panel reads the profile list through it.
-      const [teamsR, profilesR, boardsR, notesR, requestsR] = await Promise.all([
+      const [teamsR, profilesR, boardsR, notesR, requestsR, feedbackR] = await Promise.all([
         supabase.from("teams").select("id, name, archived_at, deleted_at"),
         supabase.rpc("admin_list_profiles"),
         supabase.from("boards").select("id, title, deleted_at").not("deleted_at", "is", null),
@@ -98,11 +121,17 @@ export function useAdmin(open: boolean): AdminData {
           .select("id, email, message, created_at, handled_at")
           .is("deleted_at", null)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("feedback")
+          .select("id, type, reporter, message, created_at, handled_at")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false }),
       ]);
 
       if (!active) return;
 
-      const failed = teamsR.error ?? profilesR.error ?? boardsR.error ?? notesR.error ?? requestsR.error;
+      const failed =
+        teamsR.error ?? profilesR.error ?? boardsR.error ?? notesR.error ?? requestsR.error ?? feedbackR.error;
 
       if (failed) {
         setError(failed.message);
@@ -116,6 +145,7 @@ export function useAdmin(open: boolean): AdminData {
         ((profilesR.data ?? []) as ProfileRow[]).map((p) => ({
           id: p.id,
           email: p.email ?? "",
+          displayName: p.display_name ?? "",
           isAdmin: p.is_admin,
           inviteQuota: p.invite_quota,
           deletedAt: p.deleted_at,
@@ -130,6 +160,16 @@ export function useAdmin(open: boolean): AdminData {
           message: r.message ?? "",
           createdAt: r.created_at,
           handledAt: r.handled_at,
+        }))
+      );
+      setFeedback(
+        ((feedbackR.data ?? []) as FeedbackRow[]).map((f) => ({
+          id: f.id,
+          type: f.type,
+          reporter: f.reporter ?? "",
+          message: f.message,
+          createdAt: f.created_at,
+          handledAt: f.handled_at,
         }))
       );
       setLoading(false);
@@ -222,12 +262,23 @@ export function useAdmin(open: boolean): AdminData {
     [run]
   );
 
+  const handleFeedback = useCallback(
+    (id: string) => run(supabase.from("feedback").update({ handled_at: new Date().toISOString() }).eq("id", id)),
+    [run]
+  );
+
+  const dismissFeedback = useCallback(
+    (id: string) => run(supabase.from("feedback").update({ deleted_at: new Date().toISOString() }).eq("id", id)),
+    [run]
+  );
+
   return {
     teams,
     profiles,
     deletedBoards,
     deletedNotes,
     accessRequests,
+    feedback,
     loading,
     error,
     reload,
@@ -242,5 +293,7 @@ export function useAdmin(open: boolean): AdminData {
     restoreNote,
     handleRequest,
     dismissRequest,
+    handleFeedback,
+    dismissFeedback,
   };
 }

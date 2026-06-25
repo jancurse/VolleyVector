@@ -44,6 +44,7 @@ import { LegalView } from "./legal/LegalView";
 import { Button } from "./ui/Button";
 import { cx, MUTED, PAGE_WIDTH } from "./ui/styles";
 import { TeamPage } from "./team/TeamPage";
+import { FeedbackDialog } from "./feedback/FeedbackDialog";
 import { InviteDialog } from "./team/InviteDialog";
 import { AdminPage } from "./admin/AdminPage";
 import { SettingsPage } from "./account/SettingsPage";
@@ -219,6 +220,7 @@ export function App(): JSX.Element {
   const [importing, setImporting] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [missingBoardId, setMissingBoardId] = useState<string | null>(null);
 
   // Below the full-sidebar width the navigation lives in an overlay: expanded from the rail's Notes
@@ -1060,6 +1062,7 @@ export function App(): JSX.Element {
           onAccountSettings={() => navigate({ kind: "settings" })}
           canInvite={canInvite}
           onInvite={() => setInviteOpen(true)}
+          onReport={() => setFeedbackOpen(true)}
           onLegal={() => navigate({ kind: "terms" })}
           onSignOut={() => void signOut()}
         />
@@ -1109,6 +1112,7 @@ export function App(): JSX.Element {
         isAdmin={workspace.isAdmin}
         currentUserId={user.id}
       />
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
       {canEdit && (
         <ImportDialog open={importing} onOpenChange={setImporting} notes={notes.notes} onImport={importBundle} />
       )}

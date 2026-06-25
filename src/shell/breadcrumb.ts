@@ -33,6 +33,7 @@ const ADMIN_LABELS: Record<AdminSub, string> = {
   teams: "Teams",
   accounts: "Accounts",
   requests: "Requests",
+  feedback: "Feedback",
   recovery: "Recovery",
 };
 

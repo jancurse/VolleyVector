@@ -19,6 +19,7 @@ type AvatarMenuProps = {
   /** Whether the Invite item shows: an admin, an account with quota, or a coach of any team. */
   canInvite: boolean;
   onInvite: () => void;
+  onReport: () => void;
   onLegal: () => void;
   onSignOut: () => void;
 };
@@ -45,6 +46,7 @@ export function AvatarMenu({
   onAccountSettings,
   canInvite,
   onInvite,
+  onReport,
   onLegal,
   onSignOut,
 }: AvatarMenuProps): JSX.Element {
@@ -76,6 +78,7 @@ export function AvatarMenu({
         />
       </div>
       <MenuSeparator />
+      <MenuItem onClick={onReport}>Report a problem…</MenuItem>
       <MenuItem onClick={onLegal}>Terms &amp; Privacy</MenuItem>
       <MenuItem onClick={onSignOut}>Sign out</MenuItem>
     </Menu>

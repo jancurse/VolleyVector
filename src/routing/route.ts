@@ -10,7 +10,7 @@
 export type RouteSpace = { kind: "personal" } | { kind: "team"; teamSlug: string };
 
 /** Which admin sub-page is shown. `/admin` canonicalises to `/admin/teams`. */
-export type AdminSub = "teams" | "accounts" | "recovery" | "requests";
+export type AdminSub = "teams" | "accounts" | "recovery" | "requests" | "feedback";
 
 export type Route =
   // The bare `/` URL. It carries no space yet, so `App` resolves the landing space once the workspace
@@ -29,7 +29,7 @@ export type Route =
   | { kind: "admin"; sub: AdminSub }
   | { kind: "notFound"; path: string };
 
-const ADMIN_SUBS: readonly AdminSub[] = ["teams", "accounts", "recovery", "requests"];
+const ADMIN_SUBS: readonly AdminSub[] = ["teams", "accounts", "recovery", "requests", "feedback"];
 
 function isAdminSub(value: string): value is AdminSub {
   return (ADMIN_SUBS as readonly string[]).includes(value);

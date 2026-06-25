@@ -15,6 +15,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "generate:brand": "node scripts/generate-brand-assets.ts",
+    "generate:showcase": "node scripts/generate-showcase-gif.mjs",
     "db:reset": "bash scripts/db-reset.sh",
     "db:clean": "bash scripts/db-clean.sh",
     "format": "prettier --write \"{src,tests}/**/*.{ts,tsx,json,css}\"",
