@@ -18,6 +18,7 @@ function board(steps: BoardStep[]): Board {
     currentRevisionId: null,
     autoArrows: true,
     rotationStrict: false,
+    opponentSide: false,
     createdAt: 0,
     updatedAt: 0,
   };

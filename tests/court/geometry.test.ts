@@ -4,6 +4,7 @@ import {
   clamp01,
   clampToCourt,
   COURT_SPAN,
+  courtViewBox,
   FREE_ZONE,
   fromSvg,
   fromSvgPoint,
@@ -11,6 +12,7 @@ import {
   snapToGrid,
   toSvg,
   toSvgPoint,
+  viewExtent,
   VIEW_SIZE,
 } from "../../src/court/geometry";
 
@@ -98,4 +100,27 @@ describe("snapToGrid", () => {
 
 test("the viewBox surrounds the playing area with a free zone on every side", () => {
   expect(VIEW_SIZE).toBe(COURT_SPAN + FREE_ZONE * 2);
+});
+
+describe("the opponent half", () => {
+  test("clampToCourt reaches past the net to the far end line only when it is on", () => {
+    expect(clampToCourt({ x: 0.5, y: -0.6 })).toEqual({ x: 0.5, y: -MARKER_REACH });
+    expect(clampToCourt({ x: 0.5, y: -0.6 }, true)).toEqual({ x: 0.5, y: -0.6 });
+    expect(clampToCourt({ x: 0.5, y: -3 }, true)).toEqual({ x: 0.5, y: -1 - MARKER_REACH });
+    // Our end line and the sidelines are unchanged by it.
+    expect(clampToCourt({ x: 2, y: 2 }, true)).toEqual({ x: 1 + MARKER_REACH, y: 1 + MARKER_REACH });
+  });
+
+  test("snapToGrid pulls onto the opponent's gridlines only when it is on", () => {
+    expect(snapToGrid({ x: 0.5, y: -0.34 }, 3).y).toBeCloseTo(-0.34);
+    expect(snapToGrid({ x: 0.5, y: -0.34 }, 3, true).y).toBeCloseTo(-1 / 3);
+  });
+
+  test("the viewBox opens upward by one half-court, leaving the mapping alone", () => {
+    expect(courtViewBox(false)).toBe(`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`);
+    expect(courtViewBox(true)).toBe(`0 ${-COURT_SPAN} ${VIEW_SIZE} ${VIEW_SIZE + COURT_SPAN}`);
+    expect(viewExtent(true)).toEqual({ width: VIEW_SIZE, height: VIEW_SIZE + COURT_SPAN });
+    // The opponent end line lands one free zone below the taller viewBox's top edge.
+    expect(toSvg(-1)).toBe(-COURT_SPAN + FREE_ZONE);
+  });
 });

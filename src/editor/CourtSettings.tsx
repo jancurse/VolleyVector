@@ -11,9 +11,10 @@ import { TOOL_BUTTON } from "./AnnotationToolbar";
 
 // The editor's set-and-forget court options behind one gear: the marker mode, the authoring grid
 // (off, or 3/9/27 cells per axis — powers of three that all keep a line on the 1/3 attack line) with
-// its magnetic snap, and on a Sequence the derived movement arrows. The grid and snap are editor-only
-// aids and never touch the saved board; snapping nudges a dragged marker onto nearby gridlines while
-// arrow-key nudges stay free, so fine off-grid placement is always one keypress away.
+// its magnetic snap, the opponent half, and on a Sequence the derived movement arrows. The grid and
+// snap are editor-only aids and never touch the saved board; snapping nudges a dragged marker onto
+// nearby gridlines while arrow-key nudges stay free, so fine off-grid placement is always one
+// keypress away.
 
 const MODE_ITEMS = [
   { value: "positions", label: "Positions" },
@@ -27,7 +28,7 @@ const GRID_ITEMS = [
   { value: "27", label: "27" },
 ];
 
-const AUTO_ARROW_ITEMS = [
+const ON_OFF_ITEMS = [
   { value: "on", label: "On" },
   { value: "off", label: "Off" },
 ];
@@ -41,6 +42,8 @@ type CourtSettingsProps = {
   onSnapChange: (snap: boolean) => void;
   /** Present on a Sequence: the derived movement-arrow toggle. */
   autoArrows?: { value: boolean; onChange: (on: boolean) => void };
+  /** The opponent half: on shows it and lets markers be added to it. */
+  opponentSide: { value: boolean; onChange: (on: boolean) => void };
   /** Which way the panel opens: rightward off the vertical rail, or below the horizontal toolbar. */
   side?: "right" | "bottom";
 };
@@ -53,6 +56,7 @@ export function CourtSettings({
   snap,
   onSnapChange,
   autoArrows,
+  opponentSide,
   side = "bottom",
 }: CourtSettingsProps): JSX.Element {
   const gridOn = grid > 0;
@@ -90,12 +94,21 @@ export function CourtSettings({
           <Magnet size={14} aria-hidden="true" />
           Snap to grid
         </Toggle>
+        <div className="flex flex-col gap-1.5">
+          <span className={FIELD_LABEL}>Opponent side</span>
+          <ToggleGroup
+            ariaLabel="Opponent side"
+            items={ON_OFF_ITEMS}
+            value={opponentSide.value ? "on" : "off"}
+            onValueChange={(value) => opponentSide.onChange(value === "on")}
+          />
+        </div>
         {autoArrows && (
           <div className="flex flex-col gap-1.5">
             <span className={FIELD_LABEL}>Auto arrows</span>
             <ToggleGroup
               ariaLabel="Auto arrows"
-              items={AUTO_ARROW_ITEMS}
+              items={ON_OFF_ITEMS}
               value={autoArrows.value ? "on" : "off"}
               onValueChange={(value) => autoArrows.onChange(value === "on")}
             />

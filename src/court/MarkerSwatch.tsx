@@ -1,7 +1,7 @@
 import { useId } from "react";
 import type { JSX } from "react";
 
-import { labelFontSize, PLAYER_RADIUS } from "./Marker";
+import { labelFontSize, PLAYER_RADIUS, Shape } from "./Marker";
 
 // The player disc as a standalone glyph, sized by its container — the marker peer of BallSwatch.
 // It layers the same fill, ring, sheen, and theme edge as the on-court disc in Marker (minus the
@@ -13,9 +13,11 @@ type MarkerSwatchProps = {
   text?: string;
   /** The role code rendered inside the disc; omitted for plain colour swatches. */
   code?: string;
+  /** Draws the opponent's square body instead of a disc. */
+  opponent?: boolean;
 };
 
-export function MarkerSwatch({ fill, ring, text, code }: MarkerSwatchProps): JSX.Element {
+export function MarkerSwatch({ fill, ring, text, code, opponent = false }: MarkerSwatchProps): JSX.Element {
   // useId may carry characters that break a url(#…) reference, so strip to a safe id.
   const sheenId = `swatch-${useId().replace(/\W/g, "")}`;
 
@@ -29,9 +31,9 @@ export function MarkerSwatch({ fill, ring, text, code }: MarkerSwatchProps): JSX
           <stop offset="100%" stopColor="#000000" stopOpacity={0.16} />
         </linearGradient>
       </defs>
-      <circle r={PLAYER_RADIUS} fill={fill} stroke={ring} strokeWidth={2.5} />
-      <circle r={PLAYER_RADIUS} fill={`url(#${sheenId})`} />
-      <circle className="court-marker-edge" r={PLAYER_RADIUS} fill="none" />
+      <Shape opponent={opponent} r={PLAYER_RADIUS} fill={fill} stroke={ring} strokeWidth={2.5} />
+      <Shape opponent={opponent} r={PLAYER_RADIUS} fill={`url(#${sheenId})`} />
+      <Shape opponent={opponent} className="court-marker-edge" r={PLAYER_RADIUS} fill="none" />
       {code && (
         <text
           textAnchor="middle"

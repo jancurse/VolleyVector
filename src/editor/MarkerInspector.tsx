@@ -8,6 +8,8 @@ import type { Marker } from "../court/types";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { SwatchGroup } from "../ui/SwatchGroup";
+import { ToggleGroup } from "../ui/ToggleGroup";
+import { SIDE_ITEMS } from "./MarkerPalette";
 
 // The single-line bar the editor reserves above the court. It holds the selected marker's controls,
 // or the editor's prompt when nothing is selected, so the slot stays the same height either way and
@@ -16,14 +18,16 @@ export const MARKER_BAR =
   "flex min-h-14 w-full flex-wrap items-center gap-3 rounded-xl border border-border bg-panel px-3 py-1.5";
 
 // Edits the one selected marker as a single-line bar above the court: pick its role (within the active
-// mode's family), recolour it (basic mode), rename its label, or remove it. Position is edited on the
-// court (drag or arrow keys).
+// mode's family), move it between the two teams (opponent half on), recolour it (basic mode), rename
+// its label, or remove it. Position is edited on the court (drag or arrow keys).
 type MarkerInspectorProps = {
   marker: Marker;
   mode: CourtMode;
   onChangeRole: (role: MarkerRole) => void;
   onChangeColor: (color: ColorKey) => void;
   onChangeLabel: (label: string) => void;
+  /** Present when the opponent half is on: moves the marker between the two teams. */
+  onChangeSide?: (side: Marker["side"]) => void;
   onDelete: () => void;
 };
 
@@ -33,6 +37,7 @@ export function MarkerInspector({
   onChangeRole,
   onChangeColor,
   onChangeLabel,
+  onChangeSide,
   onDelete,
 }: MarkerInspectorProps): JSX.Element {
   const fill = marker.color ? MARKER_COLORS[marker.color].fill : ROLES[marker.role].fill;
@@ -56,10 +61,20 @@ export function MarkerInspector({
                 ring={ROLES[role].ring}
                 text={ROLES[role].text}
                 code={ROLES[role].code}
+                opponent={marker.side === "opponent"}
               />
             ),
         }))}
       />
+
+      {onChangeSide && marker.role !== "ball" && (
+        <ToggleGroup
+          ariaLabel="Marker side"
+          items={SIDE_ITEMS}
+          value={marker.side === "opponent" ? "opponent" : "us"}
+          onValueChange={(value) => onChangeSide(value === "opponent" ? "opponent" : undefined)}
+        />
+      )}
 
       {mode === "basic" && marker.role !== "ball" && (
         <SwatchGroup

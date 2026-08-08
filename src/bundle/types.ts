@@ -11,8 +11,9 @@ import type { ColorKey, CourtMode, MarkerRole } from "../court/roles";
 
 /** Bump when the format changes shape. Parsing normalizes an older bundle and rejects a newer one.
  *  Version 3 renamed topics to notes: a `notes` array replaces `topics`, a `boards` block's refs are
- *  the note's board links themselves, and a board carries no `topicRef`. */
-export const FORMAT_VERSION = 3;
+ *  the note's board links themselves, and a board carries no `topicRef`. Version 4 added the opponent
+ *  half: a board's `opponentSide` and a marker's `side`. */
+export const FORMAT_VERSION = 4;
 
 /** One block of a note's document. A `boards` block's refs are the note's board links themselves. */
 export type BundleBlock = { kind: "markdown"; text: string } | { kind: "boards"; boardRefs: string[] };
@@ -25,8 +26,9 @@ export type BundleNote = {
   blocks?: BundleBlock[];
 };
 
-/** A marker identity. The `id` is a board-local string, unique within the board, keying `positions`. */
-export type BundleMarker = { id: string; role: MarkerRole; label?: string; color?: ColorKey };
+/** A marker identity. The `id` is a board-local string, unique within the board, keying `positions`.
+ *  `side` marks an opponent; absent means our side. */
+export type BundleMarker = { id: string; role: MarkerRole; label?: string; color?: ColorKey; side?: "opponent" };
 
 export type BundleStep = {
   instruction?: string;
@@ -48,6 +50,8 @@ export type BundleBoard = {
   tags?: string[];
   autoArrows?: boolean;
   rotationStrict?: boolean;
+  /** Whether the opponent half is shown; positions may run to y = -1 only when it is. */
+  opponentSide?: boolean;
 };
 
 export type Bundle = {

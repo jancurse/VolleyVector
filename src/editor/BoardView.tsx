@@ -16,7 +16,7 @@ import { Button } from "../ui/Button";
 import { CourtFrame } from "../ui/CourtFrame";
 import { Markdown } from "../ui/Markdown";
 import { Toolbar, ToolbarButton } from "../ui/Toolbar";
-import { EYEBROW, MUTED, PANEL, PANEL_TITLE, TAG_CHIP, TITLE, cx } from "../ui/styles";
+import { COURT_FULL_WIDTH, EYEBROW, MUTED, PANEL, PANEL_TITLE, TAG_CHIP, TITLE, cx } from "../ui/styles";
 import { RotationBoard } from "./RotationBoard";
 import { violationMessages } from "./RotationPanel";
 import { StepStrip } from "./StepStrip";
@@ -24,7 +24,7 @@ import { StepStrip } from "./StepStrip";
 // The court+description body decides its one- vs two-column layout from its own width (a container
 // query), not the viewport, so it stacks correctly when embedded in history's narrowed preview column.
 const VIEW_BODY =
-  "grid grid-cols-[var(--court-size)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] @max-[1040px]:grid-cols-[minmax(0,1fr)]";
+  "grid grid-cols-[var(--court-w)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] @max-[1040px]:grid-cols-[minmax(0,1fr)]";
 
 const PLAY_ICON = <Play size={20} fill="currentColor" aria-hidden="true" />;
 
@@ -216,12 +216,13 @@ export function BoardView({
         </div>
 
         {sequence ? (
-          <div className={VIEW_BODY}>
+          <div className={cx(VIEW_BODY, board.opponentSide && COURT_FULL_WIDTH)}>
             <div className="flex min-w-0 flex-col items-center gap-[clamp(0.7rem,2vh,1.15rem)] @max-[1040px]:order-2">
-              <CourtFrame className="@max-[1040px]:justify-self-center">
+              <CourtFrame className="@max-[1040px]:justify-self-center" full={board.opponentSide}>
                 <Court
                   animated
                   markers={markers}
+                  opponentSide={board.opponentSide}
                   arrows={arrows}
                   annotations={annotations}
                   rotation={overlay}
@@ -297,10 +298,11 @@ export function BoardView({
             </div>
           </div>
         ) : (
-          <div className={VIEW_BODY}>
-            <CourtFrame className="@max-[1040px]:order-2 @max-[1040px]:justify-self-center">
+          <div className={cx(VIEW_BODY, board.opponentSide && COURT_FULL_WIDTH)}>
+            <CourtFrame className="@max-[1040px]:order-2 @max-[1040px]:justify-self-center" full={board.opponentSide}>
               <Court
                 markers={markers}
+                opponentSide={board.opponentSide}
                 annotations={annotations}
                 rotation={overlay}
                 selectedId={selectedId}

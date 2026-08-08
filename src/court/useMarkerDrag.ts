@@ -35,7 +35,8 @@ export function useMarkerDrag(
   svgRef: RefObject<SVGSVGElement | null>,
   onSelect: (id: string | null) => void,
   onMove: (id: string, position: NormalizedPoint) => void,
-  snap: (position: NormalizedPoint) => NormalizedPoint = identity
+  snap: (position: NormalizedPoint) => NormalizedPoint = identity,
+  opponentSide = false
 ): MarkerDrag {
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -55,9 +56,9 @@ export function useMarkerDrag(
 
       const position = clientToNormalized(svgRef.current, event.clientX, event.clientY);
 
-      if (position) onMove(draggingId, snap(clampToCourt(position)));
+      if (position) onMove(draggingId, snap(clampToCourt(position, opponentSide)));
     },
-    [draggingId, onMove, snap, svgRef]
+    [draggingId, onMove, snap, svgRef, opponentSide]
   );
 
   return {

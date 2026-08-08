@@ -68,6 +68,7 @@ export const DEMO_BOARD: Board = {
   currentRevisionId: null,
   autoArrows: true,
   rotationStrict: false,
+  opponentSide: false,
   createdAt: PLACEHOLDER_TIME,
   updatedAt: PLACEHOLDER_TIME,
 };

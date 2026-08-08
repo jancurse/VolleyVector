@@ -11,7 +11,7 @@ It is organised by system rather than file by file: the data model, the court, t
 
 A few choices are load-bearing. Most of the architecture follows from them, and they are expensive to change, so they are fixed rather than re-decided per feature.
 
-- **Normalized 0–1 coordinates, never pixels.** Every marker position is a fraction of the playing area, so a diagram is resolution-independent and stays crisp at any size. Only `court/geometry.ts` knows about SVG units.
+- **Normalized 0–1 coordinates, never pixels.** Every marker position is a fraction of our half of the playing area, so a diagram is resolution-independent and stays crisp at any size. The opponent half, shown only when a board opts in, runs from -1 to 0, so turning it on changes no stored coordinate. Only `court/geometry.ts` knows about SVG units.
 - **Stable marker identity across all steps.** A marker's identity (its role, label, and colour) is stored once for the whole board. Only its position varies from step to step. This single decision makes animation interpolate each marker by identity and makes movement arrows fall out of the position deltas. Neither needs separate data.
 - **One `Court` component for both modes.** A static diagram and one animated step are the same component with different inputs, so there is no second renderer to keep in sync.
 - **SVG, not canvas.** The court is a rectangle with roughly a dozen markers that must stay sharp on a phone and animate smoothly, which SVG does directly as React components.
@@ -22,7 +22,7 @@ A few choices are load-bearing. Most of the architecture follows from them, and 
 The whole app is built on one type. A `Board` is a single court diagram: an ordered, non-empty list of steps over a shared set of marker identities.
 
 ```ts
-type BoardMarker = Omit<Marker, "position">; // id, role, label?, color?
+type BoardMarker = Omit<Marker, "position">; // id, role, label?, color?, side?
 
 type BoardStep = {
   id: string;
@@ -45,6 +45,7 @@ type Board = {
   currentRevisionId: string | null; // the revision this board's content matches, for conflict detection
   autoArrows: boolean; // whether the derived movement arrows are shown (default true); manual arrow annotations are unaffected
   rotationStrict: boolean; // rotation enforcement: strict clamps illegal drags, loose only flags
+  opponentSide: boolean; // whether the opponent half is drawn and may hold markers (default false)
   createdAt: number;
   updatedAt: number;
 };
@@ -61,7 +62,7 @@ The client model carries only what a surface renders. A board's access list and 
 
 ### Marker identity and per-step positions
 
-- A board's `markers` array holds each marker's identity once: its `id`, `role`, optional `label` override, and optional `color` override.
+- A board's `markers` array holds each marker's identity once: its `id`, `role`, optional `label` override, optional `color` override, and optional `side` (`"opponent"`, absent for ours). Side is identity, not geometry: a player drawn reaching over the net stays on their own team, and a marker's team cannot vary by step.
 - Each step's `positions` map gives every marker a `NormalizedPoint` for that step, keyed by marker id.
 - A full `Marker` (identity plus a concrete position) only exists transiently. `stepMarkers(board, index)` joins the shared identities with one step's positions to produce the array the `Court` renders.
 
@@ -80,6 +81,7 @@ A step may carry a rotation: the six players' official positions in the rotation
 
 - A `StepRotation` is either a **5-1 preset** (numbered by the setter's official position) or a **custom** assignment of markers to the six positions. Off is the absent field, so a step without one behaves exactly as before, and `insertStep` clones it alongside the positions.
 - The six official positions (`RotationSlot` 1–6) are fixed canonical points (`OFFICIAL_SPOTS`: front row 4-3-2, back row 5-6-1). `presetAssignment` derives a preset's slot→marker map in 5-1 service order, swapping a libero to the back-row middle slot per rotation. It needs a matching 5-1 roster or returns null; a custom assignment resolves only once all six slots are filled.
+- Rotation is a feature of our side: `rotationPlayers` skips opponent markers, so they never enter a preset roster or a custom assignment, and every check below stays inside our half by construction.
 - `rotationViolations` is the legality check: the seven pairwise overlap relations of FIVB Rule 7.4 (front/back on y, adjacent side-by-side on x), plus an assigned player outside the playing area and a libero on a front-row slot. Ties are legal. Only the six assigned players are constrained, never the ball, coach, or extras.
 - `rotationStrict` (per board, default loose) picks enforcement. **Loose** flags violations: `rotationLinks` draws a persistent danger-coloured edge between the two markers of each broken pair, plus a solo-fault halo on the two violations that stand alone (a player outside the area, a libero up front). **Strict** is loose plus `clampToLegal`, which holds a dragged marker inside the region the others leave legal.
 - `RotationPanel` (the editor) holds the selector, the enforcement toggle, the faults, and the rotation board; `RotationBoard` resolves the step's rotation onto `RotationDiagram` (`src/court/`), a 3×2 grid of the six official zones — a sketch of the rotation, not a miniature court — with a bench row for drag-to-zone assignment in custom mode. `BoardView` shows its own collapsible card of the same board and flags read-only, following the shown step during playback; while the rotation is active, selecting an assigned player on the court or the diagram draws an accent cue edge to each of its still-legal constraining neighbours and dims the rest (`rotationLinks`, `spotlightMarkers`, over `constrainingNeighbours`), mirrored on both surfaces.
@@ -90,14 +92,15 @@ The `court/` module is the rendering core. It owns the coordinate space, the SVG
 
 ### Normalized coordinates
 
-- Positions are stored as `{ x, y }` fractions in `[0, 1]`: `x` runs sideline to sideline, `y` runs from the net to the end line.
+- Positions are stored as `{ x, y }` fractions in `[0, 1]`: `x` runs sideline to sideline, `y` runs from the net to the end line. The opponent half mirrors ours into negative `y` (the net at 0, their end line at -1).
 - `geometry.ts` is the only place that maps normalized space to SVG. It defines a square playing area inside a wider square `viewBox`, with a free-zone margin so the court has room to breathe, and the attack line one third of the way down the half-court.
 - A marker may sit a little past the playing area, far enough for the ball to hang over the net or a deep serve to start behind the end line. `clampToCourt` holds every position within that reach so a marker never clips the `viewBox` edge.
 - `toSvg`/`toSvgPoint` and their inverses convert between the two spaces. Everything above this module works only in normalized coordinates.
+- `opponentSide` widens the window rather than changing the mapping: `courtViewBox` opens the `viewBox` upward by one half-court (13:23 instead of square) and `clampToCourt` lets a marker reach past the net, so dragging, drawing, and snapping need no new maths. The surfaces that frame a full court repoint the `--court-w` token at its own, taller size budget, and thumbnails letterbox it inside their square.
 
 ### The `Court` component
 
-- `Court` renders one diagram: the playing surface, the front-zone shading, the boundary, the attack line, a woven net, then any arrows, then the markers.
+- `Court` renders one diagram: the playing surface, the front-zone shading, the boundary, the attack line, a woven net, then any arrows, then the markers. With `opponentSide` it draws both halves, and the net band reads as the centre line.
 - The same component is static or editable depending on its props. Passing both `onSelect` and `onMove` turns it into an editable surface (click to select, drag to move). Without them it is a read-only diagram.
 - `animated` switches markers between gliding to their positions (playback) and snapping to them exactly (editing and static views). `arrows` overlays a set of derived movement arrows beneath the markers.
 
@@ -110,7 +113,7 @@ The `court/` module is the rendering core. It owns the coordinate space, the SVG
 
 ### Markers and the ball
 
-- A player marker is a coloured disc carrying a monospace label. The label text scales down as the label grows so it always fits.
+- A player marker is a coloured disc carrying a monospace label; an opponent's is a rounded square in the same role colour, so the two teams stay apart at thumbnail size and in greyscale rather than by colour alone. The label text scales down as the label grows so it always fits.
 - The ball is drawn separately: a custom volleyball in blue and yellow, rather than the usual white, so it stays legible against both the light and dark court.
 - A selected marker shows a calm accent halo. During playback the marker's outer group glides between steps via Motion with a settle easing, while an inner group carries a one-time entrance animation, so animating a position never fights the entrance.
 
@@ -142,8 +145,9 @@ The `editor/` module is where boards are read and written. It follows one flow t
 
 ### Editing markers and steps
 
-- Markers are added from the `MarkerPalette`, a row of role buttons that double as a legend. A new marker lands on the bench, ready to drag onto the court.
-- The `MarkerInspector` edits the selected marker's identity: its role, a short label override, a colour (in basic mode, for non-ball markers), and a remove action. Because these are identity edits, each one applies across every step.
+- Markers are added from the `MarkerPalette`, a row of role buttons that double as a legend. A new marker lands on the bench, ready to drag onto the court. With the opponent half on, a side switch leads the row and decides which team a pressed role joins (and so which bench it lands on); the ball stays neutral.
+- The opponent half is a per-board toggle in the court settings popover. Turning it off asks first, then removes the markers standing on it, so nothing invisible is left behind.
+- The `MarkerInspector` edits the selected marker's identity: its role, its side (with the opponent half on), a short label override, a colour (in basic mode, for non-ball markers), and a remove action. Because these are identity edits, each one applies across every step.
 - A single-step board shows an **Add step** affordance that promotes it to a Sequence in place, cloning the current positions. Once a board has two or more steps the `StepStrip` appears: it selects the active step, inserts a step after the current one, reorders the active step, and removes a step (never below one). The active step is tracked by its id, so inserting, reordering, or removing never loses the coach's place.
 - Position edits (dragging or nudging a marker) touch only the active step, while the identity edits above span the whole board. This is the editor expression of the model's identity-vs-position split.
 
@@ -219,9 +223,9 @@ Content leaves and enters the app two ways: a portable JSON **bundle** that roun
 
 ### The bundle format
 
-- `src/bundle/` owns the format: one versioned JSON object carrying notes and boards in full, rotations included, with no server-owned fields (creator, access list, revisions, tokens, timestamps). `types.ts` is the single source of truth, mirrored by the board-creator skill's `format.md`.
+- `src/bundle/` owns the format: one versioned JSON object carrying notes and boards in full, rotations and marker sides included, with no server-owned fields (creator, access list, revisions, tokens, timestamps). `types.ts` is the single source of truth, mirrored by the board-creator skill's `format.md`.
 - Items reference each other through opaque local `ref` strings (`parentRef`, `boardRefs`) that resolve within the bundle only. Import mints fresh ids and slugs; export uses the real ids as refs.
-- `FORMAT_VERSION` guards compatibility: an older bundle is normalized on parse with a "skill may be out of date" notice, and a newer one is rejected as the app being out of date. Version 2 named the notes `topics` and filed boards through a `topicRef`; parsing still reads both, folding a `topicRef` into a trailing board link on its note.
+- `FORMAT_VERSION` guards compatibility: an older bundle is normalized on parse with a "skill may be out of date" notice, and a newer one is rejected as the app being out of date. Version 2 named the notes `topics` and filed boards through a `topicRef`; parsing still reads both, folding a `topicRef` into a trailing board link on its note. Version 4 added the opponent half, and an opponent marker on a board without one joins our side with a notice.
 - `parseBundle` is strict on structure and lenient on content. Malformed JSON, unknown refs, and missing required fields become readable errors; an out-of-range coordinate clamps to the court, a step missing a marker's position benches that marker, and an invalid annotation is dropped, each with a notice rather than a failure.
 
 ### Export and import

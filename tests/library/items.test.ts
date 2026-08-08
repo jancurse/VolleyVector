@@ -17,6 +17,7 @@ const position: Board = {
   currentRevisionId: null,
   autoArrows: true,
   rotationStrict: false,
+  opponentSide: false,
   createdAt: 0,
   updatedAt: 100,
 };
@@ -37,6 +38,7 @@ const sequence: Board = {
   currentRevisionId: null,
   autoArrows: true,
   rotationStrict: false,
+  opponentSide: false,
   createdAt: 0,
   updatedAt: 200,
 };

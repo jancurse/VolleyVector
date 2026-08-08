@@ -13,6 +13,7 @@ const SNAP_RADIUS = 0.02;
 
 const SNAP_X = [0, 0.5, 1];
 const SNAP_Y = [0, ATTACK_LINE, 1];
+const SNAP_Y_FULL = [-1, -ATTACK_LINE, ...SNAP_Y];
 
 export type SnapResult = { point: NormalizedPoint; target: NormalizedPoint | null };
 
@@ -31,7 +32,8 @@ function nearest(value: number, candidates: readonly number[]): number | null {
 export function snapAnnotationPoint(
   point: NormalizedPoint,
   markers: readonly NormalizedPoint[],
-  grid: number
+  grid: number,
+  opponentSide = false
 ): SnapResult {
   let marker: NormalizedPoint | null = null;
 
@@ -45,14 +47,14 @@ export function snapAnnotationPoint(
   if (marker) return { point: marker, target: marker };
 
   const x = nearest(point.x, SNAP_X);
-  const y = nearest(point.y, SNAP_Y);
+  const y = nearest(point.y, opponentSide ? SNAP_Y_FULL : SNAP_Y);
 
   if (x !== null || y !== null) {
-    const gridded = grid > 0 ? snapToGrid(point, grid) : point;
+    const gridded = grid > 0 ? snapToGrid(point, grid, opponentSide) : point;
     const snapped = { x: x ?? gridded.x, y: y ?? gridded.y };
 
     return { point: snapped, target: snapped };
   }
 
-  return { point: grid > 0 ? snapToGrid(point, grid) : point, target: null };
+  return { point: grid > 0 ? snapToGrid(point, grid, opponentSide) : point, target: null };
 }

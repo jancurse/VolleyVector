@@ -59,9 +59,17 @@
   --shadow-overlay: 0 18px 40px -22px var(--court-cast);
   --shadow-court: 0 34px 70px -30px var(--court-cast), 0 2px 0 rgba(255, 255, 255, 0.03) inset;
 
-  /* The rendered court's target size: a square capped at 620px, else 74% of viewport height. Referenced
-     as [var(--court-size)] by every court surface (CourtFrame, the view/editor grids, the landing). */
+  /* The rendered court's target size: a square capped at 620px, else 74% of viewport height. It is what
+     --court-w resolves to on a half-court board, which is what the court surfaces lay out to. */
   --court-size: min(74vh, 620px);
+
+  /* A board showing the opponent half draws the full 13:23 court, so it takes its own (taller) height
+     budget and this is the width that follows from it. */
+  --court-size-full: calc(min(86vh, 880px) * 13 / 23);
+
+  /* The width the court surfaces actually lay out to. It follows the board: the surfaces that frame a
+     full court repoint it with the [--court-w:var(--court-size-full)] class. */
+  --court-w: var(--court-size);
 
   /* The court/editor stacking breakpoint: the court column and its detail panel sit side by side above
      this width and stack below it. As a --breakpoint-* token it generates the `max-court:` variant

@@ -16,6 +16,7 @@ import {
   removeStep,
   reshapeAnnotation,
   setMarker,
+  setOpponentSide,
   setStepInstruction,
   setStepPosition,
   stepAnnotations,
@@ -54,6 +55,7 @@ const SEQUENCE: Board = {
   currentRevisionId: null,
   autoArrows: true,
   rotationStrict: false,
+  opponentSide: false,
   createdAt: 0,
   updatedAt: 0,
 };
@@ -626,5 +628,50 @@ describe("text annotations", () => {
     const next = copyAnnotationsToNextStep(addAnnotation(SEQUENCE, "s1", TEXT), 0);
 
     expect(next.steps[1].annotations?.[0]).toMatchObject({ kind: "text", text: "Serve" });
+  });
+});
+
+describe("the opponent side", () => {
+  const withOpponents = (): Board => {
+    const one = addMarker({ ...createBoard(0), opponentSide: true }, "outside", 0, "opponent");
+    const two = addMarker(one.board, "outside", 0, "opponent");
+
+    return addMarker(two.board, "outside", 0).board;
+  };
+
+  test("each side benches past its own end line and numbers its labels apart", () => {
+    const board = withOpponents();
+    const markers = stepMarkers(board, 0);
+    const [x1, x2, ours] = markers;
+
+    expect(x1.position.y).toBeLessThan(-1);
+    expect(x2.position.y).toBeLessThan(-1);
+    expect(x1.position.x).not.toBeCloseTo(x2.position.x); // the second takes the next free slot
+    expect(ours.position.y).toBeGreaterThan(1);
+    expect([x1.label, ours.label]).toEqual(["OH1", "OH1"]);
+    expect(x2.label).toBe("OH2");
+  });
+
+  test("hiding the opponent half drops its markers from every step", () => {
+    const board = insertStep(withOpponents(), 0).board;
+    const hidden = setOpponentSide(board, false);
+
+    expect(hidden.opponentSide).toBe(false);
+    expect(hidden.markers.map((m) => m.side)).toEqual([undefined]);
+    for (const step of hidden.steps) expect(Object.keys(step.positions)).toHaveLength(1);
+  });
+
+  test("hiding it brings one of our own markers back from over the net", () => {
+    const board = withOpponents();
+    const ours = board.markers.find((m) => m.side === undefined)!;
+    const reaching = setStepPosition(board, board.steps[0].id, ours.id, { x: 0.5, y: -0.5 });
+
+    expect(setOpponentSide(reaching, false).steps[0].positions[ours.id]).toEqual({ x: 0.5, y: -0.1 });
+  });
+
+  test("showing it again touches nothing else", () => {
+    const board = createBoard(0);
+
+    expect(setOpponentSide(board, true)).toEqual({ ...board, opponentSide: true });
   });
 });

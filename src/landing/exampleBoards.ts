@@ -14,6 +14,7 @@ const base = {
   capability: "viewer" as const,
   currentRevisionId: null,
   rotationStrict: false,
+  opponentSide: false,
   createdAt: PLACEHOLDER_TIME,
   updatedAt: PLACEHOLDER_TIME,
 } satisfies Partial<Board>;

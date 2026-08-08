@@ -42,6 +42,8 @@ type Options = {
   onReshape?: (id: string, handle: AnnotationHandle, point: NormalizedPoint) => void;
   /** Magnetic snapping applied to drawn and reshaped points. Holding Alt bypasses it. */
   snapPoint?: (point: NormalizedPoint) => SnapResult;
+  /** Whether the opponent half is drawn, and so whether a point may be placed on it. */
+  opponentSide?: boolean;
 };
 
 /** A vertex of the in-progress polygon that a click would close on; `hot` when the cursor is in range. */
@@ -117,7 +119,7 @@ function closeTargetsFor(points: readonly NormalizedPoint[], cursor: NormalizedP
 }
 
 export function useAnnotationDraw(svgRef: RefObject<SVGSVGElement | null>, options: Options): AnnotationDraw {
-  const { tool, style, onDraw, onSelect, onTranslate, onReshape, snapPoint } = options;
+  const { tool, style, onDraw, onSelect, onTranslate, onReshape, snapPoint, opponentSide = false } = options;
   const [draft, setDraft] = useState<Annotation | null>(null);
   const [snapTarget, setSnapTarget] = useState<NormalizedPoint | null>(null);
   const [closeTargets, setCloseTargets] = useState<CloseTarget[] | null>(null);
@@ -129,11 +131,11 @@ export function useAnnotationDraw(svgRef: RefObject<SVGSVGElement | null>, optio
   // and Alt bypasses the magnet for precise placement.
   const applySnap = useCallback(
     (point: NormalizedPoint, event: PointerEvent): SnapResult => {
-      const clamped = clampToCourt(point);
+      const clamped = clampToCourt(point, opponentSide);
 
       return snapPoint && !event.altKey ? snapPoint(clamped) : { point: clamped, target: null };
     },
-    [snapPoint]
+    [snapPoint, opponentSide]
   );
 
   // Close the polygon gesture: clear it, and commit the shape unless it never reached 3 vertices.
@@ -243,7 +245,9 @@ export function useAnnotationDraw(svgRef: RefObject<SVGSVGElement | null>, optio
       }
 
       const free = tool === "free";
-      const { point: start, target } = free ? { point: clampToCourt(point), target: null } : applySnap(point, event);
+      const { point: start, target } = free
+        ? { point: clampToCourt(point, opponentSide), target: null }
+        : applySnap(point, event);
 
       svg.setPointerCapture(event.pointerId);
       gesture.current = { type: "draw", kind: tool, start, current: start, points: [start] };
@@ -254,7 +258,7 @@ export function useAnnotationDraw(svgRef: RefObject<SVGSVGElement | null>, optio
           : makeShape(DRAFT_ID, tool, style, start, start)
       );
     },
-    [svgRef, tool, isDrawTool, onSelect, onDraw, style, applySnap, commitPolygon, dropStalePolygon]
+    [svgRef, tool, isDrawTool, onSelect, onDraw, style, applySnap, commitPolygon, dropStalePolygon, opponentSide]
   );
 
   const onShapePointerDown = useCallback(
@@ -330,7 +334,7 @@ export function useAnnotationDraw(svgRef: RefObject<SVGSVGElement | null>, optio
       }
 
       if (g.kind === "free") {
-        const p = clampToCourt(point);
+        const p = clampToCourt(point, opponentSide);
         const last = g.points[g.points.length - 1];
 
         if (Math.hypot(p.x - last.x, p.y - last.y) < MIN_SAMPLE) return;
@@ -346,7 +350,7 @@ export function useAnnotationDraw(svgRef: RefObject<SVGSVGElement | null>, optio
         setDraft(makeShape(DRAFT_ID, g.kind, style, g.start, g.current));
       }
     },
-    [svgRef, onTranslate, onReshape, style, applySnap, dropStalePolygon]
+    [svgRef, onTranslate, onReshape, style, applySnap, dropStalePolygon, opponentSide]
   );
 
   const onPointerUp = useCallback(() => {

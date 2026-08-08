@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
 import { Court } from "../../src/court/Court";
-import { toSvg } from "../../src/court/geometry";
+import { COURT_SPAN, toSvg, VIEW_SIZE } from "../../src/court/geometry";
 import { ROLES } from "../../src/court/roles";
 import type { Annotation, Marker } from "../../src/court/types";
 
@@ -236,5 +236,28 @@ describe("Court polygon drawing", () => {
     expect(onDraw).not.toHaveBeenCalled();
     // The rubber-band draft is gone too.
     expect(document.querySelector(".court-annotation--draft")).toBeNull();
+  });
+});
+
+describe("Court with the opponent side", () => {
+  const OPPONENT: Marker[] = [
+    { id: "s", role: "setter", position: { x: 0.5, y: 0.5 } },
+    { id: "x", role: "middle", side: "opponent", position: { x: 0.5, y: -0.5 } },
+  ];
+
+  test("opens the viewBox onto the far half and names itself the whole court", () => {
+    render(<Court markers={OPPONENT} opponentSide />);
+    const svg = screen.getByLabelText("Volleyball court");
+
+    expect(svg).toHaveAttribute("viewBox", `0 ${-COURT_SPAN} ${VIEW_SIZE} ${VIEW_SIZE + COURT_SPAN}`);
+    // Both attack lines: ours and the opponent's mirrored across the net.
+    expect(svg.querySelectorAll(".court-attack")).toHaveLength(2);
+  });
+
+  test("draws an opponent player square and our own round", () => {
+    const { container } = render(<Court markers={OPPONENT} opponentSide />);
+
+    expect(container.querySelector('[aria-label="Opponent middle blocker"] rect')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Setter"] rect')).toBeNull();
   });
 });

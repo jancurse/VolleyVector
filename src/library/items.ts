@@ -16,6 +16,8 @@ export type LibraryItem = {
   tags: string[];
   /** Markers to draw in the card's court thumbnail. */
   markers: Marker[];
+  /** Whether the thumbnail draws the opponent half. */
+  opponentSide: boolean;
   /** A short count, e.g. "7 markers" or "3 steps". */
   meta: string;
   updatedAt: number;
@@ -35,6 +37,7 @@ export function boardToItem(board: Board): LibraryItem {
     title: board.title || "Untitled board",
     tags: board.tags,
     markers: stepMarkers(board, 0),
+    opponentSide: board.opponentSide,
     meta: sequence ? count(board.steps.length, "step") : count(board.markers.length, "marker"),
     updatedAt: board.updatedAt,
   };

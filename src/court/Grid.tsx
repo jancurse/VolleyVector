@@ -7,20 +7,28 @@ import { toSvg } from "./geometry";
 // Only interior lines are drawn — the outer ones coincide with the court boundary. Purely decorative,
 // so it is hidden from assistive tech and never the read-only diagram.
 
-export function CourtGrid({ divisions }: { divisions: number }): JSX.Element | null {
+export function CourtGrid({
+  divisions,
+  opponentSide = false,
+}: {
+  divisions: number;
+  opponentSide?: boolean;
+}): JSX.Element | null {
   if (divisions < 2) return null;
 
   const start = toSvg(0);
   const end = toSvg(1);
-  const lines = Array.from({ length: divisions - 1 }, (_, i) => toSvg((i + 1) / divisions));
+  const top = toSvg(opponentSide ? -1 : 0);
+  const cells = Array.from({ length: divisions - 1 }, (_, i) => (i + 1) / divisions);
+  const rows = opponentSide ? [...cells, ...cells.map((c) => -c)] : cells;
 
   return (
     <g className="court-grid" data-divisions={divisions} aria-hidden="true">
-      {lines.map((p, i) => (
-        <line key={`v${i}`} className="court-grid-line" x1={p} y1={start} x2={p} y2={end} />
+      {cells.map((c, i) => (
+        <line key={`v${i}`} className="court-grid-line" x1={toSvg(c)} y1={top} x2={toSvg(c)} y2={end} />
       ))}
-      {lines.map((p, i) => (
-        <line key={`h${i}`} className="court-grid-line" x1={start} y1={p} x2={end} y2={p} />
+      {rows.map((c, i) => (
+        <line key={`h${i}`} className="court-grid-line" x1={start} y1={toSvg(c)} x2={end} y2={toSvg(c)} />
       ))}
     </g>
   );
