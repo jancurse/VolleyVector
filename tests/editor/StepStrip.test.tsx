@@ -45,15 +45,16 @@ function Harness({ board }: { board: Board }) {
   );
 }
 
-// Each chip's slot centre is read from getBoundingClientRect().left + offsetWidth / 2; happy-dom returns
-// zero for both, collapsing every slot to 0. Lay the chips out on a 100px grid so the drag can target a
-// distinct slot per pointer position.
-function layOutChips(): void {
+// Each chip's slot centre is read from its bounding rect; happy-dom returns zero for every side,
+// collapsing all four slots onto one point. Lay the chips out by hand so the drag can target a distinct
+// slot per pointer position: `perRow` chips of 80px on a 100px pitch, wrapping onto 50px-pitch rows.
+function layOutChips(perRow = 4): void {
   [1, 2, 3, 4]
     .map((n) => screen.getByLabelText(`Step ${n}`).parentElement as HTMLElement)
     .forEach((chip, i) => {
-      chip.getBoundingClientRect = () => ({ left: i * 100, width: 80 }) as DOMRect;
-      Object.defineProperty(chip, "offsetWidth", { configurable: true, value: 80 });
+      const rect = { left: (i % perRow) * 100, width: 80, top: Math.floor(i / perRow) * 50, height: 40 };
+
+      chip.getBoundingClientRect = () => rect as DOMRect;
     });
 }
 
@@ -70,10 +71,10 @@ describe("StepStrip drag reorder", () => {
     const button = screen.getByLabelText("Step 1");
 
     // Drag step 1 from slot 0 across slots 1 and 2 to slot 3 (chip centre 340).
-    fireEvent.pointerDown(button, { button: 0, clientX: 40, pointerId: 1 });
-    fireEvent.pointerMove(button, { clientX: 140, pointerId: 1 }); // nearest slot 1
-    fireEvent.pointerMove(button, { clientX: 240, pointerId: 1 }); // nearest slot 2
-    fireEvent.pointerMove(button, { clientX: 340, pointerId: 1 }); // nearest slot 3
+    fireEvent.pointerDown(button, { button: 0, clientX: 40, clientY: 20, pointerId: 1 });
+    fireEvent.pointerMove(button, { clientX: 140, clientY: 20, pointerId: 1 }); // nearest slot 1
+    fireEvent.pointerMove(button, { clientX: 240, clientY: 20, pointerId: 1 }); // nearest slot 2
+    fireEvent.pointerMove(button, { clientX: 340, clientY: 20, pointerId: 1 }); // nearest slot 3
     fireEvent.pointerUp(button, { pointerId: 1 });
 
     // The drag crossed three slots, so the order changed and the gesture recorded an undo entry.
@@ -84,5 +85,22 @@ describe("StepStrip drag reorder", () => {
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     expect(screen.getByText(`Order: ${order}`)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Undo" })).toBeDisabled();
+  });
+
+  test("a drag onto a wrapped row targets the slot below, not the one sharing its column", () => {
+    const board = fourStepBoard();
+    const ids = board.steps.map((s) => s.id);
+
+    render(<Harness board={board} />);
+    layOutChips(2);
+
+    // Two chips per row, so slot 2 sits directly below slot 0. Drag step 1 straight down onto it.
+    const button = screen.getByLabelText("Step 1");
+
+    fireEvent.pointerDown(button, { button: 0, clientX: 40, clientY: 20, pointerId: 1 });
+    fireEvent.pointerMove(button, { clientX: 40, clientY: 70, pointerId: 1 });
+    fireEvent.pointerUp(button, { pointerId: 1 });
+
+    expect(screen.getByText(`Order: ${[ids[1], ids[2], ids[0], ids[3]].join(",")}`)).toBeInTheDocument();
   });
 });

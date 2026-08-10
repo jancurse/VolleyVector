@@ -19,6 +19,16 @@ const DRAG_THRESHOLD = 4;
 
 const RemoveIcon = <X size={13} aria-hidden="true" />;
 
+type Point = { x: number; y: number };
+
+function centre(el: HTMLElement | undefined): Point {
+  if (!el) return { x: NaN, y: NaN };
+
+  const rect = el.getBoundingClientRect();
+
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
 // The row of step chips for a Sequence, grouped in a toolbar with roving arrow-key focus. Read-only in
 // playback (click a chip to scrub); in the editor each chip also drags to reorder and carries a remove
 // control, and the "+ Step" button adds one after the current step. Passing the editor handlers turns
@@ -54,17 +64,20 @@ export function StepStrip({
   // stay put as chips swap through them, so these stay valid for the whole gesture without re-measuring
   // a layout the live reorder is mutating. The dragged chip lifts, tracks the pointer, and moves to the
   // slot nearest the pointer; moveStep jumps straight there, so a fast drag can cross several slots.
+  // Slots are matched in both axes because the strip wraps onto several rows on a narrow screen, where
+  // comparing x alone picks a chip on the wrong row. On one row every slot shares a y, so this reduces
+  // to the horizontal comparison.
   const [dragId, setDragId] = useState<string | null>(null);
-  const [dragDx, setDragDx] = useState(0);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const chips = useRef(new Map<string, HTMLElement>());
   const drag = useRef<{
     id: string;
     pointerId: number;
-    startX: number;
+    start: Point;
     dragging: boolean;
-    slots: number[];
+    slots: Point[];
     index: number;
-    grabOffset: number;
+    grab: Point;
   } | null>(null);
   const suppressClick = useRef(false);
 
@@ -76,11 +89,11 @@ export function StepStrip({
     drag.current = {
       id,
       pointerId: event.pointerId,
-      startX: event.clientX,
+      start: { x: event.clientX, y: event.clientY },
       dragging: false,
       slots: [],
       index: 0,
-      grabOffset: 0,
+      grab: { x: 0, y: 0 },
     };
   };
 
@@ -90,23 +103,21 @@ export function StepStrip({
     if (!d || d.pointerId !== event.pointerId) return;
 
     if (!d.dragging) {
-      if (Math.abs(event.clientX - d.startX) < DRAG_THRESHOLD) return;
+      if (Math.hypot(event.clientX - d.start.x, event.clientY - d.start.y) < DRAG_THRESHOLD) return;
 
-      d.slots = ids.map((id) => {
-        const el = chips.current.get(id);
-
-        return el ? el.getBoundingClientRect().left + el.offsetWidth / 2 : NaN;
-      });
+      d.slots = ids.map((id) => centre(chips.current.get(id)));
       d.index = ids.indexOf(d.id);
-      d.grabOffset = d.startX - d.slots[d.index];
+      d.grab = { x: d.start.x - d.slots[d.index].x, y: d.start.y - d.slots[d.index].y };
       d.dragging = true;
       setDragId(d.id);
     }
 
+    const reach = (slot: Point) => (event.clientX - slot.x) ** 2 + (event.clientY - slot.y) ** 2;
+
     let target = d.index;
 
     for (let j = 0; j < d.slots.length; j++) {
-      if (Math.abs(event.clientX - d.slots[j]) < Math.abs(event.clientX - d.slots[target])) target = j;
+      if (reach(d.slots[j]) < reach(d.slots[target])) target = j;
     }
 
     if (target !== d.index) {
@@ -114,7 +125,10 @@ export function StepStrip({
       d.index = target;
     }
 
-    setDragDx(event.clientX - d.grabOffset - d.slots[d.index]);
+    setDragOffset({
+      x: event.clientX - d.grab.x - d.slots[d.index].x,
+      y: event.clientY - d.grab.y - d.slots[d.index].y,
+    });
   };
 
   const endDrag = (event: PointerEvent) => {
@@ -137,7 +151,7 @@ export function StepStrip({
 
     drag.current = null;
     setDragId(null);
-    setDragDx(0);
+    setDragOffset({ x: 0, y: 0 });
   };
 
   // Swallow the click that follows a drag so a reorder never also scrubs to the chip.
@@ -180,7 +194,9 @@ export function StepStrip({
                 else chips.current.delete(step.id);
               }}
               className={cx(STEP_CHIP, i === current ? STEP_CHIP_ON : STEP_CHIP_OFF, dragging && STEP_CHIP_DRAGGING)}
-              style={dragging ? { transform: `translateX(${dragDx}px) scale(1.03)` } : undefined}
+              style={
+                dragging ? { transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) scale(1.03)` } : undefined
+              }
             >
               <ToolbarButton
                 className={cx(

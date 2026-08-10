@@ -199,6 +199,7 @@ export const STEP_CHIP_DRAGGING = "z-10 border-accent shadow-overlay";
     comes from the active/inactive branch in StepStrip, not here, for the same no-merge reason. */
 export const STEP_NUM =
   "min-w-9 rounded-md border-0 bg-transparent px-2.5 py-2 font-mono text-sm font-semibold outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent";
-/** The remove control inside an editable chip: a comfortable target that reveals on hover/focus. */
+/** The remove control inside an editable chip: a comfortable target that reveals on hover/focus. A coarse
+    pointer has no hover, so it stays visible there rather than lurking invisibly over half the chip. */
 export const STEP_REMOVE =
-  "mr-1 grid size-6.5 flex-none place-items-center rounded-md text-text-dim opacity-0 outline-none transition-[opacity,color,background-color] duration-150 ease-settle hover:bg-control-hover hover:text-danger focus-visible:opacity-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent group-hover:opacity-100 group-focus-within:opacity-100";
+  "mr-1 grid size-6.5 flex-none place-items-center rounded-md text-text-dim opacity-0 outline-none transition-[opacity,color,background-color] duration-150 ease-settle pointer-coarse:opacity-100 hover:bg-control-hover hover:text-danger focus-visible:opacity-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent group-hover:opacity-100 group-focus-within:opacity-100";
