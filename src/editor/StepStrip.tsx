@@ -63,7 +63,9 @@ export function StepStrip({
   // Pointer drag-to-reorder. On the first qualifying move we freeze each chip's slot centre — the slots
   // stay put as chips swap through them, so these stay valid for the whole gesture without re-measuring
   // a layout the live reorder is mutating. The dragged chip lifts, tracks the pointer, and moves to the
-  // slot nearest the pointer; moveStep jumps straight there, so a fast drag can cross several slots.
+  // slot nearest its own centre; moveStep jumps straight there, so a fast drag can cross several slots.
+  // Matching by that centre rather than the raw pointer is what keeps the swap where the chip looks, since
+  // a grab lands anywhere on the chip — worst on a finger, whose contact point is invisible.
   // Slots are matched in both axes because the strip wraps onto several rows on a narrow screen, where
   // comparing x alone picks a chip on the wrong row. On one row every slot shares a y, so this reduces
   // to the horizontal comparison.
@@ -112,7 +114,8 @@ export function StepStrip({
       setDragId(d.id);
     }
 
-    const reach = (slot: Point) => (event.clientX - slot.x) ** 2 + (event.clientY - slot.y) ** 2;
+    const held = { x: event.clientX - d.grab.x, y: event.clientY - d.grab.y };
+    const reach = (slot: Point) => (held.x - slot.x) ** 2 + (held.y - slot.y) ** 2;
 
     let target = d.index;
 
@@ -125,10 +128,7 @@ export function StepStrip({
       d.index = target;
     }
 
-    setDragOffset({
-      x: event.clientX - d.grab.x - d.slots[d.index].x,
-      y: event.clientY - d.grab.y - d.slots[d.index].y,
-    });
+    setDragOffset({ x: held.x - d.slots[d.index].x, y: held.y - d.slots[d.index].y });
   };
 
   const endDrag = (event: PointerEvent) => {
