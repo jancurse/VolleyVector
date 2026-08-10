@@ -405,6 +405,22 @@ describe("positions and sequences", () => {
     expect(screen.getByRole("button", { name: "Add step" })).toBeInTheDocument();
   });
 
+  test("the strip's trailing action removes the current step, not the last one", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "New board" }));
+    await user.click(screen.getByRole("button", { name: "Add step" }));
+    await user.click(screen.getByRole("button", { name: "Add step" }));
+    expect(screen.getByRole("button", { name: "Step 3" })).toBeInTheDocument();
+
+    // Scrub back to the first step, so removing the current one is visibly not removing the last.
+    await user.click(screen.getByRole("button", { name: "Step 1" }));
+    await user.click(screen.getByRole("button", { name: "Remove current step (1)" }));
+
+    expect(screen.queryByRole("button", { name: "Step 3" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Step 1" })).toHaveAttribute("aria-current", "true");
+  });
+
   test("opens the sample Sequence in playback and steps through it", async () => {
     const user = await renderApp();
 

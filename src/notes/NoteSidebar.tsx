@@ -31,8 +31,10 @@ const ROW =
   "group flex items-center gap-[0.05rem] rounded-md transition-colors duration-150 ease-settle hover:bg-control";
 const LINK =
   "flex-1 min-w-0 cursor-pointer truncate border-0 bg-transparent px-[0.2rem] py-[0.36rem] text-left font-ui text-base font-semibold text-text-dim transition-colors group-hover:text-text";
+// Hover-revealed, but a coarse pointer has no hover: there it stays visible rather than being an
+// invisible target, which is also the only way the organise actions are discoverable on a phone.
 const CONTROLS =
-  "flex pr-[0.2rem] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100";
+  "flex pr-[0.2rem] opacity-0 transition-opacity duration-150 pointer-coarse:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100";
 // The add affordance is a ghost note row, not a button: it shares the rows' anatomy (caret spacer,
 // then label), with a plus at the title anchor and a dimmer weight marking it as an action.
 const ADD_ROW =
