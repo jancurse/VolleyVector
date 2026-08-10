@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import type { JSX, KeyboardEvent, PointerEvent } from "react";
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 
 import { Toolbar, ToolbarButton } from "../ui/Toolbar";
 import {
@@ -30,10 +30,13 @@ function centre(el: HTMLElement | undefined): Point {
 }
 
 // The row of step chips for a Sequence, grouped in a toolbar with roving arrow-key focus. Read-only in
-// playback (click a chip to scrub); in the editor each chip also drags to reorder and carries a remove
-// control, and the "+ Step" button adds one after the current step. Passing the editor handlers turns
-// on those affordances. The active step carries aria-current ("the current step"), the correct semantic
-// for a scrubber, so this stays a Toolbar rather than a ToggleGroup; its look comes from src/ui styles.
+// playback (click a chip to scrub); in the editor each chip also drags to reorder, the "+ Step" button
+// adds one after the current step, and a trailing action removes the current one. Passing the editor
+// handlers turns on those affordances. A chip's own remove ✕ is a mouse shortcut on top of that action,
+// and a coarse pointer drops it: a fingertip spans both it and the select target beside it, so there the
+// trailing action is the only way to remove a step. The active step carries aria-current ("the current
+// step"), the correct semantic for a scrubber, so this stays a Toolbar rather than a ToggleGroup; its
+// look comes from src/ui styles.
 type StepStripProps = {
   steps: readonly { id: string }[];
   current: number;
@@ -239,6 +242,16 @@ export function StepStrip({
             onClick={onAdd}
           >
             + Step
+          </ToolbarButton>
+        )}
+        {editable && steps.length > 1 && steps[current] && (
+          <ToolbarButton
+            icon={{ variant: "control", size: "md" }}
+            aria-label={`Remove current step (${current + 1})`}
+            tooltip={`Remove current step (${current + 1})`}
+            onClick={() => onRemove?.(steps[current].id)}
+          >
+            <Trash2 size={14} aria-hidden="true" />
           </ToolbarButton>
         )}
       </Toolbar>
