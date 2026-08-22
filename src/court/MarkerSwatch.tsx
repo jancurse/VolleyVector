@@ -1,7 +1,7 @@
 import { useId } from "react";
 import type { JSX } from "react";
 
-import { labelFontSize, PLAYER_RADIUS, Shape } from "./Marker";
+import { labelFontSize, MarkerBody, PLAYER_RADIUS } from "./Marker";
 
 // The player disc as a standalone glyph, sized by its container — the marker peer of BallSwatch.
 // It layers the same fill, ring, sheen, and theme edge as the on-court disc in Marker (minus the
@@ -31,9 +31,9 @@ export function MarkerSwatch({ fill, ring, text, code, opponent = false }: Marke
           <stop offset="100%" stopColor="#000000" stopOpacity={0.16} />
         </linearGradient>
       </defs>
-      <Shape opponent={opponent} r={PLAYER_RADIUS} fill={fill} stroke={ring} strokeWidth={2.5} />
-      <Shape opponent={opponent} r={PLAYER_RADIUS} fill={`url(#${sheenId})`} />
-      <Shape opponent={opponent} className="court-marker-edge" r={PLAYER_RADIUS} fill="none" />
+      <MarkerBody opponent={opponent} r={PLAYER_RADIUS} fill={fill} stroke={ring} strokeWidth={2.5} />
+      <MarkerBody opponent={opponent} r={PLAYER_RADIUS} fill={`url(#${sheenId})`} />
+      <MarkerBody opponent={opponent} className="court-marker-edge" r={PLAYER_RADIUS} fill="none" />
       {code && (
         <text
           textAnchor="middle"

@@ -8,8 +8,7 @@ import type { Marker } from "../court/types";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { SwatchGroup } from "../ui/SwatchGroup";
-import { ToggleGroup } from "../ui/ToggleGroup";
-import { SIDE_ITEMS } from "./MarkerPalette";
+import { SideToggle } from "./SideToggle";
 
 // The single-line bar the editor reserves above the court. It holds the selected marker's controls,
 // or the editor's prompt when nothing is selected, so the slot stays the same height either way and
@@ -68,12 +67,7 @@ export function MarkerInspector({
       />
 
       {onChangeSide && marker.role !== "ball" && (
-        <ToggleGroup
-          ariaLabel="Marker side"
-          items={SIDE_ITEMS}
-          value={marker.side === "opponent" ? "opponent" : "us"}
-          onValueChange={(value) => onChangeSide(value === "opponent" ? "opponent" : undefined)}
-        />
+        <SideToggle ariaLabel="Marker side" value={marker.side} onChange={onChangeSide} />
       )}
 
       {mode === "basic" && marker.role !== "ball" && (
