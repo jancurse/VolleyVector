@@ -24,11 +24,14 @@ function isPoint(value) {
   return isRecord(value) && Number.isFinite(value.x) && Number.isFinite(value.y);
 }
 
-// With the opponent half on, y reaches past the net to the far end line (-1) instead of stopping at 0.
-function inReach(point, opponentSide) {
-  const minY = (opponentSide ? -1 : 0) - REACH;
+// With the opponent half on, y reaches past the net to the far end line (-1) instead of stopping at 0,
+// but a player is walled into their own half: only the ball uses both. Mirrors clampMarker.
+function inReach(point, opponentSide, marker) {
+  const crosses = !opponentSide || marker.role === "ball";
+  const minY = crosses ? (opponentSide ? -1 : 0) - REACH : marker.side === "opponent" ? -1 - REACH : 0;
+  const maxY = crosses || marker.side !== "opponent" ? 1 + REACH : 0;
 
-  return point.x >= -REACH && point.x <= 1 + REACH && point.y >= minY && point.y <= 1 + REACH;
+  return point.x >= -REACH && point.x <= 1 + REACH && point.y >= minY && point.y <= maxY;
 }
 
 // Rotation legality, mirroring src/boards/rotation.ts.
@@ -217,7 +220,7 @@ else {
     if (board.opponentSide !== undefined && typeof board.opponentSide !== "boolean")
       errors.push(`${where}: "opponentSide" must be a boolean.`);
 
-    const markerIds = new Set();
+    const byId = new Map();
 
     if (!Array.isArray(board.markers)) errors.push(`${where}: "markers" must be an array.`);
     else
@@ -226,8 +229,8 @@ else {
 
         if (!isRecord(marker) || typeof marker.id !== "string" || marker.id === "")
           return errors.push(`${at}: must be an object with a non-empty string "id".`);
-        if (markerIds.has(marker.id)) errors.push(`${at}: duplicate marker id "${marker.id}".`);
-        markerIds.add(marker.id);
+        if (byId.has(marker.id)) errors.push(`${at}: duplicate marker id "${marker.id}".`);
+        byId.set(marker.id, marker);
         if (!ROLES.includes(marker.role)) errors.push(`${at}: unknown role "${marker.role}".`);
         if (marker.color !== undefined && !COLORS.includes(marker.color))
           errors.push(`${at}: unknown color "${marker.color}".`);
@@ -240,21 +243,26 @@ else {
     if (!Array.isArray(board.steps) || board.steps.length === 0)
       return errors.push(`${where}: "steps" must be a non-empty array.`);
 
+    // Only our players may take an official position, so an opponent id leaves a rotation inactive.
+    const ourPlayers = new Set(
+      [...byId.values()].filter((m) => m.side !== "opponent" && PLAYER_ROLES.includes(m.role)).map((m) => m.id)
+    );
+
     board.steps.forEach((step, j) => {
       const at = `${where} step ${j + 1}`;
 
       if (!isRecord(step) || !isRecord(step.positions))
         return errors.push(`${at}: must be an object with a "positions" map.`);
 
-      for (const id of markerIds)
+      for (const id of byId.keys())
         if (step.positions[id] === undefined)
           warnings.push(`${at}: no position for marker "${id}" — the app benches it on import.`);
 
       for (const [id, position] of Object.entries(step.positions)) {
-        if (!markerIds.has(id)) warnings.push(`${at}: position for unknown marker id "${id}" is ignored.`);
+        if (!byId.has(id)) warnings.push(`${at}: position for unknown marker id "${id}" is ignored.`);
         else if (!isPoint(position)) errors.push(`${at}: position of marker "${id}" must be an { x, y } point.`);
-        else if (!inReach(position, board.opponentSide === true))
-          warnings.push(`${at}: marker "${id}" is off the court — the app clamps it.`);
+        else if (!inReach(position, board.opponentSide === true, byId.get(id)))
+          warnings.push(`${at}: marker "${id}" is off its half — the app clamps it.`);
       }
 
       if (step.rotation !== undefined) {
@@ -270,14 +278,14 @@ else {
         else {
           if (rotation.kind === "custom")
             for (const [slot, id] of Object.entries(rotation.assignment))
-              if (!isSlot(Number(slot)) || typeof id !== "string" || !markerIds.has(id))
+              if (!isSlot(Number(slot)) || typeof id !== "string" || !ourPlayers.has(id))
                 warnings.push(`${at}: custom rotation entry "${slot}" — the app drops it on import.`);
 
           const markers = Array.isArray(board.markers) ? board.markers : [];
           const assignment =
             rotation.kind === "preset"
               ? presetAssignment(markers, rotation.rotation)
-              : customAssignment(rotation.assignment, markerIds);
+              : customAssignment(rotation.assignment, ourPlayers);
 
           if (rotation.kind === "preset" && !assignment)
             warnings.push(`${at}: preset rotation needs a 5-1 roster — it stays inactive in the app.`);

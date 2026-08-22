@@ -25,25 +25,6 @@ export function markerName(role: MarkerData["role"], label: string, opponent = f
   return opponent ? `Opponent ${name.toLowerCase()}` : name;
 }
 
-// A player's body: a disc for our side, a rounded square for an opponent, so the two teams stay
-// apart at thumbnail size and in greyscale rather than by colour alone.
-type MarkerBodyProps = {
-  opponent: boolean;
-  r: number;
-  className?: string;
-  fill?: string;
-  stroke?: string;
-  strokeWidth?: number;
-};
-
-export function MarkerBody({ opponent, r, ...props }: MarkerBodyProps): JSX.Element {
-  return opponent ? (
-    <rect x={-r} y={-r} width={r * 2} height={r * 2} rx={r * 0.32} {...props} />
-  ) : (
-    <circle r={r} {...props} />
-  );
-}
-
 type MarkerProps = {
   marker: MarkerData;
   /** Position in the entrance stagger; later markers settle in slightly after earlier ones. */
@@ -85,8 +66,7 @@ export function Marker({
   // The inner group owns the entrance/lift animations, so a CSS transform never clobbers placement.
   const body = (
     <>
-      <MarkerBody
-        opponent={opponent}
+      <circle
         className={`court-halo${selected || fault ? " court-halo--on" : ""}${!selected && fault ? " court-halo--fault" : ""}`}
         r={radius + 9}
       />
@@ -96,7 +76,7 @@ export function Marker({
       >
         {/* A hidden caster behind the disc carries the only filter, so the disc, ring, and label all
             stay crisp vector while still casting a soft shadow. */}
-        <MarkerBody opponent={opponent} className="court-marker-shadow" r={radius} />
+        <circle className="court-marker-shadow" r={radius} />
         <g className="court-marker-body">
           {isBall ? (
             <g transform={`scale(${scale})`}>
@@ -104,15 +84,9 @@ export function Marker({
             </g>
           ) : (
             <>
-              <MarkerBody
-                opponent={opponent}
-                r={radius}
-                fill={style.fill}
-                stroke={style.ring}
-                strokeWidth={2.5 * scale}
-              />
-              <MarkerBody opponent={opponent} r={radius} fill="url(#court-marker-sheen)" />
-              <MarkerBody opponent={opponent} className="court-marker-edge" r={radius} fill="none" />
+              <circle r={radius} fill={style.fill} stroke={style.ring} strokeWidth={2.5 * scale} />
+              <circle r={radius} fill="url(#court-marker-sheen)" />
+              <circle className="court-marker-edge" r={radius} fill="none" />
             </>
           )}
         </g>

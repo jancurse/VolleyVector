@@ -115,7 +115,7 @@ export function Court({
   const [hover, setHover] = useState<NormalizedPoint | null>(null);
   const selectable = Boolean(onSelect);
   const editable = Boolean(onSelect && onMove);
-  const drag = useMarkerDrag(svgRef, onSelect ?? noSelect, onMove ?? noMove, snap, opponentSide);
+  const drag = useMarkerDrag(svgRef, markers, onSelect ?? noSelect, onMove ?? noMove, snap, opponentSide);
   const draw = useAnnotationDraw(svgRef, {
     tool,
     style: annotationStyle,

@@ -270,6 +270,28 @@ describe("parseBundle and the opponent side", () => {
     expect(result.value.notices.join("\n")).toMatch(/moved opponent markers to our side/);
   });
 
+  test("walls a player onto their own half, letting only the ball cross", () => {
+    const result = parseBundle(
+      opponentBoard({
+        markers: [
+          { id: "s", role: "setter" },
+          { id: "x", role: "middle", side: "opponent" },
+          { id: "b", role: "ball" },
+        ],
+        steps: [{ positions: { s: { x: 0.5, y: -0.4 }, x: { x: 0.5, y: 0.4 }, b: { x: 0.5, y: -0.4 } } }],
+      }),
+      []
+    );
+
+    if (!result.ok) throw new Error(result.errors.join("\n"));
+
+    expect(result.value.boards[0].steps[0].positions).toMatchObject({
+      s: { x: 0.5, y: 0 },
+      x: { x: 0.5, y: 0 },
+      b: { x: 0.5, y: -0.4 },
+    });
+  });
+
   test("rejects a side it cannot read", () => {
     expect(errorsOf(opponentBoard({ markers: [{ id: "s", role: "setter", side: "theirs" }] })).join("\n")).toMatch(
       /"side" must be "opponent"/

@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   clamp01,
+  clampMarker,
   clampToCourt,
   COURT_SPAN,
   courtViewBox,
@@ -114,6 +115,26 @@ describe("the opponent half", () => {
   test("snapToGrid pulls onto the opponent's gridlines only when it is on", () => {
     expect(snapToGrid({ x: 0.5, y: -0.34 }, 3).y).toBeCloseTo(-0.34);
     expect(snapToGrid({ x: 0.5, y: -0.34 }, 3, true).y).toBeCloseTo(-1 / 3);
+  });
+
+  describe("clampMarker walls each player into their own half", () => {
+    const ours = { role: "setter" as const };
+    const theirs = { role: "middle" as const, side: "opponent" as const };
+    const ball = { role: "ball" as const };
+
+    test.each([
+      ["ours cannot cross to the far half", ours, -0.6, 0],
+      ["theirs cannot cross to ours", theirs, 0.6, 0],
+      ["ours still reaches its own end line", ours, 1.05, 1.05],
+      ["theirs still reaches its own end line", theirs, -1.05, -1.05],
+      ["the ball crosses the net freely", ball, -0.6, -0.6],
+    ])("%s", (_name, marker, y, expected) => {
+      expect(clampMarker({ x: 0.5, y }, true, marker).y).toBeCloseTo(expected);
+    });
+
+    test("a half-court board keeps the plain reach, wall and all", () => {
+      expect(clampMarker({ x: 0.5, y: -0.6 }, false, ours).y).toBeCloseTo(-MARKER_REACH);
+    });
   });
 
   test("the viewBox opens upward by one half-court, leaving the mapping alone", () => {

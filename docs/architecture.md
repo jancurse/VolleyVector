@@ -62,7 +62,7 @@ The client model carries only what a surface renders. A board's access list and 
 
 ### Marker identity and per-step positions
 
-- A board's `markers` array holds each marker's identity once: its `id`, `role`, optional `label` override, optional `color` override, and optional `side` (`"opponent"`, absent for ours). Side is identity, not geometry: a player drawn reaching over the net stays on their own team, and a marker's team cannot vary by step.
+- A board's `markers` array holds each marker's identity once: its `id`, `role`, optional `label` override, optional `color` override, and optional `side` (`"opponent"`, absent for ours). Side is stored rather than read off the position, because position is per-step and a team is not: a player must belong to the same team in every step. It is set once, by the half the marker is added to, and `clampMarker` then walls each player into that half so it stays true. The ball is the one marker that crosses.
 - Each step's `positions` map gives every marker a `NormalizedPoint` for that step, keyed by marker id.
 - A full `Marker` (identity plus a concrete position) only exists transiently. `stepMarkers(board, index)` joins the shared identities with one step's positions to produce the array the `Court` renders.
 
@@ -96,7 +96,7 @@ The `court/` module is the rendering core. It owns the coordinate space, the SVG
 - `geometry.ts` is the only place that maps normalized space to SVG. It defines a square playing area inside a wider square `viewBox`, with a free-zone margin so the court has room to breathe, and the attack line one third of the way down the half-court.
 - A marker may sit a little past the playing area, far enough for the ball to hang over the net or a deep serve to start behind the end line. `clampToCourt` holds every position within that reach so a marker never clips the `viewBox` edge.
 - `toSvg`/`toSvgPoint` and their inverses convert between the two spaces. Everything above this module works only in normalized coordinates.
-- `opponentSide` widens the window rather than changing the mapping: `courtViewBox` opens the `viewBox` upward by one half-court (13:23 instead of square) and `clampToCourt` lets a marker reach past the net, so dragging, drawing, and snapping need no new maths. The surfaces that frame a full court repoint the `--court-w` token at its own, taller size budget, and thumbnails letterbox it inside their square.
+- `opponentSide` widens the window rather than changing the mapping: `courtViewBox` opens the `viewBox` upward by one half-court (13:23 instead of square) and `clampToCourt` lets a point reach past the net, so dragging, drawing, and snapping need no new maths. `clampMarker` adds the wall at the net over it, holding a player to their own half while the ball and drawn shapes cross freely. The surfaces that frame a full court repoint the `--court-w` token at its own, taller size budget, and thumbnails letterbox it inside their square.
 
 ### The `Court` component
 
@@ -113,7 +113,7 @@ The `court/` module is the rendering core. It owns the coordinate space, the SVG
 
 ### Markers and the ball
 
-- A player marker is a coloured disc carrying a monospace label; an opponent's is a rounded square in the same role colour, so the two teams stay apart at thumbnail size and in greyscale rather than by colour alone. The label text scales down as the label grows so it always fits.
+- A player marker is a coloured disc carrying a monospace label. Both teams draw the same way, so which half a player stands on is what says whose they are. The label text scales down as the label grows so it always fits.
 - The ball is drawn separately: a custom volleyball in blue and yellow, rather than the usual white, so it stays legible against both the light and dark court.
 - A selected marker shows a calm accent halo. During playback the marker's outer group glides between steps via Motion with a settle easing, while an inner group carries a one-time entrance animation, so animating a position never fights the entrance.
 
@@ -147,7 +147,7 @@ The `editor/` module is where boards are read and written. It follows one flow t
 
 - Markers are added from the `MarkerPalette`, a row of role buttons that double as a legend. A new marker lands on the bench, ready to drag onto the court. With the opponent half on, a side switch leads the row and decides which team a pressed role joins (and so which bench it lands on); the ball stays neutral.
 - The opponent half is a per-board toggle in the court settings popover. Turning it off asks first, then removes the markers standing on it, so nothing invisible is left behind.
-- The `MarkerInspector` edits the selected marker's identity: its role, its side (with the opponent half on), a short label override, a colour (in basic mode, for non-ball markers), and a remove action. Because these are identity edits, each one applies across every step.
+- The `MarkerInspector` edits the selected marker's identity: its role, a short label override, a colour (in basic mode, for non-ball markers), and a remove action. Because these are identity edits, each one applies across every step. Team is not among them: it is chosen when the marker is added and fixed thereafter, so a player on the wrong team is removed and re-added rather than switched.
 - A single-step board shows an **Add step** affordance that promotes it to a Sequence in place, cloning the current positions. Once a board has two or more steps the `StepStrip` appears: it selects the active step, inserts a step after the current one, reorders the active step, and removes a step (never below one). The active step is tracked by its id, so inserting, reordering, or removing never loses the coach's place.
 - Position edits (dragging or nudging a marker) touch only the active step, while the identity edits above span the whole board. This is the editor expression of the model's identity-vs-position split.
 

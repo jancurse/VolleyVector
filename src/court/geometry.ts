@@ -6,6 +6,8 @@
 // with a free-zone margin so it has room to breathe. Nothing outside this module should know about
 // pixels or SVG units.
 
+import type { MarkerRole } from "./roles";
+
 /** Side length of the playing area in SVG units. The half-court is square (9 m x 9 m). */
 export const COURT_SPAN = 1000;
 
@@ -50,6 +52,21 @@ export function clampToCourt(point: NormalizedPoint, opponentSide = false): Norm
     x: Math.min(max, Math.max(min, point.x)),
     y: Math.min(max, Math.max(opponentSide ? -1 - MARKER_REACH : min, point.y)),
   };
+}
+
+/** Where one marker may go: the court's reach, and on a full court a wall at the net holding a player
+ *  to their own team's half, so a marker can never change teams by being moved across. The ball is
+ *  exempt, since it is the one thing that crosses. */
+export function clampMarker(
+  point: NormalizedPoint,
+  opponentSide: boolean,
+  marker: { role: MarkerRole; side?: "opponent" }
+): NormalizedPoint {
+  const clamped = clampToCourt(point, opponentSide);
+
+  if (!opponentSide || marker.role === "ball") return clamped;
+
+  return { ...clamped, y: marker.side === "opponent" ? Math.min(0, clamped.y) : Math.max(0, clamped.y) };
 }
 
 /** Fraction of a grid cell within which an axis snaps to the nearest gridline. About a third of the

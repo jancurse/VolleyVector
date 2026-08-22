@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
 import type { PointerEvent, RefObject } from "react";
 
-import { clampToCourt, fromSvgPoint } from "./geometry";
+import { clampMarker, fromSvgPoint } from "./geometry";
 import type { NormalizedPoint } from "./geometry";
+import type { Marker } from "./types";
 
 // Pointer dragging for markers. The court's <svg> captures the pointer on marker press, so a drag
 // keeps tracking even when it leaves the court; client coordinates are mapped back through the
@@ -33,6 +34,7 @@ const identity = (position: NormalizedPoint): NormalizedPoint => position;
 
 export function useMarkerDrag(
   svgRef: RefObject<SVGSVGElement | null>,
+  markers: readonly Marker[],
   onSelect: (id: string | null) => void,
   onMove: (id: string, position: NormalizedPoint) => void,
   snap: (position: NormalizedPoint) => NormalizedPoint = identity,
@@ -55,10 +57,11 @@ export function useMarkerDrag(
       if (draggingId === null || !svgRef.current) return;
 
       const position = clientToNormalized(svgRef.current, event.clientX, event.clientY);
+      const dragged = markers.find((m) => m.id === draggingId);
 
-      if (position) onMove(draggingId, snap(clampToCourt(position, opponentSide)));
+      if (position && dragged) onMove(draggingId, snap(clampMarker(position, opponentSide, dragged)));
     },
-    [draggingId, onMove, snap, svgRef, opponentSide]
+    [draggingId, markers, onMove, snap, svgRef, opponentSide]
   );
 
   return {

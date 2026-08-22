@@ -1,7 +1,7 @@
 import { normalizeAnnotation } from "../boards/normalize";
 import { benchPosition } from "../boards/operations";
 import type { Annotation, Board, BoardStep, RotationSlot, StepRotation } from "../boards/types";
-import { clampToCourt } from "../court/geometry";
+import { clampMarker, clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
 import { resolveColorKey, ROLES } from "../court/roles";
 import type { MarkerRole } from "../court/roles";
@@ -446,9 +446,9 @@ function materialize(
           notices.push(`Board "${board.ref}" step ${i + 1}: no position for marker "${marker.id}" — benched it.`);
           position = benchPosition(placed, marker.side);
         } else {
-          position = clampToCourt(raw, opponentSide);
+          position = clampMarker(raw, opponentSide, marker);
           if (position.x !== raw.x || position.y !== raw.y)
-            notices.push(`Board "${board.ref}" step ${i + 1}: marker "${marker.id}" was off the court — clamped.`);
+            notices.push(`Board "${board.ref}" step ${i + 1}: marker "${marker.id}" was off its half — clamped.`);
         }
 
         positions[marker.id] = position;

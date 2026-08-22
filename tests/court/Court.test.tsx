@@ -254,10 +254,10 @@ describe("Court with the opponent side", () => {
     expect(svg.querySelectorAll(".court-attack")).toHaveLength(2);
   });
 
-  test("draws an opponent player square and our own round", () => {
-    const { container } = render(<Court markers={OPPONENT} opponentSide />);
+  test("names an opponent player as one, so the team is never colour-only", () => {
+    render(<Court markers={OPPONENT} opponentSide />);
 
-    expect(container.querySelector('[aria-label="Opponent middle blocker"] rect')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Setter"] rect')).toBeNull();
+    expect(screen.getByLabelText("Opponent middle blocker")).toBeInTheDocument();
+    expect(screen.getByLabelText("Setter")).toBeInTheDocument();
   });
 });

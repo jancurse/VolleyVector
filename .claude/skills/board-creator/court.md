@@ -8,6 +8,7 @@ Every position is a normalized fraction of our half (derived from `src/court/geo
 - The **attack line** sits at `y = 1/3`. The front zone is `y < 1/3`, the back court `y > 1/3`.
 - Markers may sit up to `0.1` outside the court on either axis (the free zone); anything further is clamped on import.
 - **The opponent half mirrors ours into negative y**: `0` the net → `-1` their end line, their attack line at `y = -1/3`. It needs the board's `"opponentSide": true`; without it, `y` stops at `-0.1` and anything deeper is clamped.
+- **Players never cross the net.** On a full court, keep our markers at `y >= 0` and opponent markers at `y <= 0`. Only the ball uses both halves.
 
 ## Useful spots
 

@@ -36,7 +36,7 @@ import {
 import type { Annotation, Board, RotationSlot, StepRotation } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { Court } from "../court/Court";
-import { clampToCourt, snapToGrid, toSvg, VIEW_SIZE, viewExtent } from "../court/geometry";
+import { clampMarker, snapToGrid, toSvg, VIEW_SIZE, viewExtent } from "../court/geometry";
 import { snapAnnotationPoint } from "../court/snapping";
 import type { NormalizedPoint } from "../court/geometry";
 import type { AnnotationTool, Marker, NewAnnotationStyle } from "../court/types";
@@ -347,9 +347,10 @@ export function BoardEditor({
         event.preventDefault();
         move(
           selected.id,
-          clampToCourt(
+          clampMarker(
             { x: selected.position.x + delta.x * size, y: selected.position.y + delta.y * size },
-            draft.opponentSide
+            draft.opponentSide,
+            selected
           )
         );
       }
@@ -500,9 +501,6 @@ export function BoardEditor({
                   onChangeColor={(color) => set((d) => setMarker(d, selected.id, { color }))}
                   onChangeLabel={(label) =>
                     replace((d) => setMarker(d, selected.id, { label: label.trim() === "" ? undefined : label }))
-                  }
-                  onChangeSide={
-                    draft.opponentSide ? (side) => set((d) => setMarker(d, selected.id, { side })) : undefined
                   }
                   onDelete={() => {
                     set((d) => removeMarker(d, selected.id));
