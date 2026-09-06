@@ -54,9 +54,10 @@ export function clampToCourt(point: NormalizedPoint, opponentSide = false): Norm
   };
 }
 
-/** Where one marker may go: the court's reach, and on a full court a wall at the net holding a player
- *  to their own team's half, so a marker can never change teams by being moved across. The ball is
- *  exempt, since it is the one thing that crosses. */
+/** Where one marker may go: the court's reach, plus a wall at the net holding a player to their own
+ *  team's half, so a marker can never change teams by being moved across. The wall stands whether or
+ *  not the opponent half is shown, so turning it on can never strand a player on the far side. The
+ *  ball is exempt, since it is the one thing that crosses. */
 export function clampMarker(
   point: NormalizedPoint,
   opponentSide: boolean,
@@ -64,7 +65,7 @@ export function clampMarker(
 ): NormalizedPoint {
   const clamped = clampToCourt(point, opponentSide);
 
-  if (!opponentSide || marker.role === "ball") return clamped;
+  if (marker.role === "ball") return clamped;
 
   return { ...clamped, y: marker.side === "opponent" ? Math.min(0, clamped.y) : Math.max(0, clamped.y) };
 }

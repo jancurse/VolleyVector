@@ -661,17 +661,18 @@ describe("the opponent side", () => {
     for (const step of hidden.steps) expect(Object.keys(step.positions)).toHaveLength(1);
   });
 
-  test("hiding it brings one of our own markers back from over the net", () => {
+  test("hiding it brings one of our own markers back to our half", () => {
     const board = withOpponents();
     const ours = board.markers.find((m) => m.side === undefined)!;
     const reaching = setStepPosition(board, board.steps[0].id, ours.id, { x: 0.5, y: -0.5 });
 
-    expect(setOpponentSide(reaching, false).steps[0].positions[ours.id]).toEqual({ x: 0.5, y: -0.1 });
+    expect(setOpponentSide(reaching, false).steps[0].positions[ours.id]).toEqual({ x: 0.5, y: 0 });
   });
 
-  test("showing it again touches nothing else", () => {
-    const board = createBoard(0);
+  test("showing it pulls one of ours back from over the net, so none is stranded on the far half", () => {
+    const { board, markerId } = addMarker(createBoard(0), "outside", 0);
+    const reaching = setStepPosition(board, board.steps[0].id, markerId, { x: 0.5, y: -0.08 });
 
-    expect(setOpponentSide(board, true)).toEqual({ ...board, opponentSide: true });
+    expect(setOpponentSide(reaching, true).steps[0].positions[markerId]).toEqual({ x: 0.5, y: 0 });
   });
 });

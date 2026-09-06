@@ -113,6 +113,13 @@
   stroke-width: 3;
 }
 
+/* The opponent hatch: a quiet dark ruling over the role colour, dark enough to survive greyscale and
+   light enough to leave the colour readable. Fixed rather than themed, like the disc colours. */
+.court-marker-hatch {
+  stroke: rgba(0, 0, 0, 0.32);
+  stroke-width: 5;
+}
+
 .court-marker--dragging {
   transform: scale(1.08);
 }

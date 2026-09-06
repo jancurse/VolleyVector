@@ -254,10 +254,13 @@ describe("Court with the opponent side", () => {
     expect(svg.querySelectorAll(".court-attack")).toHaveLength(2);
   });
 
-  test("names an opponent player as one, so the team is never colour-only", () => {
-    render(<Court markers={OPPONENT} opponentSide />);
+  test("hatches an opponent player and names them as one, so the team is never colour-only", () => {
+    const { container } = render(<Court markers={OPPONENT} opponentSide />);
+    const hatched = (name: string) =>
+      screen.getByLabelText(name).querySelector('[fill="url(#court-opponent-hatch)"]') !== null;
 
-    expect(screen.getByLabelText("Opponent middle blocker")).toBeInTheDocument();
-    expect(screen.getByLabelText("Setter")).toBeInTheDocument();
+    expect(container.querySelector("#court-opponent-hatch")).not.toBeNull();
+    expect(hatched("Opponent middle blocker")).toBe(true);
+    expect(hatched("Setter")).toBe(false);
   });
 });

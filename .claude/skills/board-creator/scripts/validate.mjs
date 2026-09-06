@@ -24,12 +24,15 @@ function isPoint(value) {
   return isRecord(value) && Number.isFinite(value.x) && Number.isFinite(value.y);
 }
 
-// With the opponent half on, y reaches past the net to the far end line (-1) instead of stopping at 0,
-// but a player is walled into their own half: only the ball uses both. Mirrors clampMarker.
+// Mirrors clampMarker: the ball reaches past the net (to the far end line once the opponent half is
+// on), while a player is walled into their own half on every board.
 function inReach(point, opponentSide, marker) {
-  const crosses = !opponentSide || marker.role === "ball";
-  const minY = crosses ? (opponentSide ? -1 : 0) - REACH : marker.side === "opponent" ? -1 - REACH : 0;
-  const maxY = crosses || marker.side !== "opponent" ? 1 + REACH : 0;
+  const [minY, maxY] =
+    marker.role === "ball"
+      ? [(opponentSide ? -1 : 0) - REACH, 1 + REACH]
+      : marker.side === "opponent"
+        ? [-1 - REACH, 0]
+        : [0, 1 + REACH];
 
   return point.x >= -REACH && point.x <= 1 + REACH && point.y >= minY && point.y <= maxY;
 }

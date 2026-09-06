@@ -10,7 +10,7 @@ import type { SnapResult } from "./snapping";
 import { ATTACK_LINE, COURT_SPAN, courtViewBox, toSvg, toSvgPoint } from "./geometry";
 import type { NormalizedPoint } from "./geometry";
 import { CourtGrid } from "./Grid";
-import { Marker } from "./Marker";
+import { Marker, OpponentHatch } from "./Marker";
 import { MARKER_COLORS } from "./roles";
 import type { Annotation, AnnotationTool, Arrow, Marker as MarkerData, NewAnnotationStyle } from "./types";
 import { useAnnotationDraw } from "./useAnnotationDraw";
@@ -170,6 +170,7 @@ export function Court({
           <stop offset="48%" stopColor="#ffffff" stopOpacity={0} />
           <stop offset="100%" stopColor="#000000" stopOpacity={0.16} />
         </linearGradient>
+        <OpponentHatch />
       </defs>
 
       <rect

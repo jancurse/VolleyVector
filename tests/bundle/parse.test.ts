@@ -114,7 +114,7 @@ describe("parseBundle leniency", () => {
 
     if (!result.ok) throw new Error(result.errors.join("\n"));
     expect(result.value.notices.join("\n")).toMatch(/clamped/);
-    expect(result.value.boards[0].steps[0].positions.s).toEqual({ x: 1.1, y: -0.1 });
+    expect(result.value.boards[0].steps[0].positions.s).toEqual({ x: 1.1, y: 0 });
   });
 
   test("a legacy area annotation normalizes and an unreadable one drops with a notice", () => {
@@ -266,7 +266,7 @@ describe("parseBundle and the opponent side", () => {
     const [b] = result.value.boards;
 
     expect(b.markers.every((m) => m.side === undefined)).toBe(true);
-    expect(b.steps[0].positions.x.y).toBeCloseTo(-0.1);
+    expect(b.steps[0].positions.x.y).toBeCloseTo(0);
     expect(result.value.notices.join("\n")).toMatch(/moved opponent markers to our side/);
   });
 

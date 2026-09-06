@@ -25,6 +25,19 @@ export function markerName(role: MarkerData["role"], label: string, opponent = f
   return opponent ? `Opponent ${name.toLowerCase()}` : name;
 }
 
+/** The opponent's diagonal hatch, borrowed from the annotation hachure fill: it lays over the role
+ *  colour rather than replacing it, so the far team reads as the other team in greyscale and under
+ *  colour-blindness without a second palette. Defined once per SVG and referenced by id. */
+export const OPPONENT_HATCH_ID = "court-opponent-hatch";
+
+export function OpponentHatch({ id = OPPONENT_HATCH_ID }: { id?: string }): JSX.Element {
+  return (
+    <pattern id={id} patternUnits="userSpaceOnUse" width={18} height={18} patternTransform="rotate(45)">
+      <line className="court-marker-hatch" x1={0} y1={0} x2={0} y2={18} />
+    </pattern>
+  );
+}
+
 type MarkerProps = {
   marker: MarkerData;
   /** Position in the entrance stagger; later markers settle in slightly after earlier ones. */
@@ -85,6 +98,7 @@ export function Marker({
           ) : (
             <>
               <circle r={radius} fill={style.fill} stroke={style.ring} strokeWidth={2.5 * scale} />
+              {opponent && <circle r={radius} fill={`url(#${OPPONENT_HATCH_ID})`} />}
               <circle r={radius} fill="url(#court-marker-sheen)" />
               <circle className="court-marker-edge" r={radius} fill="none" />
             </>

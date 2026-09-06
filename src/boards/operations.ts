@@ -1,4 +1,4 @@
-import { clampToCourt } from "../court/geometry";
+import { clampMarker, clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
 import type { CourtMode, MarkerRole } from "../court/roles";
 import { ROLES } from "../court/roles";
@@ -219,25 +219,21 @@ export function removeMarker(board: Board, markerId: string): Board {
   };
 }
 
-/** Show or hide the opponent half. Hiding it clears the half nothing will draw any more: every
- *  opponent marker goes, and one of ours left standing over the net (legal while the half was on)
- *  comes back within reach. Either way none is left invisible while still counting and drawing arrows. */
+/** Show or hide the opponent half, re-clamping every marker that stays so none is left stranded.
+ *  Hiding drops the opponent's markers, since an invisible marker still counts and draws arrows, and
+ *  pulls the ball back from the far half. Showing pulls a player who was hanging over the net back
+ *  onto their own side of it. */
 export function setOpponentSide(board: Board, on: boolean): Board {
-  if (on) return { ...board, opponentSide: true };
-
-  const kept = board.markers.filter((m) => m.side !== "opponent");
-  const keptIds = new Set(kept.map((m) => m.id));
+  const markers = on ? board.markers : board.markers.filter((m) => m.side !== "opponent");
 
   return {
     ...board,
-    opponentSide: false,
-    markers: kept,
+    opponentSide: on,
+    markers,
     steps: board.steps.map((s) => ({
       ...s,
       positions: Object.fromEntries(
-        Object.entries(s.positions)
-          .filter(([id]) => keptIds.has(id))
-          .map(([id, position]) => [id, clampToCourt(position)])
+        markers.filter((m) => s.positions[m.id] !== undefined).map((m) => [m.id, clampMarker(s.positions[m.id], on, m)])
       ),
     })),
   };

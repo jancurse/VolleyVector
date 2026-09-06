@@ -62,7 +62,7 @@ The client model carries only what a surface renders. A board's access list and 
 
 ### Marker identity and per-step positions
 
-- A board's `markers` array holds each marker's identity once: its `id`, `role`, optional `label` override, optional `color` override, and optional `side` (`"opponent"`, absent for ours). Side is stored rather than read off the position, because position is per-step and a team is not: a player must belong to the same team in every step. It is set once, by the half the marker is added to, and `clampMarker` then walls each player into that half so it stays true. The ball is the one marker that crosses.
+- A board's `markers` array holds each marker's identity once: its `id`, `role`, optional `label` override, optional `color` override, and optional `side` (`"opponent"`, absent for ours). Side is stored rather than read off the position, because position is per-step and a team is not: a player must belong to the same team in every step. It is set once, by the half the marker is added to, and `clampMarker` then walls each player into that half so it stays true. The wall stands whether or not the opponent half is shown, so turning it on can never strand a player on the far side. The ball is the one marker that crosses.
 - Each step's `positions` map gives every marker a `NormalizedPoint` for that step, keyed by marker id.
 - A full `Marker` (identity plus a concrete position) only exists transiently. `stepMarkers(board, index)` joins the shared identities with one step's positions to produce the array the `Court` renders.
 
@@ -96,7 +96,7 @@ The `court/` module is the rendering core. It owns the coordinate space, the SVG
 - `geometry.ts` is the only place that maps normalized space to SVG. It defines a square playing area inside a wider square `viewBox`, with a free-zone margin so the court has room to breathe, and the attack line one third of the way down the half-court.
 - A marker may sit a little past the playing area, far enough for the ball to hang over the net or a deep serve to start behind the end line. `clampToCourt` holds every position within that reach so a marker never clips the `viewBox` edge.
 - `toSvg`/`toSvgPoint` and their inverses convert between the two spaces. Everything above this module works only in normalized coordinates.
-- `opponentSide` widens the window rather than changing the mapping: `courtViewBox` opens the `viewBox` upward by one half-court (13:23 instead of square) and `clampToCourt` lets a point reach past the net, so dragging, drawing, and snapping need no new maths. `clampMarker` adds the wall at the net over it, holding a player to their own half while the ball and drawn shapes cross freely. The surfaces that frame a full court repoint the `--court-w` token at its own, taller size budget, and thumbnails letterbox it inside their square.
+- `opponentSide` widens the window rather than changing the mapping: `courtViewBox` opens the `viewBox` upward by one half-court (13:23 instead of square) and `clampToCourt` lets a point reach past the net, so dragging, drawing, and snapping need no new maths. `clampMarker` adds the wall at the net over it, holding a player to their own half on every board while the ball and drawn shapes cross freely. The surfaces that frame a full court repoint the `--court-w` token at its own, taller size budget, and thumbnails letterbox it inside their square.
 
 ### The `Court` component
 
@@ -113,7 +113,7 @@ The `court/` module is the rendering core. It owns the coordinate space, the SVG
 
 ### Markers and the ball
 
-- A player marker is a coloured disc carrying a monospace label. Both teams draw the same way, so which half a player stands on is what says whose they are. The label text scales down as the label grows so it always fits.
+- A player marker is a coloured disc carrying a monospace label. An opponent's disc keeps its role colour and takes a diagonal hatch over it, borrowed from the annotation hachure fill, so the far team reads as the other team in greyscale and under colour-blindness without a second palette. The label text scales down as the label grows so it always fits.
 - The ball is drawn separately: a custom volleyball in blue and yellow, rather than the usual white, so it stays legible against both the light and dark court.
 - A selected marker shows a calm accent halo. During playback the marker's outer group glides between steps via Motion with a settle easing, while an inner group carries a one-time entrance animation, so animating a position never fights the entrance.
 

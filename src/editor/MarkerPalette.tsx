@@ -54,7 +54,13 @@ export function MarkerPalette({ mode, onAdd, side }: MarkerPaletteProps): JSX.El
               {role === "ball" ? (
                 <BallSwatch />
               ) : (
-                <MarkerSwatch fill={style.fill} ring={style.ring} text={style.text} code={style.code} />
+                <MarkerSwatch
+                  fill={style.fill}
+                  ring={style.ring}
+                  text={style.text}
+                  code={style.code}
+                  opponent={opponent}
+                />
               )}
             </span>
             <span className="text-sm font-semibold">{style.name}</span>

@@ -132,8 +132,9 @@ describe("the opponent half", () => {
       expect(clampMarker({ x: 0.5, y }, true, marker).y).toBeCloseTo(expected);
     });
 
-    test("a half-court board keeps the plain reach, wall and all", () => {
-      expect(clampMarker({ x: 0.5, y: -0.6 }, false, ours).y).toBeCloseTo(-MARKER_REACH);
+    test("the wall stands on a half-court board too, so turning the half on strands nobody", () => {
+      expect(clampMarker({ x: 0.5, y: -0.6 }, false, ours).y).toBeCloseTo(0);
+      expect(clampMarker({ x: 0.5, y: -0.6 }, false, ball).y).toBeCloseTo(-MARKER_REACH);
     });
   });
 
