@@ -1,8 +1,13 @@
-# Keeps the free-tier Supabase project from pausing. The free tier pauses a project after 7 days with no
-# database activity, and recovering needs a manual dashboard restore, so this pings the REST API twice a
-# week to keep it warm. It calls the anon-granted board_by_token RPC with a token that matches nothing:
-# the function still runs a query against the database, so the project stays warm, and it returns an
-# empty result. (A plain table read fails: the anon role has no table grant, so PostgREST returns 401.)
+# Keeps the free-tier Supabase project from pausing. Supabase pauses a project that does not receive
+# "sufficient user database activity over the past week", and its guidance is "a few user requests to the
+# database each day over the previous week". So the bar is a daily rate, not one request inside a 7-day
+# window: this runs every 6 hours and makes several real queries per run.
+#
+# Each call is an anon-granted security-definer RPC, so every one runs a genuine SELECT against a table
+# while returning nothing: is_admin reads profiles, board_by_token reads boards and board_access,
+# invite_preview reads invites and teams, is_team_member reads memberships. The arguments deliberately
+# match nothing. (A plain table read fails instead: the anon role has no table grant, so PostgREST
+# returns 401.)
 #
 # The URL and publishable key come from the committed .env (public keys, the same ones the client ships
 # with), so there is nothing to configure in the GitHub repo settings.
@@ -10,7 +15,7 @@ name: Supabase keep-alive
 
 on:
   schedule:
-    - cron: "0 9 * * 1,4" # 09:00 UTC every Monday and Thursday
+    - cron: "0 */6 * * *" # every 6 hours
   workflow_dispatch: {}
 
 jobs:
@@ -23,9 +28,17 @@ jobs:
       - name: Ping the database
         run: |
           set -a; . ./.env; set +a
-          curl --fail --silent --show-error \
-            -X POST "${VITE_SUPABASE_URL}/rest/v1/rpc/board_by_token" \
-            -H "apikey: ${VITE_SUPABASE_PUBLISHABLE_KEY}" \
-            -H "Authorization: Bearer ${VITE_SUPABASE_PUBLISHABLE_KEY}" \
-            -H "Content-Type: application/json" \
-            -d '{"token":"keepalive-noop"}'
+          rpc() {
+            echo "--> $1"
+            curl --fail --silent --show-error \
+              -X POST "${VITE_SUPABASE_URL}/rest/v1/rpc/$1" \
+              -H "apikey: ${VITE_SUPABASE_PUBLISHABLE_KEY}" \
+              -H "Authorization: Bearer ${VITE_SUPABASE_PUBLISHABLE_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "$2"
+            echo
+          }
+          rpc is_admin '{}'
+          rpc board_by_token '{"token":"keepalive-noop"}'
+          rpc invite_preview '{"invite_token":"keepalive-noop"}'
+          rpc is_team_member '{"team":"00000000-0000-0000-0000-000000000000"}'
