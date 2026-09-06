@@ -190,3 +190,30 @@ describe("BoardEditor stroke control", () => {
     expect(screen.queryByText("Stroke") !== null).toBe(shown);
   });
 });
+
+describe("BoardEditor opponent side", () => {
+  const setting = (name: string) =>
+    within(screen.getByRole("group", { name: "Opponent side" })).getByRole("button", { name });
+
+  test("turning it on opens the far half, and turning it off confirms before removing its markers", async () => {
+    const user = setup();
+
+    await user.click(screen.getByRole("button", { name: "Court settings" }));
+    await user.click(setting("On"));
+    await user.keyboard("{Escape}");
+
+    await user.click(
+      within(screen.getByRole("group", { name: "Side for new markers" })).getByRole("button", { name: "Opponent" })
+    );
+    await user.click(screen.getByRole("button", { name: "Add opponent setter" }));
+    expect(court().getByLabelText("Opponent setter")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Court settings" }));
+    await user.click(setting("Off"));
+    expect(screen.getByText(/removes 1 opponent marker from every step/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Hide and remove" }));
+    expect(court().queryByLabelText("Opponent setter")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Side for new markers" })).not.toBeInTheDocument();
+  });
+});

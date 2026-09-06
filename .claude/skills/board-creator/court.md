@@ -1,12 +1,14 @@
 # Court coordinate cheat sheet
 
-The app draws one half-court (9 m × 9 m) with the net at the top.
-Every position is a normalized fraction of that playing area (derived from `src/court/geometry.ts`):
+The app draws one half-court (9 m × 9 m) with the net at the top, and the opponent's half above it on a board that opts in.
+Every position is a normalized fraction of our half (derived from `src/court/geometry.ts`):
 
 - **x**: `0` left sideline → `1` right sideline (as displayed; this is the players' right, since they face the net).
 - **y**: `0` the net → `1` the end line.
 - The **attack line** sits at `y = 1/3`. The front zone is `y < 1/3`, the back court `y > 1/3`.
-- Markers may sit up to `0.1` outside the court on either axis (the free zone); anything further is clamped on import.
+- Markers may sit up to `0.1` outside the court (the free zone), except past the net: only the ball goes there. Anything further is clamped on import.
+- **The opponent half mirrors ours into negative y**: `0` the net → `-1` their end line, their attack line at `y = -1/3`. It needs the board's `"opponentSide": true`; without it the ball stops at `y = -0.1` and anything deeper is clamped.
+- **Players never cross the net.** Keep our markers at `y >= 0` on every board, and opponent markers at `y <= 0`. Only the ball reaches past the net.
 
 ## Useful spots
 
@@ -16,10 +18,12 @@ Every position is a normalized fraction of that playing area (derived from `src/
 | Server behind the end line  | `{ "x": 0.83, "y": 1.05 }`           |
 | Setter target at the net    | `{ "x": 0.55, "y": 0.08 }`           |
 | Bench row (waiting markers) | `y = 1.07`, `x = 0.1, 0.21, 0.32, …` |
+| Opponent block at the net   | `{ "x": 0.5, "y": -0.08 }`           |
+| Opponent bench row          | `y = -1.07`, same `x` steps          |
 
 ## Rotation zones
 
-Numbered as the players see them facing the net; zone 1 is back-right, counting counter-clockwise.
+Numbered as the players see them facing the net; zone 1 is back-right, counting counter-clockwise. Rotations cover our side only, so never assign an opponent marker to a zone.
 
 | Zone | Court area   | x range   | y range | Centre                 | Official spot         |
 |------|--------------|-----------|---------|------------------------|-----------------------|

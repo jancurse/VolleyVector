@@ -24,6 +24,7 @@ export type BoardRow = {
   tags: string[];
   auto_arrows: boolean;
   rotation_strict: boolean;
+  opponent_side: boolean;
   share_token: string;
   current_revision_id: string | null;
   created_at: string;
@@ -67,6 +68,7 @@ export type BoardInsert = {
   tags: string[];
   auto_arrows: boolean;
   rotation_strict: boolean;
+  opponent_side: boolean;
 };
 
 export type NoteInsert = {
@@ -94,6 +96,7 @@ export function boardFromRow(row: BoardRow, capability: Capability): Board {
     currentRevisionId: row.current_revision_id,
     autoArrows: row.auto_arrows,
     rotationStrict: row.rotation_strict,
+    opponentSide: row.opponent_side,
     createdAt: Date.parse(row.created_at),
     updatedAt: Date.parse(row.updated_at),
   };
@@ -111,6 +114,7 @@ export function boardToInsert(board: Board, createdBy: string): BoardInsert {
     tags: board.tags,
     auto_arrows: board.autoArrows,
     rotation_strict: board.rotationStrict,
+    opponent_side: board.opponentSide,
   };
 }
 
@@ -125,6 +129,7 @@ export function boardToContent(board: Board): Record<string, unknown> {
     tags: board.tags,
     auto_arrows: board.autoArrows,
     rotation_strict: board.rotationStrict,
+    opponent_side: board.opponentSide,
   };
 }
 
@@ -193,6 +198,7 @@ export function boardFromRevision(row: BoardRevisionRow, board: Board): Board {
     currentRevisionId: row.id,
     autoArrows: (c.auto_arrows as boolean) ?? true,
     rotationStrict: (c.rotation_strict as boolean) ?? false,
+    opponentSide: (c.opponent_side as boolean) ?? false,
     createdAt: board.createdAt,
     updatedAt: Date.parse(row.created_at),
   };

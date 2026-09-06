@@ -43,6 +43,7 @@ export function toBundle(boards: readonly Board[], notes: readonly Note[]): Bund
       role: m.role,
       ...(m.label !== undefined && { label: m.label }),
       ...(m.color !== undefined && { color: m.color }),
+      ...(m.side !== undefined && { side: m.side }),
     })),
     steps: b.steps.map((s) => ({
       instruction: s.instruction,
@@ -54,6 +55,7 @@ export function toBundle(boards: readonly Board[], notes: readonly Note[]): Bund
     tags: b.tags,
     autoArrows: b.autoArrows,
     rotationStrict: b.rotationStrict,
+    opponentSide: b.opponentSide,
   }));
 
   return { formatVersion: FORMAT_VERSION, notes: bundleNotes, boards: bundleBoards };

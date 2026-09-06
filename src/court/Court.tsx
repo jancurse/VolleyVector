@@ -7,10 +7,10 @@ import type { RotationOverlay } from "../boards/rotation";
 import { Annotations } from "./Annotations";
 import { Arrows } from "./Arrows";
 import type { SnapResult } from "./snapping";
-import { ATTACK_LINE, COURT_SPAN, toSvg, toSvgPoint, VIEW_SIZE } from "./geometry";
+import { ATTACK_LINE, COURT_SPAN, courtViewBox, toSvg, toSvgPoint } from "./geometry";
 import type { NormalizedPoint } from "./geometry";
 import { CourtGrid } from "./Grid";
-import { Marker } from "./Marker";
+import { Marker, OpponentHatch } from "./Marker";
 import { MARKER_COLORS } from "./roles";
 import type { Annotation, AnnotationTool, Arrow, Marker as MarkerData, NewAnnotationStyle } from "./types";
 import { useAnnotationDraw } from "./useAnnotationDraw";
@@ -46,6 +46,8 @@ type CourtProps = {
   markers: readonly MarkerData[];
   /** Accessible name for the whole diagram. */
   label?: string;
+  /** When true, the opponent half is drawn above the net and the viewBox covers the full court. */
+  opponentSide?: boolean;
   selectedId?: string | null;
   /** When true, markers glide between positions (drill playback) instead of jumping. */
   animated?: boolean;
@@ -87,7 +89,8 @@ type CourtProps = {
 
 export function Court({
   markers,
-  label = "Volleyball half-court",
+  label,
+  opponentSide = false,
   selectedId = null,
   animated = false,
   arrows,
@@ -112,7 +115,7 @@ export function Court({
   const [hover, setHover] = useState<NormalizedPoint | null>(null);
   const selectable = Boolean(onSelect);
   const editable = Boolean(onSelect && onMove);
-  const drag = useMarkerDrag(svgRef, onSelect ?? noSelect, onMove ?? noMove, snap);
+  const drag = useMarkerDrag(svgRef, markers, onSelect ?? noSelect, onMove ?? noMove, snap, opponentSide);
   const draw = useAnnotationDraw(svgRef, {
     tool,
     style: annotationStyle,
@@ -121,6 +124,7 @@ export function Court({
     onTranslate: onTranslateAnnotation ?? noTranslate,
     onReshape: onReshapeAnnotation,
     snapPoint: annotationSnap,
+    opponentSide,
   });
 
   // An annotation tool (drawing or select) is active when the editor wired the handlers and the tool is
@@ -134,12 +138,15 @@ export function Court({
   // The selection spotlight: the selected player and its linked markers lead; everyone else dims.
   const spotlight = spotlightMarkers(rotation?.links ?? [], selectedId);
 
+  const top = opponentSide ? toSvg(-1) : netLine;
+  const height = opponentSide ? COURT_SPAN * 2 : COURT_SPAN;
+
   return (
     <svg
       ref={svgRef}
       className={`court${interactive ? " court--editable" : ""}${selectable && !editable ? " court--tap" : ""}${crosshair ? " court--draw" : ""}`}
-      viewBox={`0 0 ${VIEW_SIZE} ${VIEW_SIZE}`}
-      aria-label={label}
+      viewBox={courtViewBox(opponentSide)}
+      aria-label={label ?? (opponentSide ? "Volleyball court" : "Volleyball half-court")}
       onPointerDown={surface?.onSurfacePointerDown}
       onPointerMove={(event) => {
         surface?.onPointerMove(event);
@@ -163,28 +170,33 @@ export function Court({
           <stop offset="48%" stopColor="#ffffff" stopOpacity={0} />
           <stop offset="100%" stopColor="#000000" stopOpacity={0.16} />
         </linearGradient>
+        <OpponentHatch />
       </defs>
 
       <rect
         className="court-play"
         x={left - FLOOR_BLEED}
-        y={netLine - FLOOR_BLEED}
+        y={top - FLOOR_BLEED}
         width={COURT_SPAN + FLOOR_BLEED * 2}
-        height={COURT_SPAN + FLOOR_BLEED * 2}
+        height={height + FLOOR_BLEED * 2}
         rx={8}
       />
+      {/* The front zones meet at the net, so a full court shades them as one band straddling it. */}
       <rect
         className="court-zone"
         x={left - FLOOR_BLEED}
-        y={netLine - FLOOR_BLEED}
+        y={opponentSide ? toSvg(-ATTACK_LINE) : netLine - FLOOR_BLEED}
         width={COURT_SPAN + FLOOR_BLEED * 2}
-        height={ATTACK_LINE * COURT_SPAN + FLOOR_BLEED}
+        height={ATTACK_LINE * COURT_SPAN * (opponentSide ? 2 : 1) + (opponentSide ? 0 : FLOOR_BLEED)}
       />
 
-      <CourtGrid divisions={grid} />
+      <CourtGrid divisions={grid} opponentSide={opponentSide} />
 
-      <rect className="court-boundary" x={left} y={netLine} width={COURT_SPAN} height={COURT_SPAN} rx={4} />
+      <rect className="court-boundary" x={left} y={top} width={COURT_SPAN} height={height} rx={4} />
       <line className="court-attack" x1={left} y1={toSvg(ATTACK_LINE)} x2={right} y2={toSvg(ATTACK_LINE)} />
+      {opponentSide && (
+        <line className="court-attack" x1={left} y1={toSvg(-ATTACK_LINE)} x2={right} y2={toSvg(-ATTACK_LINE)} />
+      )}
 
       <g className="court-net" aria-hidden="true">
         <line className="court-net-tape" x1={left} y1={netLine} x2={right} y2={netLine} />

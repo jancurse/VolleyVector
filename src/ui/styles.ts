@@ -115,7 +115,10 @@ export const PAGE_WIDTH = "w-full max-w-[var(--shell-max)]";
 
 /** The board view's court-beside-detail grid: court column then a flexible panel, stacked at the court breakpoint. */
 export const VIEW_BODY =
-  "grid grid-cols-[var(--court-size)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-court:grid-cols-[minmax(0,1fr)]";
+  "grid grid-cols-[var(--court-w)_minmax(0,1fr)] items-start gap-[clamp(1.25rem,3vw,2.5rem)] max-court:grid-cols-[minmax(0,1fr)]";
+
+/** Repoints the court width token at the full court, for a surface framing a board with an opponent half. */
+export const COURT_FULL_WIDTH = "[--court-w:var(--court-size-full)]";
 
 /** The centred, max-width column the library and note pages share. */
 export const PAGE = cx(

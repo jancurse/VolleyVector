@@ -24,6 +24,7 @@ const SAMPLE_POSITION: Board = {
   currentRevisionId: null,
   autoArrows: true,
   rotationStrict: false,
+  opponentSide: false,
   markers: [
     { id: "opp", role: "opposite", label: "OPP" },
     { id: "mb1", role: "middle", label: "MB1" },
@@ -63,6 +64,7 @@ const SAMPLE_SEQUENCE: Board = {
   currentRevisionId: null,
   autoArrows: true,
   rotationStrict: false,
+  opponentSide: false,
   markers: [
     { id: "s", role: "setter", label: "S" },
     { id: "mb1", role: "middle", label: "MB1" },

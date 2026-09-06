@@ -17,7 +17,8 @@ export const MARKER_BAR =
 
 // Edits the one selected marker as a single-line bar above the court: pick its role (within the active
 // mode's family), recolour it (basic mode), rename its label, or remove it. Position is edited on the
-// court (drag or arrow keys).
+// court (drag or arrow keys). A marker's team is fixed once it exists: it is set by the half it was
+// added to, and the court's wall at the net keeps it there.
 type MarkerInspectorProps = {
   marker: Marker;
   mode: CourtMode;

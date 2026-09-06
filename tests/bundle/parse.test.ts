@@ -16,7 +16,7 @@ function board(patch: Record<string, unknown> = {}): Record<string, unknown> {
 }
 
 function bundle(patch: Record<string, unknown> = {}): string {
-  return JSON.stringify({ formatVersion: 3, notes: [], boards: [board()], ...patch });
+  return JSON.stringify({ formatVersion: 4, notes: [], boards: [board()], ...patch });
 }
 
 function errorsOf(text: string): string[] {
@@ -30,8 +30,8 @@ describe("parseBundle rejects", () => {
     ["malformed JSON", "{nope", /Not valid JSON/],
     ["a non-object root", "[]", /must be a JSON object/],
     ["a missing formatVersion", JSON.stringify({ notes: [], boards: [] }), /"formatVersion"/],
-    ["a newer formatVersion", bundle({ formatVersion: 4 }), /newer than this app supports/],
-    ["missing arrays", JSON.stringify({ formatVersion: 3 }), /"notes" must be an array/],
+    ["a newer formatVersion", bundle({ formatVersion: 5 }), /newer than this app supports/],
+    ["missing arrays", JSON.stringify({ formatVersion: 4 }), /"notes" must be an array/],
     ["a board without steps", bundle({ boards: [board({ steps: [] })] }), /"steps" must be a non-empty array/],
     ["a board without a mode", bundle({ boards: [board({ mode: "3d" })] }), /"mode" must be/],
     ["an unknown role", bundle({ boards: [board({ markers: [{ id: "s", role: "keeper" }] })] }), /unknown role/],
@@ -114,7 +114,7 @@ describe("parseBundle leniency", () => {
 
     if (!result.ok) throw new Error(result.errors.join("\n"));
     expect(result.value.notices.join("\n")).toMatch(/clamped/);
-    expect(result.value.boards[0].steps[0].positions.s).toEqual({ x: 1.1, y: -0.1 });
+    expect(result.value.boards[0].steps[0].positions.s).toEqual({ x: 1.1, y: 0 });
   });
 
   test("a legacy area annotation normalizes and an unreadable one drops with a notice", () => {
@@ -226,5 +226,75 @@ describe("parseBundle leniency", () => {
 
     expect(note.blocks.map((b) => b.kind)).toEqual(["markdown", "boards"]);
     expect(note.blocks[1]).toMatchObject({ kind: "boards", boardIds: [imported.id] });
+  });
+});
+
+describe("parseBundle and the opponent side", () => {
+  const opponentBoard = (patch: Record<string, unknown> = {}) =>
+    bundle({
+      boards: [
+        board({
+          opponentSide: true,
+          markers: [
+            { id: "s", role: "setter" },
+            { id: "x", role: "middle", side: "opponent" },
+          ],
+          steps: [{ positions: { s: { x: 0.5, y: 0.5 }, x: { x: 0.5, y: -0.5 } } }],
+          ...patch,
+        }),
+      ],
+    });
+
+  test("keeps an opponent marker and its far-half position", () => {
+    const result = parseBundle(opponentBoard(), []);
+
+    if (!result.ok) throw new Error(result.errors.join("\n"));
+
+    const [b] = result.value.boards;
+
+    expect(b.opponentSide).toBe(true);
+    expect(b.markers.map((m) => m.side)).toEqual([undefined, "opponent"]);
+    expect(b.steps[0].positions.x).toEqual({ x: 0.5, y: -0.5 });
+    expect(result.value.notices).toEqual([]);
+  });
+
+  test("without the opponent half, an opponent marker joins our side and its position clamps", () => {
+    const result = parseBundle(opponentBoard({ opponentSide: false }), []);
+
+    if (!result.ok) throw new Error(result.errors.join("\n"));
+
+    const [b] = result.value.boards;
+
+    expect(b.markers.every((m) => m.side === undefined)).toBe(true);
+    expect(b.steps[0].positions.x.y).toBeCloseTo(0);
+    expect(result.value.notices.join("\n")).toMatch(/moved opponent markers to our side/);
+  });
+
+  test("walls a player onto their own half, letting only the ball cross", () => {
+    const result = parseBundle(
+      opponentBoard({
+        markers: [
+          { id: "s", role: "setter" },
+          { id: "x", role: "middle", side: "opponent" },
+          { id: "b", role: "ball" },
+        ],
+        steps: [{ positions: { s: { x: 0.5, y: -0.4 }, x: { x: 0.5, y: 0.4 }, b: { x: 0.5, y: -0.4 } } }],
+      }),
+      []
+    );
+
+    if (!result.ok) throw new Error(result.errors.join("\n"));
+
+    expect(result.value.boards[0].steps[0].positions).toMatchObject({
+      s: { x: 0.5, y: 0 },
+      x: { x: 0.5, y: 0 },
+      b: { x: 0.5, y: -0.4 },
+    });
+  });
+
+  test("rejects a side it cannot read", () => {
+    expect(errorsOf(opponentBoard({ markers: [{ id: "s", role: "setter", side: "theirs" }] })).join("\n")).toMatch(
+      /"side" must be "opponent"/
+    );
   });
 });

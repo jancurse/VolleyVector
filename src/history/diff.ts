@@ -17,7 +17,12 @@ export function diffBoard(before: Board, after: Board): string[] {
   if (!same(before.tags, after.tags)) labels.push("Tags");
   if (!same(before.markers, after.markers)) labels.push("Markers");
   if (!same(before.steps, after.steps)) labels.push("Steps");
-  if (before.autoArrows !== after.autoArrows || before.rotationStrict !== after.rotationStrict) labels.push("Settings");
+  if (
+    before.autoArrows !== after.autoArrows ||
+    before.rotationStrict !== after.rotationStrict ||
+    before.opponentSide !== after.opponentSide
+  )
+    labels.push("Settings");
 
   return labels;
 }

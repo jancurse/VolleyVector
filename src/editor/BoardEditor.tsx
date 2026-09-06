@@ -16,6 +16,7 @@ import {
   reshapeAnnotation,
   setMarker,
   setStepInstruction,
+  setOpponentSide,
   setStepPosition,
   stepAnnotations,
   stepMarkers,
@@ -35,10 +36,10 @@ import {
 import type { Annotation, Board, RotationSlot, StepRotation } from "../boards/types";
 import { isSequence } from "../boards/types";
 import { Court } from "../court/Court";
-import { clampToCourt, snapToGrid, toSvg, VIEW_SIZE } from "../court/geometry";
+import { clampMarker, snapToGrid, toSvg, VIEW_SIZE, viewExtent } from "../court/geometry";
 import { snapAnnotationPoint } from "../court/snapping";
 import type { NormalizedPoint } from "../court/geometry";
-import type { AnnotationTool, NewAnnotationStyle } from "../court/types";
+import type { AnnotationTool, Marker, NewAnnotationStyle } from "../court/types";
 import { hasDash, hasFill, isDashTool, isFillTool } from "../court/types";
 import type { MarkerRole } from "../court/roles";
 import { Button } from "../ui/Button";
@@ -46,7 +47,8 @@ import { Combobox } from "../ui/Combobox";
 import { CourtFrame } from "../ui/CourtFrame";
 import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
-import { cx, PAGE_WIDTH } from "../ui/styles";
+import { COURT_FULL_WIDTH, cx, PAGE_WIDTH } from "../ui/styles";
+import { useConfirm } from "../ui/useConfirm";
 import { AnnotationInspector } from "./AnnotationInspector";
 import { AnnotationToolbar } from "./AnnotationToolbar";
 import { DEFAULT_ANNOTATION_STYLE } from "./annotationStyle";
@@ -68,10 +70,15 @@ const NUDGE_LARGE = 0.05;
 const TEXT_OVERLAY =
   "absolute z-10 w-36 -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-bg px-2 py-1 text-center text-sm text-text shadow-sm focus:outline-2 focus:outline-accent-weak";
 
-/** A normalized court coordinate as a CSS percentage of the (square) court frame. */
-function framePercent(normalized: number): string {
-  return `${(toSvg(normalized) / VIEW_SIZE) * 100}%`;
+/** A normalized court coordinate as a CSS percentage of the court frame. The viewBox starts at x = 0
+ *  but at y = VIEW_SIZE - height, which is negative once the opponent half widens the window upward. */
+function framePercent(normalized: number, extent: { width: number; height: number }, axis: "x" | "y"): string {
+  const span = axis === "x" ? extent.width : extent.height;
+  const origin = axis === "x" ? 0 : VIEW_SIZE - extent.height;
+
+  return `${((toSvg(normalized) - origin) / span) * 100}%`;
 }
+
 const ARROW_DELTAS: Record<string, NormalizedPoint> = {
   ArrowLeft: { x: -1, y: 0 },
   ArrowRight: { x: 1, y: 0 },
@@ -113,6 +120,7 @@ export function BoardEditor({
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [grid, setGrid] = useState(0);
   const [snapOn, setSnapOn] = useState(true);
+  const [addSide, setAddSide] = useState<Marker["side"]>(undefined);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -120,10 +128,11 @@ export function BoardEditor({
   // Set while Escape is cancelling the text editor, so the following blur undoes instead of keeping.
   const textCancelled = useRef(false);
   const toolRail = useToolRail();
+  const { confirm, dialog } = useConfirm();
 
   const snap = useMemo(
-    () => (grid > 0 && snapOn ? (p: NormalizedPoint) => snapToGrid(p, grid) : undefined),
-    [grid, snapOn]
+    () => (grid > 0 && snapOn ? (p: NormalizedPoint) => snapToGrid(p, grid, draft.opponentSide) : undefined),
+    [grid, snapOn, draft.opponentSide]
   );
 
   const stepIndex = Math.max(
@@ -138,6 +147,7 @@ export function BoardEditor({
   const selectedAnnotation = annotations.find((a) => a.id === selectedAnnotationId) ?? null;
   const editingText = annotations.find((a) => a.id === editingTextId && a.kind === "text") ?? null;
   const sequence = isSequence(draft);
+  const extent = viewExtent(draft.opponentSide);
 
   // The active step's rotation, resolved: a complete assignment drives the overlap checks (in both
   // enforcement flavours) and the court's rotation overlay; an inactive rotation drives neither. The
@@ -162,7 +172,7 @@ export function BoardEditor({
     const points = stepMarkers(draft, stepIndex).map((m) => m.position);
     const divisions = grid > 0 && snapOn ? grid : 0;
 
-    return (p: NormalizedPoint) => snapAnnotationPoint(p, points, divisions);
+    return (p: NormalizedPoint) => snapAnnotationPoint(p, points, divisions, draft.opponentSide);
   }, [draft, stepIndex, grid, snapOn]);
 
   // Back the working draft up to localStorage as it changes, so a reload mid-edit loses nothing. The
@@ -262,7 +272,9 @@ export function BoardEditor({
       replace((d) => {
         const annotation = (d.steps.find((s) => s.id === activeStepId)?.annotations ?? []).find((a) => a.id === id);
 
-        return annotation ? updateAnnotation(d, activeStepId, id, reshapeAnnotation(annotation, handle, point)) : d;
+        return annotation
+          ? updateAnnotation(d, activeStepId, id, reshapeAnnotation(annotation, handle, point, d.opponentSide))
+          : d;
       }),
     [replace, activeStepId]
   );
@@ -272,7 +284,9 @@ export function BoardEditor({
       replace((d) => {
         const annotation = (d.steps.find((s) => s.id === activeStepId)?.annotations ?? []).find((a) => a.id === id);
 
-        return annotation ? updateAnnotation(d, activeStepId, id, translateAnnotation(annotation, dx, dy)) : d;
+        return annotation
+          ? updateAnnotation(d, activeStepId, id, translateAnnotation(annotation, dx, dy, d.opponentSide))
+          : d;
       }),
     [replace, activeStepId]
   );
@@ -287,14 +301,15 @@ export function BoardEditor({
 
   const add = useCallback(
     (role: MarkerRole) => {
-      const { board: next, markerId } = addMarker(draft, role, stepIndex);
+      // The ball is neutral: one ball crosses the net rather than belonging to a side.
+      const { board: next, markerId } = addMarker(draft, role, stepIndex, role === "ball" ? undefined : addSide);
 
       set(() => next);
       changeTool("markers");
       setSelectedId(markerId);
       frameRef.current?.focus();
     },
-    [draft, stepIndex, set, changeTool]
+    [draft, stepIndex, set, changeTool, addSide]
   );
 
   const appendStep = useCallback(() => {
@@ -332,11 +347,15 @@ export function BoardEditor({
         event.preventDefault();
         move(
           selected.id,
-          clampToCourt({ x: selected.position.x + delta.x * size, y: selected.position.y + delta.y * size })
+          clampMarker(
+            { x: selected.position.x + delta.x * size, y: selected.position.y + delta.y * size },
+            draft.opponentSide,
+            selected
+          )
         );
       }
     },
-    [selected, selectedAnnotationId, move, translate]
+    [selected, selectedAnnotationId, move, translate, draft.opponentSide]
   );
 
   useEditorShortcuts({
@@ -364,13 +383,33 @@ export function BoardEditor({
     onDuplicate: () => {
       if (!selectedAnnotation) return;
 
-      const copy = duplicateAnnotation(selectedAnnotation);
+      const copy = duplicateAnnotation(selectedAnnotation, draft.opponentSide);
 
       set((d) => addAnnotation(d, activeStepId, copy));
       setSelectedAnnotationId(copy.id);
     },
     onTool: changeTool,
   });
+
+  // Hiding the opponent half removes the markers standing on it, so that asks first.
+  const toggleOpponentSide = async (on: boolean) => {
+    const losing = draft.markers.filter((m) => m.side === "opponent").length;
+
+    if (
+      !on &&
+      losing > 0 &&
+      !(await confirm({
+        title: "Hide the opponent side?",
+        description: `This removes ${losing} opponent marker${losing === 1 ? "" : "s"} from every step.`,
+        confirmLabel: "Hide and remove",
+        danger: true,
+      }))
+    )
+      return;
+
+    if (!on) setAddSide(undefined);
+    set((d) => setOpponentSide(d, on));
+  };
 
   // The gear lives in whichever tool rail is on screen: opening rightward off the vertical rail
   // beside the court, or downward from the horizontal toolbar below it at phone widths.
@@ -386,6 +425,7 @@ export function BoardEditor({
       autoArrows={
         sequence ? { value: draft.autoArrows, onChange: (on) => set((d) => ({ ...d, autoArrows: on })) } : undefined
       }
+      opponentSide={{ value: draft.opponentSide, onChange: toggleOpponentSide }}
     />
   );
 
@@ -431,7 +471,12 @@ export function BoardEditor({
         </p>
       )}
 
-      <div className="grid grid-cols-[minmax(0,calc(var(--court-size)_+_54px))_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-court:grid-cols-[minmax(0,1fr)]">
+      <div
+        className={cx(
+          "grid grid-cols-[minmax(0,calc(var(--court-w)_+_54px))_minmax(0,1fr)] items-start gap-[clamp(1rem,3vw,2rem)] max-court:grid-cols-[minmax(0,1fr)]",
+          draft.opponentSide && COURT_FULL_WIDTH
+        )}
+      >
         <div className="flex min-w-0 items-start justify-center gap-3 max-court:order-2">
           {toolRail && (
             <AnnotationToolbar
@@ -442,7 +487,7 @@ export function BoardEditor({
             />
           )}
 
-          <div className="flex w-full min-w-0 max-w-[var(--court-size)] flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
+          <div className="flex w-full min-w-0 max-w-[var(--court-w)] flex-col items-center gap-[clamp(0.75rem,2vh,1.25rem)]">
             {/* The contextual inspector sits above the court so it never overlaps the diagram. In
                 markers mode it is a fixed-height bar, present whether or not a marker is selected, so
                 clicking a marker never shifts the court down. It stays outside the focusable figure so
@@ -513,11 +558,13 @@ export function BoardEditor({
                 aria-label="Court editor"
                 className="relative"
                 width="w-full"
+                full={draft.opponentSide}
                 onKeyDown={onKeyDown}
                 onKeyUp={commit}
               >
                 <Court
                   markers={markers}
+                  opponentSide={draft.opponentSide}
                   arrows={arrows}
                   annotations={annotations}
                   rotation={overlay}
@@ -540,7 +587,10 @@ export function BoardEditor({
                 {editingText?.kind === "text" && (
                   <input
                     className={TEXT_OVERLAY}
-                    style={{ left: framePercent(editingText.at.x), top: framePercent(editingText.at.y) }}
+                    style={{
+                      left: framePercent(editingText.at.x, extent, "x"),
+                      top: framePercent(editingText.at.y, extent, "y"),
+                    }}
                     value={editingText.text}
                     placeholder="Label"
                     aria-label="Text label"
@@ -594,7 +644,11 @@ export function BoardEditor({
               <AnnotationToolbar tool={tool} onToolChange={changeTool} settings={courtSettings("bottom")} />
             )}
 
-            <MarkerPalette mode={draft.mode} onAdd={add} />
+            <MarkerPalette
+              mode={draft.mode}
+              onAdd={add}
+              side={draft.opponentSide ? { value: addSide, onChange: setAddSide } : undefined}
+            />
           </div>
         </div>
 
@@ -637,6 +691,7 @@ export function BoardEditor({
           )}
         </aside>
       </div>
+      {dialog}
     </div>
   );
 }

@@ -99,3 +99,18 @@ describe("bundleFilename", () => {
     expect(bundleFilename("Serve Receive & Sideout")).toBe("serve-receive-sideout.json");
   });
 });
+
+test("a board's opponent half and marker sides survive the round trip", () => {
+  const source: Board = {
+    ...SAMPLE_BOARDS[0],
+    opponentSide: true,
+    markers: [...SAMPLE_BOARDS[0].markers, { id: "x", role: "middle", label: "MB1", side: "opponent" }],
+    steps: SAMPLE_BOARDS[0].steps.map((s) => ({ ...s, positions: { ...s.positions, x: { x: 0.5, y: -0.4 } } })),
+  };
+  const result = parseBundle(JSON.stringify(toBundle([source], [])), []);
+
+  if (!result.ok) throw new Error(result.errors.join("\n"));
+
+  expect(result.value.boards[0]).toMatchObject({ opponentSide: true, markers: source.markers });
+  expect(result.value.boards[0].steps[0].positions.x).toEqual({ x: 0.5, y: -0.4 });
+});

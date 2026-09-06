@@ -12,6 +12,8 @@ export type Marker = {
   label?: string;
   /** Optional colour override (basic mode); when absent the role's colour is used. */
   color?: ColorKey;
+  /** Set on a marker belonging to the opposing team; absent means our side. */
+  side?: "opponent";
 };
 
 // A derived movement arrow between two normalized points, coloured to match the marker that moves.

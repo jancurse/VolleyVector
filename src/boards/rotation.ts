@@ -27,9 +27,10 @@ export function isFrontRow(slot: RotationSlot): boolean {
 // Roles that may take an official position; the ball and coach never do.
 const PLAYER_ROLES: ReadonlySet<MarkerRole> = new Set(["setter", "outside", "middle", "opposite", "libero", "player"]);
 
-/** The markers eligible for an official position. Six are needed before rotation can turn on. */
+/** The markers eligible for an official position: our players only, since the rules are checked for
+ *  our side. Six are needed before rotation can turn on. */
 export function rotationPlayers(markers: readonly BoardMarker[]): BoardMarker[] {
-  return markers.filter((m) => PLAYER_ROLES.has(m.role));
+  return markers.filter((m) => PLAYER_ROLES.has(m.role) && m.side !== "opponent");
 }
 
 const byLabel = (a: BoardMarker, b: BoardMarker) => (a.label ?? "").localeCompare(b.label ?? "");
@@ -97,7 +98,7 @@ export function rotationAssignment(
   if (!rotation) return null;
   if (rotation.kind === "preset") return presetAssignment(markers, rotation.rotation);
 
-  const ids = new Set(markers.map((m) => m.id));
+  const ids = new Set(rotationPlayers(markers).map((m) => m.id));
   const assigned = ROTATION_SLOTS.map((slot) => rotation.assignment[slot]).filter(
     (id): id is string => id !== undefined && ids.has(id)
   );

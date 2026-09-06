@@ -1,4 +1,4 @@
-import { clampToCourt } from "../court/geometry";
+import { clampMarker, clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
 import type { CourtMode, MarkerRole } from "../court/roles";
 import { ROLES } from "../court/roles";
@@ -20,12 +20,14 @@ function newId(): string {
 /** The default label for a new marker of `role`, numbered at the lowest free index so it stays
  *  distinct from its siblings even after a lower-numbered one was removed. The bare code is index 1
  *  for a singular role. */
-export function nextLabel(role: MarkerRole, markers: readonly Marker[]): string | undefined {
+export function nextLabel(role: MarkerRole, markers: readonly Marker[], side?: Marker["side"]): string | undefined {
   if (role === "ball") return undefined;
 
   const code = ROLES[role].code;
   const taken = new Set(
-    markers.filter((m) => m.role === role).map((m) => (m.label === code ? 1 : Number(m.label?.slice(code.length))))
+    markers
+      .filter((m) => m.role === role && m.side === side)
+      .map((m) => (m.label === code ? 1 : Number(m.label?.slice(code.length))))
   );
 
   let n = 1;
@@ -35,34 +37,37 @@ export function nextLabel(role: MarkerRole, markers: readonly Marker[]): string 
   return NUMBERED_ROLES.has(role) || taken.size > 0 ? `${code}${n}` : code;
 }
 
-// New markers land on a "bench" — a row in the free zone just below the end line — so they never
+// New markers land on a "bench" — a row in the free zone just past the end line — so they never
 // pile up on the court. Each fills the leftmost free slot, reusing those vacated by markers already
-// dragged onto the court.
+// dragged onto the court. Each side benches past its own end line.
 const BENCH_Y = 1.07;
 const BENCH_X0 = 0.1;
 const BENCH_GAP = 0.11;
 const BENCH_SLOTS = 8;
 
-/** The leftmost free bench slot among `markers` — where a marker without a court position lands. */
-export function benchPosition(markers: readonly Marker[]): NormalizedPoint {
-  const taken = markers.filter((m) => m.position.y > 1).map((m) => m.position.x);
+/** The leftmost free bench slot on `side` — where a marker without a court position lands. */
+export function benchPosition(markers: readonly Marker[], side?: Marker["side"]): NormalizedPoint {
+  const opponent = side === "opponent";
+  const y = opponent ? -BENCH_Y : BENCH_Y;
+  const taken = markers.filter((m) => (opponent ? m.position.y < -1 : m.position.y > 1)).map((m) => m.position.x);
 
   for (let slot = 0; slot < BENCH_SLOTS; slot++) {
     const x = BENCH_X0 + slot * BENCH_GAP;
 
-    if (!taken.some((tx) => Math.abs(tx - x) < BENCH_GAP / 2)) return { x, y: BENCH_Y };
+    if (!taken.some((tx) => Math.abs(tx - x) < BENCH_GAP / 2)) return { x, y };
   }
 
-  return { x: BENCH_X0 + (markers.length % BENCH_SLOTS) * BENCH_GAP, y: BENCH_Y };
+  return { x: BENCH_X0 + (markers.length % BENCH_SLOTS) * BENCH_GAP, y };
 }
 
-/** A new marker of `role`, labelled and placed on the bench below the court ready to be dragged on. */
-export function makeMarker(role: MarkerRole, markers: readonly Marker[]): Marker {
+/** A new marker of `role`, labelled and placed on its side's bench ready to be dragged on. */
+export function makeMarker(role: MarkerRole, markers: readonly Marker[], side?: Marker["side"]): Marker {
   return {
     id: newId(),
     role,
-    label: nextLabel(role, markers),
-    position: benchPosition(markers),
+    label: nextLabel(role, markers, side),
+    position: benchPosition(markers, side),
+    ...(side && { side }),
   };
 }
 
@@ -85,6 +90,7 @@ export function createBoard(now: number, mode: CourtMode = "positions", title = 
     currentRevisionId: null,
     autoArrows: true,
     rotationStrict: false,
+    opponentSide: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -101,7 +107,7 @@ export function stepMarkers(board: Board, index: number): Marker[] {
   const placed: Marker[] = [];
 
   for (const m of board.markers) {
-    placed.push({ ...m, position: step.positions[m.id] ?? benchPosition(placed) });
+    placed.push({ ...m, position: step.positions[m.id] ?? benchPosition(placed, m.side) });
   }
 
   return placed;
@@ -177,8 +183,13 @@ export function setStepPosition(board: Board, stepId: string, markerId: string, 
 }
 
 /** Add a marker to the board, benched on step `index` across every step, ready to be dragged on. */
-export function addMarker(board: Board, role: MarkerRole, index: number): { board: Board; markerId: string } {
-  const { position, ...identity } = makeMarker(role, stepMarkers(board, index));
+export function addMarker(
+  board: Board,
+  role: MarkerRole,
+  index: number,
+  side?: BoardMarker["side"]
+): { board: Board; markerId: string } {
+  const { position, ...identity } = makeMarker(role, stepMarkers(board, index), side);
 
   return {
     markerId: identity.id,
@@ -205,6 +216,26 @@ export function removeMarker(board: Board, markerId: string): Board {
 
       return { ...s, positions: rest };
     }),
+  };
+}
+
+/** Show or hide the opponent half, re-clamping every marker that stays so none is left stranded.
+ *  Hiding drops the opponent's markers, since an invisible marker still counts and draws arrows, and
+ *  pulls the ball back from the far half. Showing pulls a player who was hanging over the net back
+ *  onto their own side of it. */
+export function setOpponentSide(board: Board, on: boolean): Board {
+  const markers = on ? board.markers : board.markers.filter((m) => m.side !== "opponent");
+
+  return {
+    ...board,
+    opponentSide: on,
+    markers,
+    steps: board.steps.map((s) => ({
+      ...s,
+      positions: Object.fromEntries(
+        markers.filter((m) => s.positions[m.id] !== undefined).map((m) => [m.id, clampMarker(s.positions[m.id], on, m)])
+      ),
+    })),
   };
 }
 
@@ -245,26 +276,28 @@ export function removeAnnotation(board: Board, stepId: string, id: string): Boar
   return withStepAnnotations(board, stepId, (annotations) => annotations.filter((a) => a.id !== id));
 }
 
-const shiftPoint = (p: NormalizedPoint, dx: number, dy: number): NormalizedPoint =>
-  clampToCourt({ x: p.x + dx, y: p.y + dy });
+const shiftPoint = (p: NormalizedPoint, dx: number, dy: number, opponentSide: boolean): NormalizedPoint =>
+  clampToCourt({ x: p.x + dx, y: p.y + dy }, opponentSide);
 
 /** Shift every point of an annotation by a normalized delta — the whole-shape move. Clamped to court. */
-export function translateAnnotation(annotation: Annotation, dx: number, dy: number): Annotation {
+export function translateAnnotation(annotation: Annotation, dx: number, dy: number, opponentSide = false): Annotation {
+  const shift = (p: NormalizedPoint) => shiftPoint(p, dx, dy, opponentSide);
+
   switch (annotation.kind) {
     case "arrow":
       return {
         ...annotation,
-        from: shiftPoint(annotation.from, dx, dy),
-        to: shiftPoint(annotation.to, dx, dy),
-        ...(annotation.via && { via: shiftPoint(annotation.via, dx, dy) }),
+        from: shift(annotation.from),
+        to: shift(annotation.to),
+        ...(annotation.via && { via: shift(annotation.via) }),
       };
     case "free":
     case "polygon":
-      return { ...annotation, points: annotation.points.map((p) => shiftPoint(p, dx, dy)) };
+      return { ...annotation, points: annotation.points.map(shift) };
     case "text":
-      return { ...annotation, at: shiftPoint(annotation.at, dx, dy) };
+      return { ...annotation, at: shift(annotation.at) };
     default:
-      return { ...annotation, a: shiftPoint(annotation.a, dx, dy), b: shiftPoint(annotation.b, dx, dy) };
+      return { ...annotation, a: shift(annotation.a), b: shift(annotation.b) };
   }
 }
 
@@ -272,8 +305,8 @@ export function translateAnnotation(annotation: Annotation, dx: number, dy: numb
 const DUPLICATE_OFFSET = 0.03;
 
 /** A copy of an annotation with a fresh id, offset slightly down-right (clamped to the court). */
-export function duplicateAnnotation(annotation: Annotation): Annotation {
-  return { ...translateAnnotation(annotation, DUPLICATE_OFFSET, DUPLICATE_OFFSET), id: newId() };
+export function duplicateAnnotation(annotation: Annotation, opponentSide = false): Annotation {
+  return { ...translateAnnotation(annotation, DUPLICATE_OFFSET, DUPLICATE_OFFSET, opponentSide), id: newId() };
 }
 
 /** Append clones (fresh ids) of step `index`'s annotations to the next step. Appending never destroys
@@ -370,9 +403,10 @@ export function annotationHandles(annotation: Annotation): { handle: AnnotationH
 export function reshapeAnnotation(
   annotation: Annotation,
   handle: AnnotationHandle,
-  point: NormalizedPoint
+  point: NormalizedPoint,
+  opponentSide = false
 ): Annotation {
-  const p = clampToCourt(point);
+  const p = clampToCourt(point, opponentSide);
 
   switch (annotation.kind) {
     case "line":
@@ -395,7 +429,7 @@ export function reshapeAnnotation(
       const moved = handle === "start" ? { ...annotation, from: p } : { ...annotation, to: p };
 
       return annotation.via
-        ? { ...moved, via: shiftPoint(annotation.via, (p.x - old.x) / 2, (p.y - old.y) / 2) }
+        ? { ...moved, via: shiftPoint(annotation.via, (p.x - old.x) / 2, (p.y - old.y) / 2, opponentSide) }
         : moved;
     }
     case "rect":

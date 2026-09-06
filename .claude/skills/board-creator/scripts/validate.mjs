@@ -5,7 +5,7 @@
 
 import { readFileSync } from "node:fs";
 
-const FORMAT_VERSION = 3;
+const FORMAT_VERSION = 4;
 const ROLES = ["setter", "outside", "middle", "opposite", "libero", "ball", "coach", "player"];
 // Current colour keys, plus the retired `red`/`green` the app still loads (it remaps them to
 // magenta/teal). Always author with the current keys; legacy keys are accepted so old bundles validate.
@@ -24,8 +24,17 @@ function isPoint(value) {
   return isRecord(value) && Number.isFinite(value.x) && Number.isFinite(value.y);
 }
 
-function inReach(point) {
-  return point.x >= -REACH && point.x <= 1 + REACH && point.y >= -REACH && point.y <= 1 + REACH;
+// Mirrors clampMarker: the ball reaches past the net (to the far end line once the opponent half is
+// on), while a player is walled into their own half on every board.
+function inReach(point, opponentSide, marker) {
+  const [minY, maxY] =
+    marker.role === "ball"
+      ? [(opponentSide ? -1 : 0) - REACH, 1 + REACH]
+      : marker.side === "opponent"
+        ? [-1 - REACH, 0]
+        : [0, 1 + REACH];
+
+  return point.x >= -REACH && point.x <= 1 + REACH && point.y >= minY && point.y <= maxY;
 }
 
 // Rotation legality, mirroring src/boards/rotation.ts.
@@ -47,7 +56,7 @@ const X_PAIRS = [
 // The 5-1 service order S → OH1 → MB1 → OPP → OH2 → MB2, with a libero standing in for MB2 on the
 // back-row middle slot, or null when the roster is not a 5-1.
 function presetAssignment(markers, rotation) {
-  const players = markers.filter((m) => isRecord(m) && PLAYER_ROLES.includes(m.role));
+  const players = markers.filter((m) => isRecord(m) && PLAYER_ROLES.includes(m.role) && m.side !== "opponent");
 
   if (players.length !== 6) return null;
 
@@ -211,8 +220,10 @@ else {
       errors.push(`${where}: "tags" must be a string array.`);
     if (board.rotationStrict !== undefined && typeof board.rotationStrict !== "boolean")
       errors.push(`${where}: "rotationStrict" must be a boolean.`);
+    if (board.opponentSide !== undefined && typeof board.opponentSide !== "boolean")
+      errors.push(`${where}: "opponentSide" must be a boolean.`);
 
-    const markerIds = new Set();
+    const byId = new Map();
 
     if (!Array.isArray(board.markers)) errors.push(`${where}: "markers" must be an array.`);
     else
@@ -221,15 +232,24 @@ else {
 
         if (!isRecord(marker) || typeof marker.id !== "string" || marker.id === "")
           return errors.push(`${at}: must be an object with a non-empty string "id".`);
-        if (markerIds.has(marker.id)) errors.push(`${at}: duplicate marker id "${marker.id}".`);
-        markerIds.add(marker.id);
+        if (byId.has(marker.id)) errors.push(`${at}: duplicate marker id "${marker.id}".`);
+        byId.set(marker.id, marker);
         if (!ROLES.includes(marker.role)) errors.push(`${at}: unknown role "${marker.role}".`);
         if (marker.color !== undefined && !COLORS.includes(marker.color))
           errors.push(`${at}: unknown color "${marker.color}".`);
+        if (marker.side !== undefined && marker.side !== "opponent")
+          errors.push(`${at}: "side" must be "opponent" when present.`);
+        if (marker.side === "opponent" && board.opponentSide !== true)
+          warnings.push(`${at}: opponent marker on a board without "opponentSide" — the app moves it to our side.`);
       });
 
     if (!Array.isArray(board.steps) || board.steps.length === 0)
       return errors.push(`${where}: "steps" must be a non-empty array.`);
+
+    // Only our players may take an official position, so an opponent id leaves a rotation inactive.
+    const ourPlayers = new Set(
+      [...byId.values()].filter((m) => m.side !== "opponent" && PLAYER_ROLES.includes(m.role)).map((m) => m.id)
+    );
 
     board.steps.forEach((step, j) => {
       const at = `${where} step ${j + 1}`;
@@ -237,14 +257,15 @@ else {
       if (!isRecord(step) || !isRecord(step.positions))
         return errors.push(`${at}: must be an object with a "positions" map.`);
 
-      for (const id of markerIds)
+      for (const id of byId.keys())
         if (step.positions[id] === undefined)
           warnings.push(`${at}: no position for marker "${id}" — the app benches it on import.`);
 
       for (const [id, position] of Object.entries(step.positions)) {
-        if (!markerIds.has(id)) warnings.push(`${at}: position for unknown marker id "${id}" is ignored.`);
+        if (!byId.has(id)) warnings.push(`${at}: position for unknown marker id "${id}" is ignored.`);
         else if (!isPoint(position)) errors.push(`${at}: position of marker "${id}" must be an { x, y } point.`);
-        else if (!inReach(position)) warnings.push(`${at}: marker "${id}" is off the court — the app clamps it.`);
+        else if (!inReach(position, board.opponentSide === true, byId.get(id)))
+          warnings.push(`${at}: marker "${id}" is off its half — the app clamps it.`);
       }
 
       if (step.rotation !== undefined) {
@@ -260,14 +281,14 @@ else {
         else {
           if (rotation.kind === "custom")
             for (const [slot, id] of Object.entries(rotation.assignment))
-              if (!isSlot(Number(slot)) || typeof id !== "string" || !markerIds.has(id))
+              if (!isSlot(Number(slot)) || typeof id !== "string" || !ourPlayers.has(id))
                 warnings.push(`${at}: custom rotation entry "${slot}" — the app drops it on import.`);
 
           const markers = Array.isArray(board.markers) ? board.markers : [];
           const assignment =
             rotation.kind === "preset"
               ? presetAssignment(markers, rotation.rotation)
-              : customAssignment(rotation.assignment, markerIds);
+              : customAssignment(rotation.assignment, ourPlayers);
 
           if (rotation.kind === "preset" && !assignment)
             warnings.push(`${at}: preset rotation needs a 5-1 roster — it stays inactive in the app.`);

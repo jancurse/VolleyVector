@@ -12,10 +12,11 @@ import { cx, EYEBROW } from "../ui/styles";
 // static court. A Position prints its single diagram; a Sequence prints a card per step, each carrying
 // the derived arrows previewing its upcoming move and its instruction, kept whole across page breaks.
 
-const COURT = "m-0 aspect-square w-full rounded-xl border border-border bg-court-surface";
+const COURT = "m-0 w-full rounded-xl border border-border bg-court-surface";
 
 export function BoardPrint({ board }: { board: Board }): JSX.Element {
   const sequence = isSequence(board);
+  const court = cx(COURT, board.opponentSide ? "aspect-[13/23]" : "aspect-square");
 
   return (
     <section className="flex flex-col gap-5">
@@ -32,9 +33,10 @@ export function BoardPrint({ board }: { board: Board }): JSX.Element {
         <div className="grid grid-cols-2 gap-x-6 gap-y-7">
           {board.steps.map((step, i) => (
             <figure key={step.id} className="m-0 flex break-inside-avoid flex-col gap-2">
-              <div className={COURT}>
+              <div className={court}>
                 <Court
                   markers={stepMarkers(board, i)}
+                  opponentSide={board.opponentSide}
                   arrows={board.autoArrows ? arrowsForStep(board, i) : []}
                   annotations={stepAnnotations(board, i)}
                   label={`${board.title || "Untitled board"} — step ${i + 1}`}
@@ -50,9 +52,10 @@ export function BoardPrint({ board }: { board: Board }): JSX.Element {
           ))}
         </div>
       ) : (
-        <div className={cx(COURT, "max-w-[430px] break-inside-avoid")}>
+        <div className={cx(court, "max-w-[430px] break-inside-avoid")}>
           <Court
             markers={stepMarkers(board, 0)}
+            opponentSide={board.opponentSide}
             annotations={stepAnnotations(board, 0)}
             label={board.title || "Untitled board"}
           />

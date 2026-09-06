@@ -62,7 +62,12 @@ export function BundlePreview({ notes, boards, notices, onOpenBoard }: BundlePre
               const card = (
                 <>
                   <div className="aspect-square w-full bg-court-surface" aria-hidden="true">
-                    <Court markers={stepMarkers(board, 0)} annotations={board.steps[0].annotations} compact />
+                    <Court
+                      markers={stepMarkers(board, 0)}
+                      opponentSide={board.opponentSide}
+                      annotations={board.steps[0].annotations}
+                      compact
+                    />
                   </div>
                   <div className="px-2.5 py-2">
                     <p className="m-0 text-sm font-semibold">{board.title}</p>

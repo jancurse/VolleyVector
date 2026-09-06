@@ -60,6 +60,8 @@ export type Board = {
   autoArrows: boolean;
   /** Rotation enforcement: strict clamps dragging at the legal boundary; loose (the default) only flags. */
   rotationStrict: boolean;
+  /** Whether the opponent half is shown. Off (the default) is a half-court board holding our side only. */
+  opponentSide: boolean;
   createdAt: number;
   updatedAt: number;
 };

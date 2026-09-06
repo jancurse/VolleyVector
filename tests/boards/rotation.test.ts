@@ -12,6 +12,7 @@ import {
   rotationAssignment,
   rotationLabel,
   rotationLinks,
+  rotationPlayers,
   rotationViolations,
   setStepRotation,
   spotlightMarkers,
@@ -54,6 +55,7 @@ function board(rotation?: StepRotation): Board {
     currentRevisionId: null,
     autoArrows: true,
     rotationStrict: false,
+    opponentSide: false,
     createdAt: 0,
     updatedAt: 0,
   };
@@ -306,5 +308,25 @@ describe("rotationLabel", () => {
     [{ kind: "custom", assignment: {} }, "Custom rotation"],
   ])("labels %o as %s", (rotation, label) => {
     expect(rotationLabel(rotation)).toBe(label);
+  });
+});
+
+describe("the opponent side", () => {
+  const opponents = [
+    { id: "x1", role: "outside" as const, label: "OH1", side: "opponent" as const },
+    { id: "x2", role: "setter" as const, side: "opponent" as const },
+  ];
+
+  test("opponent players never join the roster, so a 5-1 preset still resolves", () => {
+    const markers = [...FIVE_ONE, ...opponents];
+
+    expect(rotationPlayers(markers).map((p) => p.id)).toEqual(FIVE_ONE.map((p) => p.id));
+    expect(presetAssignment(markers, 1)).toEqual(ROTATION_1);
+  });
+
+  test("an opponent cannot be assigned a custom slot", () => {
+    const rotation: StepRotation = { kind: "custom", assignment: { ...ROTATION_1, 1: "x1" } };
+
+    expect(rotationAssignment([...FIVE_ONE, ...opponents], rotation)).toBeNull();
   });
 });

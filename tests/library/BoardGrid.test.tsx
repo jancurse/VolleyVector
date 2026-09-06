@@ -11,6 +11,7 @@ const item = (kind: LibraryItem["kind"], id: string): LibraryItem => ({
   title: id,
   tags: [],
   markers: [],
+  opponentSide: false,
   meta: "1 marker",
   updatedAt: 0,
 });

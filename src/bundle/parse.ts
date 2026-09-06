@@ -1,14 +1,14 @@
 import { normalizeAnnotation } from "../boards/normalize";
 import { benchPosition } from "../boards/operations";
 import type { Annotation, Board, BoardStep, RotationSlot, StepRotation } from "../boards/types";
-import { clampToCourt } from "../court/geometry";
+import { clampMarker, clampToCourt } from "../court/geometry";
 import type { NormalizedPoint } from "../court/geometry";
 import { resolveColorKey, ROLES } from "../court/roles";
 import type { MarkerRole } from "../court/roles";
 import type { AnnotationDash, AnnotationFill, Marker } from "../court/types";
 import { uniqueSlug } from "../routing/slug";
 import type { Note, NoteBlock } from "../notes/types";
-import type { BundleBoard, BundleNote, BundleStep } from "./types";
+import type { BundleBoard, BundleMarker, BundleNote, BundleStep } from "./types";
 import { FORMAT_VERSION } from "./types";
 
 // Parses bundle JSON into ready-to-insert notes and boards. Strict on structure — malformed JSON,
@@ -46,7 +46,7 @@ function isRole(value: unknown): value is MarkerRole {
 
 /** Validate and clean one annotation (any stored shape, legacy included), or null when unusable. A
  *  retired colour key (red/green) is mapped to its replacement rather than dropped. */
-function parseAnnotation(raw: unknown): Annotation | null {
+function parseAnnotation(raw: unknown, opponentSide: boolean): Annotation | null {
   if (!isRecord(raw)) return null;
 
   const color = typeof raw.color === "string" ? resolveColorKey(raw.color) : null;
@@ -58,9 +58,11 @@ function parseAnnotation(raw: unknown): Annotation | null {
   const fill: AnnotationFill | undefined =
     raw.fill === "none" || raw.fill === "tint" || raw.fill === "hachure" ? raw.fill : undefined;
   const style = { id: crypto.randomUUID(), color, width: raw.width, ...(dash && { dash }) };
-  const point = (value: unknown): NormalizedPoint | null => (isPoint(value) ? clampToCourt(value) : null);
+  const point = (value: unknown): NormalizedPoint | null => (isPoint(value) ? clampToCourt(value, opponentSide) : null);
   const points = (value: unknown, min: number): NormalizedPoint[] | null =>
-    Array.isArray(value) && value.length >= min && value.every(isPoint) ? value.map(clampToCourt) : null;
+    Array.isArray(value) && value.length >= min && value.every(isPoint)
+      ? value.map((p) => clampToCourt(p, opponentSide))
+      : null;
 
   switch (raw.kind) {
     case "line": {
@@ -212,6 +214,8 @@ function parseBoardEntry(
     errors.push(`${where}: "autoArrows" must be a boolean.`);
   if (raw.rotationStrict !== undefined && typeof raw.rotationStrict !== "boolean")
     errors.push(`${where}: "rotationStrict" must be a boolean.`);
+  if (raw.opponentSide !== undefined && typeof raw.opponentSide !== "boolean")
+    errors.push(`${where}: "opponentSide" must be a boolean.`);
 
   const markers: BundleBoard["markers"] = [];
   const markerIds = new Set<string>();
@@ -255,11 +259,18 @@ function parseBoardEntry(
         return;
       }
 
+      if (marker.side !== undefined && marker.side !== "opponent") {
+        errors.push(`${at}: "side" must be "opponent" when present.`);
+
+        return;
+      }
+
       markers.push({
         id: marker.id,
         role: marker.role,
         ...(marker.label !== undefined && { label: marker.label }),
         ...(color !== undefined && { color }),
+        ...(marker.side === "opponent" && { side: marker.side }),
       });
     });
 
@@ -325,6 +336,7 @@ function parseBoardEntry(
     ...(isStringArray(raw.tags) && { tags: raw.tags }),
     ...(typeof raw.autoArrows === "boolean" && { autoArrows: raw.autoArrows }),
     ...(typeof raw.rotationStrict === "boolean" && { rotationStrict: raw.rotationStrict }),
+    ...(typeof raw.opponentSide === "boolean" && { opponentSide: raw.opponentSide }),
   };
 }
 
@@ -415,28 +427,37 @@ function materialize(
   });
 
   const newBoards = boards.map((board): Board => {
+    const opponentSide = board.opponentSide ?? false;
+    // A board without an opponent half has no side to put an opponent marker on, so it joins ours.
+    const markers: BundleMarker[] = opponentSide ? board.markers : board.markers.map(({ side: _side, ...m }) => m);
+
+    if (!opponentSide && board.markers.some((m) => m.side === "opponent"))
+      notices.push(`Board "${board.ref}": moved opponent markers to our side — it has no opponent half.`);
+
     const steps = board.steps.map((step, i): BoardStep => {
       const positions: Record<string, NormalizedPoint> = {};
       const placed: Marker[] = [];
 
-      for (const marker of board.markers) {
+      for (const marker of markers) {
         const raw = step.positions[marker.id];
         let position: NormalizedPoint;
 
         if (raw === undefined) {
           notices.push(`Board "${board.ref}" step ${i + 1}: no position for marker "${marker.id}" — benched it.`);
-          position = benchPosition(placed);
+          position = benchPosition(placed, marker.side);
         } else {
-          position = clampToCourt(raw);
+          position = clampMarker(raw, opponentSide, marker);
           if (position.x !== raw.x || position.y !== raw.y)
-            notices.push(`Board "${board.ref}" step ${i + 1}: marker "${marker.id}" was off the court — clamped.`);
+            notices.push(`Board "${board.ref}" step ${i + 1}: marker "${marker.id}" was off its half — clamped.`);
         }
 
         positions[marker.id] = position;
         placed.push({ ...marker, position });
       }
 
-      const annotations = (step.annotations ?? []).map(parseAnnotation).filter((a) => a !== null);
+      const annotations = (step.annotations ?? [])
+        .map((a) => parseAnnotation(a, opponentSide))
+        .filter((a) => a !== null);
 
       if (annotations.length < (step.annotations?.length ?? 0))
         notices.push(`Board "${board.ref}" step ${i + 1}: dropped an annotation it could not read.`);
@@ -455,7 +476,7 @@ function materialize(
       title: board.title,
       description: board.description ?? "",
       mode: board.mode,
-      markers: board.markers,
+      markers,
       steps,
       tags: board.tags ?? [],
       createdBy: null,
@@ -463,6 +484,7 @@ function materialize(
       currentRevisionId: null,
       autoArrows: board.autoArrows ?? true,
       rotationStrict: board.rotationStrict ?? false,
+      opponentSide,
       createdAt: 0,
       updatedAt: 0,
     };

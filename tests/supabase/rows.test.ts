@@ -17,6 +17,7 @@ const BOARD: Board = {
   currentRevisionId: "rev1",
   autoArrows: true,
   rotationStrict: false,
+  opponentSide: false,
   createdAt: 1000,
   updatedAt: 2000,
 };

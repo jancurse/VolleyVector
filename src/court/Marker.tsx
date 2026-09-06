@@ -18,10 +18,24 @@ export function labelFontSize(label: string): number {
 }
 
 // "OH1" -> "Outside hitter 1"; "S" -> "Setter". Used as the marker's accessible name.
-export function markerName(role: MarkerData["role"], label: string): string {
+export function markerName(role: MarkerData["role"], label: string, opponent = false): string {
   const number = label.match(/\d+$/)?.[0];
+  const name = number ? `${ROLES[role].name} ${number}` : ROLES[role].name;
 
-  return number ? `${ROLES[role].name} ${number}` : ROLES[role].name;
+  return opponent ? `Opponent ${name.toLowerCase()}` : name;
+}
+
+/** The opponent's diagonal hatch, borrowed from the annotation hachure fill: it lays over the role
+ *  colour rather than replacing it, so the far team reads as the other team in greyscale and under
+ *  colour-blindness without a second palette. Defined once per SVG and referenced by id. */
+export const OPPONENT_HATCH_ID = "court-opponent-hatch";
+
+export function OpponentHatch({ id = OPPONENT_HATCH_ID }: { id?: string }): JSX.Element {
+  return (
+    <pattern id={id} patternUnits="userSpaceOnUse" width={18} height={18} patternTransform="rotate(45)">
+      <line className="court-marker-hatch" x1={0} y1={0} x2={0} y2={18} />
+    </pattern>
+  );
 }
 
 type MarkerProps = {
@@ -57,6 +71,7 @@ export function Marker({
   const { x, y } = toSvgPoint(marker.position);
   const style = marker.color ? MARKER_COLORS[marker.color] : ROLES[marker.role];
   const isBall = marker.role === "ball";
+  const opponent = marker.side === "opponent" && !isBall;
   const label = markerLabel(marker.role, marker.label);
   const scale = compact ? 1.25 : 1;
   const radius = (isBall ? BALL_RADIUS : PLAYER_RADIUS) * scale;
@@ -83,6 +98,7 @@ export function Marker({
           ) : (
             <>
               <circle r={radius} fill={style.fill} stroke={style.ring} strokeWidth={2.5 * scale} />
+              {opponent && <circle r={radius} fill={`url(#${OPPONENT_HATCH_ID})`} />}
               <circle r={radius} fill="url(#court-marker-sheen)" />
               <circle className="court-marker-edge" r={radius} fill="none" />
             </>
@@ -104,7 +120,7 @@ export function Marker({
     </>
   );
 
-  const name = isBall ? "Ball" : markerName(marker.role, label);
+  const name = isBall ? "Ball" : markerName(marker.role, label, opponent);
 
   const outerClass =
     [onPointerDown && "court-marker-hit", dimmed && "court-marker--dim"].filter(Boolean).join(" ") || undefined;
