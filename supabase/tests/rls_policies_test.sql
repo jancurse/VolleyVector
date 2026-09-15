@@ -384,7 +384,8 @@ reset role;
 -- 12. Invite quota: account creation is the only quota-gated grant. A non-admin spends from a quota an
 --     admin granted, can never grant quota, and cannot mint over quota; an admin is unlimited. Availability
 --     is derived from the invites table, so a reserved link counts, a spent one counts, and an
---     account-creation link redeemed by an existing account releases its slot.
+--     account-creation link redeemed by an existing account releases its slot. A multi-use link reserves
+--     every one of its uses at mint and charges only the accounts it created once it is spent.
 -- ---------------------------------------------------------------------------
 
 -- Give coachA a quota of 2 (the effect of the admin-only set_invite_quota write).
@@ -432,22 +433,85 @@ begin
 end $$;
 reset role;
 
+-- A multi-use link costs a slot per use, so it needs the whole count free at mint. With the quota raised to
+-- 5 and 2 already reserved, a 4-use link is over quota and a 3-use one exactly fills it.
+update public.profiles set invite_quota = 5 where id = 'a0000000-0000-0000-0000-000000000002';
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA
+do $$
+declare blocked boolean := false;
+begin
+  if public.invite_availability() <> 3 then raise exception 'FAIL quota: the raised quota did not free slots'; end if;
+
+  begin
+    insert into public.invites (created_by, allows_new_account, max_uses)
+      values ('a0000000-0000-0000-0000-000000000002', true, 4);
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL quota: a 4-use link minted with 3 slots left'; end if;
+
+  -- A client may not mint a link that starts out spent (which would reserve nothing).
+  insert into public.invites (created_by, allows_new_account, max_uses, uses, created_accounts)
+    values ('a0000000-0000-0000-0000-000000000002', true, 3, 3, 0);
+  if public.invite_availability() <> 0 then
+    raise exception 'FAIL quota: a 3-use link did not reserve all three slots';
+  end if;
+end $$;
+reset role;
+
+-- Redeeming that multi-use link: two uses are claimed, one creating an account. While it still has a use
+-- left it reserves all three; once it runs out it charges only the account it created, releasing the rest.
+do $$
+declare multi text;
+begin
+  select token into multi
+  from public.invites
+  where created_by = 'a0000000-0000-0000-0000-000000000002' and max_uses = 3;
+
+  if (select count(*) from public.claim_invite(multi)) <> 1 then raise exception 'FAIL claim: no use claimed'; end if;
+  perform public.record_invite_account(multi);
+  if (select count(*) from public.claim_invite(multi)) <> 1 then raise exception 'FAIL claim: no second use'; end if;
+  if public.invite_available('a0000000-0000-0000-0000-000000000002') <> 0 then
+    raise exception 'FAIL quota: a link with a use left stopped reserving its full count';
+  end if;
+
+  if (select count(*) from public.claim_invite(multi)) <> 1 then raise exception 'FAIL claim: no third use'; end if;
+  if (select count(*) from public.claim_invite(multi)) <> 0 then
+    raise exception 'FAIL claim: a spent link was claimed again';
+  end if;
+  if public.invite_available('a0000000-0000-0000-0000-000000000002') <> 2 then
+    raise exception 'FAIL quota: a spent link did not release its unused slots';
+  end if;
+
+  -- A released claim gives its use back, so a rolled-back redemption costs the link nothing.
+  perform public.release_invite(multi);
+  if (select count(*) from public.claim_invite(multi)) <> 1 then
+    raise exception 'FAIL claim: a released use was not reclaimable';
+  end if;
+end $$;
+
+-- Put the quota back where the accounting below expects it: the 3-use link is spent with one account
+-- created, so dropping the quota to 3 leaves the two single-use links of the original run to settle.
+update public.profiles set invite_quota = 3 where id = 'a0000000-0000-0000-0000-000000000002';
+
 -- The release accounting the redeem function persists (run as the owner, since clients never update an
--- invite): one account-creation link redeemed by an existing account (created_account stays false) frees
--- its slot, while one that created an account is spent. Availability then reads 1 (quota 2 − 1 spent).
+-- invite): of the two single-use links, the one redeemed by an existing account (no account created) frees
+-- its slot, while the one that created an account is spent. With the spent multi-use link above also
+-- charging its one account, availability reads 1 (quota 3 − 2 spent).
 with acct as (
   select token, row_number() over (order by token) as rn
   from public.invites
-  where created_by = 'a0000000-0000-0000-0000-000000000002' and allows_new_account
+  where created_by = 'a0000000-0000-0000-0000-000000000002' and allows_new_account and max_uses = 1
 )
-update public.invites i set used_at = now() from acct where i.token = acct.token and acct.rn = 1;
+update public.invites i set uses = 1 from acct where i.token = acct.token and acct.rn = 1;
 
 with acct as (
   select token, row_number() over (order by token) as rn
   from public.invites
-  where created_by = 'a0000000-0000-0000-0000-000000000002' and allows_new_account
+  where created_by = 'a0000000-0000-0000-0000-000000000002' and allows_new_account and max_uses = 1
 )
-update public.invites i set used_at = now(), created_account = true from acct where i.token = acct.token and acct.rn = 2;
+update public.invites i set uses = 1, created_accounts = 1 from acct where i.token = acct.token and acct.rn = 2;
 
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA

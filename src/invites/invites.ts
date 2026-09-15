@@ -2,8 +2,8 @@ import { supabase } from "../supabase/client";
 import { invokeFunction } from "../supabase/invokeFunction";
 import type { TeamRole } from "../workspace/useWorkspace";
 
-// The client side of single-use invite links. Creating a link is a plain insert RLS allows (a team's
-// coaches for a team link, anyone for a team-less one); the server mints the token and enforces the quota.
+// The client side of invite links. Creating a link is a plain insert RLS allows (a team's coaches for a
+// team link, anyone for a team-less one); the server mints the token and enforces the quota.
 // Previewing a link reads a public function (no account). Redeeming runs in the `redeem-invite` Edge
 // Function, which holds the secret key and creates the account if the recipient is new — the client only
 // forwards the request.
@@ -18,14 +18,16 @@ export type NewInvite = {
   createdBy: string;
   /** May this link bring a brand-new account into existence (the only quota-consuming grant). */
   allowsNewAccount: boolean;
-  /** Quota added to the redeemer's own account (additive); admins only, enforced server-side. */
+  /** Quota added to each redeemer's own account (additive); admins only, enforced server-side. */
   grantQuota: number;
   /** The team to join, with its role; both null for a team-less link. */
   teamId: string | null;
   role: TeamRole | null;
+  /** How many people may redeem the link (1 for a single-use one). Each use costs a quota slot. */
+  maxUses: number;
 };
 
-/** Mint a single-use invite link, returning its URL. The server rejects a mint over quota. */
+/** Mint an invite link, returning its URL. The server rejects a mint over quota. */
 export async function createInvite(invite: NewInvite): Promise<{ url: string | null; error: string | null }> {
   const { data, error } = await supabase
     .from("invites")
@@ -35,6 +37,7 @@ export async function createInvite(invite: NewInvite): Promise<{ url: string | n
       grant_quota: invite.grantQuota,
       team_id: invite.teamId,
       role: invite.role,
+      max_uses: invite.maxUses,
     })
     .select("token")
     .single();
@@ -102,12 +105,12 @@ export function sendEmailInvite(
   return invokeFunction("send-invite", { email, teamId, role });
 }
 
-/** Redeem a link as a brand-new account, set up with the recipient's own email and password. */
+/** Redeem one use of a link as a brand-new account, set up with the recipient's own email and password. */
 export function redeemInvite(token: string, email: string, password: string): Promise<{ error: string | null }> {
   return invokeFunction("redeem-invite", { token, email, password });
 }
 
-/** Redeem a link for the already signed-in caller, claiming every grant that applies to them. */
+/** Redeem one use for the already signed-in caller, claiming every grant that applies to them. */
 export function redeemInviteAsCurrentUser(token: string): Promise<{ error: string | null }> {
   return invokeFunction("redeem-invite", { token });
 }

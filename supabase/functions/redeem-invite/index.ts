@@ -1,9 +1,9 @@
 // VolleyVector — redeem-invite Edge Function.
-// Redeeming a single-use invite link is a privileged server action: it claims the link, may create an
-// account (global sign-up stays disabled, so accounts are only ever born here), grants invite quota, and
-// adds a team membership. None of that can happen under the caller's
-// own privileges, so it runs here under the secret key. The link is the authority: anyone holding a valid
-// token may redeem it, either as the signed-in caller or as a brand-new account set up in the same request.
+// Redeeming an invite link is a privileged server action: it claims the link, may create an account (global
+// sign-up stays disabled, so accounts are only ever born here), grants invite quota, and adds a team
+// membership. None of that can happen under the caller's own privileges, so it runs here under the secret
+// key. The link is the authority: anyone holding a valid token may redeem it, either as the signed-in
+// caller or as a brand-new account set up in the same request.
 //
 // A link carries up to three independent grants, in any combination, and the redeemer claims whatever
 // applies to them — an existing account always winning over the account-creation grant:
@@ -14,10 +14,10 @@
 // A signed-in caller never creates an account and never touches the inviter's quota; a brand-new visitor
 // may create an account only when the link allows it, and is rejected otherwise.
 //
-// Single use is enforced by an atomic claim — `update ... where used_at is null returning` — so two
-// people racing the same link see exactly one winner. The claim happens before account creation so a
-// loser never leaves an orphan account; `created_account` is recorded only on full success, so a released
-// claim never counts as a spent slot.
+// A link carries `max_uses` redemptions (1 for a single-use link), claimed one at a time by the atomic
+// `claim_invite` increment, so two people racing the last use see exactly one winner. The claim happens
+// before account creation so a loser never leaves an orphan account; `record_invite_account` runs only on
+// full success, so a released claim never counts as a spent slot.
 //
 // Deploy from the Supabase dashboard (Edge Functions -> Deploy a new function -> Via Editor). Keep
 // "Verify JWT" off: a new recipient has no JWT yet, and the function authorizes from the token instead.
@@ -38,6 +38,17 @@ function privilegedKey(): string | undefined {
     return undefined;
   }
 }
+
+// The fields of a claimed invite row this function acts on; claim_invite returns the whole row.
+type Invite = {
+  team_id: string | null;
+  role: string | null;
+  allows_new_account: boolean;
+  grant_quota: number;
+  created_by: string;
+  uses: number;
+  max_uses: number;
+};
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -80,17 +91,10 @@ Deno.serve(async (req) => {
 
   const admin = createClient(url, serviceKey);
 
-  // Claim the link atomically: only a still-valid, unused, unexpired token flips to used, and only one
-  // racing request wins. Doing this first means a loser never creates an account.
-  const claimedAt = new Date().toISOString();
-  const { data: claimed, error: claimError } = await admin
-    .from("invites")
-    .update({ used_at: claimedAt })
-    .eq("token", token)
-    .is("used_at", null)
-    .gt("expires_at", claimedAt)
-    .select("team_id, role, allows_new_account, grant_quota, created_by")
-    .maybeSingle();
+  // Claim one use atomically: only a token with a use left and time on the clock increments, and only one
+  // racing request gets each use. Doing this first means a loser never creates an account.
+  const { data: claimedRows, error: claimError } = await admin.rpc("claim_invite", { invite_token: token });
+  const claimed = ((claimedRows ?? []) as Invite[])[0];
 
   if (claimError) return json({ error: `Could not redeem link: ${claimError.message}` }, 400);
   if (!claimed) return json({ error: "This invite link is no longer valid." }, 410);
@@ -108,7 +112,7 @@ Deno.serve(async (req) => {
     }
 
     if (createdAccount && userId) await admin.auth.admin.deleteUser(userId);
-    await admin.from("invites").update({ used_at: null, used_by: null }).eq("token", token);
+    await admin.rpc("release_invite", { invite_token: token });
   };
 
   // Resolve the user the link is for: the signed-in caller, or a new account from the supplied email and
@@ -133,9 +137,11 @@ Deno.serve(async (req) => {
       return json({ error: "An email and password are required to accept this invite." }, 400);
     }
 
-    // Re-check the inviter's quota atomically before creating the account (admins exempt): quota or other
-    // redemptions may have changed since the link was minted. The just-claimed link is no longer reserved,
-    // so a non-negative availability is exactly the room for this redemption to become a spent slot.
+    // Re-check the inviter's quota before creating the account (admins exempt): quota or other redemptions
+    // may have changed since the link was minted. A link with a use left still reserves its whole count,
+    // which already covers this redemption, so availability need only be non-negative; the claim that
+    // exhausted the link dropped that reservation to the accounts it has created so far, so that one needs
+    // a slot of its own.
     const { data: inviter } = await admin
       .from("profiles")
       .select("is_admin")
@@ -143,11 +149,12 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!inviter?.is_admin) {
+      const needed = claimed.uses >= claimed.max_uses ? 1 : 0;
       const { data: available, error: quotaError } = await admin.rpc("invite_available", {
         target: claimed.created_by,
       });
 
-      if (quotaError || (available ?? 0) < 1) {
+      if (quotaError || (available ?? 0) < needed) {
         await release();
 
         return json({ error: "This invite link can no longer create an account." }, 409);
@@ -208,9 +215,9 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Finalize once every grant has landed: record who redeemed it and whether it created an account (which
-  // spends the inviter's slot). Recorded last, so a released claim above never counts as spent.
-  await admin.from("invites").update({ used_by: userId, created_account: createdAccount }).eq("token", token);
+  // Finalize once every grant has landed: tally the account this redemption created, which is what a spent
+  // link charges the inviter. Recorded last, so a released claim above never counts as spent.
+  if (createdAccount) await admin.rpc("record_invite_account", { invite_token: token });
 
   return json({ ok: true });
 });

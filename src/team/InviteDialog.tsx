@@ -14,9 +14,11 @@ import type { TeamRole } from "../workspace/useWorkspace";
 
 // The one invite surface, reached two ways: a team's "Invite member" button (the team fixed, role chosen
 // here) or the sidebar's Invite entry (no team, an optional team picker). A top-level method picks how the
-// person is invited. By link mints a single-use link typed from three independent grants — create an
-// account (the only quota-consuming one), join a team, and (admins only) grant invite quota. By email
-// sends that same server-side invite, into the chosen team or team-less. Both run server-side; this only
+// person is invited. By link mints a link typed from three independent grants — create an account (the
+// only quota-consuming one), join a team, and (admins only) grant invite quota — usable once or by a set
+// number of people, so a coach can onboard a whole team from one link. Every grant applies per redeemer,
+// and every use of an account-creation link costs a quota slot. By email sends that same server-side
+// invite as a single-use link, into the chosen team or team-less. Both run server-side; this only
 // collects inputs.
 export type InviteTeam = { teamId: string; teamName: string };
 
@@ -38,6 +40,11 @@ const ROLE_OPTIONS = [
 
 const NO_TEAM = "";
 
+/** The server's own ceiling on a link's uses, mirrored here so the field cannot ask for a rejected mint. */
+const MAX_USES_LIMIT = 1000;
+
+const invitesLeft = (n: number) => `${n} ${n === 1 ? "invite" : "invites"} left.`;
+
 export function InviteDialog({
   open,
   onOpenChange,
@@ -52,6 +59,7 @@ export function InviteDialog({
   const [mode, setMode] = useState<"new" | "existing">("new");
   const [teamId, setTeamId] = useState<string>(team?.teamId ?? NO_TEAM);
   const [role, setRole] = useState<TeamRole>("player");
+  const [uses, setUses] = useState("1");
   const [bonus, setBonus] = useState("0");
   const [link, setLink] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -82,6 +90,7 @@ export function InviteDialog({
       setMode("new");
       setTeamId(team?.teamId ?? NO_TEAM);
       setRole("player");
+      setUses("1");
       setBonus("0");
       setLink(null);
       setEmail("");
@@ -106,9 +115,12 @@ export function InviteDialog({
   const canCreateAccount = isAdmin || (available !== null && available >= 1);
   const allowsNewAccount = mode === "new" && canCreateAccount;
   const grantQuota = isAdmin ? Math.max(0, Math.trunc(Number(bonus)) || 0) : 0;
+  const maxUses = Math.min(MAX_USES_LIMIT, Math.max(1, Math.trunc(Number(uses)) || 1));
   const joinsTeam = teamId !== NO_TEAM;
   // A link that grants nothing is not worth minting.
   const grantsNothing = !allowsNewAccount && !joinsTeam && grantQuota <= 0;
+  // Every use of an account-creation link reserves a slot, so the whole link must fit the quota at mint.
+  const overQuota = allowsNewAccount && !isAdmin && available !== null && maxUses > available;
 
   const make = async () => {
     setBusy(true);
@@ -122,6 +134,7 @@ export function InviteDialog({
       grantQuota,
       teamId: joinsTeam ? teamId : null,
       role: joinsTeam ? role : null,
+      maxUses,
     });
 
     setBusy(false);
@@ -133,7 +146,7 @@ export function InviteDialog({
     }
 
     setLink(url);
-    // Minting an account-creation link spent a slot; refresh the live count for a non-admin.
+    // Minting an account-creation link reserved its uses; refresh the live count for a non-admin.
     if (allowsNewAccount && !isAdmin) void inviteAvailability().then(({ available: a }) => setAvailable(a));
   };
 
@@ -172,7 +185,7 @@ export function InviteDialog({
       : available === 0
         ? "No invites left."
         : wantsAccount
-          ? `${available} ${available === 1 ? "invite" : "invites"} left.`
+          ? `${overQuota ? "Only " : ""}${invitesLeft(available)}`
           : null;
 
   return (
@@ -251,24 +264,47 @@ export function InviteDialog({
         </div>
       )}
 
-      {method === "link" && isAdmin && (
-        <div className="w-28">
-          <Field label="Bonus invites">
-            <Input
-              type="number"
-              min={0}
-              value={bonus}
-              onChange={(event) => setBonus(event.target.value)}
-              aria-label="Bonus invites to grant"
-            />
-          </Field>
+      {method === "link" && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="w-28">
+              <Field label="Uses">
+                <Input
+                  type="number"
+                  min={1}
+                  max={MAX_USES_LIMIT}
+                  value={uses}
+                  onChange={(event) => setUses(event.target.value)}
+                  aria-label="How many people may use the link"
+                />
+              </Field>
+            </div>
+            {isAdmin && (
+              <div className="w-28">
+                <Field label="Bonus invites">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={bonus}
+                    onChange={(event) => setBonus(event.target.value)}
+                    aria-label="Bonus invites to grant"
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+          {maxUses > 1 && grantQuota > 0 && (
+            <span className={MUTED}>
+              Each person who joins gets {grantQuota} {grantQuota === 1 ? "invite" : "invites"}.
+            </span>
+          )}
         </div>
       )}
 
       <div className="flex flex-col gap-3">
         {method === "link" ? (
           <>
-            <Button className="self-start" onClick={() => void make()} disabled={busy || grantsNothing}>
+            <Button className="self-start" onClick={() => void make()} disabled={busy || grantsNothing || overQuota}>
               {busy ? "Creating…" : "Create invite link"}
             </Button>
             {link && (
@@ -279,7 +315,9 @@ export function InviteDialog({
                     {copied ? "Copied" : "Copy"}
                   </Button>
                 </div>
-                <span className={MUTED}>Single-use, expires in 7 days.</span>
+                <span className={MUTED}>
+                  {maxUses === 1 ? "Single-use" : `Usable ${maxUses} times`}, expires in 7 days.
+                </span>
               </div>
             )}
           </>
