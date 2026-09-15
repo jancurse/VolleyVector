@@ -7,10 +7,11 @@
 // the row is minted by the caller's own client, so the `invites_insert` policy and the `enforce_invite_quota`
 // trigger apply exactly as for a copied link — never an unchecked service-role insert.
 //
-// The slot is reserved only when the email actually goes out: a failed send deletes the just-minted row,
-// releasing the slot. The recipient redeems through the unchanged `#/invite/<token>` flow (invite_preview ->
-// InviteAccept -> redeem-invite), which creates the account or joins an existing user and spends or releases
-// the slot via `created_account`.
+// An emailed invite is addressed to one person, so it keeps the default single use rather than taking the
+// use count a copied link may carry. The slot is reserved only when the email actually goes out: a failed
+// send deletes the just-minted row, releasing the slot. The recipient redeems through the unchanged
+// `#/invite/<token>` flow (invite_preview -> InviteAccept -> redeem-invite), which creates the account or
+// joins an existing user and spends or releases the slot via the link's created-account tally.
 //
 // Deploy from the Supabase dashboard (Edge Functions -> Deploy a new function -> Via Editor). Keep
 // "Verify JWT" off: the caller is authorized in code from their own login.
