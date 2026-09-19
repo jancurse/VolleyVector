@@ -10,6 +10,7 @@
 ---------------------------------------------------------------------------------------------- */
 
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 @import "./court/court.css";
 
 @theme {
@@ -222,4 +223,37 @@ body {
     opacity: 1;
     transform: none;
   }
+}
+
+/* Rendered markdown (board descriptions, step instructions, note text) goes through the typography
+   plugin. Its palette reads the theme tokens above, so markdown follows the light/dark switch with
+   the rest of the app and a colour change lands in one place. The plugin styles h1-h4 only, so h5/h6
+   pick up h4's treatment here rather than falling back to plain body text. */
+.prose {
+  --tw-prose-body: var(--text);
+  --tw-prose-headings: var(--text);
+  --tw-prose-lead: var(--text-dim);
+  --tw-prose-links: var(--accent);
+  --tw-prose-bold: var(--text);
+  --tw-prose-counters: var(--text-dim);
+  --tw-prose-bullets: var(--text-dim);
+  --tw-prose-hr: var(--border);
+  --tw-prose-quotes: var(--text);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-captions: var(--text-dim);
+  --tw-prose-kbd: var(--text);
+  --tw-prose-kbd-shadows: var(--border);
+  --tw-prose-code: var(--text);
+  --tw-prose-pre-code: var(--text);
+  --tw-prose-pre-bg: var(--control);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+}
+
+.prose :is(h5, h6) {
+  margin-top: 1.4286em;
+  margin-bottom: 0.5714em;
+  color: var(--tw-prose-headings);
+  font-size: 1em;
+  font-weight: 600;
 }
