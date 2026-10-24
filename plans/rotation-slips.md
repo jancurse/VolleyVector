@@ -26,9 +26,8 @@
 
 ### Open Issues
 
-1. Where Games live in the navigation.
-2. What happens to games when a roster player is removed.
-3. The printed slip's exact layout and how slips fill a page.
+1. What happens to games when a roster player is removed.
+2. The printed slip's exact layout and how slips fill a page.
 
 ### Goals
 
@@ -54,6 +53,7 @@
 
 - A game has a name and an optional date. It is deliberately lightweight, so a coach can also use one for a general lineup idea rather than a real match.
 - A game belongs to one team. Coaches of the team (and admins) create, edit, and delete games. Players view them read-only.
+- A team space's sidebar shows a **Games** row under All Boards, listing the team's games. A game opens at a team-scoped route (`/t/<team>/games/<game>`), with its print surface beneath it, like boards and notes.
 - A game holds a squad: the subset of the roster picked for it.
 - A game holds one or more lineups, built from its squad.
 
