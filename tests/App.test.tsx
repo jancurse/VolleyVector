@@ -1172,3 +1172,42 @@ describe("routing", () => {
     expect(await screen.findByRole("button", { name: /My Personal Position/ })).toBeInTheDocument();
   });
 });
+
+describe("games", () => {
+  test("the team's Games row lists its games, and a game prints its rotation slips", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Games" }));
+    await user.click(await screen.findByRole("button", { name: "Cup final" }));
+
+    expect(await screen.findByRole("textbox", { name: "Game name" })).toHaveValue("Cup final");
+
+    await user.click(screen.getByRole("button", { name: "Print slips" }));
+
+    expect(window.location.pathname).toBe("/t/my-team/games/game-1/print");
+    expect(await screen.findAllByRole("article")).toHaveLength(2);
+  });
+
+  test("a coach starts a new game with the whole roster picked", async () => {
+    const user = await renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Games" }));
+    await user.click(await screen.findByRole("button", { name: "New game" }));
+
+    expect(await screen.findByRole("textbox", { name: "Game name" })).toHaveValue("New game");
+    expect(screen.getByRole("heading", { name: "Squad (8)" })).toBeInTheDocument();
+  });
+
+  test("the personal space has no Games row", async () => {
+    window.history.replaceState(null, "", "/personal");
+    render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
+
+    await screen.findByRole("button", { name: /My Personal Position/ });
+
+    expect(screen.queryByRole("button", { name: "Games" })).not.toBeInTheDocument();
+  });
+});

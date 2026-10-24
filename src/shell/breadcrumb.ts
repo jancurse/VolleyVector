@@ -1,4 +1,5 @@
 import type { Board } from "../boards/types";
+import type { Game } from "../games/types";
 import { boardRoute, findNoteId, libraryRoute, spaceForRouteSpace, noteRoute } from "../routing/links";
 import { routeSpace, type AdminSub, type Route } from "../routing/route";
 import type { Note } from "../notes/types";
@@ -56,7 +57,8 @@ export function breadcrumbs(
   route: Route,
   teams: readonly TeamRef[],
   notes: readonly Note[],
-  boards: readonly Board[]
+  boards: readonly Board[],
+  games: readonly Game[] = []
 ): Crumb[] {
   const crumbs: Crumb[] = [];
   const space = routeSpace(route);
@@ -80,6 +82,12 @@ export function breadcrumbs(
       crumbs.push({ label: board?.title || "Board", route: boardRoute(resolved, teams, route.boardId, false) });
     } else if (route.kind === "team") {
       crumbs.push({ label: "Members", route });
+    } else if (route.kind === "games" || route.kind === "game") {
+      crumbs.push({ label: "Games", route: { kind: "games", teamSlug: route.teamSlug } });
+
+      if (route.kind === "game") {
+        crumbs.push({ label: games.find((g) => g.id === route.gameId)?.name || "Game", route });
+      }
     }
   } else if (route.kind === "settings") {
     crumbs.push({ label: "Account", route });

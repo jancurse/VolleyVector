@@ -24,11 +24,6 @@
 
 ## Plan
 
-### Open Issues
-
-1. What happens to games when a roster player is removed.
-2. The printed slip's exact layout and how slips fill a page.
-
 ### Goals
 
 - A team keeps one roster of its players.
@@ -47,6 +42,7 @@
 - Each team has a roster. A roster player has a jersey number, a name, a main position, and an optional secondary position.
 - Positions are setter, outside, middle, opposite, libero, drawn with the same colours as the court roles in `src/court/roles.ts`.
 - A jersey number is unique within a team's roster.
+- Removing a roster player archives them: they leave the roster and the squad picker, but games that already include them still show their number and name.
 - The roster is managed on the team page. A coach of the team (or an admin) adds, edits, and removes players. Any team member views it.
 
 ### Games
@@ -71,7 +67,8 @@
 - The game has one print action. It opens a chrome-free print surface (like the existing board and note print routes) with the game's lineups.
 - For each lineup the coach chooses which rotated versions to print: the lineup as entered plus any number of rotations forward. The common case is two versions, setter in I and setter in II.
 - Each version prints as its own slip. A version is labelled by where the setter stands (e.g. "Setter in II") when the lineup has a setter, otherwise by its rotation offset.
-- A slip carries the team name, the game name and date, the lineup name, positions I–VI with jersey numbers and names, the libero, the alternatives, and the lineup notes.
+- A slip carries the team name, the game name and date, the lineup name, positions I–VI with jersey numbers and names, and the libero.
+- Each lineup starts a new section. Its rotated versions sit side by side in a row, at most 3 or 4 per row and wrapping beyond that, sized to stay readable. The lineup's alternatives and notes print once per section, not per version.
 - The slip's design follows the look of a real line-up slip: the server-order row I–VI that a scorer reads, alongside a court diagram of the six positions (front row IV-III-II, back row V-VI-I). It uses the app's type system and role colours, and stays legible printed in greyscale.
 
 ### Testing
@@ -96,4 +93,13 @@ _None._
 
 ## Implementation Notes
 
+- Routes are `/t/<team>/games`, `/t/<team>/games/<id>`, and `/t/<team>/games/<id>/print`. A personal-space games path is not found.
+- A lineup stores its print versions as shifts (how many positions every player moves up, I → II). The common "setter in I and II" pair is shifts 0 and 1, the default for a new lineup. The editor and the print order versions by where the setter stands.
+- Alternates are keyed by the starter's player id, so they follow the player through rotations. They drop when that player leaves the court or the squad.
+- Deleting a game is a hard delete behind a confirm, not a grace-archive: admin recovery does not cover games.
+- The game page autosaves the whole row 600 ms after the last edit, on leaving, and before opening the print view.
+- `npm run test:rls` needed the Supabase images mirrored from Docker Hub in this environment (the ECR registry rate-limited), which is an environment quirk only.
+
 ### Critical Issues
+
+No critical issues.

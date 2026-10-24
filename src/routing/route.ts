@@ -22,6 +22,10 @@ export type Route =
   // The chrome-free print/handout surfaces: a board or a note rendered as a paper document.
   | { kind: "printBoard"; space: RouteSpace; boardId: string }
   | { kind: "printNote"; space: RouteSpace; noteSlug: string }
+  // A team's games and one game's lineups, plus the game's printable rotation slips. Team spaces only.
+  | { kind: "games"; teamSlug: string }
+  | { kind: "game"; teamSlug: string; gameId: string }
+  | { kind: "printGame"; teamSlug: string; gameId: string }
   | { kind: "settings" }
   // The public Terms & Privacy page, reachable with or without an account.
   | { kind: "terms" }
@@ -84,6 +88,16 @@ export function parsePath(pathname: string): Route {
     return space.kind === "team" ? { kind: "team", teamSlug: space.teamSlug } : notFound;
   }
 
+  if (rest[0] === "games") {
+    if (space.kind !== "team") return notFound;
+    if (rest.length === 1) return { kind: "games", teamSlug: space.teamSlug };
+    if (rest.length === 2) return { kind: "game", teamSlug: space.teamSlug, gameId: rest[1] };
+    if (rest.length === 3 && rest[2] === "print")
+      return { kind: "printGame", teamSlug: space.teamSlug, gameId: rest[1] };
+
+    return notFound;
+  }
+
   // "topic" is the segment's legacy name; an old link parses, then canonicalises to its /note/ form.
   if ((rest[0] === "note" || rest[0] === "topic") && rest.length === 2)
     return { kind: "note", space, noteSlug: rest[1] };
@@ -123,6 +137,12 @@ export function buildPath(route: Route): string {
       return `${spacePrefix(route.space)}/note/${encodeURIComponent(route.noteSlug)}/print`;
     case "team":
       return `/t/${encodeURIComponent(route.teamSlug)}/team`;
+    case "games":
+      return `/t/${encodeURIComponent(route.teamSlug)}/games`;
+    case "game":
+      return `/t/${encodeURIComponent(route.teamSlug)}/games/${encodeURIComponent(route.gameId)}`;
+    case "printGame":
+      return `/t/${encodeURIComponent(route.teamSlug)}/games/${encodeURIComponent(route.gameId)}/print`;
     case "settings":
       return "/settings";
     case "terms":
@@ -135,7 +155,7 @@ export function buildPath(route: Route): string {
 }
 
 /** The space a route lives in, or null for the space-less routes (settings, admin, root, not-found).
- *  Team management belongs to its team's space. Drives the active-space sync in `App`. */
+ *  Team management and games belong to their team's space. Drives the active-space sync in `App`. */
 export function routeSpace(route: Route): RouteSpace | null {
   switch (route.kind) {
     case "library":
@@ -145,6 +165,9 @@ export function routeSpace(route: Route): RouteSpace | null {
     case "printNote":
       return route.space;
     case "team":
+    case "games":
+    case "game":
+    case "printGame":
       return { kind: "team", teamSlug: route.teamSlug };
     default:
       return null;

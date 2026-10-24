@@ -2,6 +2,7 @@ import type { CourtMode } from "../court/roles";
 import { normalizeMarkers, normalizeSteps } from "../boards/normalize";
 import type { StoredStep } from "../boards/normalize";
 import type { Board, BoardMarker, BoardStep } from "../boards/types";
+import type { Game, Lineup, Position, RosterPlayer } from "../games/types";
 import type { Note, NoteBlock } from "../notes/types";
 
 // The bridge between the client model and the database. A board/note lives server-side as a row of content
@@ -218,4 +219,60 @@ export function noteFromRevision(row: NoteRevisionRow, note: Note): Note {
     capability: note.capability,
     currentRevisionId: row.id,
   };
+}
+
+export type RosterPlayerRow = {
+  id: string;
+  team_id: string;
+  number: number;
+  name: string;
+  main_position: Position;
+  secondary_position: Position | null;
+  archived_at: string | null;
+};
+
+export function rosterPlayerFromRow(row: RosterPlayerRow): RosterPlayer {
+  return {
+    id: row.id,
+    number: row.number,
+    name: row.name,
+    main: row.main_position,
+    secondary: row.secondary_position,
+    archived: row.archived_at !== null,
+  };
+}
+
+/** The writable roster columns of a player, for an insert or an edit. */
+export function rosterPlayerToRow(player: Omit<RosterPlayer, "id" | "archived">): Record<string, unknown> {
+  return {
+    number: player.number,
+    name: player.name,
+    main_position: player.main,
+    secondary_position: player.secondary,
+  };
+}
+
+export type GameRow = {
+  id: string;
+  team_id: string;
+  name: string;
+  played_on: string | null;
+  squad: string[];
+  lineups: Lineup[];
+};
+
+export function gameFromRow(row: GameRow): Game {
+  return {
+    id: row.id,
+    teamId: row.team_id,
+    name: row.name,
+    date: row.played_on,
+    squad: row.squad,
+    lineups: row.lineups,
+  };
+}
+
+/** The writable content columns of a game. */
+export function gameToContent(game: Game): Record<string, unknown> {
+  return { name: game.name, played_on: game.date, squad: game.squad, lineups: game.lineups };
 }
