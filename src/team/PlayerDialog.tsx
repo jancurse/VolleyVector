@@ -1,9 +1,8 @@
 import { useState } from "react";
 import type { FormEvent, JSX } from "react";
 
-import { ROLES } from "../court/roles";
 import type { PlayerDraft } from "../games/useRoster";
-import { POSITIONS } from "../games/types";
+import { POSITION_OPTIONS } from "../games/format";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
@@ -18,8 +17,6 @@ type PlayerDialogProps = {
   onSave: (draft: PlayerDraft) => Promise<{ error: string | null }>;
   onClose: () => void;
 };
-
-const POSITION_OPTIONS = POSITIONS.map((p) => ({ value: p, label: ROLES[p].name }));
 
 export function PlayerDialog({ title, initial, onSave, onClose }: PlayerDialogProps): JSX.Element {
   const [number, setNumber] = useState(Number.isNaN(initial.number) ? "" : String(initial.number));

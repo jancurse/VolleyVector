@@ -812,6 +812,8 @@ export function App(): JSX.Element {
       name: "New game",
       date: new Date().toLocaleDateString("en-CA"),
       squad: roster.players.filter((p) => !p.archived).map((p) => p.id),
+      overrides: {},
+      overview: { print: false, shift: 0 },
       lineups: [],
     });
 
@@ -1036,6 +1038,7 @@ export function App(): JSX.Element {
         canEdit={canEdit}
         onOpen={(id) => navigate(gameRoute(gamesTeamId, allTeams, id))}
         onNew={() => void newGame()}
+        onOpenRoster={() => navigate(teamRoute(gamesTeamId, allTeams))}
       />
     ) : (
       <NotFound onHome={() => navigate(homeRoute())} />

@@ -1,7 +1,8 @@
 -- VolleyVector — team rosters and games (rotation slips).
 -- A team keeps one roster of its players (jersey number, name, main and optional secondary position). A
--- game is a lightweight named plan (an optional date) holding the squad picked from the roster and its
--- starting lineups, stored as JSON. Both belong to exactly one team and follow its roles: any member reads,
+-- game is a lightweight named plan (an optional date) holding the squad picked from the roster, one-game
+-- changes to those players' numbers and positions, an overview slip's settings, and its starting lineups,
+-- all but the squad stored as JSON. Both belong to exactly one team and follow its roles: any member reads,
 -- a coach of the team or an admin writes. They sit outside the board/note access-list model on purpose.
 --
 -- Removing a roster player archives the row (archived_at) rather than deleting it, so a game that already
@@ -27,6 +28,8 @@ create table public.games (
   name text not null default '',
   played_on date,
   squad uuid[] not null default '{}',
+  overrides jsonb not null default '{}',
+  overview jsonb not null default '{"print": false, "shift": 0}',
   lineups jsonb not null default '[]',
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now(),

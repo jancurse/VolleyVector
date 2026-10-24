@@ -8,7 +8,7 @@ import { RosterSection } from "../../src/team/RosterSection";
 // seeded rows, and every write is recorded and answers with the error set per test.
 type Row = Record<string, unknown>;
 
-const writes: { op: string; payload?: Row }[] = [];
+const writes: { op: string; payload?: Row | Row[] }[] = [];
 let writeError: { message: string; code?: string } | null = null;
 
 const ROWS: Row[] = [
@@ -42,7 +42,7 @@ const ROWS: Row[] = [
 ];
 
 vi.mock("../../src/supabase/client", () => {
-  const query = (op: string, payload?: Row) => {
+  const query = (op: string, payload?: Row | Row[]) => {
     const q: Record<string, unknown> = {};
 
     q.eq = () => q;
@@ -62,7 +62,7 @@ vi.mock("../../src/supabase/client", () => {
     supabase: {
       from: () => ({
         select: () => query("select"),
-        insert: (payload: Row) => query("insert", payload),
+        insert: (payload: Row | Row[]) => query("insert", payload),
         update: (payload: Row) => query("update", payload),
       }),
     },
@@ -116,5 +116,21 @@ describe("RosterSection", () => {
 
     await waitFor(() => expect(screen.queryByRole("cell", { name: "Ana" })).not.toBeInTheDocument());
     expect(writes[0].payload).toHaveProperty("archived_at");
+  });
+
+  test("a coach imports players, skipping lines that cannot be added", async () => {
+    render(<RosterSection teamId="t1" teamName="Eagles" canManage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Import…" }));
+    await userEvent.click(screen.getByRole("textbox", { name: "Players" }));
+    await userEvent.paste("number,name,main\n12,Cleo,OH\n7,Dup,S");
+
+    expect(screen.getByText("#7 is already taken")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add 1 player" }));
+
+    expect(await screen.findByRole("cell", { name: "Cleo" })).toBeInTheDocument();
+    expect(writes[0].payload).toEqual([
+      expect.objectContaining({ number: 12, name: "Cleo", main_position: "outside" }),
+    ]);
   });
 });

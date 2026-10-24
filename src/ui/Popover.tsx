@@ -13,11 +13,22 @@ type PopoverProps = {
   ariaLabel?: string;
   align?: "start" | "center" | "end";
   side?: "top" | "right" | "bottom" | "left";
+  /** Control the open state, e.g. to close the panel once a choice inside it is made. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function Popover({ trigger, children, ariaLabel, align = "center", side = "bottom" }: PopoverProps) {
+export function Popover({
+  trigger,
+  children,
+  ariaLabel,
+  align = "center",
+  side = "bottom",
+  open,
+  onOpenChange,
+}: PopoverProps) {
   return (
-    <BasePopover.Root>
+    <BasePopover.Root open={open} onOpenChange={onOpenChange}>
       <BasePopover.Trigger render={trigger} />
       <BasePopover.Portal>
         <BasePopover.Positioner sideOffset={8} align={align} side={side} className="z-30 outline-none">

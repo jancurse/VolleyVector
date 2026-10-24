@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { expect, test } from "vitest";
 
 import { GamePrint } from "../../src/print/GamePrint";
@@ -27,4 +27,13 @@ test("leaves out a lineup with no version chosen", () => {
 
   expect(screen.queryByRole("article")).not.toBeInTheDocument();
   expect(screen.getByText("No lineup has a version chosen to print.")).toBeInTheDocument();
+});
+
+test("prints the overview first when chosen, at its saved rotation", () => {
+  render(<GamePrint game={{ ...GAME, overview: { print: true, shift: 1 } }} teamName="Eagles" roster={ROSTER} />);
+
+  const [overview] = screen.getAllByRole("article");
+
+  expect(overview).toHaveAccessibleName("Overview");
+  expect(within(overview).getByText("Setter in II")).toBeInTheDocument();
 });

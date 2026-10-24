@@ -1,9 +1,15 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  assignLibero,
   assignPosition,
   createLineup,
+  eligibleSubs,
+  expectedRole,
+  overviewZones,
   playerMap,
+  rankForRole,
+  setOverride,
   setSquad,
   shiftPositions,
   toggleAlternate,
@@ -104,7 +110,16 @@ test("toggleAlternate adds then removes", () => {
 
 test("setSquad removes dropped players from every lineup", () => {
   const lineup = toggleAlternate(createLineup(SQUAD, "Set 1"), "oh1", "bench");
-  const game: Game = { id: "g", teamId: "t", name: "", date: null, squad: SQUAD.map((x) => x.id), lineups: [lineup] };
+  const game: Game = {
+    id: "g",
+    teamId: "t",
+    name: "",
+    date: null,
+    squad: SQUAD.map((x) => x.id),
+    overrides: {},
+    overview: { print: false, shift: 0 },
+    lineups: [lineup],
+  };
   const next = setSquad(
     game,
     game.squad.filter((id) => id !== "s" && id !== "lib" && id !== "bench")
@@ -113,4 +128,91 @@ test("setSquad removes dropped players from every lineup", () => {
   expect(next.positions[0]).toBeNull();
   expect(next.libero).toBeNull();
   expect(next.alternates).toEqual({ oh1: [] });
+});
+
+describe("subs", () => {
+  const lineup = toggleAlternate(createLineup(SQUAD, "Set 1"), "oh1", "bench");
+
+  test("a player brought onto court stops being anyone's sub", () => {
+    expect(assignPosition(lineup, 4, "bench").alternates).toEqual({ oh1: [] });
+  });
+
+  test("the libero stops being anyone's sub", () => {
+    expect(assignLibero(lineup, "bench").alternates).toEqual({ oh1: [] });
+  });
+
+  test.each([
+    ["oh1", []],
+    ["oh2", ["bench"]],
+  ])("only players off court, not the libero and not already listed, may sub for %s", (starter, ids) => {
+    expect(eligibleSubs(lineup, starter, SQUAD).map((x) => x.id)).toEqual(ids);
+  });
+});
+
+describe("expectedRole", () => {
+  const lineup = createLineup(SQUAD, "Set 1");
+
+  test.each([
+    [0, "setter"],
+    [2, "middle"],
+    [3, "opposite"],
+  ])("a 5-1 with the setter in I expects position %i to hold a %s", (index, role) => {
+    expect(expectedRole(lineup, players, index)).toBe(role);
+  });
+
+  test.each([
+    ["no setter on court", { ...lineup, positions: lineup.positions.map(() => null) }, "setter"],
+    ["5-1 suggestions off", { ...lineup, fiveOne: false }, null],
+  ])("with %s", (_, next, role) => {
+    expect(expectedRole(next, players, 2)).toBe(role);
+  });
+});
+
+test("rankForRole puts main fits first, then secondary, then everyone else", () => {
+  const flex = { ...p("flex", 7, "outside"), secondary: "middle" as const };
+  const { fits, canPlay, others } = rankForRole([...SQUAD, flex], "middle");
+
+  expect(fits.map((x) => x.id)).toEqual(["mb1", "mb2"]);
+  expect(canPlay.map((x) => x.id)).toEqual(["flex"]);
+  expect(others).toHaveLength(6);
+});
+
+test("overviewZones lists each player at every position their main role holds", () => {
+  const { zones, liberos } = overviewZones(SQUAD, 1);
+
+  expect(zones.map((z) => z.map((x) => x.id))).toEqual([
+    ["mb1", "mb2"],
+    ["s"],
+    ["oh1", "oh2", "bench"],
+    ["mb1", "mb2"],
+    ["opp"],
+    ["oh1", "oh2", "bench"],
+  ]);
+  expect(liberos.map((x) => x.id)).toEqual(["lib"]);
+});
+
+describe("setOverride", () => {
+  const game: Game = {
+    id: "g",
+    teamId: "t",
+    name: "",
+    date: null,
+    squad: ["s"],
+    overrides: {},
+    overview: { print: false, shift: 0 },
+    lineups: [],
+  };
+  const setter = SQUAD[1];
+
+  test.each([
+    [{ number: 8 }, { s: { number: 8 } }],
+    [{ number: 1, main: "opposite" as const }, { s: { main: "opposite" } }],
+    [{ number: 1 }, {}],
+  ])("keeps only what differs from the roster (%o)", (override, expected) => {
+    expect(setOverride(game, setter, override).overrides).toEqual(expected);
+  });
+
+  test("applies to the game's player lookup", () => {
+    expect(playerMap(SQUAD, { s: { number: 8 } }).get("s")?.number).toBe(8);
+  });
 });

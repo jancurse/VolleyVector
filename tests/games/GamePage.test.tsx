@@ -25,6 +25,7 @@ function renderPage(canEdit: boolean, game: Game = GAME) {
 }
 
 const lastSaved = (onSave: ReturnType<typeof renderPage>): Game => onSave.mock.calls.at(-1)![0];
+const lineup = () => screen.getByRole("region", { name: "Set 1" });
 
 describe("GamePage as a coach", () => {
   test("a new lineup starts as a 5-1 with the setter in I and saves itself", async () => {
@@ -32,47 +33,115 @@ describe("GamePage as a coach", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Add lineup" }));
 
-    const lineup = screen.getByRole("region", { name: "Lineup 1" });
+    const region = screen.getByRole("region", { name: "Lineup 1" });
 
-    expect(within(lineup).getByRole("combobox", { name: "Position I" })).toHaveTextContent("#1 Lena Vogt");
-    expect(within(lineup).getByRole("combobox", { name: "Libero" })).toHaveTextContent("#2 Tess Moor");
+    expect(within(region).getByRole("button", { name: "Position I: #1 Lena Vogt" })).toBeInTheDocument();
+    expect(within(region).getByRole("button", { name: "Libero: #2 Tess Moor" })).toBeInTheDocument();
     await waitFor(() => expect(lastSaved(onSave).lineups[0].positions[0]).toBe("p-s"));
   });
 
   test.each([
     ["Rotate forward (II → I)", "#4 Mia Kraus", "Setter in VI"],
     ["Rotate back (I → II)", "#15 Ida Berg", "Setter in II"],
-  ])("%s moves everyone one position", async (button, inOne, label) => {
+  ])("%s on the slip moves everyone one position", async (button, inOne, label) => {
     renderPage(true);
 
-    await userEvent.click(screen.getByRole("button", { name: button }));
+    await userEvent.click(within(lineup()).getByRole("button", { name: button }));
 
-    expect(screen.getByRole("combobox", { name: "Position I" })).toHaveTextContent(inOne);
-    expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    expect(within(lineup()).getByRole("button", { name: `Position I: ${inOne}` })).toBeInTheDocument();
+    expect(within(lineup()).getByRole("article", { name: `Set 1, ${label}` })).toBeInTheDocument();
+  });
+
+  test("a position's picker suggests the 5-1 role first, and picking a placed player swaps them", async () => {
+    const onSave = renderPage(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Position III: #5 Jana Weiss" }));
+
+    const picker = screen.getByRole("dialog", { name: "Position III" });
+
+    expect(
+      within(picker)
+        .getAllByRole("button", { pressed: false })
+        .map((b) => b.textContent)
+    ).toEqual([expect.stringContaining("Ida Berg")]);
+    expect(within(picker).queryByText("Mia Kraus")).not.toBeInTheDocument();
+
+    await userEvent.click(within(picker).getByRole("button", { name: "Show everyone else (5)" }));
+    expect(within(picker).getByText("Mia Kraus")).toBeInTheDocument();
+
+    await userEvent.click(within(picker).getByRole("button", { name: /Ida Berg/ }));
+
+    expect(screen.getByRole("button", { name: "Position III: #15 Ida Berg" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Position VI: #5 Jana Weiss" })).toBeInTheDocument();
+    await waitFor(() => expect(lastSaved(onSave).lineups[0].positions[2]).toBe("p-mb2"));
+  });
+
+  test("a sub can only be picked from players not yet in the lineup", async () => {
+    renderPage(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add a sub for #4 Mia Kraus" }));
+
+    const picker = screen.getByRole("dialog", { name: "Sub for #4 Mia Kraus" });
+
+    expect(
+      within(picker)
+        .getAllByRole("button", { pressed: false })
+        .map((b) => b.textContent)
+    ).toEqual([expect.stringContaining("Kim Roth")]);
   });
 
   test("dropping a player from the squad clears them from the lineup", async () => {
     const onSave = renderPage(true);
 
-    await userEvent.click(screen.getByRole("button", { name: "#1 Lena Vogt" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pick squad" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "#1 Lena Vogt" }));
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
 
-    expect(screen.getByRole("combobox", { name: "Position I" })).toHaveTextContent("Empty");
+    expect(screen.getByRole("button", { name: "Position I: empty" })).toBeInTheDocument();
     await waitFor(() => expect(lastSaved(onSave).squad).not.toContain("p-s"));
   });
 
-  test("choosing a print version saves it", async () => {
+  test("a player's number can change for this game only", async () => {
     const onSave = renderPage(true);
 
-    await userEvent.click(screen.getByRole("button", { name: "Print Setter in III" }));
+    await userEvent.click(screen.getByRole("button", { name: "Pick squad" }));
+    await userEvent.click(screen.getByRole("button", { name: "Adjust #17 for this game" }));
+    await userEvent.clear(screen.getByRole("textbox", { name: "Number" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Number" }), "23");
 
-    await waitFor(() => expect(lastSaved(onSave).lineups[0].printShifts).toEqual([0, 1, 2]));
+    await waitFor(() => expect(lastSaved(onSave).overrides).toEqual({ "p-sub": { number: 23 } }));
+  });
+
+  test.each([
+    ["Print Setter in III", (g: Game) => g.lineups[0].printShifts, [0, 1, 2]],
+    ["Print the overview", (g: Game) => g.overview.print, true],
+  ])("toggling %s saves it", async (name, read, expected) => {
+    const onSave = renderPage(true);
+
+    await userEvent.click(screen.getByRole("button", { name }));
+
+    await waitFor(() => expect(read(lastSaved(onSave))).toEqual(expected));
   });
 });
 
-test("a viewer reads each lineup as its slip, with subs and notes", () => {
+test("the overview places every squad player at their position, outsides in both outside zones", () => {
+  renderPage(false);
+
+  const overview = screen.getByRole("article", { name: "Overview" });
+
+  expect(within(overview).getAllByText("Kim Roth")).toHaveLength(2);
+  expect(within(overview).getAllByText("Lena Vogt")).toHaveLength(1);
+  expect(within(overview).getByText("Tess Moor")).toBeInTheDocument();
+});
+
+test("a viewer reads each lineup as its slip and may rotate it, without editing", async () => {
   renderPage(false);
 
   expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-  expect(screen.getByRole("article", { name: "Set 1, Setter in I" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Position/ })).not.toBeInTheDocument();
   expect(screen.getByText("Serve short to their #8.")).toBeInTheDocument();
+
+  await userEvent.click(within(lineup()).getByRole("button", { name: "Rotate back (I → II)" }));
+
+  expect(within(lineup()).getByRole("article", { name: "Set 1, Setter in II" })).toBeInTheDocument();
 });

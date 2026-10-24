@@ -2,7 +2,7 @@ import type { CourtMode } from "../court/roles";
 import { normalizeMarkers, normalizeSteps } from "../boards/normalize";
 import type { StoredStep } from "../boards/normalize";
 import type { Board, BoardMarker, BoardStep } from "../boards/types";
-import type { Game, Lineup, Position, RosterPlayer } from "../games/types";
+import type { Game, Lineup, Overview, PlayerOverride, Position, RosterPlayer } from "../games/types";
 import type { Note, NoteBlock } from "../notes/types";
 
 // The bridge between the client model and the database. A board/note lives server-side as a row of content
@@ -258,6 +258,8 @@ export type GameRow = {
   name: string;
   played_on: string | null;
   squad: string[];
+  overrides: Record<string, PlayerOverride>;
+  overview: Overview;
   lineups: Lineup[];
 };
 
@@ -268,11 +270,20 @@ export function gameFromRow(row: GameRow): Game {
     name: row.name,
     date: row.played_on,
     squad: row.squad,
-    lineups: row.lineups,
+    overrides: row.overrides,
+    overview: row.overview,
+    lineups: row.lineups.map((l) => ({ ...l, fiveOne: l.fiveOne ?? true })),
   };
 }
 
 /** The writable content columns of a game. */
 export function gameToContent(game: Game): Record<string, unknown> {
-  return { name: game.name, played_on: game.date, squad: game.squad, lineups: game.lineups };
+  return {
+    name: game.name,
+    played_on: game.date,
+    squad: game.squad,
+    overrides: game.overrides,
+    overview: game.overview,
+    lineups: game.lineups,
+  };
 }

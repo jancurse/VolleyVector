@@ -29,6 +29,8 @@ export const GAME: Game = {
   name: "Cup final",
   date: "2026-10-31",
   squad: ROSTER.map((p) => p.id),
+  overrides: {},
+  overview: { print: false, shift: 0 },
   lineups: [
     {
       ...createLineup(ROSTER, "Set 1"),

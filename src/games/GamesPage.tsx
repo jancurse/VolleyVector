@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 
 import { Button } from "../ui/Button";
 import { Table, TableCell, TableHeadCell } from "../ui/Table";
@@ -8,7 +8,7 @@ import { formatGameDate } from "./format";
 import type { Game } from "./types";
 
 // A team's games, newest fixture first. A coach starts a new one here; anyone on the team opens one to see
-// its lineups and print its rotation slips.
+// its lineups and print its rotation slips, or opens the roster the squads are picked from.
 type GamesPageProps = {
   teamName: string;
   games: readonly Game[];
@@ -16,9 +16,18 @@ type GamesPageProps = {
   canEdit: boolean;
   onOpen: (id: string) => void;
   onNew: () => void;
+  onOpenRoster: () => void;
 };
 
-export function GamesPage({ teamName, games, loading, canEdit, onOpen, onNew }: GamesPageProps): JSX.Element {
+export function GamesPage({
+  teamName,
+  games,
+  loading,
+  canEdit,
+  onOpen,
+  onNew,
+  onOpenRoster,
+}: GamesPageProps): JSX.Element {
   return (
     <section className={PAGE}>
       <div className={PAGE_BAR}>
@@ -26,12 +35,18 @@ export function GamesPage({ teamName, games, loading, canEdit, onOpen, onNew }: 
           <p className={EYEBROW}>{teamName}</p>
           <h1 className={TITLE}>Games</h1>
         </div>
-        {canEdit && (
-          <Button variant="primary" onClick={onNew}>
-            <Plus size={15} aria-hidden="true" />
-            New game
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" paired={canEdit} onClick={onOpenRoster}>
+            <Users size={15} aria-hidden="true" />
+            Roster
           </Button>
-        )}
+          {canEdit && (
+            <Button variant="primary" onClick={onNew}>
+              <Plus size={15} aria-hidden="true" />
+              New game
+            </Button>
+          )}
+        </div>
       </div>
 
       {loading ? (

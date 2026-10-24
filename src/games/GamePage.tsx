@@ -1,22 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
-import { Ellipsis, Plus, Printer } from "lucide-react";
+import { Ellipsis, Plus, Printer, Users } from "lucide-react";
 
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
 import { Menu, MenuItem } from "../ui/Menu";
+import { Table, TableCell, TableHeadCell } from "../ui/Table";
 import { Toggle } from "../ui/Toggle";
-import { EYEBROW, MUTED, PAGE, PAGE_BAR, PANEL_TITLE, TITLE } from "../ui/styles";
+import { cx, EYEBROW, MUTED, PAGE, PAGE_BAR, PANEL, PANEL_TITLE, TITLE } from "../ui/styles";
 import { formatGameDate } from "./format";
-import { createLineup, playerMap, setSquad } from "./lineup";
+import { createLineup, playerMap } from "./lineup";
 import { LineupEditor } from "./LineupEditor";
+import { OverviewSlip } from "./OverviewSlip";
+import { PositionChip } from "./PositionChip";
+import { SquadDialog } from "./SquadDialog";
 import type { Game, RosterPlayer } from "./types";
 
-// One game: its name and optional date, the squad picked from the roster, and its lineups. A coach edits in
-// place and every change saves itself shortly after the last edit (and on leaving the page); a viewer reads
-// the lineups as their slips. Mount it keyed by the game id so a different game starts a fresh draft.
+// One game: its name and optional date, the squad picked from the roster (with any one-game changes), the
+// overview slip of every squad player at their position, and its lineups. A coach edits in place and every
+// change saves itself shortly after the last edit (and on leaving the page); a viewer reads the slips and
+// may rotate them. Mount it keyed by the game id so a different game starts a fresh draft.
 type GamePageProps = {
   game: Game;
   teamName: string;
@@ -32,6 +37,8 @@ const SAVE_DELAY = 600;
 export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, onPrint }: GamePageProps): JSX.Element {
   const [draft, setDraft] = useState(game);
   const [status, setStatus] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [overviewShift, setOverviewShift] = useState(game.overview.shift);
   const pending = useRef<Game | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const save = useRef(onSave);
@@ -67,8 +74,8 @@ export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, on
     timer.current = setTimeout(flush, SAVE_DELAY);
   };
 
-  const players = playerMap(roster);
-  const squad = roster.filter((p) => draft.squad.includes(p.id));
+  const players = playerMap(roster, draft.overrides);
+  const squad = roster.filter((p) => draft.squad.includes(p.id)).map((p) => players.get(p.id) ?? p);
   // The squad picker lists the active roster plus anyone archived who is still in this game's squad.
   const pickable = roster.filter((p) => !p.archived || draft.squad.includes(p.id));
 
@@ -137,44 +144,97 @@ export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, on
         </Field>
       )}
 
-      <section className="flex flex-col gap-3" aria-labelledby="squad-title">
-        <h2 id="squad-title" className={PANEL_TITLE}>
-          Squad ({draft.squad.length})
-        </h2>
+      <section className={cx(PANEL, "max-w-4xl")} aria-labelledby="squad-title">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="squad-title" className={PANEL_TITLE}>
+            Squad ({squad.length})
+          </h2>
+          {canEdit && pickable.length > 0 && (
+            <Button variant="ghost" onClick={() => setPicking(true)}>
+              <Users size={15} aria-hidden="true" />
+              Pick squad
+            </Button>
+          )}
+        </div>
         {pickable.length === 0 ? (
           <p className={MUTED}>The roster is empty. Add players on the team page.</p>
-        ) : canEdit ? (
-          <div className="flex flex-wrap gap-1.5">
-            {pickable.map((p) => (
-              <Toggle
-                key={p.id}
-                ariaLabel={`#${p.number} ${p.name}`}
-                pressed={draft.squad.includes(p.id)}
-                onPressedChange={(on) =>
-                  edit(setSquad(draft, on ? [...draft.squad, p.id] : draft.squad.filter((id) => id !== p.id)))
-                }
-              >
-                <span className="font-display font-bold tabular-nums">{p.number}</span>
-                {p.name}
-              </Toggle>
-            ))}
-          </div>
+        ) : squad.length === 0 ? (
+          <p className={MUTED}>No one picked yet.</p>
         ) : (
-          <p className="m-0 text-sm">{squad.map((p) => `#${p.number} ${p.name}`).join(", ") || "No one picked yet."}</p>
+          <Table>
+            <thead>
+              <tr>
+                <TableHeadCell className="w-16">No.</TableHeadCell>
+                <TableHeadCell>Player</TableHeadCell>
+                <TableHeadCell>Position</TableHeadCell>
+                <TableHeadCell>Also plays</TableHeadCell>
+              </tr>
+            </thead>
+            <tbody>
+              {[...squad]
+                .sort((a, b) => a.number - b.number)
+                .map((p) => (
+                  <tr key={p.id}>
+                    <TableCell className="font-display text-xl font-bold tabular-nums">{p.number}</TableCell>
+                    <TableCell className="max-w-xs truncate font-medium">
+                      {p.name}
+                      {draft.overrides[p.id] && <span className="ml-2 text-xs text-text-dim">this game</span>}
+                    </TableCell>
+                    <TableCell>
+                      <PositionChip position={p.main} />
+                    </TableCell>
+                    <TableCell>{p.secondary && <PositionChip position={p.secondary} secondary />}</TableCell>
+                  </tr>
+                ))}
+            </tbody>
+          </Table>
         )}
       </section>
 
+      {squad.length > 0 && (
+        <section className={cx(PANEL, "max-w-4xl")} aria-labelledby="overview-title">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="overview-title" className={PANEL_TITLE}>
+              Overview
+            </h2>
+            {canEdit && (
+              <Toggle
+                ariaLabel="Print the overview"
+                pressed={draft.overview.print}
+                onPressedChange={(print) => edit({ ...draft, overview: { ...draft.overview, print } })}
+              >
+                Print the overview
+              </Toggle>
+            )}
+          </div>
+          <div className="w-slip max-w-full">
+            <OverviewSlip
+              teamName={teamName}
+              squad={squad}
+              shift={overviewShift}
+              onRotate={(steps) => {
+                const shift = (((overviewShift + steps) % 6) + 6) % 6;
+
+                setOverviewShift(shift);
+                if (canEdit) edit({ ...draft, overview: { ...draft.overview, shift } });
+              }}
+            />
+          </div>
+        </section>
+      )}
+
       {draft.lineups.map((lineup) => (
-        <LineupEditor
-          key={lineup.id}
-          lineup={lineup}
-          teamName={teamName}
-          squad={squad}
-          players={players}
-          readOnly={!canEdit}
-          onChange={(next) => edit({ ...draft, lineups: draft.lineups.map((l) => (l.id === next.id ? next : l)) })}
-          onRemove={() => edit({ ...draft, lineups: draft.lineups.filter((l) => l.id !== lineup.id) })}
-        />
+        <div key={lineup.id} className="max-w-4xl">
+          <LineupEditor
+            lineup={lineup}
+            teamName={teamName}
+            squad={squad}
+            players={players}
+            readOnly={!canEdit}
+            onChange={(next) => edit({ ...draft, lineups: draft.lineups.map((l) => (l.id === next.id ? next : l)) })}
+            onRemove={() => edit({ ...draft, lineups: draft.lineups.filter((l) => l.id !== lineup.id) })}
+          />
+        </div>
       ))}
 
       {draft.lineups.length === 0 && !canEdit && <p className={MUTED}>No lineups yet.</p>}
@@ -185,6 +245,8 @@ export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, on
           Add lineup
         </Button>
       )}
+
+      {picking && <SquadDialog game={draft} roster={pickable} onChange={edit} onClose={() => setPicking(false)} />}
     </section>
   );
 }

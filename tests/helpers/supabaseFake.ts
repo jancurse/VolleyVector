@@ -609,6 +609,8 @@ function from(table: string): Query {
             name: GAME.name,
             played_on: GAME.date,
             squad: GAME.squad,
+            overrides: GAME.overrides,
+            overview: GAME.overview,
             lineups: GAME.lineups,
           },
         ],

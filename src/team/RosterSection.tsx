@@ -12,9 +12,11 @@ import { Table, TableCell, TableHeadCell } from "../ui/Table";
 import { MUTED, PANEL_TITLE } from "../ui/styles";
 import { useConfirm } from "../ui/useConfirm";
 import { PlayerDialog } from "./PlayerDialog";
+import { RosterImportDialog } from "./RosterImportDialog";
 
 // The team's player roster: jersey number, name, and positions, the list a game's squad is picked from. A
-// coach or admin (canManage) adds, edits, and removes players; anyone else reads it. Removing archives the
+// coach or admin (canManage) adds players one by one or imports many, edits, and removes them; anyone else
+// reads it. Removing archives the
 // player, so the games that include them keep their number and name.
 type RosterSectionProps = {
   teamId: string;
@@ -27,9 +29,10 @@ type Editing = { kind: "add" } | { kind: "edit"; player: RosterPlayer } | null;
 const BLANK: PlayerDraft = { number: Number.NaN, name: "", main: "outside", secondary: null };
 
 export function RosterSection({ teamId, teamName, canManage }: RosterSectionProps): JSX.Element {
-  const { players, loading, error, addPlayer, updatePlayer, archivePlayer } = useRoster(teamId);
+  const { players, loading, error, addPlayer, addPlayers, updatePlayer, archivePlayer } = useRoster(teamId);
   const { confirm, dialog } = useConfirm();
   const [editing, setEditing] = useState<Editing>(null);
+  const [importing, setImporting] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const active = players.filter((p) => !p.archived);
 
@@ -53,9 +56,14 @@ export function RosterSection({ teamId, teamName, canManage }: RosterSectionProp
           Roster
         </h2>
         {canManage && (
-          <Button variant="ghost" onClick={() => setEditing({ kind: "add" })}>
-            Add player
-          </Button>
+          <span className="flex gap-2">
+            <Button variant="text" onClick={() => setImporting(true)}>
+              Import…
+            </Button>
+            <Button variant="ghost" onClick={() => setEditing({ kind: "add" })}>
+              Add player
+            </Button>
+          </span>
         )}
       </div>
 
@@ -125,6 +133,7 @@ export function RosterSection({ teamId, teamName, canManage }: RosterSectionProp
           onClose={() => setEditing(null)}
         />
       )}
+      {importing && <RosterImportDialog roster={players} onImport={addPlayers} onClose={() => setImporting(false)} />}
       {dialog}
     </section>
   );
