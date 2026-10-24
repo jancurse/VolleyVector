@@ -1,6 +1,7 @@
 import type { Board } from "../../src/boards/types";
 import type { BoardRow, Capability, NoteRow } from "../../src/supabase/rows";
 import type { Note } from "../../src/notes/types";
+import { GAME, ROSTER } from "./gameData";
 import { SAMPLE_BOARDS, SAMPLE_NOTES } from "./sampleData";
 
 // A tiny in-memory stand-in for the Supabase client, used to test surfaces that read through the data
@@ -584,6 +585,35 @@ function from(table: string): Query {
       return makeQuery(table, [], { token: "new-grant-token" });
     case "profiles":
       return makeQuery(table, profileRows(), null);
+    case "roster_players":
+      return makeQuery(
+        table,
+        ROSTER.map((p) => ({
+          id: p.id,
+          team_id: TEST_TEAM_ID,
+          number: p.number,
+          name: p.name,
+          main_position: p.main,
+          secondary_position: p.secondary,
+          archived_at: null,
+        })),
+        null
+      );
+    case "games":
+      return makeQuery(
+        table,
+        [
+          {
+            id: GAME.id,
+            team_id: TEST_TEAM_ID,
+            name: GAME.name,
+            played_on: GAME.date,
+            squad: GAME.squad,
+            lineups: GAME.lineups,
+          },
+        ],
+        null
+      );
     default:
       return makeQuery(table, [], null);
   }

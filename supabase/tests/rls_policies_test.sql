@@ -880,6 +880,89 @@ begin
 end $$;
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- Rosters and games: any member of the team reads, a coach of the team or an admin writes, and an outsider
+-- neither reads nor writes. Team A is purged above, so this section sets up its own team C with coachA as
+-- coach and playerA as player.
+-- ---------------------------------------------------------------------------
+insert into public.teams (id, name, slug) values ('b0000000-0000-0000-0000-00000000000c', 'RLS Team C', 'rls-team-c');
+insert into public.memberships (team_id, user_id, role) values
+  ('b0000000-0000-0000-0000-00000000000c', 'a0000000-0000-0000-0000-000000000002', 'coach'),
+  ('b0000000-0000-0000-0000-00000000000c', 'a0000000-0000-0000-0000-000000000004', 'player');
+insert into public.roster_players (id, team_id, number, name, main_position) values
+  ('70000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000c', 7, 'Ana', 'setter');
+insert into public.games (id, team_id, name) values
+  ('71000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000c', 'Cup final');
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA
+do $$
+declare n int;
+begin
+  insert into public.roster_players (team_id, number, name, main_position)
+  values ('b0000000-0000-0000-0000-00000000000c', 9, 'Bea', 'outside');
+  update public.games set name = 'Cup final (away)' where id = '71000000-0000-0000-0000-000000000001';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL games: a coach could not update their team''s game'; end if;
+  insert into public.games (team_id, name) values ('b0000000-0000-0000-0000-00000000000c', 'Friendly');
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000004","role":"authenticated"}'; -- playerA
+do $$
+declare n int; blocked boolean := false;
+begin
+  select count(*) into n from public.roster_players where team_id = 'b0000000-0000-0000-0000-00000000000c';
+  if n <> 2 then raise exception 'FAIL roster: a player could not read their team''s roster (% rows)', n; end if;
+  select count(*) into n from public.games where team_id = 'b0000000-0000-0000-0000-00000000000c';
+  if n <> 2 then raise exception 'FAIL games: a player could not read their team''s games (% rows)', n; end if;
+
+  update public.games set name = 'hijacked';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL games: a player updated a game'; end if;
+
+  begin
+    insert into public.roster_players (team_id, number, main_position)
+    values ('b0000000-0000-0000-0000-00000000000c', 99, 'libero');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL roster: a player added a roster player'; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}'; -- coachB
+do $$
+declare n int; blocked boolean := false;
+begin
+  select count(*) into n from public.roster_players where team_id = 'b0000000-0000-0000-0000-00000000000c';
+  if n <> 0 then raise exception 'FAIL roster: an outsider read another team''s roster'; end if;
+  select count(*) into n from public.games where team_id = 'b0000000-0000-0000-0000-00000000000c';
+  if n <> 0 then raise exception 'FAIL games: an outsider read another team''s games'; end if;
+
+  begin
+    insert into public.games (team_id, name) values ('b0000000-0000-0000-0000-00000000000c', 'Planted');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL games: an outsider created a game in another team'; end if;
+end $$;
+reset role;
+
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000001","role":"authenticated"}'; -- admin
+do $$
+declare n int;
+begin
+  update public.roster_players set archived_at = now() where id = '70000000-0000-0000-0000-000000000001';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL roster: an admin could not archive a roster player'; end if;
+  delete from public.games where id = '71000000-0000-0000-0000-000000000001';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL games: an admin could not delete a game'; end if;
+end $$;
+reset role;
+
 select 'ALL RLS TESTS PASSED' as result;
 
 rollback;

@@ -8,10 +8,11 @@ import { useConfirm } from "../ui/useConfirm";
 import type { TeamRole } from "../workspace/useWorkspace";
 import { InviteDialog } from "./InviteDialog";
 import { MembersList, memberLabel } from "./MembersList";
+import { RosterSection } from "./RosterSection";
 import type { Member } from "./useMembers";
 import { useMembers } from "./useMembers";
 
-// The team page: the roster of one team, plus the invite action. A coach or admin (canManage) re-roles,
+// The team page: the members of one team and its player roster, plus the invite action. A coach or admin (canManage) re-roles,
 // removes members, and mints invite links; any other member sees the roster read-only. Re-role and remove
 // are plain writes RLS allows a team's coaches and admins. An admin viewing a team they are not on may
 // join it with a chosen role (onJoin), and one on the roster may leave it again (onLeave) since their
@@ -136,6 +137,8 @@ export function TeamPage({
         onRemove={(member) => void removeMember(member)}
       />
       {memberError && <p className="m-0 text-sm text-danger">{memberError}</p>}
+
+      <RosterSection teamId={teamId} teamName={teamName} canManage={canManage} />
 
       <InviteDialog
         open={inviteOpen}

@@ -29,6 +29,8 @@ type SidebarProps = {
   onReorderNote: (id: string, dir: -1 | 1) => void;
   onNestNote: (id: string, parentId: string | null) => void;
   canEdit: boolean;
+  onOpenGames?: () => void;
+  gamesActive: boolean;
   isAdmin: boolean;
   adminActive: boolean;
   onOpenAdmin: () => void;
@@ -53,6 +55,8 @@ export function Sidebar({
   onReorderNote,
   onNestNote,
   canEdit,
+  onOpenGames,
+  gamesActive,
   isAdmin,
   adminActive,
   onOpenAdmin,
@@ -85,6 +89,8 @@ export function Sidebar({
           onReorder={onReorderNote}
           onNest={onNestNote}
           canEdit={canEdit}
+          onOpenGames={onOpenGames}
+          gamesActive={gamesActive}
         />
       </div>
 

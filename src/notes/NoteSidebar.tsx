@@ -8,7 +8,7 @@ import { childrenOf } from "./operations";
 import { NoteRowMenu } from "./NoteRowMenu";
 import type { Note } from "./types";
 
-// The persistent table of contents for the browse surface: All Boards on top, then the note tree
+// The persistent table of contents for the browse surface: All Boards (and a team's Games) on top, then the note tree
 // with disclosure controls, plus a quiet affordance to add a root note. Each row carries a quiet
 // organise menu (reorder and nesting) that stays hidden until the row is hovered or focused, so the
 // sidebar reads as quiet and typographic rather than as app chrome. Nesting lives here, not in the
@@ -23,6 +23,9 @@ type NoteSidebarProps = {
   onNest: (id: string, parentId: string | null) => void;
   /** Whether to offer the new-note and per-row organise actions (a coach of this team, or an admin). */
   canEdit: boolean;
+  /** Open the team's games; given only in a team space, where the Games row shows under All Boards. */
+  onOpenGames?: () => void;
+  gamesActive?: boolean;
 };
 
 const NAV_ITEM =
@@ -48,7 +51,11 @@ export function NoteSidebar({
   onReorder,
   onNest,
   canEdit,
+  onOpenGames,
+  gamesActive = false,
 }: NoteSidebarProps): JSX.Element {
+  const allActive = selection.kind === "all" && !gamesActive;
+
   const renderRow = (note: Note, depth: number, hasChildren: boolean): JSX.Element => {
     const on = selection.kind === "note" && selection.id === note.id;
     const siblings = childrenOf(notes, note.parentId);
@@ -102,12 +109,22 @@ export function NoteSidebar({
     <nav className="flex flex-col gap-[0.1rem]" aria-label="Notes">
       <button
         type="button"
-        className={cx(NAV_ITEM, selection.kind === "all" && "bg-accent-weak text-text")}
-        aria-current={selection.kind === "all"}
+        className={cx(NAV_ITEM, allActive && "bg-accent-weak text-text")}
+        aria-current={allActive}
         onClick={() => onSelect({ kind: "all" })}
       >
         All Boards
       </button>
+      {onOpenGames && (
+        <button
+          type="button"
+          className={cx(NAV_ITEM, gamesActive && "bg-accent-weak text-text")}
+          aria-current={gamesActive}
+          onClick={onOpenGames}
+        >
+          Games
+        </button>
+      )}
 
       <p className="mt-4 mb-[0.35rem] px-[0.55rem] font-mono text-2xs font-medium uppercase tracking-[0.22em] text-text-dim">
         Notes
