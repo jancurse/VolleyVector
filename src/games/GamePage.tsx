@@ -18,10 +18,8 @@ import { PositionChip } from "./PositionChip";
 import { SquadDialog } from "./SquadDialog";
 import type { Game, RosterPlayer } from "./types";
 
-// One game: its name and optional date, the squad picked from the roster (with any one-game changes), the
-// overview slip of every squad player at their position, and its lineups. A coach edits in place and every
-// change saves itself shortly after the last edit (and on leaving the page); a viewer reads the slips and
-// may rotate them. Mount it keyed by the game id so a different game starts a fresh draft.
+// A coach's edits save themselves shortly after the last change and on leaving the page. Mount it keyed by
+// the game id so a different game starts a fresh draft.
 type GamePageProps = {
   game: Game;
   teamName: string;
@@ -33,12 +31,13 @@ type GamePageProps = {
 };
 
 const SAVE_DELAY = 600;
+const CAP = "max-w-4xl";
 
 export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, onPrint }: GamePageProps): JSX.Element {
   const [draft, setDraft] = useState(game);
   const [status, setStatus] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
-  const [overviewShift, setOverviewShift] = useState(game.overview.shift);
+  const [viewShift, setViewShift] = useState(game.overview.shift);
   const pending = useRef<Game | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const save = useRef(onSave);
@@ -75,6 +74,8 @@ export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, on
   };
 
   const players = playerMap(roster, draft.overrides);
+  // A coach rotates the saved overview; a viewer rotates only their own view of it.
+  const overviewShift = canEdit ? draft.overview.shift : viewShift;
   const squad = roster.filter((p) => draft.squad.includes(p.id)).map((p) => players.get(p.id) ?? p);
   // The squad picker lists the active roster plus anyone archived who is still in this game's squad.
   const pickable = roster.filter((p) => !p.archived || draft.squad.includes(p.id));
@@ -144,7 +145,7 @@ export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, on
         </Field>
       )}
 
-      <section className={cx(PANEL, "max-w-4xl")} aria-labelledby="squad-title">
+      <section className={cx(PANEL, CAP)} aria-labelledby="squad-title">
         <div className="flex items-center justify-between gap-3">
           <h2 id="squad-title" className={PANEL_TITLE}>
             Squad ({squad.length})
@@ -192,7 +193,7 @@ export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, on
       </section>
 
       {squad.length > 0 && (
-        <section className={cx(PANEL, "max-w-4xl")} aria-labelledby="overview-title">
+        <section className={cx(PANEL, CAP)} aria-labelledby="overview-title">
           <div className="flex items-center justify-between gap-3">
             <h2 id="overview-title" className={PANEL_TITLE}>
               Overview
@@ -215,8 +216,8 @@ export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, on
               onRotate={(steps) => {
                 const shift = (((overviewShift + steps) % 6) + 6) % 6;
 
-                setOverviewShift(shift);
                 if (canEdit) edit({ ...draft, overview: { ...draft.overview, shift } });
+                else setViewShift(shift);
               }}
             />
           </div>
@@ -224,17 +225,17 @@ export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, on
       )}
 
       {draft.lineups.map((lineup) => (
-        <div key={lineup.id} className="max-w-4xl">
-          <LineupEditor
-            lineup={lineup}
-            teamName={teamName}
-            squad={squad}
-            players={players}
-            readOnly={!canEdit}
-            onChange={(next) => edit({ ...draft, lineups: draft.lineups.map((l) => (l.id === next.id ? next : l)) })}
-            onRemove={() => edit({ ...draft, lineups: draft.lineups.filter((l) => l.id !== lineup.id) })}
-          />
-        </div>
+        <LineupEditor
+          key={lineup.id}
+          className={CAP}
+          lineup={lineup}
+          teamName={teamName}
+          squad={squad}
+          players={players}
+          readOnly={!canEdit}
+          onChange={(next) => edit({ ...draft, lineups: draft.lineups.map((l) => (l.id === next.id ? next : l)) })}
+          onRemove={() => edit({ ...draft, lineups: draft.lineups.filter((l) => l.id !== lineup.id) })}
+        />
       ))}
 
       {draft.lineups.length === 0 && !canEdit && <p className={MUTED}>No lineups yet.</p>}

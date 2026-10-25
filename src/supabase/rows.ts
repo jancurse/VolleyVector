@@ -272,7 +272,7 @@ export function gameFromRow(row: GameRow): Game {
     squad: row.squad,
     overrides: row.overrides,
     overview: row.overview,
-    lineups: row.lineups.map((l) => ({ ...l, fiveOne: l.fiveOne ?? true })),
+    lineups: row.lineups,
   };
 }
 

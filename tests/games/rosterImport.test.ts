@@ -28,6 +28,7 @@ test.each([
   ["5,,S", "Name is missing"],
   ["5,Eve,coach", "Unknown main position “coach”"],
   ["5,Eve,S,goalie", "Unknown secondary position “goalie”"],
+  ["#12,Cleo,OH", "Number must be 0–99"],
 ])("skips %s with a reason", (text, error) => {
   expect(parseRoster(text, ROSTER)).toEqual([{ line: 1, text, error }]);
 });
@@ -37,4 +38,8 @@ test("frees an archived player's number and rejects a number repeated in the fil
     "New",
     "#9 is already taken",
   ]);
+});
+
+test("keeps the delimiter inside a quoted name", () => {
+  expect(parseRoster('12,"Vogt, ""Lena""",S', ROSTER)).toMatchObject([{ draft: { name: 'Vogt, "Lena"' } }]);
 });

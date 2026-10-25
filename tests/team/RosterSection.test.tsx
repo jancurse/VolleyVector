@@ -93,7 +93,10 @@ describe("RosterSection", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save player" }));
 
     expect(await screen.findByRole("cell", { name: "Cleo" })).toBeInTheDocument();
-    expect(writes[0]).toMatchObject({ op: "insert", payload: { number: 12, name: "Cleo", main_position: "outside" } });
+    expect(writes[0]).toMatchObject({
+      op: "insert",
+      payload: [{ number: 12, name: "Cleo", main_position: "outside" }],
+    });
   });
 
   test("a taken number keeps the dialog open with the reason", async () => {

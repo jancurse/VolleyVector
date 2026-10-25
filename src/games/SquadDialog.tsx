@@ -10,14 +10,12 @@ import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { cx, MUTED } from "../ui/styles";
-import { POSITION_OPTIONS } from "./format";
-import { setOverride, setSquad } from "./lineup";
+import { playerLabel, POSITION_OPTIONS } from "./format";
+import { playerMap, setOverride, setSquad } from "./lineup";
 import { PositionChip } from "./PositionChip";
-import type { Game, Position, RosterPlayer } from "./types";
+import type { Game, PlayerOverride, Position, RosterPlayer } from "./types";
 
-// Pick the game's squad from the roster, filtered by number or name. A picked player can also be adjusted
-// for this game only (a different number or positions), which leaves the roster untouched. Every change
-// applies to the game as it is made; Done just closes.
+// Changes apply to the game as they are made, so Done only closes. A clashing number is flagged, not blocked.
 type SquadDialogProps = {
   game: Game;
   /** The pickable roster as stored, with no game overrides applied. */
@@ -31,6 +29,7 @@ export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProp
   const [adjusting, setAdjusting] = useState<string | null>(null);
   const query = filter.trim().toLowerCase();
   const shown = roster.filter((p) => !query || `${p.number} ${p.name}`.toLowerCase().includes(query));
+  const players = playerMap(roster, game.overrides);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()} title={`Squad (${game.squad.length})`}>
@@ -44,9 +43,12 @@ export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProp
       <ul className="m-0 flex list-none flex-col gap-1 p-0">
         {shown.map((rosterPlayer) => {
           const picked = game.squad.includes(rosterPlayer.id);
-          const override = game.overrides[rosterPlayer.id] ?? {};
+          const override = game.overrides[rosterPlayer.id];
           const p = { ...rosterPlayer, ...override };
-          const adjust = (patch: Partial<Pick<RosterPlayer, "number" | "main" | "secondary">>) =>
+          const clash = game.squad
+            .map((id) => players.get(id))
+            .find((o) => o && o.id !== p.id && o.number === p.number);
+          const adjust = (patch: PlayerOverride) =>
             onChange(setOverride(game, rosterPlayer, { ...override, ...patch }));
 
           return (
@@ -62,7 +64,7 @@ export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProp
                   <span className="flex items-baseline gap-2">
                     <span className="w-6 text-right font-display font-bold tabular-nums">{p.number}</span>
                     <span>{p.name}</span>
-                    {Object.keys(override).length > 0 && <span className="text-xs text-text-dim">this game</span>}
+                    {override && <span className="text-xs text-text-dim">this game</span>}
                   </span>
                 </Checkbox>
                 <span className="ml-auto flex items-center gap-1">
@@ -113,7 +115,7 @@ export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProp
                       onValueChange={(v) => adjust({ secondary: v === "" ? null : (v as Position) })}
                     />
                   </Field>
-                  {Object.keys(override).length > 0 && (
+                  {override && (
                     <Button
                       variant="text"
                       size="sm"
@@ -125,6 +127,7 @@ export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProp
                       Use roster values
                     </Button>
                   )}
+                  {clash && <p className="m-0 w-full text-sm text-danger">Also worn by {playerLabel(clash)}</p>}
                 </div>
               )}
             </li>

@@ -10,10 +10,8 @@ import { rankForRole } from "./lineup";
 import { PositionChip } from "./PositionChip";
 import type { Position, RosterPlayer } from "./types";
 
-// A player picker anchored to a slip cell. With a suggested position it leads with the players whose main
-// position fits, then those who can also play it, and keeps everyone else behind a "show everyone" switch;
-// without one it lists the whole set. `note` marks a player who is already placed (e.g. "in IV"), so picking
-// them reads as a swap. Choosing closes the panel.
+// With a suggested `role`, players who fit lead and everyone else waits behind a "show everyone" switch.
+// `note` marks a player already placed (e.g. "in IV"), so picking them reads as a swap.
 type PlayerPickerProps = {
   trigger: ReactElement;
   title: string;

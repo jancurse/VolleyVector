@@ -19,7 +19,6 @@ export function useRoster(teamId: string | null): {
   players: RosterPlayer[];
   loading: boolean;
   error: string | null;
-  addPlayer: (draft: PlayerDraft) => Result;
   addPlayers: (drafts: readonly PlayerDraft[]) => Result;
   updatePlayer: (id: string, draft: PlayerDraft) => Result;
   archivePlayer: (id: string) => Result;
@@ -54,24 +53,6 @@ export function useRoster(teamId: string | null): {
       active = false;
     };
   }, [teamId]);
-
-  const addPlayer = useCallback(
-    async (draft: PlayerDraft): Result => {
-      if (!teamId) return { error: "No team selected" };
-
-      const id = crypto.randomUUID();
-      const { error } = await supabase
-        .from("roster_players")
-        .insert({ id, team_id: teamId, ...rosterPlayerToRow(draft) });
-
-      if (error) return { error: writeError(error) };
-
-      setPlayers((prev) => [...prev, { ...draft, id, archived: false }]);
-
-      return { error: null };
-    },
-    [teamId]
-  );
 
   const addPlayers = useCallback(
     async (drafts: readonly PlayerDraft[]): Result => {
@@ -120,7 +101,6 @@ export function useRoster(teamId: string | null): {
     players: sorted,
     loading,
     error,
-    addPlayer,
     addPlayers,
     updatePlayer,
     archivePlayer,

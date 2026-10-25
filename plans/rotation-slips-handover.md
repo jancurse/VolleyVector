@@ -3,7 +3,7 @@
 This branch adds team rosters, games, and printable rotation slips.
 The first round was built in a cloud session and verified locally.
 The user then reviewed it, and every change from that review (`plans/rotation-slips-followups.md`) is now built.
-Format, lint, typecheck, build, the unit tests (73 files, 783 tests), and the RLS test all pass.
+Format, lint, typecheck, build, the unit tests (73 files, 771 tests), and the RLS test all pass.
 The next step is the user's second review.
 
 ## What was built
@@ -18,7 +18,7 @@ The next step is the user's second review.
 
 ### App
 
-- `src/games/`: the model (`types.ts`), pure lineup operations (`lineup.ts`), the roster import parser (`rosterImport.ts`), the stores, `GamesPage`, `GamePage`, `SquadDialog`, `LineupEditor`, `PlayerPicker`, and the slips (`SlipFrame`, `SlipCourt`, `ZonePlayer`, `RotationSlip`, `OverviewSlip`).
+- `src/games/`: the model (`types.ts`), pure lineup operations (`lineup.ts`), the roster import parser (`rosterImport.ts`), the stores, `GamesPage`, `GamePage`, `SquadDialog`, `LineupEditor`, `PlayerPicker`, and the slips (`SlipFrame`, `SlipCourt`, `RotationSlip`, `OverviewSlip`).
 - `src/team/`: `RosterSection`, `PlayerDialog`, and `RosterImportDialog` on the team page.
 - `src/print/GamePrint.tsx`: the print document.
 - Routes `/t/<team>/games`, `/t/<team>/games/<id>`, and `/t/<team>/games/<id>/print`. Team spaces only.

@@ -7,9 +7,7 @@ import { RotationSlip } from "../games/RotationSlip";
 import type { Game, RosterPlayer } from "../games/types";
 import { FIELD_LABEL, cx } from "../ui/styles";
 
-// A game's rotation slips as a printable document. The overview slip leads when the coach chose to print it.
-// Each lineup then keeps together as one block: its name, its chosen rotated versions three to a row, and
-// once below them its possible subs and notes. A lineup with no version chosen is left out.
+// A lineup with no version chosen to print is left out.
 type GamePrintProps = {
   game: Game;
   teamName: string;
@@ -23,7 +21,7 @@ export function GamePrint({ game, teamName, roster }: GamePrintProps): JSX.Eleme
   const squad = game.squad.flatMap((id) => players.get(id) ?? []);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="print-slips flex flex-col gap-8">
       <header className="flex items-end justify-between gap-4 border-b-2 border-text pb-3">
         <div className="min-w-0">
           <p className={cx(FIELD_LABEL, "m-0")}>{teamName}</p>

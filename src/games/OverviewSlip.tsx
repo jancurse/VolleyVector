@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 
 import { ROLES } from "../court/roles";
-import { FIVE_ONE, overviewZones, ROMAN, shiftPositions } from "./lineup";
+import { overviewZones, ROMAN } from "./lineup";
 import { SlipCourt } from "./SlipCourt";
 import { SlipFrame } from "./SlipFrame";
 import type { RosterPlayer } from "./types";
@@ -30,8 +30,7 @@ function PlayerLines({ players }: { players: readonly RosterPlayer[] }): JSX.Ele
 }
 
 export function OverviewSlip({ teamName, squad, shift, onRotate }: OverviewSlipProps): JSX.Element {
-  const { zones, liberos } = overviewZones(squad, shift);
-  const roles = shiftPositions(FIVE_ONE, shift);
+  const { roles, zones, liberos } = overviewZones(squad, shift);
 
   return (
     <SlipFrame

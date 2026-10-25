@@ -217,7 +217,3 @@ export const STEP_REMOVE =
 /** A slip zone that opens a player picker: the whole zone is the target, tinted on hover and focus. */
 export const SLIP_ZONE_BUTTON =
   "grid h-full w-full cursor-pointer outline-none transition-colors duration-150 ease-settle hover:bg-accent-weak focus-visible:bg-accent-weak focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent";
-
-/** The slip's version stamp: a double-ruled accent box, set slightly askew like an inked stamp. */
-export const SLIP_STAMP =
-  "flex-none -rotate-3 rounded-xs border-2 border-double border-accent px-1.5 py-0.5 text-center font-mono text-2xs font-bold leading-tight text-accent uppercase";

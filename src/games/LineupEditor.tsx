@@ -25,10 +25,8 @@ import { PlayerPicker } from "./PlayerPicker";
 import { RotationSlip } from "./RotationSlip";
 import type { Lineup, RosterPlayer } from "./types";
 
-// One lineup of a game, shown as its rotation slip beside its possible subs and notes. A coach edits on the
-// slip itself: each zone and the libero cell open a player picker, and the rotate controls beside the stamp
-// turn the whole lineup a position either way. Below sit the 5-1 suggestions switch and the rotated versions
-// to print. A viewer gets the same slip read-only and may rotate it to read the other rotations.
+// A coach edits on the slip itself and rotating changes the lineup; a viewer's rotation only changes their
+// view.
 type LineupEditorProps = {
   lineup: Lineup;
   teamName: string;
@@ -37,6 +35,7 @@ type LineupEditorProps = {
   readOnly: boolean;
   onChange: (lineup: Lineup) => void;
   onRemove: () => void;
+  className?: string;
 };
 
 export function LineupEditor({
@@ -47,6 +46,7 @@ export function LineupEditor({
   readOnly,
   onChange,
   onRemove,
+  className,
 }: LineupEditorProps): JSX.Element {
   const [viewShift, setViewShift] = useState(0);
   const label = (id: string) => playerLabel(players.get(id));
@@ -170,7 +170,7 @@ export function LineupEditor({
   );
 
   return (
-    <section className={PANEL} aria-label={lineup.name}>
+    <section className={cx(PANEL, className)} aria-label={lineup.name}>
       <div className="flex items-center gap-2">
         {readOnly ? (
           <h2 className={PANEL_TITLE}>{lineup.name}</h2>

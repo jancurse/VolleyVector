@@ -3,11 +3,9 @@ import { RotateCcw, RotateCw } from "lucide-react";
 
 import { IconButton } from "../ui/IconButton";
 
-import { SLIP_STAMP } from "../ui/styles";
-
 // The paper sheet every rotation slip shares: a caption and title, the version stamp (flanked by rotate
-// buttons when `onRotate` is given, hidden in print), then the slip's body. A slip is always ink on white, so it pins the light theme
-// for itself and reads the same on screen, in dark mode, and on paper.
+// buttons when `onRotate` is given, hidden in print), then the slip's body. A slip is always ink on white,
+// so it pins the light theme for itself and reads the same on screen, in dark mode, and on paper.
 type SlipFrameProps = {
   caption: string;
   title: string;
@@ -42,7 +40,9 @@ export function SlipFrame({ caption, title, stamp, ariaLabel, onRotate, children
               <RotateCcw size={13} aria-hidden="true" />
             </IconButton>
           )}
-          <span className={SLIP_STAMP}>{stamp}</span>
+          <span className="flex-none -rotate-3 rounded-xs border-2 border-double border-accent px-1.5 py-0.5 text-center font-mono text-2xs font-bold leading-tight text-accent uppercase">
+            {stamp}
+          </span>
           {onRotate && (
             <IconButton
               variant="plain"

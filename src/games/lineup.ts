@@ -63,7 +63,6 @@ export function assignPosition(lineup: Lineup, index: number, playerId: string |
   return { ...lineup, positions, alternates, libero: lineup.libero === playerId ? null : lineup.libero };
 }
 
-/** Make `playerId` the libero, taking them off every sub list. */
 export function assignLibero(lineup: Lineup, playerId: string | null): Lineup {
   const alternates = Object.fromEntries(
     Object.entries(lineup.alternates).map(([starter, alts]) => [starter, alts.filter((id) => id !== playerId)])
@@ -72,7 +71,6 @@ export function assignLibero(lineup: Lineup, playerId: string | null): Lineup {
   return { ...lineup, libero: playerId, alternates };
 }
 
-/** Toggle a possible sub for a starter. */
 export function toggleAlternate(lineup: Lineup, starterId: string, playerId: string): Lineup {
   const current = lineup.alternates[starterId] ?? [];
   const next = current.includes(playerId) ? current.filter((id) => id !== playerId) : [...current, playerId];
@@ -157,16 +155,18 @@ export function rankForRole(
   };
 }
 
-/** The overview slip's zones: at each position, every squad player whose main position a 5-1 puts there
- *  with the setter in I shifted by `shift`. Liberos are listed apart. */
+/** The overview slip's zones: the role a 5-1 puts at each position with the setter in I shifted by `shift`,
+ *  and every squad player whose main position is that role. Liberos are listed apart. */
 export function overviewZones(
   squad: readonly RosterPlayer[],
   shift: number
-): { zones: RosterPlayer[][]; liberos: RosterPlayer[] } {
+): { roles: Position[]; zones: RosterPlayer[][]; liberos: RosterPlayer[] } {
   const sorted = [...squad].sort(byNumber);
+  const roles = shiftPositions(FIVE_ONE, shift);
 
   return {
-    zones: shiftPositions(FIVE_ONE, shift).map((role) => sorted.filter((p) => p.main === role)),
+    roles,
+    zones: roles.map((role) => sorted.filter((p) => p.main === role)),
     liberos: sorted.filter((p) => p.main === "libero"),
   };
 }

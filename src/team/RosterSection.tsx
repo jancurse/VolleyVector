@@ -14,10 +14,7 @@ import { useConfirm } from "../ui/useConfirm";
 import { PlayerDialog } from "./PlayerDialog";
 import { RosterImportDialog } from "./RosterImportDialog";
 
-// The team's player roster: jersey number, name, and positions, the list a game's squad is picked from. A
-// coach or admin (canManage) adds players one by one or imports many, edits, and removes them; anyone else
-// reads it. Removing archives the
-// player, so the games that include them keep their number and name.
+// Removing a player archives them, so the games that include them keep their number and name.
 type RosterSectionProps = {
   teamId: string;
   teamName: string;
@@ -29,7 +26,7 @@ type Editing = { kind: "add" } | { kind: "edit"; player: RosterPlayer } | null;
 const BLANK: PlayerDraft = { number: Number.NaN, name: "", main: "outside", secondary: null };
 
 export function RosterSection({ teamId, teamName, canManage }: RosterSectionProps): JSX.Element {
-  const { players, loading, error, addPlayer, addPlayers, updatePlayer, archivePlayer } = useRoster(teamId);
+  const { players, loading, error, addPlayers, updatePlayer, archivePlayer } = useRoster(teamId);
   const { confirm, dialog } = useConfirm();
   const [editing, setEditing] = useState<Editing>(null);
   const [importing, setImporting] = useState(false);
@@ -129,7 +126,7 @@ export function RosterSection({ teamId, teamName, canManage }: RosterSectionProp
         <PlayerDialog
           title={editing.kind === "add" ? "Add player" : `Edit #${editing.player.number}`}
           initial={editing.kind === "add" ? BLANK : editing.player}
-          onSave={(draft) => (editing.kind === "add" ? addPlayer(draft) : updatePlayer(editing.player.id, draft))}
+          onSave={(draft) => (editing.kind === "add" ? addPlayers([draft]) : updatePlayer(editing.player.id, draft))}
           onClose={() => setEditing(null)}
         />
       )}

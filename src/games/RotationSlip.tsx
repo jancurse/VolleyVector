@@ -4,14 +4,10 @@ import { ROLES } from "../court/roles";
 import { ROMAN, shiftPositions, versionLabel } from "./lineup";
 import { SlipCourt } from "./SlipCourt";
 import { SlipFrame } from "./SlipFrame";
-import { ZonePlayer } from "./ZonePlayer";
 import type { Lineup, RosterPlayer } from "./types";
 
-// One rotation slip: a paper line-up sheet for one rotated version of a lineup. A stamp names the version
-// (where the setter stands), the court sketch places the six starters in their zones, and the scorer's row
-// lists them in official order I–VI beside the libero, the way a scorer copies a slip. Ink on paper: the
-// role colours are the only colour, and each zone's role code keeps it readable in greyscale. The editor
-// passes `zone` and `libero` to wrap those cells in pickers, and `onRotate` to put rotate buttons on it.
+// A lineup at one rotation as a paper line-up sheet. Each zone shows its role code so it reads in greyscale.
+// The editor passes `zone` and `libero` to wrap those cells in pickers.
 type RotationSlipProps = {
   teamName: string;
   lineup: Lineup;
@@ -21,6 +17,27 @@ type RotationSlipProps = {
   zone?: (index: number, content: ReactNode) => ReactNode;
   libero?: (content: ReactNode) => ReactNode;
 };
+
+function ZonePlayer({ player }: { player: RosterPlayer | undefined }): JSX.Element {
+  return (
+    <span className="relative flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 pt-4 pb-1.5">
+      {player && (
+        <span
+          className="absolute top-1 right-1.5 font-mono text-2xs font-bold"
+          style={{ color: ROLES[player.main].ring }}
+        >
+          {ROLES[player.main].code}
+        </span>
+      )}
+      <span className="font-display text-display-md font-extrabold leading-none tabular-nums">
+        {player ? player.number : "–"}
+      </span>
+      <span className="line-clamp-2 max-w-full text-center text-2xs leading-tight break-words">
+        {player?.name || " "}
+      </span>
+    </span>
+  );
+}
 
 export function RotationSlip({
   teamName,

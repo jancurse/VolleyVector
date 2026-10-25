@@ -76,8 +76,44 @@ describe("GamePage as a coach", () => {
     await waitFor(() => expect(lastSaved(onSave).lineups[0].positions[2]).toBe("p-mb2"));
   });
 
-  test("a sub can only be picked from players not yet in the lineup", async () => {
+  test("Leave empty clears a position", async () => {
+    const onSave = renderPage(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Position I: #1 Lena Vogt" }));
+    await userEvent.click(screen.getByRole("button", { name: "Leave empty" }));
+
+    expect(screen.getByRole("button", { name: "Position I: empty" })).toBeInTheDocument();
+    await waitFor(() => expect(lastSaved(onSave).lineups[0].positions[0]).toBeNull());
+  });
+
+  test("the libero picker offers only players off court", async () => {
+    const onSave = renderPage(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Libero: #2 Tess Moor" }));
+
+    const picker = screen.getByRole("dialog", { name: "Libero" });
+
+    await userEvent.click(within(picker).getByRole("button", { name: "Show everyone else (1)" }));
+    await userEvent.click(within(picker).getByRole("button", { name: /Kim Roth/ }));
+
+    expect(screen.getByRole("button", { name: "Libero: #17 Kim Roth" })).toBeInTheDocument();
+    await waitFor(() => expect(lastSaved(onSave).lineups[0].libero).toBe("p-sub"));
+  });
+
+  test("with 5-1 suggestions off, a position's picker lists everyone at once", async () => {
     renderPage(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "5-1 suggestions" }));
+    await userEvent.click(screen.getByRole("button", { name: "Position III: #5 Jana Weiss" }));
+
+    const picker = screen.getByRole("dialog", { name: "Position III" });
+
+    expect(within(picker).getAllByRole("button", { pressed: false })).toHaveLength(6);
+    expect(within(picker).queryByRole("button", { name: /Show everyone else/ })).not.toBeInTheDocument();
+  });
+
+  test("a sub can only be picked from players not yet in the lineup", async () => {
+    const onSave = renderPage(true);
 
     await userEvent.click(screen.getByRole("button", { name: "Add a sub for #4 Mia Kraus" }));
 
@@ -88,6 +124,9 @@ describe("GamePage as a coach", () => {
         .getAllByRole("button", { pressed: false })
         .map((b) => b.textContent)
     ).toEqual([expect.stringContaining("Kim Roth")]);
+
+    await userEvent.click(within(picker).getByRole("button", { name: /Kim Roth/ }));
+    await waitFor(() => expect(lastSaved(onSave).lineups[0].alternates["p-oh1"]).toEqual(["p-sub"]));
   });
 
   test("dropping a player from the squad clears them from the lineup", async () => {
@@ -101,15 +140,19 @@ describe("GamePage as a coach", () => {
     await waitFor(() => expect(lastSaved(onSave).squad).not.toContain("p-s"));
   });
 
-  test("a player's number can change for this game only", async () => {
+  test.each([
+    ["23", "saves it for this game only", { "p-sub": { number: 23 } }],
+    ["4", "flags a number another squad player wears", { "p-sub": { number: 4 } }],
+  ])("a one-game number %s %s", async (number, _, overrides) => {
     const onSave = renderPage(true);
 
     await userEvent.click(screen.getByRole("button", { name: "Pick squad" }));
     await userEvent.click(screen.getByRole("button", { name: "Adjust #17 for this game" }));
     await userEvent.clear(screen.getByRole("textbox", { name: "Number" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Number" }), "23");
+    await userEvent.type(screen.getByRole("textbox", { name: "Number" }), number);
 
-    await waitFor(() => expect(lastSaved(onSave).overrides).toEqual({ "p-sub": { number: 23 } }));
+    await waitFor(() => expect(lastSaved(onSave).overrides).toEqual(overrides));
+    expect(screen.queryByText("Also worn by #4 Mia Kraus") !== null).toBe(number === "4");
   });
 
   test.each([

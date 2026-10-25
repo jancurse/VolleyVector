@@ -227,7 +227,12 @@ body {
   }
 }
 
-/* Printed handouts keep a paper margin on every side; the document itself sets no page padding. */
-@page {
+/* The rotation slips print on a named page with a paper margin on every side; board and note handouts keep
+   the browser's default. */
+@page slips {
   margin: 12mm;
+}
+
+.print-slips {
+  page: slips;
 }

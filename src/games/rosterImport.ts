@@ -1,10 +1,8 @@
 import type { PlayerDraft } from "./useRoster";
 import type { Position, RosterPlayer } from "./types";
 
-// Parse pasted or uploaded roster text: one player per line, columns number, name, main position, and an
-// optional secondary position, split by tab (a spreadsheet paste), comma, or semicolon. A first line whose
-// number column is not a number is taken as a header and skipped. Positions read by name or code, in any
-// case. Every line comes back either as a player to add or with the reason it cannot be.
+// One player per line: number, name, main, optional secondary, split by tab, comma, or semicolon. A first
+// line with neither a number nor a known main position is a header.
 
 export type ImportRow = { line: number; text: string } & ({ draft: PlayerDraft } | { error: string });
 
@@ -28,6 +26,20 @@ const ALIASES: Record<string, Position> = {
 const position = (cell: string | undefined): Position | null | undefined =>
   !cell?.trim() ? null : ALIASES[cell.trim().toLowerCase()];
 
+function splitLine(line: string, delimiter: string): string[] {
+  const cells = [""];
+  let quoted = false;
+
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"' && quoted && line[i + 1] === '"') cells[cells.length - 1] += line[++i];
+    else if (line[i] === '"') quoted = !quoted;
+    else if (line[i] === delimiter && !quoted) cells.push("");
+    else cells[cells.length - 1] += line[i];
+  }
+
+  return cells.map((c) => c.trim());
+}
+
 export function parseRoster(text: string, roster: readonly RosterPlayer[]): ImportRow[] {
   const lines = text
     .split(/\r?\n/)
@@ -35,8 +47,9 @@ export function parseRoster(text: string, roster: readonly RosterPlayer[]): Impo
     .filter(({ text: t }) => t.trim() !== "");
   const delimiter = /\t/.test(text) ? "\t" : /;/.test(text) && !/,/.test(text) ? ";" : ",";
   const taken = new Set(roster.filter((p) => !p.archived).map((p) => p.number));
-  const cells = (t: string) => t.split(delimiter).map((c) => c.trim().replace(/^"(.*)"$/, "$1"));
-  const body = lines.length > 0 && !/^\d+$/.test(cells(lines[0].text)[0] ?? "") ? lines.slice(1) : lines;
+  const cells = (t: string) => splitLine(t, delimiter);
+  const first = lines.length > 0 ? cells(lines[0].text) : [];
+  const body = first.length > 0 && !/^\d+$/.test(first[0]) && !position(first[2]) ? lines.slice(1) : lines;
 
   return body.map(({ text: t, line }): ImportRow => {
     const [numberCell = "", name = "", mainCell, secondaryCell] = cells(t);
