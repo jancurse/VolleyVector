@@ -1,9 +1,10 @@
-import type { Game, Lineup, PlayerOverride, Position, RosterPlayer } from "./types";
+import { POSITIONS } from "./types";
+import type { Game, Rotation, PlayerOverride, Position, RosterPlayer } from "./types";
 
-// Pure lineup operations over the game model. A lineup's positions are an array of six starters, index 0
+// Pure rotation operations over the game model. A rotation's positions are an array of six starters, index 0
 // being official position I. Rotating moves everyone one position along the service order; a print version
-// is the lineup shifted a number of positions up (I → II), so the common pair, setter in I and setter in II,
-// is the lineup as entered plus a shift of one.
+// is the rotation shifted a number of positions up (I → II), so the common pair, setter in I and setter in II,
+// is the rotation as entered plus a shift of one.
 
 export const ROMAN = ["I", "II", "III", "IV", "V", "VI"] as const;
 
@@ -19,12 +20,25 @@ export function shiftPositions<T>(positions: readonly T[], steps: number): T[] {
   return positions.map((_, i) => positions[(((i - steps) % 6) + 6) % 6]);
 }
 
+/** Turn a coach's rotation, keeping each chosen print version where it was. */
+export function rotateBy(rotation: Rotation, steps: number): Rotation {
+  return {
+    ...rotation,
+    positions: shiftPositions(rotation.positions, steps),
+    printShifts: rotation.printShifts.map((s) => (((s - steps) % 6) + 6) % 6),
+  };
+}
+
+/** Secondary positions in the fixed position order, without the main one. */
+export const secondaryOf = (positions: readonly string[], main: Position): Position[] =>
+  POSITIONS.filter((p) => p !== main && positions.includes(p));
+
 const byNumber = (a: RosterPlayer, b: RosterPlayer) => a.number - b.number;
 
-/** A new lineup from the squad. It fills a 5-1 in service order from position I by each player's main
+/** A new rotation from the squad. It fills a 5-1 in service order from position I by each player's main
  *  position, leaving a position empty where the squad has no one left for it, and takes the first libero.
  *  Lower jersey numbers are picked first. */
-export function createLineup(squad: readonly RosterPlayer[], name: string): Lineup {
+export function createRotation(squad: readonly RosterPlayer[], name: string): Rotation {
   const pool = [...squad].sort(byNumber);
   const take = (position: Position): string | null => {
     const i = pool.findIndex((p) => p.main === position);
@@ -44,48 +58,48 @@ export function createLineup(squad: readonly RosterPlayer[], name: string): Line
   };
 }
 
-/** Put `playerId` at position `index`. A player already elsewhere in the lineup swaps with the occupant, so
+/** Put `playerId` at position `index`. A player already elsewhere in the rotation swaps with the occupant, so
  *  no one ever stands in two places. A starter who leaves the court takes their subs with them, and a player
  *  who comes onto it is no longer anyone's sub. */
-export function assignPosition(lineup: Lineup, index: number, playerId: string | null): Lineup {
-  const positions = [...lineup.positions];
+export function assignPosition(rotation: Rotation, index: number, playerId: string | null): Rotation {
+  const positions = [...rotation.positions];
   const from = playerId === null ? -1 : positions.indexOf(playerId);
 
   if (from >= 0) positions[from] = positions[index];
   positions[index] = playerId;
 
   const alternates = Object.fromEntries(
-    Object.entries(lineup.alternates)
+    Object.entries(rotation.alternates)
       .filter(([starter]) => positions.includes(starter))
       .map(([starter, alts]) => [starter, alts.filter((id) => !positions.includes(id))])
   );
 
-  return { ...lineup, positions, alternates, libero: lineup.libero === playerId ? null : lineup.libero };
+  return { ...rotation, positions, alternates, libero: rotation.libero === playerId ? null : rotation.libero };
 }
 
-export function assignLibero(lineup: Lineup, playerId: string | null): Lineup {
+export function assignLibero(rotation: Rotation, playerId: string | null): Rotation {
   const alternates = Object.fromEntries(
-    Object.entries(lineup.alternates).map(([starter, alts]) => [starter, alts.filter((id) => id !== playerId)])
+    Object.entries(rotation.alternates).map(([starter, alts]) => [starter, alts.filter((id) => id !== playerId)])
   );
 
-  return { ...lineup, libero: playerId, alternates };
+  return { ...rotation, libero: playerId, alternates };
 }
 
-export function toggleAlternate(lineup: Lineup, starterId: string, playerId: string): Lineup {
-  const current = lineup.alternates[starterId] ?? [];
+export function toggleAlternate(rotation: Rotation, starterId: string, playerId: string): Rotation {
+  const current = rotation.alternates[starterId] ?? [];
   const next = current.includes(playerId) ? current.filter((id) => id !== playerId) : [...current, playerId];
 
-  return { ...lineup, alternates: { ...lineup.alternates, [starterId]: next } };
+  return { ...rotation, alternates: { ...rotation.alternates, [starterId]: next } };
 }
 
 /** The squad players who may be a starter's sub: anyone not on court, not the libero, and not already listed. */
-export function eligibleSubs(lineup: Lineup, starterId: string, squad: readonly RosterPlayer[]): RosterPlayer[] {
-  const taken = new Set([...lineup.positions, lineup.libero, ...(lineup.alternates[starterId] ?? [])]);
+export function eligibleSubs(rotation: Rotation, starterId: string, squad: readonly RosterPlayer[]): RosterPlayer[] {
+  const taken = new Set([...rotation.positions, rotation.libero, ...(rotation.alternates[starterId] ?? [])]);
 
   return squad.filter((p) => !taken.has(p.id));
 }
 
-/** Set the game's squad, removing anyone dropped from it from every lineup and dropping their overrides. */
+/** Set the game's squad, removing anyone dropped from it from every rotation and dropping their overrides. */
 export function setSquad(game: Game, squad: string[]): Game {
   const keep = (id: string | null) => (id !== null && squad.includes(id) ? id : null);
 
@@ -93,7 +107,7 @@ export function setSquad(game: Game, squad: string[]): Game {
     ...game,
     squad,
     overrides: Object.fromEntries(Object.entries(game.overrides).filter(([id]) => squad.includes(id))),
-    lineups: game.lineups.map((l) => ({
+    rotations: game.rotations.map((l) => ({
       ...l,
       positions: l.positions.map(keep),
       libero: keep(l.libero),
@@ -109,31 +123,37 @@ export function setSquad(game: Game, squad: string[]): Game {
 /** Set or clear one player's override for the game. An override equal to the roster is dropped. */
 export function setOverride(game: Game, player: RosterPlayer, override: PlayerOverride): Game {
   const changed = Object.fromEntries(
-    Object.entries(override).filter(([key, value]) => value !== player[key as keyof PlayerOverride])
+    Object.entries(override).filter(
+      ([key, value]) => JSON.stringify(value) !== JSON.stringify(player[key as keyof PlayerOverride])
+    )
   );
   const { [player.id]: _, ...rest } = game.overrides;
 
   return { ...game, overrides: Object.keys(changed).length ? { ...rest, [player.id]: changed } : rest };
 }
 
-/** The official position (0 = I) of the lineup's setter after `shift`, by the starters' main position, or
+/** The official position (0 = I) of the rotation's setter after `shift`, by the starters' main position, or
  *  null when no starter is a setter. */
-export function setterIndex(lineup: Lineup, players: ReadonlyMap<string, RosterPlayer>, shift: number): number | null {
-  const i = shiftPositions(lineup.positions, shift).findIndex((id) => id && players.get(id)?.main === "setter");
+export function setterIndex(
+  rotation: Rotation,
+  players: ReadonlyMap<string, RosterPlayer>,
+  shift: number
+): number | null {
+  const i = shiftPositions(rotation.positions, shift).findIndex((id) => id && players.get(id)?.main === "setter");
 
   return i < 0 ? null : i;
 }
 
 /** The position a 5-1 expects at `index`, around wherever the setter stands. With no setter on court yet,
- *  every position asks for one. Null when the lineup's 5-1 suggestions are off. */
+ *  every position asks for one. Null when the rotation's 5-1 suggestions are off. */
 export function expectedRole(
-  lineup: Lineup,
+  rotation: Rotation,
   players: ReadonlyMap<string, RosterPlayer>,
   index: number
 ): Position | null {
-  if (!lineup.fiveOne) return null;
+  if (!rotation.fiveOne) return null;
 
-  const setter = setterIndex(lineup, players, 0);
+  const setter = setterIndex(rotation, players, 0);
 
   return setter === null ? "setter" : FIVE_ONE[(index - setter + 6) % 6];
 }
@@ -150,8 +170,8 @@ export function rankForRole(
 
   return {
     fits: sorted.filter((p) => p.main === role),
-    canPlay: sorted.filter((p) => p.main !== role && p.secondary === role),
-    others: sorted.filter((p) => p.main !== role && p.secondary !== role),
+    canPlay: sorted.filter((p) => p.main !== role && p.secondary.includes(role)),
+    others: sorted.filter((p) => p.main !== role && !p.secondary.includes(role)),
   };
 }
 
@@ -173,18 +193,18 @@ export function overviewZones(
 
 /** Print shifts in reading order: by where the setter stands (I first), else by the shift itself. */
 export function sortShifts(
-  lineup: Lineup,
+  rotation: Rotation,
   players: ReadonlyMap<string, RosterPlayer>,
   shifts: readonly number[]
 ): number[] {
-  const key = (shift: number) => setterIndex(lineup, players, shift) ?? shift;
+  const key = (shift: number) => setterIndex(rotation, players, shift) ?? shift;
 
   return [...shifts].sort((a, b) => key(a) - key(b));
 }
 
-/** How a print version reads: where the setter stands, or the shift itself for a lineup without one. */
-export function versionLabel(lineup: Lineup, players: ReadonlyMap<string, RosterPlayer>, shift: number): string {
-  const setter = setterIndex(lineup, players, shift);
+/** How a print version reads: where the setter stands, or the shift itself for a rotation without one. */
+export function versionLabel(rotation: Rotation, players: ReadonlyMap<string, RosterPlayer>, shift: number): string {
+  const setter = setterIndex(rotation, players, shift);
 
   if (setter !== null) return `Setter in ${ROMAN[setter]}`;
 

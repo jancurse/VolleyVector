@@ -1185,7 +1185,7 @@ describe("games", () => {
     await user.click(screen.getByRole("button", { name: "Print slips" }));
 
     expect(window.location.pathname).toBe("/t/my-team/games/game-1/print");
-    expect(await screen.findAllByRole("article")).toHaveLength(2);
+    expect(await screen.findAllByRole("article")).toHaveLength(3);
   });
 
   test("a coach starts a new game with the whole roster picked", async () => {

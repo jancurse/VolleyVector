@@ -8,7 +8,7 @@ import { formatGameDate } from "./format";
 import type { Game } from "./types";
 
 // A team's games, newest fixture first. A coach starts a new one here; anyone on the team opens one to see
-// its lineups and print its rotation slips, or opens the roster the squads are picked from.
+// its rotations and print its rotation slips, or opens the roster the squads are picked from.
 type GamesPageProps = {
   teamName: string;
   games: readonly Game[];
@@ -54,7 +54,7 @@ export function GamesPage({
       ) : games.length === 0 ? (
         <p className={MUTED}>
           {canEdit
-            ? "Start a game to pick a squad, set your lineups, and print rotation slips."
+            ? "Start a game to pick a squad, set your rotations, and print rotation slips."
             : "No games planned yet."}
         </p>
       ) : (
@@ -63,7 +63,7 @@ export function GamesPage({
             <tr>
               <TableHeadCell>Game</TableHeadCell>
               <TableHeadCell>Date</TableHeadCell>
-              <TableHeadCell className="text-right">Lineups</TableHeadCell>
+              <TableHeadCell className="text-right">Rotations</TableHeadCell>
             </tr>
           </thead>
           <tbody>
@@ -75,7 +75,7 @@ export function GamesPage({
                   </Button>
                 </TableCell>
                 <TableCell className="text-text-dim">{game.date ? formatGameDate(game.date) : "—"}</TableCell>
-                <TableCell className="text-right tabular-nums">{game.lineups.length}</TableCell>
+                <TableCell className="text-right tabular-nums">{game.rotations.length}</TableCell>
               </tr>
             ))}
           </tbody>

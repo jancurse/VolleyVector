@@ -23,7 +23,7 @@ type RosterSectionProps = {
 
 type Editing = { kind: "add" } | { kind: "edit"; player: RosterPlayer } | null;
 
-const BLANK: PlayerDraft = { number: Number.NaN, name: "", main: "outside", secondary: null };
+const BLANK: PlayerDraft = { number: Number.NaN, name: "", shortName: "", main: "outside", secondary: [] };
 
 export function RosterSection({ teamId, teamName, canManage }: RosterSectionProps): JSX.Element {
   const { players, loading, error, addPlayers, updatePlayer, archivePlayer } = useRoster(teamId);
@@ -86,11 +86,16 @@ export function RosterSection({ teamId, teamName, canManage }: RosterSectionProp
             {active.map((player) => (
               <tr key={player.id}>
                 <TableCell className="font-display text-xl font-bold tabular-nums">{player.number}</TableCell>
-                <TableCell className="max-w-xs truncate font-medium">{player.name}</TableCell>
+                <TableCell className="max-w-xs truncate font-medium">
+                  {player.name}
+                  {player.shortName && <span className="ml-2 text-sm text-text-dim">{player.shortName}</span>}
+                </TableCell>
                 <TableCell>
                   <span className="flex gap-1.5">
                     <PositionChip position={player.main} />
-                    {player.secondary && <PositionChip position={player.secondary} secondary />}
+                    {player.secondary.map((s) => (
+                      <PositionChip key={s} position={s} secondary />
+                    ))}
                   </span>
                 </TableCell>
                 {canManage && (

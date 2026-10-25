@@ -3,13 +3,14 @@ import type { FormEvent, JSX } from "react";
 
 import type { PlayerDraft } from "../games/useRoster";
 import { POSITION_OPTIONS } from "../games/format";
+import { secondaryOf } from "../games/rotation";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { ToggleGroup } from "../ui/ToggleGroup";
 
-// Add a roster player or edit one: jersey number, name, main position, and an optional secondary position.
 // Mounted per open, so each opening starts from the given player (or a blank one).
 type PlayerDialogProps = {
   title: string;
@@ -21,6 +22,7 @@ type PlayerDialogProps = {
 export function PlayerDialog({ title, initial, onSave, onClose }: PlayerDialogProps): JSX.Element {
   const [number, setNumber] = useState(Number.isNaN(initial.number) ? "" : String(initial.number));
   const [name, setName] = useState(initial.name);
+  const [shortName, setShortName] = useState(initial.shortName);
   const [main, setMain] = useState(initial.main);
   const [secondary, setSecondary] = useState(initial.secondary);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export function PlayerDialog({ title, initial, onSave, onClose }: PlayerDialogPr
 
     setSaving(true);
 
-    const result = await onSave({ number: parsed, name: name.trim(), main, secondary });
+    const result = await onSave({ number: parsed, name: name.trim(), shortName: shortName.trim(), main, secondary });
 
     setSaving(false);
 
@@ -55,24 +57,34 @@ export function PlayerDialog({ title, initial, onSave, onClose }: PlayerDialogPr
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Main position">
-            <Select
-              ariaLabel="Main position"
-              value={main}
-              options={POSITION_OPTIONS}
-              onValueChange={(v) => setMain(v as typeof main)}
-            />
-          </Field>
-          <Field label="Secondary position">
-            <Select
-              ariaLabel="Secondary position"
-              value={secondary ?? ""}
-              options={[{ value: "", label: "None" }, ...POSITION_OPTIONS.filter((o) => o.value !== main)]}
-              onValueChange={(v) => setSecondary(v === "" ? null : (v as typeof main))}
-            />
-          </Field>
-        </div>
+        <Field label="Short name">
+          <Input
+            value={shortName}
+            placeholder={name || "Shown on the slips"}
+            onChange={(e) => setShortName(e.target.value)}
+          />
+        </Field>
+        <Field label="Main position">
+          <Select
+            ariaLabel="Main position"
+            value={main}
+            options={POSITION_OPTIONS}
+            onValueChange={(v) => {
+              setMain(v as typeof main);
+              setSecondary(secondaryOf(secondary, v as typeof main));
+            }}
+          />
+        </Field>
+        <Field label="Also plays">
+          <ToggleGroup
+            multiple
+            variant="pills"
+            ariaLabel="Also plays"
+            items={POSITION_OPTIONS.filter((o) => o.value !== main)}
+            value={secondary}
+            onValueChange={(v) => setSecondary(secondaryOf(v, main))}
+          />
+        </Field>
         {error && <p className="m-0 text-sm text-danger">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="ghost" paired onClick={onClose}>

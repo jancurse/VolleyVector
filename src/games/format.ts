@@ -11,4 +11,6 @@ export function playerLabel(player: RosterPlayer | undefined): string {
   return player ? `#${player.number} ${player.name}`.trim() : "Removed player";
 }
 
+export const slipName = (player: RosterPlayer): string => player.shortName || player.name;
+
 export const POSITION_OPTIONS = POSITIONS.map((p) => ({ value: p, label: ROLES[p].name }));

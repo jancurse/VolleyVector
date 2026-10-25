@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   assignLibero,
   assignPosition,
-  createLineup,
+  createRotation,
   expectedRole,
   playerMap,
   rankForRole,
@@ -11,7 +11,7 @@ import {
   shiftPositions,
   toggleAlternate,
   versionLabel,
-} from "../../src/games/lineup";
+} from "../../src/games/rotation";
 import type { Game, Position, RosterPlayer } from "../../src/games/types";
 
 // The cases the game page tests cannot reach through the UI.
@@ -20,8 +20,9 @@ const p = (id: string, number: number, main: Position): RosterPlayer => ({
   id,
   number,
   name: id,
+  shortName: "",
   main,
-  secondary: null,
+  secondary: [],
   archived: false,
 });
 
@@ -36,10 +37,10 @@ const SQUAD = [
   p("bench", 20, "outside"),
 ];
 const players = playerMap(SQUAD);
-const lineup = createLineup(SQUAD, "Set 1");
+const rotation = createRotation(SQUAD, "Set 1");
 
-test("a new lineup leaves a position empty when the squad has no one for it", () => {
-  expect(createLineup([p("s", 1, "setter")], "Set 1").positions).toEqual(["s", null, null, null, null, null]);
+test("a new rotation leaves a position empty when the squad has no one for it", () => {
+  expect(createRotation([p("s", 1, "setter")], "Set 1").positions).toEqual(["s", null, null, null, null, null]);
 });
 
 test("shiftPositions wraps around a full rotation", () => {
@@ -50,11 +51,11 @@ test.each([
   [0, "As entered"],
   [2, "Shifted 2"],
 ])("versionLabel falls back to the shift without a setter (%i)", (shift, label) => {
-  expect(versionLabel({ ...lineup, positions: lineup.positions.map(() => null) }, players, shift)).toBe(label);
+  expect(versionLabel({ ...rotation, positions: rotation.positions.map(() => null) }, players, shift)).toBe(label);
 });
 
 describe("subs", () => {
-  const withSub = toggleAlternate(lineup, "oh1", "bench");
+  const withSub = toggleAlternate(rotation, "oh1", "bench");
 
   test.each([
     ["a starter leaving the court takes their subs", assignPosition(withSub, 1, "bench"), {}],
@@ -65,23 +66,23 @@ describe("subs", () => {
   });
 
   test("moving the libero onto the court clears the libero slot", () => {
-    expect(assignPosition(lineup, 5, "lib").libero).toBeNull();
+    expect(assignPosition(rotation, 5, "lib").libero).toBeNull();
   });
 });
 
 test("with no setter on court, every position asks for one", () => {
-  expect(expectedRole({ ...lineup, positions: lineup.positions.map(() => null) }, players, 2)).toBe("setter");
+  expect(expectedRole({ ...rotation, positions: rotation.positions.map(() => null) }, players, 2)).toBe("setter");
 });
 
 test("rankForRole puts a player whose secondary position fits between the fits and the rest", () => {
-  const flex = { ...p("flex", 7, "outside"), secondary: "middle" as const };
+  const flex = { ...p("flex", 7, "outside"), secondary: ["middle" as const] };
 
   expect(rankForRole([...SQUAD, flex], "middle").canPlay.map((x) => x.id)).toEqual(["flex"]);
 });
 
 test.each([
   [{ number: 1, main: "opposite" as const }, { s: { main: "opposite" } }],
-  [{ number: 1 }, {}],
+  [{ number: 1, secondary: [] }, {}],
 ])("setOverride keeps only what differs from the roster (%o)", (override, expected) => {
   const game: Game = {
     id: "g",
@@ -90,8 +91,8 @@ test.each([
     date: null,
     squad: ["s"],
     overrides: {},
-    overview: { print: false, shift: 0 },
-    lineups: [],
+    overviewShift: 0,
+    rotations: [],
   };
 
   expect(setOverride(game, SQUAD[1], override).overrides).toEqual(expected);

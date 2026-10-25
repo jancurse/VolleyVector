@@ -26,7 +26,7 @@ export function SlipFrame({ caption, title, stamp, ariaLabel, onRotate, children
       <header className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col gap-1">
           <p className="m-0 font-mono text-2xs font-bold tracking-[0.16em] text-text-dim uppercase">{caption}</p>
-          <p className="m-0 truncate font-display text-display-xs font-bold leading-tight">{title}</p>
+          <p className="m-0 font-display text-display-xs font-bold leading-tight break-words">{title}</p>
         </div>
         <div className="flex flex-none items-center gap-1">
           {onRotate && (

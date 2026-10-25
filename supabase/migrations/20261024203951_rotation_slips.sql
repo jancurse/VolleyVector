@@ -1,9 +1,10 @@
 -- VolleyVector — team rosters and games (rotation slips).
--- A team keeps one roster of its players (jersey number, name, main and optional secondary position). A
--- game is a lightweight named plan (an optional date) holding the squad picked from the roster, one-game
--- changes to those players' numbers and positions, an overview slip's settings, and its starting lineups,
--- all but the squad stored as JSON. Both belong to exactly one team and follow its roles: any member reads,
--- a coach of the team or an admin writes. They sit outside the board/note access-list model on purpose.
+-- A team keeps one roster of its players (jersey number, name, optional short name for the slips, main
+-- position, and any secondary positions). A game is a lightweight named plan (an optional date) holding the
+-- squad picked from the roster, one-game changes to those players' numbers and positions, the overview
+-- slip's shift, and its starting rotations, the overrides and rotations stored as JSON. Both belong to
+-- exactly one team and follow its roles: any member reads, a coach of the team or an admin writes. They sit
+-- outside the board/note access-list model on purpose.
 --
 -- Removing a roster player archives the row (archived_at) rather than deleting it, so a game that already
 -- includes them still resolves their number and name. Purging a team cascades both tables away.
@@ -13,8 +14,10 @@ create table public.roster_players (
   team_id uuid not null references public.teams (id) on delete cascade,
   number integer not null check (number between 0 and 99),
   name text not null default '',
+  short_name text not null default '',
   main_position text not null check (main_position in ('setter', 'outside', 'middle', 'opposite', 'libero')),
-  secondary_position text check (secondary_position in ('setter', 'outside', 'middle', 'opposite', 'libero')),
+  secondary_positions text[] not null default '{}'
+    check (secondary_positions <@ array['setter', 'outside', 'middle', 'opposite', 'libero']),
   archived_at timestamptz,
   created_at timestamptz not null default now()
 );
@@ -29,8 +32,8 @@ create table public.games (
   played_on date,
   squad uuid[] not null default '{}',
   overrides jsonb not null default '{}',
-  overview jsonb not null default '{"print": false, "shift": 0}',
-  lineups jsonb not null default '[]',
+  overview_shift integer not null default 0,
+  rotations jsonb not null default '[]',
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

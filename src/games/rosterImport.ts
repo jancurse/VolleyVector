@@ -1,8 +1,9 @@
+import { secondaryOf } from "./rotation";
 import type { PlayerDraft } from "./useRoster";
 import type { Position, RosterPlayer } from "./types";
 
-// One player per line: number, name, main, optional secondary, split by tab, comma, or semicolon. A first
-// line with neither a number nor a known main position is a header.
+// One player per line: number, name, optional short name, main, optional secondaries (joined by "/"), split
+// by tab, comma, or semicolon. A first line with neither a number nor a known main position is a header.
 
 export type ImportRow = { line: number; text: string } & ({ draft: PlayerDraft } | { error: string });
 
@@ -49,22 +50,28 @@ export function parseRoster(text: string, roster: readonly RosterPlayer[]): Impo
   const taken = new Set(roster.filter((p) => !p.archived).map((p) => p.number));
   const cells = (t: string) => splitLine(t, delimiter);
   const first = lines.length > 0 ? cells(lines[0].text) : [];
-  const body = first.length > 0 && !/^\d+$/.test(first[0]) && !position(first[2]) ? lines.slice(1) : lines;
+  const body = first.length > 0 && !/^\d+$/.test(first[0]) && !position(first[3]) ? lines.slice(1) : lines;
 
   return body.map(({ text: t, line }): ImportRow => {
-    const [numberCell = "", name = "", mainCell, secondaryCell] = cells(t);
+    const [numberCell = "", name = "", shortName = "", mainCell, secondaryCell = ""] = cells(t);
     const number = Number(numberCell);
     const main = position(mainCell);
-    const secondary = position(secondaryCell);
+    const secondaryCells = secondaryCell.split("/").filter((c) => c.trim());
+    const unknown = secondaryCells.find((c) => !position(c));
 
     if (!/^\d+$/.test(numberCell) || number > 99) return { line, text: t, error: "Number must be 0–99" };
     if (!name) return { line, text: t, error: "Name is missing" };
     if (!main) return { line, text: t, error: `Unknown main position “${mainCell ?? ""}”` };
-    if (secondary === undefined) return { line, text: t, error: `Unknown secondary position “${secondaryCell}”` };
+    if (unknown) return { line, text: t, error: `Unknown secondary position “${unknown.trim()}”` };
     if (taken.has(number)) return { line, text: t, error: `#${number} is already taken` };
 
     taken.add(number);
 
-    return { line, text: t, draft: { number, name, main, secondary: secondary === main ? null : secondary } };
+    const secondary = secondaryOf(
+      secondaryCells.flatMap((c) => position(c) ?? []),
+      main
+    );
+
+    return { line, text: t, draft: { number, name, shortName, main, secondary } };
   });
 }

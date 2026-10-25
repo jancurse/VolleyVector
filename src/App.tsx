@@ -718,12 +718,12 @@ export function App(): JSX.Element {
     if (!game) return !spaceReady || games.loading ? loader : printNotFound;
 
     return (
-      <PrintView
-        title={`${game.name || "Untitled game"} — rotation slips`}
+      <GamePrint
+        game={game}
+        teamName={gamesTeamName}
+        roster={roster.players}
         onBack={() => navigate(gameRoute(game.teamId, allTeams, game.id))}
-      >
-        <GamePrint game={game} teamName={gamesTeamName} roster={roster.players} />
-      </PrintView>
+      />
     );
   }
 
@@ -813,8 +813,8 @@ export function App(): JSX.Element {
       date: new Date().toLocaleDateString("en-CA"),
       squad: roster.players.filter((p) => !p.archived).map((p) => p.id),
       overrides: {},
-      overview: { print: false, shift: 0 },
-      lineups: [],
+      overviewShift: 0,
+      rotations: [],
     });
 
     if (id) navigate(gameRoute(gamesTeamId, allTeams, id));
@@ -824,7 +824,7 @@ export function App(): JSX.Element {
   const removeGame = async (id: string) => {
     const ok = await confirm({
       title: "Delete this game?",
-      description: "Its squad and lineups are deleted for good.",
+      description: "Its squad and rotations are deleted for good.",
       confirmLabel: "Delete",
       danger: true,
     });

@@ -593,8 +593,9 @@ function from(table: string): Query {
           team_id: TEST_TEAM_ID,
           number: p.number,
           name: p.name,
+          short_name: p.shortName,
           main_position: p.main,
-          secondary_position: p.secondary,
+          secondary_positions: p.secondary,
           archived_at: null,
         })),
         null
@@ -610,8 +611,8 @@ function from(table: string): Query {
             played_on: GAME.date,
             squad: GAME.squad,
             overrides: GAME.overrides,
-            overview: GAME.overview,
-            lineups: GAME.lineups,
+            overview_shift: GAME.overviewShift,
+            rotations: GAME.rotations,
           },
         ],
         null

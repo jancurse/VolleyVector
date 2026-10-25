@@ -8,15 +8,17 @@ export type RosterPlayer = {
   id: string;
   number: number;
   name: string;
+  /** The name on the slips; empty means the full name. */
+  shortName: string;
   main: Position;
-  secondary: Position | null;
+  secondary: Position[];
   /** A removed player stays resolvable, so games that include them keep their number and name. */
   archived: boolean;
 };
 
 export type PlayerOverride = Partial<Pick<RosterPlayer, "number" | "main" | "secondary">>;
 
-export type Lineup = {
+export type Rotation = {
   id: string;
   name: string;
   /** The six starters by official position: index 0 is position I, index 5 is position VI. */
@@ -30,8 +32,6 @@ export type Lineup = {
   fiveOne: boolean;
 };
 
-export type Overview = { print: boolean; shift: number };
-
 export type Game = {
   id: string;
   teamId: string;
@@ -40,6 +40,6 @@ export type Game = {
   date: string | null;
   squad: string[];
   overrides: Record<string, PlayerOverride>;
-  overview: Overview;
-  lineups: Lineup[];
+  overviewShift: number;
+  rotations: Rotation[];
 };

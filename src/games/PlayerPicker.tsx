@@ -6,7 +6,7 @@ import { ROLES } from "../court/roles";
 import { Button } from "../ui/Button";
 import { Popover } from "../ui/Popover";
 import { cx, FIELD_LABEL, MUTED, PICK_ROW } from "../ui/styles";
-import { rankForRole } from "./lineup";
+import { rankForRole } from "./rotation";
 import { PositionChip } from "./PositionChip";
 import type { Position, RosterPlayer } from "./types";
 
@@ -62,7 +62,9 @@ export function PlayerPicker({
             {placed && <span className="flex-none font-mono text-2xs text-text-dim">{placed}</span>}
             <span className="flex flex-none gap-1">
               <PositionChip position={p.main} />
-              {p.secondary && <PositionChip position={p.secondary} secondary />}
+              {p.secondary.map((s) => (
+                <PositionChip key={s} position={s} secondary />
+              ))}
             </span>
             <Check
               size={14}

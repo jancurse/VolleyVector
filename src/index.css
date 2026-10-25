@@ -45,8 +45,9 @@
   --text-display-md: 1.27rem;
   --text-display-md--line-height: 1.2;
 
-  /* The rotation slip's on-screen width (w-slip), wide enough for a two-line name in each zone. */
-  --container-slip: 21rem;
+  /* The on-screen widths of the rotation slip (w-slip) and the wider overview slip (w-overview). */
+  --container-slip: 15rem;
+  --container-overview: 18rem;
 
   /* Radius scale, replacing the scattered 6–22px and pill values with named steps. */
   --radius-xs: 6px;

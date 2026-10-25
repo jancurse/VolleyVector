@@ -1,16 +1,17 @@
 import type { JSX, ReactNode } from "react";
 
 import { ROLES } from "../court/roles";
-import { ROMAN, shiftPositions, versionLabel } from "./lineup";
+import { slipName } from "./format";
+import { ROMAN, shiftPositions, versionLabel } from "./rotation";
 import { SlipCourt } from "./SlipCourt";
 import { SlipFrame } from "./SlipFrame";
-import type { Lineup, RosterPlayer } from "./types";
+import type { Rotation, RosterPlayer } from "./types";
 
-// A lineup at one rotation as a paper line-up sheet. Each zone shows its role code so it reads in greyscale.
+// A rotation at one shift as a paper slip. Each zone shows its role code so it reads in greyscale.
 // The editor passes `zone` and `libero` to wrap those cells in pickers.
 type RotationSlipProps = {
   teamName: string;
-  lineup: Lineup;
+  rotation: Rotation;
   players: ReadonlyMap<string, RosterPlayer>;
   shift: number;
   onRotate?: (steps: number) => void;
@@ -33,7 +34,7 @@ function ZonePlayer({ player }: { player: RosterPlayer | undefined }): JSX.Eleme
         {player ? player.number : "–"}
       </span>
       <span className="line-clamp-2 max-w-full text-center text-2xs leading-tight break-words">
-        {player?.name || " "}
+        {player ? slipName(player) : " "}
       </span>
     </span>
   );
@@ -41,26 +42,41 @@ function ZonePlayer({ player }: { player: RosterPlayer | undefined }): JSX.Eleme
 
 export function RotationSlip({
   teamName,
-  lineup,
+  rotation,
   players,
   shift,
   onRotate,
   zone = (_, content) => content,
   libero = (content) => content,
 }: RotationSlipProps): JSX.Element {
-  const positions = shiftPositions(lineup.positions, shift);
+  const positions = shiftPositions(rotation.positions, shift);
   const at = (id: string | null) => (id ? players.get(id) : undefined);
-  const label = versionLabel(lineup, players, shift);
+  const liberoPlayer = at(rotation.libero);
+  const label = versionLabel(rotation, players, shift);
 
   return (
     <SlipFrame
-      caption="Line-up"
+      caption="Rotation"
       title={teamName}
       stamp={label}
-      ariaLabel={`${lineup.name}, ${label}`}
+      ariaLabel={`${rotation.name}, ${label}`}
       onRotate={onRotate}
     >
       <SlipCourt zone={(index) => zone(index, <ZonePlayer player={at(positions[index])} />)} />
+
+      <div className="grid overflow-hidden rounded-xs border-2" style={{ borderColor: ROLES.libero.fill }}>
+        {libero(
+          <span className="flex min-w-0 items-baseline gap-2 px-2 py-1">
+            <span className="font-mono text-2xs font-bold" style={{ color: ROLES.libero.fill }}>
+              L
+            </span>
+            <span className="font-display text-display-md font-extrabold leading-none tabular-nums">
+              {liberoPlayer?.number ?? "–"}
+            </span>
+            <span className="truncate text-sm">{liberoPlayer && slipName(liberoPlayer)}</span>
+          </span>
+        )}
+      </div>
 
       <div className="grid grid-cols-[repeat(6,minmax(0,1fr))_auto] gap-1">
         {positions.map((id, index) => (
@@ -71,17 +87,14 @@ export function RotationSlip({
             <span className="py-0.5 font-display text-sm font-bold tabular-nums">{at(id)?.number ?? " "}</span>
           </div>
         ))}
-        <div className="ml-1 grid overflow-hidden rounded-xs border-2" style={{ borderColor: ROLES.libero.fill }}>
-          {libero(
-            <span className="flex flex-col items-center px-1">
-              <span className="w-full text-center font-mono text-2xs" style={{ color: ROLES.libero.fill }}>
-                L
-              </span>
-              <span className="py-0.5 font-display text-sm font-bold tabular-nums">
-                {at(lineup.libero)?.number ?? " "}
-              </span>
-            </span>
-          )}
+        <div
+          className="ml-1 flex flex-col items-center rounded-xs border-2 px-1"
+          style={{ borderColor: ROLES.libero.fill }}
+        >
+          <span className="w-full text-center font-mono text-2xs" style={{ color: ROLES.libero.fill }}>
+            L
+          </span>
+          <span className="py-0.5 font-display text-sm font-bold tabular-nums">{liberoPlayer?.number ?? " "}</span>
         </div>
       </div>
 

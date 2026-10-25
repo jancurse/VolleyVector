@@ -1,7 +1,8 @@
 import type { JSX } from "react";
 
 import { ROLES } from "../court/roles";
-import { overviewZones, ROMAN } from "./lineup";
+import { slipName } from "./format";
+import { overviewZones, ROMAN } from "./rotation";
 import { SlipCourt } from "./SlipCourt";
 import { SlipFrame } from "./SlipFrame";
 import type { RosterPlayer } from "./types";
@@ -22,7 +23,7 @@ function PlayerLines({ players }: { players: readonly RosterPlayer[] }): JSX.Ele
       {players.map((p) => (
         <li key={p.id} className="flex min-w-0 items-baseline gap-1.5 text-2xs leading-tight">
           <span className="w-5 flex-none text-right font-display text-sm font-extrabold tabular-nums">{p.number}</span>
-          <span className="truncate">{p.name}</span>
+          <span className="truncate">{slipName(p)}</span>
         </li>
       ))}
     </ul>

@@ -2,7 +2,7 @@ import type { CourtMode } from "../court/roles";
 import { normalizeMarkers, normalizeSteps } from "../boards/normalize";
 import type { StoredStep } from "../boards/normalize";
 import type { Board, BoardMarker, BoardStep } from "../boards/types";
-import type { Game, Lineup, Overview, PlayerOverride, Position, RosterPlayer } from "../games/types";
+import type { Game, Rotation, PlayerOverride, Position, RosterPlayer } from "../games/types";
 import type { Note, NoteBlock } from "../notes/types";
 
 // The bridge between the client model and the database. A board/note lives server-side as a row of content
@@ -226,8 +226,9 @@ export type RosterPlayerRow = {
   team_id: string;
   number: number;
   name: string;
+  short_name: string;
   main_position: Position;
-  secondary_position: Position | null;
+  secondary_positions: Position[];
   archived_at: string | null;
 };
 
@@ -236,8 +237,9 @@ export function rosterPlayerFromRow(row: RosterPlayerRow): RosterPlayer {
     id: row.id,
     number: row.number,
     name: row.name,
+    shortName: row.short_name,
     main: row.main_position,
-    secondary: row.secondary_position,
+    secondary: row.secondary_positions,
     archived: row.archived_at !== null,
   };
 }
@@ -247,8 +249,9 @@ export function rosterPlayerToRow(player: Omit<RosterPlayer, "id" | "archived">)
   return {
     number: player.number,
     name: player.name,
+    short_name: player.shortName,
     main_position: player.main,
-    secondary_position: player.secondary,
+    secondary_positions: player.secondary,
   };
 }
 
@@ -259,8 +262,8 @@ export type GameRow = {
   played_on: string | null;
   squad: string[];
   overrides: Record<string, PlayerOverride>;
-  overview: Overview;
-  lineups: Lineup[];
+  overview_shift: number;
+  rotations: Rotation[];
 };
 
 export function gameFromRow(row: GameRow): Game {
@@ -271,8 +274,8 @@ export function gameFromRow(row: GameRow): Game {
     date: row.played_on,
     squad: row.squad,
     overrides: row.overrides,
-    overview: row.overview,
-    lineups: row.lineups,
+    overviewShift: row.overview_shift,
+    rotations: row.rotations,
   };
 }
 
@@ -283,7 +286,7 @@ export function gameToContent(game: Game): Record<string, unknown> {
     played_on: game.date,
     squad: game.squad,
     overrides: game.overrides,
-    overview: game.overview,
-    lineups: game.lineups,
+    overview_shift: game.overviewShift,
+    rotations: game.rotations,
   };
 }

@@ -1,39 +1,42 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { expect, test } from "vitest";
 
 import { GamePrint } from "../../src/print/GamePrint";
+import type { Game } from "../../src/games/types";
 import { GAME, ROSTER } from "../helpers/gameData";
 
-test("prints one slip per chosen version, then the lineup's subs and notes once", () => {
-  render(<GamePrint game={GAME} teamName="Eagles" roster={ROSTER} />);
+const renderPrint = (game: Game = GAME) =>
+  render(<GamePrint game={game} teamName="Eagles" roster={ROSTER} onBack={() => {}} />);
 
-  expect(screen.getByRole("heading", { name: "Cup final" })).toBeInTheDocument();
-  expect(screen.getAllByRole("article").map((a) => a.getAttribute("aria-label"))).toEqual([
-    "Set 1, Setter in I",
-    "Set 1, Setter in II",
-  ]);
-  expect(screen.getByRole("listitem")).toHaveTextContent("#11 Sara Lind ⇄ #17 Kim Roth");
+const articles = () => screen.queryAllByRole("article").map((a) => a.getAttribute("aria-label"));
+const ROTATIONS = ["Set 1, Setter in I", "Set 1, Setter in II"];
+
+test.each([
+  [[], true, ["Overview", ...ROTATIONS]],
+  [["Print the squad"], false, ["Overview", ...ROTATIONS]],
+  [["Print the overview"], true, ROTATIONS],
+  [["Print the squad", "Print the overview"], false, ROTATIONS],
+])("with %o switched off, the squad shows (%s) and the slips are %o", async (off, squad, printed) => {
+  renderPrint();
+
+  for (const name of off) await userEvent.click(screen.getByRole("button", { name }));
+
+  expect(screen.queryByRole("heading", { name: "Squad" }) !== null).toBe(squad);
+  expect(articles()).toEqual(printed);
+});
+
+test("prints the overview at its saved shift and each rotation's subs and notes once", () => {
+  renderPrint({ ...GAME, overviewShift: 1 });
+
+  expect(within(screen.getByRole("article", { name: "Overview" })).getByText("Setter in II")).toBeInTheDocument();
   expect(screen.getByText("Serve short to their #8.")).toBeInTheDocument();
+  expect(screen.getByText("Planned subs").nextElementSibling).toHaveTextContent("#11 Sara Lind ⇄ #17 Kim Roth");
 });
 
-test("leaves out a lineup with no version chosen", () => {
-  render(
-    <GamePrint
-      game={{ ...GAME, lineups: GAME.lineups.map((l) => ({ ...l, printShifts: [] })) }}
-      teamName="Eagles"
-      roster={ROSTER}
-    />
-  );
+test("leaves out a rotation with no version chosen", () => {
+  renderPrint({ ...GAME, rotations: GAME.rotations.map((l) => ({ ...l, printShifts: [] })) });
 
-  expect(screen.queryByRole("article")).not.toBeInTheDocument();
-  expect(screen.getByText("No lineup has a version chosen to print.")).toBeInTheDocument();
-});
-
-test("prints the overview first when chosen, at its saved rotation", () => {
-  render(<GamePrint game={{ ...GAME, overview: { print: true, shift: 1 } }} teamName="Eagles" roster={ROSTER} />);
-
-  const [overview] = screen.getAllByRole("article");
-
-  expect(overview).toHaveAccessibleName("Overview");
-  expect(within(overview).getByText("Setter in II")).toBeInTheDocument();
+  expect(articles()).toEqual(["Overview"]);
+  expect(screen.getByText("No rotation has a version chosen to print.")).toBeInTheDocument();
 });

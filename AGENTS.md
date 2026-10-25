@@ -19,7 +19,7 @@ VolleyVector is a single-page React 19 + TypeScript + Vite app for building, bro
 - `src/editor/`: the read-only `BoardView` and the draft `BoardEditor`, plus the marker palette, the marker and annotation inspectors, the annotation toolbar, step strip, court settings, the rotation panel and board, and the description editor.
 - `src/bundle/`: the portable JSON bundle format (types, serialize, parse), the export menu, the import and replace-from-JSON dialogs, and the dev-only draft preview.
 - `src/print/`: the chrome-free print surface that renders a board or note as a paper handout, and a game as rotation slips.
-- `src/games/`: a team's roster and games: the model, the pure lineup operations, the stores, the games list and game page, the squad picker, the lineup editor and player picker, and the rotation and overview slips.
+- `src/games/`: a team's roster and games: the model, the pure rotation operations, the stores, the games list and game page, the squad picker, the rotation editor and player picker, and the rotation and overview slips.
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
 - `src/notes/`: the note-tree model, operations, store, sidebar, the note view/editor, and the board view's appears-in backlinks. (Server-side, notes live in the legacy-named `topics` table.)
 - `src/history/`: the revision list, the read-only board and note history views, the structured board/note diff, and the revision-loading hooks.

@@ -22,7 +22,7 @@ export type Route =
   // The chrome-free print/handout surfaces: a board or a note rendered as a paper document.
   | { kind: "printBoard"; space: RouteSpace; boardId: string }
   | { kind: "printNote"; space: RouteSpace; noteSlug: string }
-  // A team's games and one game's lineups, plus the game's printable rotation slips. Team spaces only.
+  // A team's games and one game's rotations, plus the game's printable rotation slips. Team spaces only.
   | { kind: "games"; teamSlug: string }
   | { kind: "game"; teamSlug: string; gameId: string }
   | { kind: "printGame"; teamSlug: string; gameId: string }

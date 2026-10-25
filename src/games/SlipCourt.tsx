@@ -2,7 +2,7 @@ import type { JSX, ReactNode } from "react";
 import { Volleyball } from "lucide-react";
 
 import { cx } from "../ui/styles";
-import { COURT_ORDER, ROMAN } from "./lineup";
+import { COURT_ORDER, ROMAN } from "./rotation";
 
 // The slip's court sketch: the net as a double rule, then the six zones in reading order from behind our
 // end line (front row IV-III-II, shaded, back row V-VI-I). Each zone carries its official position and,

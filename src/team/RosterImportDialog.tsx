@@ -41,13 +41,14 @@ export function RosterImportDialog({ roster, onImport, onClose }: RosterImportDi
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()} title="Import players">
       <p className="m-0 text-sm text-text-dim">
-        One player per line: number, name, main position, and optionally a secondary position. Paste straight from a
-        spreadsheet, or upload a CSV. Positions can be written in full or as S, OH, MB, OPP, or L.
+        One player per line: number, name, a short name for the slips (may be empty), main position, and optionally
+        other positions joined by “/”. Paste straight from a spreadsheet, or upload a CSV. Positions can be written in
+        full or as S, OH, MB, OPP, or L.
       </p>
       <Textarea
         aria-label="Players"
         value={text}
-        placeholder={"number,name,main,secondary\n7,Lena Vogt,S,OPP\n12,Mia Kraus,OH,"}
+        placeholder={"number,name,short,main,secondary\n7,Lena Vogt,Lena,S,OPP/OH\n12,Mia Kraus,,OH,"}
         onChange={(e) => setText(e.target.value)}
       />
       <div className="flex items-center gap-3">
@@ -77,7 +78,9 @@ export function RosterImportDialog({ roster, onImport, onClose }: RosterImportDi
                   <span className="w-6 text-right font-display font-bold tabular-nums">{row.draft.number}</span>
                   <span className="min-w-0 flex-1 truncate">{row.draft.name}</span>
                   <PositionChip position={row.draft.main} />
-                  {row.draft.secondary && <PositionChip position={row.draft.secondary} secondary />}
+                  {row.draft.secondary.map((s) => (
+                    <PositionChip key={s} position={s} secondary />
+                  ))}
                 </>
               ) : (
                 <>

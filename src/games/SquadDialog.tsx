@@ -9,9 +9,10 @@ import { Field } from "../ui/Field";
 import { IconButton } from "../ui/IconButton";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { ToggleGroup } from "../ui/ToggleGroup";
 import { cx, MUTED } from "../ui/styles";
 import { playerLabel, POSITION_OPTIONS } from "./format";
-import { playerMap, setOverride, setSquad } from "./lineup";
+import { playerMap, secondaryOf, setOverride, setSquad } from "./rotation";
 import { PositionChip } from "./PositionChip";
 import type { Game, PlayerOverride, Position, RosterPlayer } from "./types";
 
@@ -69,7 +70,9 @@ export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProp
                 </Checkbox>
                 <span className="ml-auto flex items-center gap-1">
                   <PositionChip position={p.main} />
-                  {p.secondary && <PositionChip position={p.secondary} secondary />}
+                  {p.secondary.map((s) => (
+                    <PositionChip key={s} position={s} secondary />
+                  ))}
                   {picked && (
                     <IconButton
                       variant="plain"
@@ -103,16 +106,18 @@ export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProp
                       value={p.main}
                       options={POSITION_OPTIONS}
                       onValueChange={(v) =>
-                        adjust({ main: v as Position, secondary: p.secondary === v ? null : p.secondary })
+                        adjust({ main: v as Position, secondary: secondaryOf(p.secondary, v as Position) })
                       }
                     />
                   </Field>
-                  <Field label="Secondary position" className="w-44">
-                    <Select
-                      ariaLabel="Secondary position"
-                      value={p.secondary ?? ""}
-                      options={[{ value: "", label: "None" }, ...POSITION_OPTIONS.filter((o) => o.value !== p.main)]}
-                      onValueChange={(v) => adjust({ secondary: v === "" ? null : (v as Position) })}
+                  <Field label="Also plays">
+                    <ToggleGroup
+                      multiple
+                      variant="pills"
+                      ariaLabel="Also plays"
+                      items={POSITION_OPTIONS.filter((o) => o.value !== p.main)}
+                      value={p.secondary}
+                      onValueChange={(v) => adjust({ secondary: secondaryOf(v, p.main) })}
                     />
                   </Field>
                   {override && (

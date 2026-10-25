@@ -3,7 +3,7 @@
 This branch adds team rosters, games, and printable rotation slips.
 The first round was built in a cloud session and verified locally.
 The user then reviewed it, and every change from that review (`plans/rotation-slips-followups.md`) is now built.
-Format, lint, typecheck, build, the unit tests (73 files, 771 tests), and the RLS test all pass.
+Format, lint, typecheck, build, the unit tests (73 files, 773 tests), and the RLS test all pass.
 The next step is the user's second review.
 
 ## What was built
@@ -11,14 +11,14 @@ The next step is the user's second review.
 ### Database
 
 - Migration `supabase/migrations/20261024203951_rotation_slips.sql` adds two tables. It has not reached production, so it was edited in place rather than followed by a second migration.
-    - `roster_players`: a team's players (number 0–99, name, main and optional secondary position). Removing a player sets `archived_at`. A number is unique among a team's active players.
-    - `games`: a name, an optional `played_on` date, a `squad` of roster ids, `overrides` (one-game number or position changes per player), `overview` (print flag and rotation), and `lineups`, all but the squad as JSON.
+    - `roster_players`: a team's players (number 0–99, name, optional short name shown on the slips, main position, and any secondary positions). Removing a player sets `archived_at`. A number is unique among a team's active players.
+    - `games`: a name, an optional `played_on` date, a `squad` of roster ids, `overrides` (one-game number or position changes per player), `overview_shift` (the overview's rotation), and `rotations`, all but the squad as JSON.
 - RLS on both: any team member reads, a coach of the team or an admin writes. Purging a team cascades both away.
 - `supabase/tests/rls_policies_test.sql` covers both tables (coach, player, outsider, admin) on its own team C.
 
 ### App
 
-- `src/games/`: the model (`types.ts`), pure lineup operations (`lineup.ts`), the roster import parser (`rosterImport.ts`), the stores, `GamesPage`, `GamePage`, `SquadDialog`, `LineupEditor`, `PlayerPicker`, and the slips (`SlipFrame`, `SlipCourt`, `RotationSlip`, `OverviewSlip`).
+- `src/games/`: the model (`types.ts`), pure rotation operations (`rotation.ts`), the roster import parser (`rosterImport.ts`), the stores, `GamesPage`, `GamePage`, `SquadDialog`, `RotationEditor`, `PlayerPicker`, and the slips (`SlipFrame`, `SlipCourt`, `RotationSlip`, `OverviewSlip`).
 - `src/team/`: `RosterSection`, `PlayerDialog`, and `RosterImportDialog` on the team page.
 - `src/print/GamePrint.tsx`: the print document.
 - Routes `/t/<team>/games`, `/t/<team>/games/<id>`, and `/t/<team>/games/<id>/print`. Team spaces only.
@@ -26,14 +26,14 @@ The next step is the user's second review.
 
 ### Behaviour
 
-- **Roster.** A coach adds players one by one or imports pasted spreadsheet rows or a CSV (number, name, main, optional secondary). The import previews every line with its error and only adds.
+- **Roster.** A coach adds players one by one or imports pasted spreadsheet rows or a CSV (number, name, optional short name, main, optional secondaries joined by `/`). The import previews every line with its error and only adds.
 - **Squad.** A table on the game page. **Pick squad** opens a filterable checklist, where a picked player can also get a different number or positions for this game only.
-- **Overview.** A slip showing every squad player at the zone a 5-1 gives their main position. Outsides and middles appear in both of their zones. It rotates, and **Print the overview** puts it first in the print.
-- **Lineups.** A new lineup fills a 5-1 with the setter in I. The coach edits on the slip: each zone and the libero cell open a player picker. With **5-1 suggestions** on (the default), the picker lists main-position fits, then secondary fits, and hides everyone else behind **Show everyone else**. Picking a player already on court swaps the two. The rotate buttons sit beside the stamp.
-- **Possible subs.** Per starter, picked only from players off court and not the libero.
+- **Overview.** A slip showing every squad player at the zone a 5-1 gives their main position. Outsides and middles appear in both of their zones. It rotates, and sits beside the squad on a wide screen.
+- **Rotations.** A new rotation fills a 5-1 with the setter in I. The coach edits on the slip: each zone and the libero bar under the court open a player picker. With **5-1 suggestions** on (the default), the picker lists main-position fits, then secondary fits, and hides everyone else behind **Show everyone else**. Picking a player already on court swaps the two. The rotate buttons sit beside the stamp, and rotating keeps the chosen print versions.
+- **Planned subs.** None listed by default; **Add planned sub** picks the starter, then one or more subs from players off court and not the libero.
 - **Saving.** The game page autosaves 600 ms after the last edit, on leaving, and before opening the print view.
 - **Players.** They see the same slips read-only and may rotate them.
-- **Print.** 12 mm page margins. The overview first if chosen, then each lineup as one block: its chosen versions three to a row, possible subs and notes once below.
+- **Print.** 12 mm page margins. The toolbar switches the squad table and the overview in or out (both on by default); they sit side by side at the top. Each rotation follows as one block with its chosen versions three to a row, planned subs and notes once below.
 - Deleting a game is a hard delete behind a confirm. Admin recovery does not cover games.
 
 ## How to test
@@ -43,16 +43,16 @@ Run `npm run dev:migrate` and open <http://localhost:5173>. It signs in as the s
 In the sidebar, switch to **Demo Team**, open **Games**, then **Roster** → **Import…**, and paste:
 
 ```text
-number,name,main,secondary
-1,Lena Vogt,S,
-3,Ana Ruiz,S,OPP
-2,Tess Moor,L,
-4,Mia Kraus,OH,
-11,Sara Lind,OH,OPP
-17,Kim Roth,OH,MB
-5,Jana Weiss,MB,
-15,Ida Berg,MB,
-9,Nora Falk,OPP,OH
+number,name,short,main,secondary
+1,Lena Vogt,Lena,S,
+3,Ana Ruiz,Ana,S,OPP
+2,Tess Moor,Tess,L,
+4,Mia Kraus,Mia,OH,
+11,Sara Lind,Sara,OH,OPP/MB
+17,Kim Roth,Kim,OH,MB
+5,Jana Weiss,Jana,MB,
+15,Ida Berg,Ida,MB,
+9,Nora Falk,Nora,OPP,OH
 ```
 
 Back in **Games**, create a game and play. **Print slips** opens the print view.

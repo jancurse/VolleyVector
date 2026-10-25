@@ -18,7 +18,8 @@ const ROWS: Row[] = [
     number: 7,
     name: "Ana",
     main_position: "setter",
-    secondary_position: null,
+    short_name: "",
+    secondary_positions: [],
     archived_at: null,
   },
   {
@@ -27,7 +28,8 @@ const ROWS: Row[] = [
     number: 3,
     name: "Bea",
     main_position: "outside",
-    secondary_position: "opposite",
+    short_name: "",
+    secondary_positions: ["opposite"],
     archived_at: null,
   },
   {
@@ -36,7 +38,8 @@ const ROWS: Row[] = [
     number: 9,
     name: "Gone",
     main_position: "middle",
-    secondary_position: null,
+    short_name: "",
+    secondary_positions: [],
     archived_at: "2026-01-01",
   },
 ];
@@ -84,19 +87,31 @@ describe("RosterSection", () => {
     expect(screen.queryByRole("button", { name: "Add player" })).not.toBeInTheDocument();
   });
 
-  test("a coach adds a player", async () => {
+  test("a coach adds a player with a short name and two other positions", async () => {
     render(<RosterSection teamId="t1" teamName="Eagles" canManage />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Add player" }));
     await userEvent.type(screen.getByRole("textbox", { name: "Number" }), "12");
-    await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Cleo");
+    await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Cleo Park");
+    await userEvent.type(screen.getByRole("textbox", { name: "Short name" }), "Cleo");
+    await userEvent.click(screen.getByRole("button", { name: "Opposite" }));
+    await userEvent.click(screen.getByRole("button", { name: "Middle blocker" }));
     await userEvent.click(screen.getByRole("button", { name: "Save player" }));
 
-    expect(await screen.findByRole("cell", { name: "Cleo" })).toBeInTheDocument();
-    expect(writes[0]).toMatchObject({
-      op: "insert",
-      payload: [{ number: 12, name: "Cleo", main_position: "outside" }],
-    });
+    await waitFor(() =>
+      expect(writes[0]).toMatchObject({
+        op: "insert",
+        payload: [
+          {
+            number: 12,
+            name: "Cleo Park",
+            short_name: "Cleo",
+            main_position: "outside",
+            secondary_positions: ["middle", "opposite"],
+          },
+        ],
+      })
+    );
   });
 
   test("a taken number keeps the dialog open with the reason", async () => {
@@ -126,7 +141,7 @@ describe("RosterSection", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Import…" }));
     await userEvent.click(screen.getByRole("textbox", { name: "Players" }));
-    await userEvent.paste("number,name,main\n12,Cleo,OH\n7,Dup,S");
+    await userEvent.paste("number,name,short,main\n12,Cleo,,OH\n7,Dup,,S");
 
     expect(screen.getByText("#7 is already taken")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Add 1 player" }));

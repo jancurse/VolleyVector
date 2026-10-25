@@ -11,10 +11,12 @@ type PrintViewProps = {
   /** The document title, set as the page title so it becomes the default print/PDF filename. */
   title: string;
   onBack: () => void;
+  /** Print options shown beside the print button. */
+  options?: ReactNode;
   children: ReactNode;
 };
 
-export function PrintView({ title, onBack, children }: PrintViewProps): JSX.Element {
+export function PrintView({ title, onBack, options, children }: PrintViewProps): JSX.Element {
   // A handout is a paper artefact: force the light theme while it is on screen (the marker palette is
   // theme-independent, so the courts keep their colours) and restore the user's theme on leaving.
   useEffect(() => {
@@ -44,10 +46,13 @@ export function PrintView({ title, onBack, children }: PrintViewProps): JSX.Elem
         <Button variant="text" size="sm" className="pl-0" onClick={onBack}>
           ← Back
         </Button>
-        <Button variant="primary" onClick={() => window.print()}>
-          <Printer size={15} aria-hidden="true" />
-          Print or save as PDF
-        </Button>
+        <span className="flex items-center gap-2">
+          {options}
+          <Button variant="primary" onClick={() => window.print()}>
+            <Printer size={15} aria-hidden="true" />
+            Print or save as PDF
+          </Button>
+        </span>
       </header>
       <main className="mx-auto w-full max-w-[760px] px-[clamp(1.1rem,4vw,2rem)] py-[clamp(1.5rem,4vh,3rem)] print:max-w-none print:p-0">
         {children}
