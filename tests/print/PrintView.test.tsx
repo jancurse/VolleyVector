@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import { PrintView } from "../../src/print/PrintView";
 
 describe("PrintView", () => {
-  test("forces the light theme and the document title while open, restoring both on leave", () => {
+  test("pins the light theme on itself and sets the document title while open, restoring it on leave", () => {
     document.documentElement.dataset.theme = "dark";
     document.title = "VolleyVector";
 
@@ -15,12 +15,11 @@ describe("PrintView", () => {
       </PrintView>
     );
 
-    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(screen.getByText("Handout").closest("[data-theme]")).toHaveAttribute("data-theme", "light");
+    expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.title).toBe("Rotation 1");
-    expect(screen.getByText("Handout")).toBeInTheDocument();
 
     unmount();
-    expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.title).toBe("VolleyVector");
   });
 

@@ -17,19 +17,6 @@ type PrintViewProps = {
 };
 
 export function PrintView({ title, onBack, options, children }: PrintViewProps): JSX.Element {
-  // A handout is a paper artefact: force the light theme while it is on screen (the marker palette is
-  // theme-independent, so the courts keep their colours) and restore the user's theme on leaving.
-  useEffect(() => {
-    const previous = document.documentElement.dataset.theme;
-
-    document.documentElement.dataset.theme = "light";
-
-    return () => {
-      if (previous === undefined) delete document.documentElement.dataset.theme;
-      else document.documentElement.dataset.theme = previous;
-    };
-  }, []);
-
   useEffect(() => {
     const previous = document.title;
 
@@ -40,8 +27,11 @@ export function PrintView({ title, onBack, options, children }: PrintViewProps):
     };
   }, [title]);
 
+  // A handout is a paper artefact, so it pins the light theme on its own root (the marker palette is
+  // theme-independent, so the courts keep their colours). Leaving <html> alone keeps the app's theme hook from
+  // switching the page back to dark when the print dialog closes.
   return (
-    <div className="min-h-[100dvh] bg-white text-text [print-color-adjust:exact]">
+    <div data-theme="light" className="min-h-[100dvh] bg-white text-text [print-color-adjust:exact]">
       <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-white px-[clamp(1.1rem,4vw,2.5rem)] py-[0.65rem] print:hidden">
         <Button variant="text" size="sm" className="pl-0" onClick={onBack}>
           ← Back

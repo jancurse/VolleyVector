@@ -2,10 +2,12 @@ import type { JSX, ReactNode } from "react";
 import { RotateCcw, RotateCw } from "lucide-react";
 
 import { IconButton } from "../ui/IconButton";
+import { cx } from "../ui/styles";
 
 // The paper sheet every rotation slip shares: a caption and title, the version stamp (flanked by rotate
 // buttons when `onRotate` is given, hidden in print), then the slip's body. A slip is always ink on white,
-// so it pins the light theme for itself and reads the same on screen, in dark mode, and on paper.
+// so it pins the light theme for itself and reads the same on screen, in dark mode, and on paper. `compact`
+// tightens the spacing so more slips fit a printed page.
 type SlipFrameProps = {
   caption: string;
   title: string;
@@ -13,14 +15,26 @@ type SlipFrameProps = {
   ariaLabel: string;
   /** Rotate the slip: receives the shift to apply, 1 for back (I → II) and -1 for forward (II → I). */
   onRotate?: (steps: number) => void;
+  compact?: boolean;
   children: ReactNode;
 };
 
-export function SlipFrame({ caption, title, stamp, ariaLabel, onRotate, children }: SlipFrameProps): JSX.Element {
+export function SlipFrame({
+  caption,
+  title,
+  stamp,
+  ariaLabel,
+  onRotate,
+  compact,
+  children,
+}: SlipFrameProps): JSX.Element {
   return (
     <article
       data-theme="light"
-      className="flex w-full break-inside-avoid flex-col gap-3 rounded-sm border-2 border-text bg-white p-3 text-text"
+      className={cx(
+        "flex w-full break-inside-avoid flex-col rounded-sm border-2 border-text bg-white text-text",
+        compact ? "gap-2 p-2" : "gap-3 p-3"
+      )}
       aria-label={ariaLabel}
     >
       <header className="flex items-start justify-between gap-2">

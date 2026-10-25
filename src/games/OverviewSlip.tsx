@@ -15,6 +15,7 @@ type OverviewSlipProps = {
   squad: readonly RosterPlayer[];
   shift: number;
   onRotate?: (steps: number) => void;
+  compact?: boolean;
 };
 
 function PlayerLines({ players }: { players: readonly RosterPlayer[] }): JSX.Element {
@@ -30,7 +31,7 @@ function PlayerLines({ players }: { players: readonly RosterPlayer[] }): JSX.Ele
   );
 }
 
-export function OverviewSlip({ teamName, squad, shift, onRotate }: OverviewSlipProps): JSX.Element {
+export function OverviewSlip({ teamName, squad, shift, onRotate, compact }: OverviewSlipProps): JSX.Element {
   const { roles, zones, liberos } = overviewZones(squad, shift);
 
   return (
@@ -40,8 +41,10 @@ export function OverviewSlip({ teamName, squad, shift, onRotate }: OverviewSlipP
       stamp={`Setter in ${ROMAN[roles.indexOf("setter")]}`}
       ariaLabel="Overview"
       onRotate={onRotate}
+      compact={compact}
     >
       <SlipCourt
+        compact={compact}
         zone={(index) => (
           <div className="relative flex min-w-0 flex-col gap-1 px-1.5 pt-5 pb-1.5">
             <span

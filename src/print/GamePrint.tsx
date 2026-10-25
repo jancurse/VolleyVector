@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { formatGameDate, playerLabel } from "../games/format";
-import { playerMap, ROMAN, sortShifts } from "../games/rotation";
+import { playerMap, ROMAN, sortShifts, sortSquad } from "../games/rotation";
 import { OverviewSlip } from "../games/OverviewSlip";
 import { PositionChip } from "../games/PositionChip";
 import { RotationSlip } from "../games/RotationSlip";
@@ -26,7 +26,7 @@ export function GamePrint({ game, teamName, roster, onBack }: GamePrintProps): J
   const players = playerMap(roster, game.overrides);
   const label = (id: string) => playerLabel(players.get(id));
   const rotations = game.rotations.filter((l) => l.printShifts.length > 0);
-  const squad = game.squad.flatMap((id) => players.get(id) ?? []).sort((a, b) => a.number - b.number);
+  const squad = sortSquad(game.squad.flatMap((id) => players.get(id) ?? []));
 
   return (
     <PrintView
@@ -43,7 +43,7 @@ export function GamePrint({ game, teamName, roster, onBack }: GamePrintProps): J
         </>
       }
     >
-      <div className="print-slips flex flex-col gap-6">
+      <div className="print-slips flex flex-col gap-4">
         <header className="flex items-end justify-between gap-4 border-b-2 border-text pb-3">
           <div className="min-w-0">
             <p className={cx(FIELD_LABEL, "m-0")}>{teamName}</p>
@@ -55,15 +55,15 @@ export function GamePrint({ game, teamName, roster, onBack }: GamePrintProps): J
         {squad.length > 0 && (withSquad || withOverview) && (
           <div className="flex break-inside-avoid items-start gap-5">
             {withSquad && (
-              <section className="flex min-w-0 flex-1 flex-col gap-3">
+              <section className="flex min-w-0 flex-1 flex-col gap-2">
                 <h2 className="m-0 font-display text-display-sm font-bold">Squad</h2>
                 <table className="w-full border-collapse text-left text-sm">
                   <tbody>
                     {squad.map((p) => (
                       <tr key={p.id} className="border-b border-text/15 last:border-0">
-                        <td className="w-8 py-1 pr-2 text-right font-display font-bold tabular-nums">{p.number}</td>
-                        <td className="py-1 pr-2">{p.name}</td>
-                        <td className="py-1 text-right whitespace-nowrap">
+                        <td className="w-8 py-0.5 pr-2 text-right font-display font-bold tabular-nums">{p.number}</td>
+                        <td className="py-0.5 pr-2">{p.name}</td>
+                        <td className="py-0.5 text-right whitespace-nowrap">
                           <span className="inline-flex gap-1">
                             <PositionChip position={p.main} />
                             {p.secondary.map((s) => (
@@ -78,9 +78,9 @@ export function GamePrint({ game, teamName, roster, onBack }: GamePrintProps): J
               </section>
             )}
             {withOverview && (
-              <section className="flex w-[42%] flex-none flex-col gap-3">
+              <section className="flex w-[42%] flex-none flex-col gap-2">
                 <h2 className="m-0 font-display text-display-sm font-bold">Overview</h2>
-                <OverviewSlip teamName={teamName} squad={squad} shift={game.overviewShift} />
+                <OverviewSlip teamName={teamName} squad={squad} shift={game.overviewShift} compact />
               </section>
             )}
           </div>
@@ -96,15 +96,22 @@ export function GamePrint({ game, teamName, roster, onBack }: GamePrintProps): J
           );
 
           return (
-            <section key={rotation.id} className="flex break-inside-avoid flex-col gap-3">
+            <section key={rotation.id} className="flex break-inside-avoid flex-col gap-2">
               <h2 className="m-0 font-display text-display-sm font-bold">{rotation.name}</h2>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {sortShifts(rotation, players, rotation.printShifts).map((shift) => (
-                  <RotationSlip key={shift} teamName={teamName} rotation={rotation} players={players} shift={shift} />
+                  <RotationSlip
+                    key={shift}
+                    teamName={teamName}
+                    rotation={rotation}
+                    players={players}
+                    shift={shift}
+                    compact
+                  />
                 ))}
               </div>
               {(subs.length > 0 || rotation.notes.trim()) && (
-                <div className="grid grid-cols-2 gap-6 border-t border-text/25 pt-3 text-sm">
+                <div className="grid grid-cols-2 gap-6 border-t border-text/25 pt-2 text-sm">
                   {subs.length > 0 && (
                     <div className="flex flex-col gap-1.5">
                       <p className={cx(FIELD_LABEL, "m-0")}>Planned subs</p>

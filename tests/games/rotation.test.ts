@@ -9,6 +9,7 @@ import {
   rankForRole,
   setOverride,
   shiftPositions,
+  sortSquad,
   toggleAlternate,
   versionLabel,
 } from "../../src/games/rotation";
@@ -96,4 +97,10 @@ test.each([
   };
 
   expect(setOverride(game, SQUAD[1], override).overrides).toEqual(expected);
+});
+
+test("sortSquad lists the squad by number with liberos last", () => {
+  const squad = [p("l", 1, "libero"), p("s", 9, "setter"), p("oh", 4, "outside"), p("l2", 2, "libero")];
+
+  expect(sortSquad(squad).map((x) => x.id)).toEqual(["oh", "s", "l", "l2"]);
 });

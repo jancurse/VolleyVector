@@ -6,8 +6,8 @@ import { COURT_ORDER, ROMAN } from "./rotation";
 
 // The slip's court sketch: the net as a double rule, then the six zones in reading order from behind our
 // end line (front row IV-III-II, shaded, back row V-VI-I). Each zone carries its official position and,
-// at I, the server's ball; `zone` fills the rest.
-export function SlipCourt({ zone }: { zone: (index: number) => ReactNode }): JSX.Element {
+// at I, the server's ball; `zone` fills the rest. `compact` lowers the zones' minimum height for print.
+export function SlipCourt({ zone, compact }: { zone: (index: number) => ReactNode; compact?: boolean }): JSX.Element {
   return (
     <div className="flex flex-col">
       <div className="border-t-4 border-double border-text" aria-hidden="true" />
@@ -16,7 +16,8 @@ export function SlipCourt({ zone }: { zone: (index: number) => ReactNode }): JSX
           <div
             key={index}
             className={cx(
-              "relative grid min-h-24 border-text/25",
+              "relative grid border-text/25",
+              compact ? "min-h-16" : "min-h-24",
               i < 3 && "bg-[var(--court-zone)]",
               i % 3 !== 2 && "border-r",
               i >= 3 && "border-t border-dashed border-t-text/60"

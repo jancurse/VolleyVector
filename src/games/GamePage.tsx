@@ -10,7 +10,7 @@ import { Menu, MenuItem } from "../ui/Menu";
 import { Table, TableCell, TableHeadCell } from "../ui/Table";
 import { cx, EYEBROW, MUTED, PAGE, PAGE_BAR, PANEL, PANEL_TITLE, TITLE } from "../ui/styles";
 import { formatGameDate } from "./format";
-import { createRotation, playerMap } from "./rotation";
+import { createRotation, playerMap, sortSquad } from "./rotation";
 import { RotationEditor } from "./RotationEditor";
 import { OverviewSlip } from "./OverviewSlip";
 import { PositionChip } from "./PositionChip";
@@ -174,25 +174,23 @@ export function GamePage({ game, teamName, roster, canEdit, onSave, onDelete, on
                 </tr>
               </thead>
               <tbody>
-                {[...squad]
-                  .sort((a, b) => a.number - b.number)
-                  .map((p) => (
-                    <tr key={p.id}>
-                      <TableCell className="font-display text-xl font-bold tabular-nums">{p.number}</TableCell>
-                      <TableCell className="max-w-xs truncate font-medium">
-                        {p.name}
-                        {draft.overrides[p.id] && <span className="ml-2 text-xs text-text-dim">this game</span>}
-                      </TableCell>
-                      <TableCell>
-                        <PositionChip position={p.main} />
-                      </TableCell>
-                      <TableCell>
-                        {p.secondary.map((s) => (
-                          <PositionChip key={s} position={s} secondary />
-                        ))}
-                      </TableCell>
-                    </tr>
-                  ))}
+                {sortSquad(squad).map((p) => (
+                  <tr key={p.id}>
+                    <TableCell className="font-display text-xl font-bold tabular-nums">{p.number}</TableCell>
+                    <TableCell className="max-w-xs truncate font-medium">
+                      {p.name}
+                      {draft.overrides[p.id] && <span className="ml-2 text-xs text-text-dim">this game</span>}
+                    </TableCell>
+                    <TableCell>
+                      <PositionChip position={p.main} />
+                    </TableCell>
+                    <TableCell>
+                      {p.secondary.map((s) => (
+                        <PositionChip key={s} position={s} secondary />
+                      ))}
+                    </TableCell>
+                  </tr>
+                ))}
               </tbody>
             </Table>
           )}

@@ -219,3 +219,8 @@ export function playerMap(
 ): Map<string, RosterPlayer> {
   return new Map(roster.map((p) => [p.id, { ...p, ...overrides[p.id] }]));
 }
+
+/** The squad as listed above the rotations: by number, liberos last. */
+export function sortSquad(squad: readonly RosterPlayer[]): RosterPlayer[] {
+  return [...squad].sort((a, b) => Number(a.main === "libero") - Number(b.main === "libero") || a.number - b.number);
+}
