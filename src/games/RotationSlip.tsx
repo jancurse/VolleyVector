@@ -8,7 +8,7 @@ import { SlipFrame } from "./SlipFrame";
 import type { Rotation, RosterPlayer } from "./types";
 
 // A rotation at one shift as a paper slip. Each zone shows its role code so it reads in greyscale.
-// The editor passes `zone` and `libero` to wrap those cells in pickers.
+// The editor passes `zone` and `libero` to wrap those cells in pickers; print passes `compact`.
 type RotationSlipProps = {
   teamName: string;
   rotation: Rotation;
@@ -17,6 +17,7 @@ type RotationSlipProps = {
   onRotate?: (steps: number) => void;
   zone?: (index: number, content: ReactNode) => ReactNode;
   libero?: (content: ReactNode) => ReactNode;
+  compact?: boolean;
 };
 
 function ZonePlayer({ player }: { player: RosterPlayer | undefined }): JSX.Element {
@@ -48,6 +49,7 @@ export function RotationSlip({
   onRotate,
   zone = (_, content) => content,
   libero = (content) => content,
+  compact,
 }: RotationSlipProps): JSX.Element {
   const positions = shiftPositions(rotation.positions, shift);
   const at = (id: string | null) => (id ? players.get(id) : undefined);
@@ -61,8 +63,9 @@ export function RotationSlip({
       stamp={label}
       ariaLabel={`${rotation.name}, ${label}`}
       onRotate={onRotate}
+      compact={compact}
     >
-      <SlipCourt zone={(index) => zone(index, <ZonePlayer player={at(positions[index])} />)} />
+      <SlipCourt compact={compact} zone={(index) => zone(index, <ZonePlayer player={at(positions[index])} />)} />
 
       <div className="grid overflow-hidden rounded-xs border-2" style={{ borderColor: ROLES.libero.fill }}>
         {libero(
