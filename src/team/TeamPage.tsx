@@ -8,6 +8,7 @@ import { useConfirm } from "../ui/useConfirm";
 import type { TeamRole } from "../workspace/useWorkspace";
 import { InviteDialog } from "./InviteDialog";
 import { MembersList, memberLabel } from "./MembersList";
+import { RosterSection } from "./RosterSection";
 import type { Member } from "./useMembers";
 import { useMembers } from "./useMembers";
 
@@ -136,6 +137,8 @@ export function TeamPage({
         onRemove={(member) => void removeMember(member)}
       />
       {memberError && <p className="m-0 text-sm text-danger">{memberError}</p>}
+
+      <RosterSection teamId={teamId} teamName={teamName} canManage={canManage} />
 
       <InviteDialog
         open={inviteOpen}

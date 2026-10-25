@@ -23,6 +23,9 @@ const cases: { route: Route; path: string }[] = [
   },
   { route: { kind: "printNote", space: team, noteSlug: "rotations" }, path: "/t/acme/note/rotations/print" },
   { route: { kind: "team", teamSlug: "acme" }, path: "/t/acme/team" },
+  { route: { kind: "games", teamSlug: "acme" }, path: "/t/acme/games" },
+  { route: { kind: "game", teamSlug: "acme", gameId: "g-1" }, path: "/t/acme/games/g-1" },
+  { route: { kind: "printGame", teamSlug: "acme", gameId: "g-1" }, path: "/t/acme/games/g-1/print" },
   { route: { kind: "settings" }, path: "/settings" },
   { route: { kind: "admin", sub: "teams" }, path: "/admin/teams" },
   { route: { kind: "admin", sub: "accounts" }, path: "/admin/accounts" },
@@ -74,6 +77,8 @@ describe("parsePath / buildPath", () => {
     "/settings/extra",
     "/personal/board",
     "/personal/team",
+    "/personal/games",
+    "/t/acme/games/g-1/edit",
     "/personal/board/x/copy",
     "/t",
   ])("falls back to not-found for %s", (path) => {
@@ -101,6 +106,7 @@ describe("routeSpace", () => {
     expect(routeSpace({ kind: "printBoard", space: team, boardId: "b" })).toEqual(team);
     expect(routeSpace({ kind: "printNote", space: personal, noteSlug: "x" })).toEqual(personal);
     expect(routeSpace({ kind: "team", teamSlug: "acme" })).toEqual(team);
+    expect(routeSpace({ kind: "game", teamSlug: "acme", gameId: "g" })).toEqual(team);
   });
 
   it("returns null for the space-less routes", () => {

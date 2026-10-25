@@ -22,6 +22,7 @@ The app is live at [volleyvector.app](https://volleyvector.app), invite-only for
 - **Account and team lifecycle:** anyone can delete their own account, and an admin can archive or delete a team. Deleted boards, notes, teams, and accounts are kept for a three-month recovery window before they are purged.
 - **Spaces:** every user has a private personal space, and each team has a shared library. A board or note can be granted to several teams and to individual users at once, so it lives in every library that holds it rather than in one.
 - **Sharing and collaboration:** grant a board to a teammate to co-edit it together, or to another team so a coach of several teams keeps one board across them, each at viewer, editor, or owner. Share outside your teams with a single-use grant link or to an exact email. Open any shared board read-only from an unguessable link, or copy one into your own space to fork it.
+- **Rosters and games:** a team keeps a roster of its players, imported from a spreadsheet or added one by one. A game picks a squad and sets its starting rotations on slips, ready to print.
 - **History:** every save is a revision, so a board or note keeps a linear edit history, and a save that would clobber a co-editor's change is caught as a conflict to resolve instead.
 - **Light and dark themes:** the interface follows the system preference and can be toggled.
 

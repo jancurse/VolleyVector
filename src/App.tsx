@@ -16,6 +16,10 @@ import { BoardActionsMenu } from "./editor/BoardActionsMenu";
 import { BoardEditor } from "./editor/BoardEditor";
 import { clearDraftBackup, loadDraftBackup } from "./editor/draftBackup";
 import { BoardView } from "./editor/BoardView";
+import { GamePage } from "./games/GamePage";
+import { GamesPage } from "./games/GamesPage";
+import { useGames } from "./games/useGames";
+import { useRoster } from "./games/useRoster";
 import { BoardHistory } from "./history/BoardHistory";
 import { NoteHistory } from "./history/NoteHistory";
 import { Library } from "./library/Library";
@@ -73,6 +77,8 @@ import {
   canonicalRoute,
   findTeamId,
   findNoteId,
+  gameRoute,
+  gamesRoute,
   libraryRoute,
   routeSpaceForSpace,
   spaceForRouteSpace,
@@ -83,6 +89,7 @@ import {
 import { BoardPrint } from "./print/BoardPrint";
 import { PrintView } from "./print/PrintView";
 import { NotePrint } from "./print/NotePrint";
+import { GamePrint } from "./print/GamePrint";
 import { AppShell } from "./shell/AppShell";
 import { BrandLockup } from "./shell/BrandMark";
 import { Sidebar } from "./shell/Sidebar";
@@ -242,6 +249,15 @@ export function App(): JSX.Element {
   );
   const personal = activeSpace.kind === "personal";
   const setActiveSpace = workspace.setActiveSpace;
+
+  // The games surfaces load the team's games and roster; every other route leaves both unloaded.
+  const gamesTeamId =
+    route.kind === "games" || route.kind === "game" || route.kind === "printGame"
+      ? findTeamId(allTeams, route.teamSlug)
+      : null;
+  const games = useGames(gamesTeamId);
+  const roster = useRoster(gamesTeamId);
+  const gamesTeamName = allTeams.find((t) => t.teamId === gamesTeamId)?.teamName ?? "Team";
 
   // Selection, open board, and edit mode are all read off the current route.
   const selection: Selection =
@@ -696,6 +712,21 @@ export function App(): JSX.Element {
     );
   }
 
+  if (route.kind === "printGame") {
+    const game = games.games.find((g) => g.id === route.gameId);
+
+    if (!game) return !spaceReady || games.loading ? loader : printNotFound;
+
+    return (
+      <GamePrint
+        game={game}
+        teamName={gamesTeamName}
+        roster={roster.players}
+        onBack={() => navigate(gameRoute(game.teamId, allTeams, game.id))}
+      />
+    );
+  }
+
   const selectedNote = selection.kind === "note" ? notes.notes.find((t) => t.id === selection.id) : undefined;
 
   // The teams whose library the viewer may write to, as copy/move targets: an admin reaches every team;
@@ -773,6 +804,38 @@ export function App(): JSX.Element {
   const spaceName = personal
     ? "My boards"
     : (allTeams.find((t) => activeSpace.kind === "team" && t.teamId === activeSpace.teamId)?.teamName ?? "Team");
+
+  const newGame = async () => {
+    if (!gamesTeamId) return;
+
+    const { id, error } = await games.createGame({
+      name: "New game",
+      date: new Date().toLocaleDateString("en-CA"),
+      squad: roster.players.filter((p) => !p.archived).map((p) => p.id),
+      overrides: {},
+      overviewShift: 0,
+      rotations: [],
+    });
+
+    if (id) navigate(gameRoute(gamesTeamId, allTeams, id));
+    else void confirm({ title: "Couldn’t create the game", description: error ?? undefined, confirmLabel: "OK" });
+  };
+
+  const removeGame = async (id: string) => {
+    const ok = await confirm({
+      title: "Delete this game?",
+      description: "Its squad and rotations are deleted for good.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+
+    if (!ok || !gamesTeamId) return;
+
+    const { error } = await games.deleteGame(id);
+
+    if (error) void confirm({ title: "Couldn’t delete the game", description: error, confirmLabel: "OK" });
+    else navigate(gamesRoute(gamesTeamId, allTeams));
+  };
 
   let content: JSX.Element;
 
@@ -966,6 +1029,40 @@ export function App(): JSX.Element {
         }
       />
     );
+  } else if (route.kind === "games") {
+    content = gamesTeamId ? (
+      <GamesPage
+        teamName={gamesTeamName}
+        games={games.games}
+        loading={games.loading}
+        canEdit={canEdit}
+        onOpen={(id) => navigate(gameRoute(gamesTeamId, allTeams, id))}
+        onNew={() => void newGame()}
+        onOpenRoster={() => navigate(teamRoute(gamesTeamId, allTeams))}
+      />
+    ) : (
+      <NotFound onHome={() => navigate(homeRoute())} />
+    );
+  } else if (route.kind === "game") {
+    const game = games.games.find((g) => g.id === route.gameId);
+
+    content =
+      game && gamesTeamId ? (
+        <GamePage
+          key={game.id}
+          game={game}
+          teamName={gamesTeamName}
+          roster={roster.players}
+          canEdit={canEdit}
+          onSave={games.saveGame}
+          onDelete={() => void removeGame(game.id)}
+          onPrint={() => navigate(gameRoute(gamesTeamId, allTeams, game.id, true))}
+        />
+      ) : !spaceReady || games.loading || roster.loading ? (
+        <p className={MUTED}>Loading…</p>
+      ) : (
+        <NotFound onHome={() => navigate(homeRoute())} />
+      );
   } else if (route.kind === "settings") {
     content = (
       <SettingsPage
@@ -1042,6 +1139,10 @@ export function App(): JSX.Element {
       onReorderNote={notes.reorderNote}
       onNestNote={notes.reparentNote}
       canEdit={canEdit}
+      onOpenGames={
+        activeSpace.kind === "team" ? closing(() => navigate(gamesRoute(activeSpace.teamId, allTeams))) : undefined
+      }
+      gamesActive={route.kind === "games" || route.kind === "game"}
       isAdmin={workspace.isAdmin}
       adminActive={route.kind === "admin"}
       onOpenAdmin={closing(() => navigate({ kind: "admin", sub: "teams" }))}
@@ -1050,7 +1151,7 @@ export function App(): JSX.Element {
 
   const topBar = (
     <TopBar
-      crumbs={breadcrumbs(route, allTeams, notes.notes, boards)}
+      crumbs={breadcrumbs(route, allTeams, notes.notes, boards, games.games)}
       onNavigate={navigate}
       onOpenNav={sidebarMode === "drawer" ? () => setNavOpen(true) : undefined}
       account={

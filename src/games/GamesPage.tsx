@@ -1,0 +1,86 @@
+import type { JSX } from "react";
+import { Plus, Users } from "lucide-react";
+
+import { Button } from "../ui/Button";
+import { Table, TableCell, TableHeadCell } from "../ui/Table";
+import { EYEBROW, MUTED, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
+import { formatGameDate } from "./format";
+import type { Game } from "./types";
+
+// A team's games, newest fixture first. A coach starts a new one here; anyone on the team opens one to see
+// its rotations and print its rotation slips, or opens the roster the squads are picked from.
+type GamesPageProps = {
+  teamName: string;
+  games: readonly Game[];
+  loading: boolean;
+  canEdit: boolean;
+  onOpen: (id: string) => void;
+  onNew: () => void;
+  onOpenRoster: () => void;
+};
+
+export function GamesPage({
+  teamName,
+  games,
+  loading,
+  canEdit,
+  onOpen,
+  onNew,
+  onOpenRoster,
+}: GamesPageProps): JSX.Element {
+  return (
+    <section className={PAGE}>
+      <div className={PAGE_BAR}>
+        <div>
+          <p className={EYEBROW}>{teamName}</p>
+          <h1 className={TITLE}>Games</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" paired={canEdit} onClick={onOpenRoster}>
+            <Users size={15} aria-hidden="true" />
+            Roster
+          </Button>
+          {canEdit && (
+            <Button variant="primary" onClick={onNew}>
+              <Plus size={15} aria-hidden="true" />
+              New game
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {loading ? (
+        <p className={MUTED}>Loading…</p>
+      ) : games.length === 0 ? (
+        <p className={MUTED}>
+          {canEdit
+            ? "Start a game to pick a squad, set your rotations, and print rotation slips."
+            : "No games planned yet."}
+        </p>
+      ) : (
+        <Table>
+          <thead>
+            <tr>
+              <TableHeadCell>Game</TableHeadCell>
+              <TableHeadCell>Date</TableHeadCell>
+              <TableHeadCell className="text-right">Rotations</TableHeadCell>
+            </tr>
+          </thead>
+          <tbody>
+            {games.map((game) => (
+              <tr key={game.id}>
+                <TableCell className="max-w-xs truncate">
+                  <Button variant="text" className="pl-0 text-base text-text" onClick={() => onOpen(game.id)}>
+                    {game.name || "Untitled game"}
+                  </Button>
+                </TableCell>
+                <TableCell className="text-text-dim">{game.date ? formatGameDate(game.date) : "—"}</TableCell>
+                <TableCell className="text-right tabular-nums">{game.rotations.length}</TableCell>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </section>
+  );
+}

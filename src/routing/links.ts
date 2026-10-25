@@ -68,7 +68,10 @@ export function canonicalRoute(route: Route, teams: readonly TeamRef[], notes: r
 
       return { ...route, space: canonicalSpace(route.space), noteSlug: note ? noteSlugOf(note) : route.noteSlug };
     }
-    case "team": {
+    case "team":
+    case "games":
+    case "game":
+    case "printGame": {
       const team = findTeam(route.teamSlug);
 
       return team ? { ...route, teamSlug: teamSlugOf(team) } : route;
@@ -98,8 +101,21 @@ export function notePrintRoute(space: Space, teams: readonly TeamRef[], note: No
   return { kind: "printNote", space: routeSpaceForSpace(space, teams), noteSlug: noteSlugOf(note) };
 }
 
-export function teamRoute(teamId: string, teams: readonly TeamRef[]): Route {
+/** A team's URL handle by id, falling back to the id while the team list does not carry it yet. */
+function teamSlugFor(teamId: string, teams: readonly TeamRef[]): string {
   const team = teams.find((t) => t.teamId === teamId);
 
-  return { kind: "team", teamSlug: team ? teamSlugOf(team) : teamId };
+  return team ? teamSlugOf(team) : teamId;
+}
+
+export function teamRoute(teamId: string, teams: readonly TeamRef[]): Route {
+  return { kind: "team", teamSlug: teamSlugFor(teamId, teams) };
+}
+
+export function gamesRoute(teamId: string, teams: readonly TeamRef[]): Route {
+  return { kind: "games", teamSlug: teamSlugFor(teamId, teams) };
+}
+
+export function gameRoute(teamId: string, teams: readonly TeamRef[], gameId: string, print = false): Route {
+  return { kind: print ? "printGame" : "game", teamSlug: teamSlugFor(teamId, teams), gameId };
 }

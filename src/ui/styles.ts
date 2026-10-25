@@ -153,6 +153,10 @@ export const OVERLAY_MOTION =
 export const OVERLAY_ITEM =
   "flex w-full items-center cursor-default select-none rounded-sm px-2 py-1.5 text-left font-ui text-base font-semibold text-text outline-none data-[highlighted]:bg-control-hover data-[selected]:bg-control-hover";
 
+/** A choosable row in a picker panel: a plain button that highlights on hover and keyboard focus. */
+export const PICK_ROW =
+  "flex w-full items-center gap-2.5 cursor-pointer rounded-sm px-2 py-1.5 text-left font-ui text-base text-text outline-none transition-colors duration-150 ease-settle hover:bg-control-hover focus-visible:bg-control-hover";
+
 // ---- Tables (management pages) ----------------------------------------------------------------
 
 // One shared table look for every management page (members, teams, accounts, recovery), so all four
@@ -207,3 +211,9 @@ export const STEP_NUM =
     and removes the current step from the strip's trailing action instead. */
 export const STEP_REMOVE =
   "mr-1 grid size-6.5 flex-none place-items-center rounded-md text-text-dim opacity-0 outline-none transition-[opacity,color,background-color] duration-150 ease-settle pointer-coarse:hidden hover:bg-control-hover hover:text-danger focus-visible:opacity-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent group-hover:opacity-100 group-focus-within:opacity-100";
+
+// ---- Rotation slips ---------------------------------------------------------------------------
+
+/** A slip zone that opens a player picker: the whole zone is the target, tinted on hover and focus. */
+export const SLIP_ZONE_BUTTON =
+  "grid h-full w-full cursor-pointer outline-none transition-colors duration-150 ease-settle hover:bg-accent-weak focus-visible:bg-accent-weak focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent";
