@@ -1,5 +1,9 @@
 {
   "enabledMcpjsonServers": ["playwright", "supabase"],
+  "skillOverrides": {
+    "anthropic-skills:writing-style": "off",
+    "anthropic-skills:plan-custom": "off"
+  },
   "permissions": {
     "allow": [
       "Bash(npm run build)",
