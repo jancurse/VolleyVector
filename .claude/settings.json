@@ -31,7 +31,6 @@
       "Bash(npx supabase gen:*)",
       "Bash(supabase gen:*)"
     ],
-    "ask": ["Bash(git push)", "Bash(git push:*)", "Bash(gh pr create)", "Bash(gh pr create:*)"],
     "deny": [
       "Bash(npx supabase db push:*)",
       "Bash(supabase db push:*)",
