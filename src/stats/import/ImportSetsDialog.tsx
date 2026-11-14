@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { JSX } from "react";
 
+import { GuideLink } from "../../guide/GuideLink";
 import type { Game, RosterPlayer } from "../../games/types";
 import type { PlayerDraft } from "../../games/useRoster";
 import { Button } from "../../ui/Button";
@@ -249,6 +250,7 @@ export function ImportSetsDialog({
         again adds to the files already chosen, so they can come from different folders. Sets with the same date and
         teams go into one game. Check the games below before importing.
       </p>
+      <GuideLink topic="import-sets">How importing works</GuideLink>
       <div className="flex">
         <FileButton multiple onFiles={(list) => void pick(list)}>
           Choose files…

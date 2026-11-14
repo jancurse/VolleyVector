@@ -75,3 +75,17 @@ describe("rail mode (960 to 1400px)", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
   });
 });
+
+describe("the guide", () => {
+  test.each([
+    { mode: "sidebar", width: 1600 },
+    { mode: "rail", width: 1200 },
+  ])("opens from the $mode", async ({ width }) => {
+    const user = await renderApp(width);
+
+    await user.click(screen.getByRole("button", { name: "Guide" }));
+
+    expect(await screen.findByRole("heading", { name: "How to use VolleyVector" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/guide");
+  });
+});

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { JSX } from "react";
 
+import { GuideLink } from "../guide/GuideLink";
 import type { Board } from "../boards/types";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
@@ -66,6 +67,7 @@ export function NoteEditor({ note, boards, onDone, onCancel }: NoteEditorProps):
           aria-label="Note title"
           onChange={(event) => setTitle(event.target.value)}
         />
+        <GuideLink topic="notes" />
         <Button variant="text" paired onClick={onCancel}>
           Cancel
         </Button>

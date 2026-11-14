@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX, KeyboardEvent } from "react";
 import { Redo2, Undo2 } from "lucide-react";
 
+import { GuideLink } from "../guide/GuideLink";
 import { arrowsForStep } from "../boards/arrows";
 import {
   addAnnotation,
@@ -446,6 +447,7 @@ export function BoardEditor({
           aria-label="Board title"
           onChange={(event) => replace((d) => ({ ...d, title: event.target.value }))}
         />
+        <GuideLink topic="build" />
         <IconButton aria-label="Undo" tooltip="Undo (Ctrl+Z)" disabled={!canUndo} onClick={undo}>
           <Undo2 size={16} aria-hidden="true" />
         </IconButton>

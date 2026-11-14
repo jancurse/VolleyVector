@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { Trash2, User, Users } from "lucide-react";
 
+import { GuideLink } from "../guide/GuideLink";
 import type { AccessRow, Capability } from "../supabase/rows";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
@@ -187,6 +188,8 @@ export function AccessList({
       <OutsideTeamShare entityNoun={entityNoun} onCreateLink={onCreateLink} onGrantByEmail={onGrantByEmail} />
 
       {children}
+
+      <GuideLink topic="share">How sharing works</GuideLink>
 
       {error && <p className="m-0 text-sm text-danger">{error}</p>}
     </section>
