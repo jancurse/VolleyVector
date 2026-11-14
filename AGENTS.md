@@ -109,6 +109,7 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 ### Git and Shell
 
 - Do not run git write operations (commit, amend, push, rebase, reset, tag, branch changes) unless the user explicitly asks; otherwise leave changes in the working tree for review.
+- Exception: once a task's work on its feature branch is finished and verified, you may commit it, push the branch, and open a PR without being asked.
 - **Commit messages:** an imperative subject under ~70 characters, a body only when the change needs explaining, and no file lists or process narration.
 - Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
 - **Always work on a feature branch and integrate through a squash-merged PR**, never by committing to `main` directly.

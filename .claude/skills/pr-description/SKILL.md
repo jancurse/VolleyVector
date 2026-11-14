@@ -5,7 +5,7 @@ description: Write a concise PR description for the current branch. Use when the
 
 # PR description
 
-Write a concise PR description for the current branch. By default, save it to a local Markdown file and tell the user the path: do not paste the body into chat. Open a PR only when the user asks for one (see [Opening a PR](#opening-a-pr)).
+Write a concise PR description for the current branch. By default, save it to a local Markdown file and tell the user the path: do not paste the body into chat. Open a PR when the user asks for one, or when the branch's work is finished and verified (see [Opening a PR](#opening-a-pr)).
 
 ## Scope
 
@@ -41,7 +41,7 @@ Save one Markdown file, named `pr-<branch>.md`:
 
 ## Opening a PR
 
-Open a PR only when the user asks: either up front ("write the description and open the PR") or after they have reviewed the file and agreed. Write the file first in both cases; the PR is created from it.
+Open a PR when the user asks, or without being asked once the branch's work is finished and verified. Write the file first in every case; the PR is created from it.
 
 The file maps onto GitHub's two fields. Do not paste the whole file, and do not repeat the title:
 
