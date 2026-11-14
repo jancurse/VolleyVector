@@ -1,4 +1,5 @@
 import { AlertDialog as BaseAlertDialog } from "@base-ui/react/alert-dialog";
+import type { ReactNode } from "react";
 
 import { Button } from "./Button";
 import { BACKDROP, cx, OVERLAY_MOTION, OVERLAY_SURFACE } from "./styles";
@@ -14,6 +15,8 @@ export type AlertDialogProps = {
   cancelLabel?: string;
   danger?: boolean;
   onConfirm: () => void;
+  /** Shown between the description and the buttons, e.g. an option. */
+  children?: ReactNode;
 };
 
 const POPUP = cx(
@@ -31,6 +34,7 @@ export function AlertDialog({
   cancelLabel = "Cancel",
   danger = false,
   onConfirm,
+  children,
 }: AlertDialogProps) {
   return (
     <BaseAlertDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -47,6 +51,7 @@ export function AlertDialog({
               </BaseAlertDialog.Description>
             )}
           </div>
+          {children}
           <div className="flex justify-end gap-3">
             <BaseAlertDialog.Close
               render={

@@ -21,7 +21,8 @@ vi.mock("../../src/supabase/client", () => ({
   },
 }));
 
-const { supabaseSetBackend, updateSets } = await import("../../src/stats/sets");
+const { addSet, saveSetScore, supabaseSetBackend, updateSets } = await import("../../src/stats/sets");
+const { trackedScore } = await import("../../src/stats/rallies");
 
 const data: AppData = {
   ...emptyData(["Mira"]),
@@ -127,5 +128,64 @@ describe("updating stored sets", () => {
     expect(await updateSets(["g"], rename, backend)).toEqual({ updated: 0, skipped: 1, error: null });
     expect(await updateSets(["g"], () => ({ error: "Clash." }), backend)).toMatchObject({ error: "Clash." });
     expect(backend.relink).not.toHaveBeenCalled();
+  });
+});
+
+describe("adding a set", () => {
+  test("saves it straight away as a new set of its game", async () => {
+    fake.rpc.mockResolvedValue({ data: { version: 1 }, error: null });
+
+    expect(await addSet("g", emptyData())).toBeNull();
+    expect(fake.rpc).toHaveBeenCalledWith("save_game_set", expect.objectContaining({ game: "g", base: 0 }));
+  });
+});
+
+describe("a typed-in score", () => {
+  const stored = (d: AppData, published: AppData | null = d) => ({
+    kind: "found",
+    record: { id: "s", gameId: "g", version: 2, data: d, published },
+  });
+  const typedIn = (score: unknown) => expect.objectContaining({ meta: expect.objectContaining({ score }) });
+  const backendWith = (record: ReturnType<typeof stored>) => ({
+    load: vi.fn().mockResolvedValue(record),
+    save: vi.fn().mockResolvedValue({ kind: "saved", version: 3 }),
+    publish: vi.fn().mockResolvedValue({ kind: "saved", version: 3 }),
+  });
+
+  test("is saved and then saved as the stats, with or without events, and wins over the events' score", async () => {
+    const empty = backendWith(stored(emptyData(), null));
+
+    expect(await saveSetScore("s", { us: 15, them: 13 }, empty)).toBeNull();
+    expect(empty.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "s", gameId: "g", base: 2, data: typedIn({ us: 15, them: 13 }) })
+    );
+    expect(empty.publish).toHaveBeenCalledWith({ id: "s", base: 3, data: typedIn({ us: 15, them: 13 }) });
+
+    const tracked = backendWith(stored(data));
+
+    expect(await saveSetScore("s", { us: 25, them: 23 }, tracked)).toBeNull();
+    expect(tracked.publish).toHaveBeenCalledWith(expect.objectContaining({ data: typedIn({ us: 25, them: 23 }) }));
+  });
+
+  test("typing the score the events give clears it", async () => {
+    const typed = { ...data, meta: { ...data.meta, score: { us: 25, them: 23 } } };
+    const backend = backendWith(stored(typed));
+
+    expect(await saveSetScore("s", trackedScore(data), backend)).toBeNull();
+    expect(backend.save.mock.calls[0][0].data.meta).not.toHaveProperty("score");
+  });
+
+  test("leaves a set alone whose recording has changes not saved as stats", async () => {
+    const backend = backendWith(stored(data, null));
+
+    expect(await saveSetScore("s", { us: 25, them: 23 }, backend)).toMatch(/not saved yet/);
+    expect(backend.save).not.toHaveBeenCalled();
+  });
+
+  test("reports a set that is gone", async () => {
+    const backend = { load: vi.fn().mockResolvedValue({ kind: "missing" }), save: vi.fn(), publish: vi.fn() };
+
+    expect(await saveSetScore("s", { us: 1, them: 0 }, backend)).toBe("The set is gone.");
+    expect(backend.save).not.toHaveBeenCalled();
   });
 });

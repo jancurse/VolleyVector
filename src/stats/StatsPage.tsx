@@ -24,22 +24,38 @@ type StatsPageProps = {
   eyebrow: string;
   title: string;
   initialTab: StatsTab;
-  /** Called when the stats or report tab is picked, so the URL follows. */
+  /** The tab shown, when the caller holds it (the URL); otherwise the page does, from `initialTab`. */
+  tab?: StatsTab;
+  /** Called when a tab is picked, so the URL follows. */
   onTab?: (tab: StatsTab) => void;
   /** A back button, for the stats opened from inside the tracker. */
   back?: { label: string; onBack: () => void };
+  /** Shown inside another page (a game's tabs), which carries the title and the tabs. */
+  embedded?: boolean;
 };
 
 const loading = <p className={MUTED}>Loading…</p>;
 
 /**
- * Recorded sets as stats, highlights, and the match report, in three tabs. The stats and highlights stay
+ * Recorded sets as stats, highlights, and the match report, in three tabs (or a game page's). The stats and highlights stay
  * mounted once shown, so each keeps its filters and scroll, and a tap on a stat opens the highlights filtered to
  * those moments.
  */
-export function StatsPage({ sets, eyebrow, title, initialTab, onTab, back }: StatsPageProps): JSX.Element {
-  const [tab, setTab] = useState<StatsTab>(initialTab);
-  const [opened, setOpened] = useState<ReadonlySet<StatsTab>>(() => new Set([initialTab]));
+export function StatsPage({
+  sets,
+  eyebrow,
+  title,
+  initialTab,
+  tab: shown,
+  onTab,
+  back,
+  embedded = false,
+}: StatsPageProps): JSX.Element {
+  const [own, setOwn] = useState<StatsTab>(initialTab);
+  const tab = shown ?? own;
+  const [opened, setOpened] = useState<ReadonlySet<StatsTab>>(() => new Set([tab]));
+
+  if (!opened.has(tab)) setOpened(new Set([...opened, tab]));
   const [selection, setSelection] = useState(emptySelection);
   // The dashboard's current filters and rally log view, so its exports open (and print) as seen.
   const params = useRef<Params | undefined>(undefined);
@@ -53,16 +69,18 @@ export function StatsPage({ sets, eyebrow, title, initialTab, onTab, back }: Sta
   };
 
   const show = (next: StatsTab) => {
-    setOpened((o) => new Set([...o, next]));
-    setTab(next);
-    if (next !== "highlights") onTab?.(next);
+    setOwn(next);
+    onTab?.(next);
   };
 
-  const playClips = useCallback((s: Partial<Selection>) => {
-    setSelection({ ...emptySelection(), ...s });
-    setOpened((o) => new Set([...o, "highlights"]));
-    setTab("highlights");
-  }, []);
+  const playClips = useCallback(
+    (s: Partial<Selection>) => {
+      setSelection({ ...emptySelection(), ...s });
+      setOwn("highlights");
+      onTab?.("highlights");
+    },
+    [onTab]
+  );
 
   const onParams = useCallback((p: Params) => {
     params.current = p;
@@ -96,55 +114,63 @@ export function StatsPage({ sets, eyebrow, title, initialTab, onTab, back }: Sta
     document.body.append(frame);
   };
 
+  const exports = tab === "stats" && (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        onClick={() => exporting(exportHtml)}
+        title="Download the stats as one HTML file that works offline"
+      >
+        <FileDown size={15} aria-hidden="true" /> HTML
+      </Button>
+      <Button variant="ghost" onClick={() => exporting(exportPdf)} title="Print the stats or save them as PDF">
+        <Printer size={15} aria-hidden="true" /> PDF
+      </Button>
+    </div>
+  );
+
   return (
-    <section className={PAGE}>
-      <div className={PAGE_BAR}>
-        <div className="flex min-w-0 flex-col">
-          {back && (
-            <Button variant="text" className="mb-2 self-start pl-0" onClick={back.onBack}>
-              <ArrowLeft size={15} aria-hidden="true" /> {back.label}
-            </Button>
-          )}
-          <p className={EYEBROW}>{eyebrow}</p>
-          <h1 className={TITLE}>{title}</h1>
-        </div>
-        {tab === "stats" && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => exporting(exportHtml)}
-              title="Download the stats as one HTML file that works offline"
-            >
-              <FileDown size={15} aria-hidden="true" /> HTML
-            </Button>
-            <Button variant="ghost" onClick={() => exporting(exportPdf)} title="Print the stats or save them as PDF">
-              <Printer size={15} aria-hidden="true" /> PDF
-            </Button>
+    <section className={embedded ? "flex flex-col gap-[clamp(1rem,3vh,1.6rem)]" : PAGE}>
+      {!embedded && (
+        <div className={PAGE_BAR}>
+          <div className="flex min-w-0 flex-col">
+            {back && (
+              <Button variant="text" className="mb-2 self-start pl-0" onClick={back.onBack}>
+                <ArrowLeft size={15} aria-hidden="true" /> {back.label}
+              </Button>
+            )}
+            <p className={EYEBROW}>{eyebrow}</p>
+            <h1 className={TITLE}>{title}</h1>
           </div>
-        )}
-      </div>
+          {exports}
+        </div>
+      )}
 
       {exportError && <p className={CALLOUT_WARN}>{exportError}</p>}
 
-      <Tabs value={tab} onValueChange={(v) => show(v === "highlights" || v === "report" ? v : "stats")}>
-        <TabList ariaLabel="View">
-          <Tab value="stats">
-            <span className="flex items-center gap-1.5">
-              <BarChart3 size={15} aria-hidden="true" /> Stats
-            </span>
-          </Tab>
-          <Tab value="highlights">
-            <span className="flex items-center gap-1.5">
-              <Clapperboard size={15} aria-hidden="true" /> Highlights
-            </span>
-          </Tab>
-          <Tab value="report">
-            <span className="flex items-center gap-1.5">
-              <FileText size={15} aria-hidden="true" /> Match report
-            </span>
-          </Tab>
-        </TabList>
-      </Tabs>
+      {embedded ? (
+        exports && <div className="flex justify-end">{exports}</div>
+      ) : (
+        <Tabs value={tab} onValueChange={(v) => show(v === "highlights" || v === "report" ? v : "stats")}>
+          <TabList ariaLabel="View">
+            <Tab value="stats">
+              <span className="flex items-center gap-1.5">
+                <BarChart3 size={15} aria-hidden="true" /> Stats
+              </span>
+            </Tab>
+            <Tab value="highlights">
+              <span className="flex items-center gap-1.5">
+                <Clapperboard size={15} aria-hidden="true" /> Highlights
+              </span>
+            </Tab>
+            <Tab value="report">
+              <span className="flex items-center gap-1.5">
+                <FileText size={15} aria-hidden="true" /> Match report
+              </span>
+            </Tab>
+          </TabList>
+        </Tabs>
+      )}
 
       {opened.has("stats") && (
         <div hidden={tab !== "stats"}>

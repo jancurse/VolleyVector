@@ -61,6 +61,8 @@ export type MatchMeta = {
   /** Starting lineup by court position (index 0 = position 1); empty when not set. */
   lineup: string[];
   libero: string;
+  /** A score typed in: for a set recorded without stats, or one whose stats are incomplete. It wins over the events'. */
+  score?: { us: number; them: number };
 };
 
 export type Rally = {

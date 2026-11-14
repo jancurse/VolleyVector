@@ -1,5 +1,5 @@
 import { supabase } from "../supabase/client";
-import { deriveRallies } from "./rallies";
+import { setScore, trackedScore } from "./rallies";
 import { readBackup } from "./sync/setSync";
 import type { LoadOutcome, PublishRequest, SaveOutcome, SaveRequest, SetBackend } from "./sync/setSync";
 import { SET_SUMMARY_COLUMNS, setRecordFromRow, setSummaryFromRow } from "../supabase/rows";
@@ -258,8 +258,8 @@ async function saveSet({ id, gameId, data, base }: SaveRequest): Promise<SaveOut
 async function publishSet({ id, base, data }: PublishRequest): Promise<SaveOutcome> {
   if (!(await signedIn())) return { kind: "signedOut" };
 
-  // The list shows the stats' score, which follows from the rally rules, so it is derived here.
-  const score = deriveRallies(data.events, data.meta).at(-1)?.score ?? { us: 0, them: 0 };
+  // The list shows the stats' score: a typed-in one, or else the one the rally rules give, so it is derived here.
+  const score = setScore(data);
   const { data: res, error } = await supabase.rpc("publish_game_set", {
     set_id: id,
     base,
@@ -299,4 +299,61 @@ function answer(res: unknown, error: PostgrestErrorLike | null, version: number)
   if (r.missing) return { kind: "missing" };
 
   return { kind: "saved", version: r.version ?? version };
+}
+
+/** Why a save didn't land, for a message. */
+function saveError(outcome: Exclude<SaveOutcome, { kind: "saved" }> | Exclude<LoadOutcome, { kind: "found" }>): string {
+  switch (outcome.kind) {
+    case "conflict":
+      return "Someone saved this set in the meantime. Try again.";
+    case "missing":
+      return "The set is gone.";
+    case "refused":
+      return outcome.message;
+    case "signedOut":
+      return "You’re signed out.";
+    case "offline":
+      return "Couldn’t reach the server.";
+  }
+}
+
+/** Save a new set straight to the server, so it shows as a row of its game. Resolves to an error, or null. */
+export async function addSet(
+  gameId: string,
+  data: AppData,
+  backend: SetBackend = supabaseSetBackend
+): Promise<string | null> {
+  const saved = await backend.save({ id: crypto.randomUUID(), gameId, data, base: 0 });
+
+  return saved.kind === "saved" ? null : saveError(saved);
+}
+
+/**
+ * Type in a set's score, straight to the server, and save it as the set's stats so the list shows it. It wins over
+ * the score the set's events give; typing that same score clears it. A set whose recording has changes not yet saved
+ * as stats is left alone, since saving the score would save them too. Resolves to an error, or null.
+ */
+export async function saveSetScore(
+  setId: string,
+  score: { us: number; them: number },
+  backend: SetBackend = supabaseSetBackend
+): Promise<string | null> {
+  const loaded = await backend.load(setId);
+
+  if (loaded.kind !== "found") return saveError(loaded);
+
+  const { record } = loaded;
+
+  if (readBackup(localStorage, record.id) || (record.data.events.length > 0 && !same(record.data, record.published)))
+    return "This set has stats changes not saved yet. Save its stats in the tracker first.";
+
+  const tracked = record.data.events.length ? trackedScore(record.data) : null;
+  const { score: _typed, ...meta } = record.data.meta;
+  const typed = tracked?.us === score.us && tracked.them === score.them ? {} : { score };
+  const data = { ...record.data, meta: { ...meta, ...typed } };
+  const saved = await backend.save({ id: record.id, gameId: record.gameId, data, base: record.version });
+  const published =
+    saved.kind === "saved" ? await backend.publish({ id: record.id, base: saved.version, data }) : saved;
+
+  return published.kind === "saved" ? null : saveError(published);
 }

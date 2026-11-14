@@ -1,7 +1,7 @@
 import type { Note } from "../notes/types";
 import type { Space } from "../workspace/space";
 import type { TeamRef } from "../workspace/useWorkspace";
-import type { Route, RouteSpace, StatsView } from "./route";
+import type { GameTab, Route, RouteSpace, StatsView } from "./route";
 
 // Resolve the app's entities (spaces, teams, notes, boards) to and from a `Route`, so components never
 // hand-build URLs. The only place the URL's human handle is read off an entity is the two accessors
@@ -118,20 +118,19 @@ export function gamesRoute(teamId: string, teams: readonly TeamRef[]): Route {
   return { kind: "games", teamSlug: teamSlugFor(teamId, teams) };
 }
 
-export function gameRoute(teamId: string, teams: readonly TeamRef[], gameId: string, print = false): Route {
-  return { kind: print ? "printGame" : "game", teamSlug: teamSlugFor(teamId, teams), gameId };
+export function gameRoute(teamId: string, teams: readonly TeamRef[], gameId: string, tab: GameTab = "overview"): Route {
+  return { kind: "game", teamSlug: teamSlugFor(teamId, teams), gameId, tab };
+}
+
+export function printGameRoute(teamId: string, teams: readonly TeamRef[], gameId: string): Route {
+  return { kind: "printGame", teamSlug: teamSlugFor(teamId, teams), gameId };
 }
 
 export function setRoute(teamId: string, teams: readonly TeamRef[], gameId: string, setId: string): Route {
   return { kind: "set", teamSlug: teamSlugFor(teamId, teams), gameId, setId };
 }
 
-/** The stats and highlights, or the match report, over the given games, or over picked set files (null). */
-export function statsRoute(
-  teamId: string,
-  teams: readonly TeamRef[],
-  view: StatsView,
-  gameIds: string[] | null
-): Route {
+/** The stats and highlights, or the match report, over the given games. */
+export function statsRoute(teamId: string, teams: readonly TeamRef[], view: StatsView, gameIds: string[]): Route {
   return { kind: "stats", teamSlug: teamSlugFor(teamId, teams), view, gameIds };
 }

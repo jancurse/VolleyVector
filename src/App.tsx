@@ -24,14 +24,11 @@ import { useSetLinks } from "./games/useSetLinks";
 import type { Game } from "./games/types";
 import { localSets, newSetData, squadNames, withGameMeta } from "./stats/gameSets";
 import { ImportSetsDialog } from "./stats/import/ImportSetsDialog";
-import { toReportSet } from "./stats/reportSet";
-import { deleteSet, finishSet, importSet, loadSetData } from "./stats/sets";
+import { addSet, deleteSet, finishSet, importSet, loadSetData, saveSetScore } from "./stats/sets";
 import type { SetSummary } from "./stats/types";
-import { parseImport } from "./stats/store";
 import { readBackup, writeBackup } from "./stats/sync/setSync";
 import { downloadSet, startSet } from "./stats/sync/useSetSync";
 import { SetPage } from "./stats/tracker/SetPage";
-import type { ReportSet } from "./stats/types";
 import { useGameSets } from "./stats/useGameSets";
 import { BoardHistory } from "./history/BoardHistory";
 import { NoteHistory } from "./history/NoteHistory";
@@ -94,6 +91,7 @@ import {
   findNoteId,
   gameRoute,
   gamesRoute,
+  printGameRoute,
   setRoute,
   statsRoute,
   libraryRoute,
@@ -119,7 +117,6 @@ import { useSidebarMode } from "./shell/useSidebarMode";
 import { SidePanel } from "./ui/SidePanel";
 
 // The stats, highlights, and report are heavy (YouTube, Chart.js, jsPDF); only load them when opened.
-const StatsPage = lazy(() => import("./stats/StatsPage").then((m) => ({ default: m.StatsPage })));
 const GameStats = lazy(() => import("./stats/GameStats").then((m) => ({ default: m.GameStats })));
 
 // The page background: a radial glow over the theme base, used by the full-screen gates (loading, error).
@@ -234,7 +231,7 @@ export function App(): JSX.Element {
     updateBoard,
   } = useBoards(space, workspace.isAdmin, workspace.activeRole);
   const notes = useNotes(space, workspace.isAdmin, workspace.activeRole);
-  const { confirm, dialog } = useConfirm();
+  const { confirm, confirmWith, dialog } = useConfirm();
 
   const [draft, setDraft] = useState<Board | null>(null);
   // Bumped when a backup restore replaces the draft in place, so the keyed editor remounts on it.
@@ -287,8 +284,6 @@ export function App(): JSX.Element {
   const gameIds = useMemo(() => games.games.map((g) => g.id), [games.games]);
   const gameSets = useGameSets(gameIds);
   const setLinks = useSetLinks(games.games, roster.players, games.saveGame, gameSets.reload);
-  // Set files picked for the stats: they live only in memory, so a reload asks for them again.
-  const [fileSets, setFileSets] = useState<ReportSet[] | null>(null);
   const [importingSets, setImportingSets] = useState<{ intoGameId?: string } | null>(null);
   // The set open in the tracker, with its game and team as they were when it opened: the tracker stays up
   // through a sign-out (it keeps recording into this browser), when the workspace and its stores empty.
@@ -962,9 +957,9 @@ export function App(): JSX.Element {
     else void confirm({ title: "Couldn’t create the game", description: error ?? undefined, confirmLabel: "OK" });
   };
 
-  // A new set starts in this browser (safe from its first change, online or not) and opens in the tracker.
+  // A new set is saved straight away, so it is listed; its stats are recorded from its row, or its score typed in.
   // It follows the game's last set: the same lineup and video, numbered after every set the game has.
-  const recordSet = async (game: Game) => {
+  const addNextSet = async (game: Game) => {
     const recorded = gameSets.sets.filter((s) => s.gameId === game.id);
     const setNumber = nextSetNumber(game.id);
     const last = recorded.at(-1);
@@ -974,27 +969,30 @@ export function App(): JSX.Element {
       const stored = await loadSetData(game.id);
 
       if (stored.error)
-        return void confirm({ title: "Couldn’t start the set", description: stored.error, confirmLabel: "OK" });
+        return void confirm({ title: "Couldn’t add the set", description: stored.error, confirmLabel: "OK" });
 
       previous = stored.sets.find((s) => s.id === last.id)?.data;
     }
 
-    const data = newSetData(game, gamesTeamName, squadNames(game, roster.players), setNumber, previous ?? null);
-
-    navigate(
-      setRoute(game.teamId, allTeams, game.id, startSet({ game, teamName: gamesTeamName, userId: user.id }, data))
+    const error = await addSet(
+      game.id,
+      newSetData(game, gamesTeamName, squadNames(game, roster.players), setNumber, previous ?? null)
     );
+
+    if (error) void confirm({ title: "Couldn’t add the set", description: error, confirmLabel: "OK" });
+    else gameSets.reload();
   };
 
   const removeSet = async (set: SetSummary) => {
-    const ok = await confirm({
+    const { confirmed, option: keepCopy } = await confirmWith({
       title: `Delete set ${set.setNumber}?`,
-      description: "All its stats are deleted for good. A copy is downloaded first.",
+      description: "All its stats are deleted for good.",
+      option: "Download a copy first",
       confirmLabel: "Delete",
       danger: true,
     });
 
-    if (!ok) return;
+    if (!confirmed) return;
 
     const stored = await loadSetData(set.gameId);
     const data = readBackup(localStorage, set.id)?.data ?? stored.sets.find((s) => s.id === set.id)?.data;
@@ -1002,7 +1000,8 @@ export function App(): JSX.Element {
 
     const game = games.games.find((g) => g.id === set.gameId);
 
-    if (data && !error) downloadSet(game ? withGameMeta(data, game, gamesTeamName) : data, set.id, "deleted");
+    if (data && !error && keepCopy)
+      downloadSet(game ? withGameMeta(data, game, gamesTeamName) : data, set.id, "deleted");
 
     if (error) {
       void confirm({ title: "Couldn’t delete the set", description: error, confirmLabel: "OK" });
@@ -1026,46 +1025,21 @@ export function App(): JSX.Element {
       );
   };
 
-  // Stats and highlights straight from exported set files, saving nothing.
-  const statsFromFiles = async (files: readonly File[]) => {
-    const sets: ReportSet[] = [];
-    const failed: string[] = [];
-
-    for (const file of files) {
-      try {
-        sets.push(toReportSet(parseImport(JSON.parse(await file.text()))));
-      } catch {
-        failed.push(file.name);
-      }
-    }
-
-    if (failed.length)
-      await confirm({
-        title: "Some files were skipped",
-        description: `Not set exports: ${failed.join(", ")}`,
-        confirmLabel: "OK",
-      });
-
-    if (!sets.length || !gamesTeamId) return;
-
-    setFileSets(sets);
-    navigate(statsRoute(gamesTeamId, allTeams, "stats", null));
-  };
-
   const removeGame = async (id: string) => {
     const count = gameSets.sets.filter((s) => s.gameId === id).length;
-    const ok = await confirm({
+    const { confirmed, option: keepCopy } = await confirmWith({
       title: count
         ? `Delete this game and its ${count} recorded ${count === 1 ? "set" : "sets"}?`
         : "Delete this game?",
       description: count
-        ? "Its squad, rotations, sets, and their stats are deleted for good. The sets are downloaded first."
+        ? "Its squad, rotations, sets, and their stats are deleted for good."
         : "Its squad and rotations are deleted for good.",
+      option: count ? `Download ${count === 1 ? "a copy of the set" : "copies of the sets"} first` : undefined,
       confirmLabel: "Delete",
       danger: true,
     });
 
-    if (!ok || !gamesTeamId) return;
+    if (!confirmed || !gamesTeamId) return;
 
     // The sets go with the game, so each is loaded before the delete and downloaded once it went through.
     const stored = count ? await loadSetData(id) : { sets: [], error: null };
@@ -1075,8 +1049,9 @@ export function App(): JSX.Element {
 
     const game = games.games.find((g) => g.id === id);
 
-    for (const set of stored.sets)
-      downloadSet(game ? withGameMeta(set.data, game, gamesTeamName) : set.data, set.id, "deleted");
+    if (keepCopy)
+      for (const set of stored.sets)
+        downloadSet(game ? withGameMeta(set.data, game, gamesTeamName) : set.data, set.id, "deleted");
     navigate(gamesRoute(gamesTeamId, allTeams));
   };
 
@@ -1286,13 +1261,14 @@ export function App(): JSX.Element {
         onOpenRoster={() => navigate(teamRoute(gamesTeamId, allTeams))}
         onImport={() => setImportingSets({})}
         onStats={(picked) => openGameStats(picked)}
-        onStatsFromFiles={(files) => void statsFromFiles(files)}
       />
     ) : (
       <NotFound onHome={() => navigate(homeRoute())} />
     );
-  } else if (route.kind === "game") {
-    const game = games.games.find((g) => g.id === route.gameId);
+  } else if (route.kind === "game" || (route.kind === "stats" && route.gameIds.length === 1)) {
+    // One game's stats are its page's stats tab.
+    const gameId = route.kind === "game" ? route.gameId : route.gameIds[0];
+    const game = games.games.find((g) => g.id === gameId);
 
     content =
       game && gamesTeamId ? (
@@ -1306,17 +1282,32 @@ export function App(): JSX.Element {
           onRenameInSets={setLinks.renameInSets}
           onAddPlayers={roster.addPlayers}
           onDelete={() => void removeGame(game.id)}
-          onPrint={() => navigate(gameRoute(gamesTeamId, allTeams, game.id, true))}
+          onPrint={() => navigate(printGameRoute(gamesTeamId, allTeams, game.id))}
           sets={gameSets.sets.filter((s) => s.gameId === game.id)}
           localSets={localSets(game.id)}
           setsLoading={gameSets.loading}
           setsError={gameSets.error}
           onReloadSets={gameSets.reload}
           onOpenSet={(id) => navigate(setRoute(gamesTeamId, allTeams, game.id, id))}
-          onNewSet={(g) => void recordSet(g)}
+          onNewSet={addNextSet}
           onDeleteSet={(set) => void removeSet(set)}
           onImportSets={() => setImportingSets({ intoGameId: game.id })}
-          onStats={(g) => openGameStats([g])}
+          onScoreSet={async (set, score) => {
+            const error = await saveSetScore(set.id, score);
+
+            if (!error) gameSets.reload();
+
+            return error;
+          }}
+          tab={route.kind === "game" ? route.tab : route.view}
+          onTab={(tab) =>
+            navigate(
+              tab === "overview" || tab === "rotations"
+                ? gameRoute(gamesTeamId, allTeams, game.id, tab)
+                : statsRoute(gamesTeamId, allTeams, tab, [game.id]),
+              { replace: true }
+            )
+          }
         />
       ) : !spaceReady || games.loading || roster.loading ? (
         <p className={MUTED}>Loading…</p>
@@ -1335,26 +1326,10 @@ export function App(): JSX.Element {
       ));
   } else if (route.kind === "stats") {
     const onTab = (view: StatsTab) =>
-      view !== "highlights" &&
-      gamesTeamId &&
-      navigate(statsRoute(gamesTeamId, allTeams, view, route.gameIds), { replace: true });
+      gamesTeamId && navigate(statsRoute(gamesTeamId, allTeams, view, route.gameIds), { replace: true });
 
     content = !gamesTeamId ? (
       <NotFound onHome={() => navigate(homeRoute())} />
-    ) : route.gameIds === null ? (
-      fileSets ? (
-        <Suspense fallback={<p className={MUTED}>Loading…</p>}>
-          <StatsPage
-            sets={fileSets}
-            eyebrow={`${gamesTeamName}, ${fileSets.length} ${fileSets.length === 1 ? "set" : "sets"}`}
-            title="From set files"
-            initialTab={route.view}
-            onTab={onTab}
-          />
-        </Suspense>
-      ) : (
-        <p className={MUTED}>The set files aren’t loaded any more. Pick them again from the games list.</p>
-      )
     ) : games.loading ? (
       <p className={MUTED}>Loading…</p>
     ) : (
@@ -1365,7 +1340,7 @@ export function App(): JSX.Element {
           games={games.games}
           teamName={gamesTeamName}
           roster={roster.players}
-          initialTab={route.view}
+          tab={route.view}
           onTab={onTab}
         />
       </Suspense>

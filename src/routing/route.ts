@@ -9,14 +9,17 @@
 /** A space in the URL. The team is identified by an opaque handle: its id today, its slug from Stage 4. */
 export type RouteSpace = { kind: "personal" } | { kind: "team"; teamSlug: string };
 
-/** The two ways to look at recorded sets: the stats and highlights, or the match report. */
-export type StatsView = "stats" | "report";
+/** The three ways to look at recorded sets: the stats, the highlights, or the match report. */
+export type StatsView = "stats" | "highlights" | "report";
 
-const STATS_VIEWS: readonly StatsView[] = ["stats", "report"];
+const STATS_VIEWS: readonly StatsView[] = ["stats", "highlights", "report"];
 
 function isStatsView(value: string): value is StatsView {
   return (STATS_VIEWS as readonly string[]).includes(value);
 }
+
+/** A game page's own tabs; its stats, highlights, and report tabs are the one-game stats route. */
+export type GameTab = "overview" | "rotations";
 
 /** Which admin sub-page is shown. `/admin` canonicalises to `/admin/teams`. */
 export type AdminSub = "teams" | "accounts" | "recovery" | "requests" | "feedback";
@@ -33,13 +36,12 @@ export type Route =
   | { kind: "printNote"; space: RouteSpace; noteSlug: string }
   // A team's games and one game's rotations, plus the game's printable rotation slips. Team spaces only.
   | { kind: "games"; teamSlug: string }
-  | { kind: "game"; teamSlug: string; gameId: string }
+  | { kind: "game"; teamSlug: string; gameId: string; tab: GameTab }
   | { kind: "printGame"; teamSlug: string; gameId: string }
   // One recorded set of a game, open in the stats tracker.
   | { kind: "set"; teamSlug: string; gameId: string; setId: string }
-  // The stats and highlights, or the match report, over some games' sets; gameIds null means set files
-  // the viewer picked, which live only in memory.
-  | { kind: "stats"; teamSlug: string; view: StatsView; gameIds: string[] | null }
+  // The stats, highlights, or match report over some games' sets. Over one game it is that game's tab.
+  | { kind: "stats"; teamSlug: string; view: StatsView; gameIds: string[] }
   | { kind: "settings" }
   // The public Terms & Privacy page, reachable with or without an account.
   | { kind: "terms" }
@@ -105,15 +107,17 @@ export function parsePath(pathname: string): Route {
   if (isStatsView(rest[0]) && rest.length === 2) {
     if (space.kind !== "team") return notFound;
 
-    const gameIds = rest[1] === "files" ? null : rest[1].split(",").filter(Boolean);
+    const gameIds = rest[1].split(",").filter(Boolean);
 
-    return gameIds?.length === 0 ? notFound : { kind: "stats", teamSlug: space.teamSlug, view: rest[0], gameIds };
+    return gameIds.length === 0 ? notFound : { kind: "stats", teamSlug: space.teamSlug, view: rest[0], gameIds };
   }
 
   if (rest[0] === "games") {
     if (space.kind !== "team") return notFound;
     if (rest.length === 1) return { kind: "games", teamSlug: space.teamSlug };
-    if (rest.length === 2) return { kind: "game", teamSlug: space.teamSlug, gameId: rest[1] };
+    if (rest.length === 2) return { kind: "game", teamSlug: space.teamSlug, gameId: rest[1], tab: "overview" };
+    if (rest.length === 3 && rest[2] === "rotations")
+      return { kind: "game", teamSlug: space.teamSlug, gameId: rest[1], tab: "rotations" };
     if (rest.length === 3 && rest[2] === "print")
       return { kind: "printGame", teamSlug: space.teamSlug, gameId: rest[1] };
     if (rest.length === 4 && rest[2] === "sets")
@@ -166,7 +170,7 @@ export function buildPath(route: Route): string {
     case "games":
       return `/t/${encodeURIComponent(route.teamSlug)}/games`;
     case "game":
-      return `/t/${encodeURIComponent(route.teamSlug)}/games/${encodeURIComponent(route.gameId)}`;
+      return `/t/${encodeURIComponent(route.teamSlug)}/games/${encodeURIComponent(route.gameId)}${route.tab === "rotations" ? "/rotations" : ""}`;
     case "printGame":
       return `/t/${encodeURIComponent(route.teamSlug)}/games/${encodeURIComponent(route.gameId)}/print`;
     case "set":
@@ -174,9 +178,9 @@ export function buildPath(route: Route): string {
     case "stats": {
       const team = `/t/${encodeURIComponent(route.teamSlug)}`;
 
-      if (route.gameIds?.length === 1) return `${team}/games/${encodeURIComponent(route.gameIds[0])}/${route.view}`;
+      if (route.gameIds.length === 1) return `${team}/games/${encodeURIComponent(route.gameIds[0])}/${route.view}`;
 
-      return `${team}/${route.view}/${route.gameIds ? route.gameIds.map(encodeURIComponent).join(",") : "files"}`;
+      return `${team}/${route.view}/${route.gameIds.map(encodeURIComponent).join(",")}`;
     }
     case "settings":
       return "/settings";

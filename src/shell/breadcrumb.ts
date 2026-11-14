@@ -90,7 +90,7 @@ export function breadcrumbs(
       // A page under one game (its set in the tracker, its stats or report) sits under that game's crumb.
       const gameId =
         route.kind === "stats"
-          ? route.gameIds?.length === 1
+          ? route.gameIds.length === 1
             ? route.gameIds[0]
             : null
           : route.kind === "games"
@@ -100,13 +100,13 @@ export function breadcrumbs(
       if (gameId) {
         crumbs.push({
           label: games.find((g) => g.id === gameId)?.name || "Game",
-          route: { kind: "game", teamSlug: route.teamSlug, gameId },
+          route: { kind: "game", teamSlug: route.teamSlug, gameId, tab: "overview" },
         });
       }
 
       if (route.kind === "set") crumbs.push({ label: setLabel ?? "Set", route });
-      if (route.kind === "stats")
-        crumbs.push({ label: route.view === "report" ? "Match report" : "Stats and highlights", route });
+      if (route.kind === "stats" && !gameId)
+        crumbs.push({ label: { stats: "Stats", highlights: "Highlights", report: "Match report" }[route.view], route });
     }
   } else if (route.kind === "settings") {
     crumbs.push({ label: "Account", route });

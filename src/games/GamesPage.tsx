@@ -4,7 +4,6 @@ import { BarChart3, Plus, Upload, Users } from "lucide-react";
 
 import { ResultBadge } from "../stats/ResultBadge";
 import type { SetSummary } from "../stats/types";
-import { FileButton } from "../ui/FileButton";
 import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Checkbox";
 import { Table, TableCell, TableHeadCell } from "../ui/Table";
@@ -13,8 +12,8 @@ import { formatShortDate, VENUE_LABEL } from "./format";
 import type { Game } from "./types";
 
 // A team's games, newest fixture first, with each game's opponent and set scores. A coach starts a new game or
-// imports recorded set files here; anyone on the team opens one, picks several for their combined stats, or
-// opens the roster the squads are picked from.
+// imports recorded set files here; anyone on the team opens one, picks games for their combined stats, or opens
+// the roster the squads are picked from.
 type GamesPageProps = {
   teamName: string;
   games: readonly Game[];
@@ -27,7 +26,6 @@ type GamesPageProps = {
   onOpenRoster: () => void;
   onImport: () => void;
   onStats: (games: readonly Game[]) => void;
-  onStatsFromFiles: (files: File[]) => void;
 };
 
 export function GamesPage({
@@ -42,11 +40,14 @@ export function GamesPage({
   onOpenRoster,
   onImport,
   onStats,
-  onStatsFromFiles,
 }: GamesPageProps): JSX.Element {
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const setsOf = (id: string) => sets.filter((s) => s.gameId === id);
   const pickedGames = games.filter((g) => picked.has(g.id));
+  // Only games with stats recorded: a set with a typed-in score alone has none.
+  // A game can be picked once a set of it has saved stats with something recorded, not just a typed-in score.
+  const pickable = games.filter((g) => setsOf(g.id).some((s) => s.statsSaved && s.touches > 0));
+  const allPicked = pickable.length > 0 && pickable.every((g) => picked.has(g.id));
 
   const pick = (id: string, on: boolean) =>
     setPicked((p) => {
@@ -70,15 +71,6 @@ export function GamesPage({
             <Users size={15} aria-hidden="true" />
             Roster
           </Button>
-          <FileButton
-            multiple
-            paired={canEdit}
-            onFiles={onStatsFromFiles}
-            title="Stats and highlights from exported set files, saving nothing"
-          >
-            <BarChart3 size={15} aria-hidden="true" />
-            Stats and highlights from set files…
-          </FileButton>
           {canEdit && (
             <>
               <Button variant="ghost" paired onClick={onImport}>
@@ -118,7 +110,14 @@ export function GamesPage({
           <Table width="page">
             <thead>
               <tr>
-                <TableHeadCell className="w-px">Pick</TableHeadCell>
+                <TableHeadCell className="w-px">
+                  <Checkbox
+                    checked={allPicked}
+                    onCheckedChange={(on) => setPicked(new Set(on ? pickable.map((g) => g.id) : []))}
+                    ariaLabel="Pick every game with stats"
+                    disabled={pickable.length === 0}
+                  />
+                </TableHeadCell>
                 <TableHeadCell>Game</TableHeadCell>
                 <TableHeadCell>Opponent</TableHeadCell>
                 <TableHeadCell>Venue</TableHeadCell>
@@ -135,7 +134,7 @@ export function GamesPage({
                       checked={picked.has(game.id)}
                       onCheckedChange={(on) => pick(game.id, on)}
                       ariaLabel={`Pick ${game.name || "this game"} for stats`}
-                      disabled={!setsOf(game.id).some((s) => s.statsSaved)}
+                      disabled={!pickable.includes(game)}
                     />
                   </TableCell>
                   <TableCell>

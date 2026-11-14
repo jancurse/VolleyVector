@@ -1,5 +1,5 @@
 import { touchOutcome } from "./codes";
-import type { Court, MatchEvent, MatchMeta, Rally, Skill, Team, Touch } from "./types";
+import type { AppData, Court, MatchEvent, MatchMeta, Rally, Skill, Team, Touch } from "./types";
 
 export const sortEvents = (events: MatchEvent[]): MatchEvent[] =>
   [...events].sort((a, b) => a.timestamp - b.timestamp || a.id - b.id);
@@ -179,4 +179,14 @@ export function predictPlayer(rallies: Rally[], skill: Skill | ""): string {
   }
 
   return "";
+}
+
+/** The score a set's events give. */
+export function trackedScore(data: AppData): { us: number; them: number } {
+  return deriveRallies(data.events, data.meta).at(-1)?.score ?? { us: 0, them: 0 };
+}
+
+/** A set's score: the one typed in, or else the one its events give. */
+export function setScore(data: AppData): { us: number; them: number } {
+  return data.meta.score ?? trackedScore(data);
 }
