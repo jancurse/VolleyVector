@@ -82,12 +82,23 @@ export function RotationViewPanel({
 
 // In a Sequence the description caps its height and scrolls internally, so the rotation card and the
 // step instruction stay beside the court however long it grows; a Position leaves it unbounded.
-export function DescriptionPanel({ markdown, capped = false }: { markdown: string; capped?: boolean }): JSX.Element {
+export function DescriptionPanel({
+  markdown,
+  capped = false,
+  aside,
+}: {
+  markdown: string;
+  capped?: boolean;
+  aside?: ReactNode;
+}): JSX.Element {
   return (
     <section className={cx(PANEL, "min-w-0")} aria-label="Description">
       <span className={PANEL_TITLE}>Description</span>
-      <div className={cx("min-w-0", capped && "max-h-60 overflow-y-auto")}>
-        {markdown.trim() ? <Markdown>{markdown}</Markdown> : <p className={MUTED}>No description yet.</p>}
+      <div className="flex items-start gap-3">
+        <div className={cx("min-w-0 flex-1", capped && "max-h-60 overflow-y-auto")}>
+          {markdown.trim() ? <Markdown>{markdown}</Markdown> : <p className={MUTED}>No description yet.</p>}
+        </div>
+        {aside}
       </div>
     </section>
   );
@@ -178,6 +189,26 @@ export function BoardView({
     />
   );
 
+  // Stacked (on a phone), the rotation card gives way to this small diagram beside the step instruction
+  // (or a Position's description), so the court leads the page.
+  const compactRotation = rotation && assignment && overlay && (
+    <div className="hidden w-[8.5rem] flex-none flex-col gap-1 @max-[1040px]:flex">
+      <RotationBoard
+        markers={board.markers}
+        rotation={rotation}
+        selectedId={selectedId}
+        links={overlay.links}
+        onSelect={tap}
+      />
+      <span className="text-xs font-semibold text-text-dim">{rotationLabel(rotation)}</span>
+      {violationMessages(violations).map((message) => (
+        <span key={message} className="text-xs font-semibold text-danger">
+          {message}
+        </span>
+      ))}
+    </div>
+  );
+
   // The instruction changing reads as a move between two notes: the incoming one slides in from the
   // direction of travel. Track the previously shown step in state and adjust the direction during the
   // render where it changes, so no ref is read during render.
@@ -217,7 +248,7 @@ export function BoardView({
 
         {sequence ? (
           <div className={cx(VIEW_BODY, board.opponentSide && COURT_FULL_WIDTH)}>
-            <div className="flex min-w-0 flex-col items-center gap-[clamp(0.7rem,2vh,1.15rem)] @max-[1040px]:order-2">
+            <div className="flex min-w-0 flex-col items-center gap-[clamp(0.7rem,2vh,1.15rem)]">
               <CourtFrame className="@max-[1040px]:justify-self-center" full={board.opponentSide}>
                 <Court
                   animated
@@ -233,11 +264,13 @@ export function BoardView({
               </CourtFrame>
 
               {/* Transport and step scrubber share one row: the highlighted chip is the position
-                  indicator, so a separate "n / total" counter would just duplicate it. */}
-              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+                  indicator, so a separate "n / total" counter would just duplicate it. Stacked, the row
+                  stays on one line by dropping previous/next, which the chips already cover. */}
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 @max-[1040px]:flex-nowrap @max-[1040px]:gap-x-2">
                 <Toolbar ariaLabel="Playback" className="gap-[0.55rem]">
                   <ToolbarButton
                     icon={{ variant: "control", size: "md" }}
+                    className="@max-[1040px]:hidden"
                     aria-label="Previous step"
                     tooltip="Previous step"
                     onClick={playback.prev}
@@ -255,6 +288,7 @@ export function BoardView({
                   </ToolbarButton>
                   <ToolbarButton
                     icon={{ variant: "control", size: "md" }}
+                    className="@max-[1040px]:hidden"
                     aria-label="Next step"
                     tooltip="Next step"
                     onClick={playback.next}
@@ -269,37 +303,40 @@ export function BoardView({
             </div>
 
             <div className="flex min-w-0 flex-col gap-4 @max-[1040px]:contents">
-              <div className="flex flex-col-reverse gap-4 @max-[1040px]:order-1 @max-[1040px]:flex-row @max-[1040px]:flex-wrap @max-[1040px]:items-stretch">
-                <div className="grid min-w-0 @max-[1040px]:flex-1 @max-[1040px]:min-w-[16rem]">
+              <div className="flex flex-col-reverse gap-4 @max-[1040px]:order-3">
+                <div className="grid min-w-0">
                   <DescriptionPanel markdown={board.description} capped />
                 </div>
                 {rotationPanel && (
                   <div
                     key={`rotation-${step}`}
-                    className={cx(stepDirection, "motion-reduce:animate-none grid @max-[1040px]:max-w-[17rem]")}
+                    className={cx(stepDirection, "motion-reduce:animate-none grid @max-[1040px]:hidden")}
                   >
                     {rotationPanel}
                   </div>
                 )}
               </div>
 
-              <section className={cx(PANEL, "min-w-0 @max-[1040px]:order-3")} aria-label="Step instruction">
+              <section className={cx(PANEL, "min-w-0 @max-[1040px]:order-2")} aria-label="Step instruction">
                 <span className={PANEL_TITLE}>Step {step + 1}</span>
-                <div className="min-h-[3.25rem]" aria-live="polite">
-                  <div key={step} className={cx(stepDirection, "motion-reduce:animate-none")}>
-                    {instruction.trim() ? (
-                      <Markdown>{instruction}</Markdown>
-                    ) : (
-                      <p className={MUTED}>No instruction for this step.</p>
-                    )}
+                <div className="flex items-start gap-3">
+                  <div className="min-h-[3.25rem] min-w-0 flex-1" aria-live="polite">
+                    <div key={step} className={cx(stepDirection, "motion-reduce:animate-none")}>
+                      {instruction.trim() ? (
+                        <Markdown>{instruction}</Markdown>
+                      ) : (
+                        <p className={MUTED}>No instruction for this step.</p>
+                      )}
+                    </div>
                   </div>
+                  {compactRotation}
                 </div>
               </section>
             </div>
           </div>
         ) : (
           <div className={cx(VIEW_BODY, board.opponentSide && COURT_FULL_WIDTH)}>
-            <CourtFrame className="@max-[1040px]:order-2 @max-[1040px]:justify-self-center" full={board.opponentSide}>
+            <CourtFrame className="@max-[1040px]:justify-self-center" full={board.opponentSide}>
               <Court
                 markers={markers}
                 opponentSide={board.opponentSide}
@@ -310,11 +347,11 @@ export function BoardView({
                 label={board.title || "Untitled board"}
               />
             </CourtFrame>
-            <div className="flex min-w-0 flex-col-reverse gap-4 @max-[1040px]:order-1 @max-[1040px]:flex-row @max-[1040px]:flex-wrap @max-[1040px]:items-stretch">
-              <div className="grid min-w-0 @max-[1040px]:flex-1 @max-[1040px]:min-w-[16rem]">
-                <DescriptionPanel markdown={board.description} />
+            <div className="flex min-w-0 flex-col-reverse gap-4">
+              <div className="grid min-w-0">
+                <DescriptionPanel markdown={board.description} aside={compactRotation} />
               </div>
-              {rotationPanel && <div className="grid @max-[1040px]:max-w-[17rem]">{rotationPanel}</div>}
+              {rotationPanel && <div className="grid @max-[1040px]:hidden">{rotationPanel}</div>}
             </div>
           </div>
         )}
