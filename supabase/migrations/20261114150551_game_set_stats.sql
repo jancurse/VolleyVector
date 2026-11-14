@@ -7,9 +7,7 @@
 --
 -- Everything outside the tracker describes the stats: the list columns (score, video, touch count) are written when
 -- the stats are saved, never by recording. Only the set's identity (its number, finished, who saved) follows the
--- working copy. The working copy itself is the recording in progress, so only the team's coaches and admins read
--- it, through working_game_set(s); the table grants every other column but `data` to clients, so a column added
--- later must be granted below too.
+-- working copy.
 --
 -- Changes that follow the game rather than the recording (the squad joining or leaving a set's player list, a
 -- roster rename) reach both copies at once through relink_game_set, which leaves who last saved the set alone.
@@ -23,26 +21,6 @@ alter table public.game_sets
   ) stored;
 
 update public.game_sets set published = data, published_at = updated_at, published_by = updated_by;
-
-revoke select on public.game_sets from authenticated;
-grant select (id, game_id, version, set_number, score_us, score_them, video_url, touches, finished_at, created_by,
-              updated_by, created_at, updated_at, published, published_at, published_by, unpublished)
-  on public.game_sets to authenticated;
-
--- The working copies of a set or of some games' sets, for a coach of their team or an admin; nothing for anyone else.
-create function public.working_game_set(set_id uuid)
-returns table (id uuid, game_id uuid, version integer, data jsonb, published jsonb)
-language sql stable security definer set search_path = '' as $$
-  select s.id, s.game_id, s.version, s.data, s.published from public.game_sets s
-  where s.id = set_id and (public.is_team_coach(public.game_team(s.game_id)) or public.is_admin());
-$$;
-
-create function public.working_game_sets(game_ids uuid[])
-returns table (id uuid, game_id uuid, version integer, data jsonb, published jsonb)
-language sql stable security definer set search_path = '' as $$
-  select s.id, s.game_id, s.version, s.data, s.published from public.game_sets s
-  where s.game_id = any(game_ids) and (public.is_team_coach(public.game_team(s.game_id)) or public.is_admin());
-$$;
 
 -- The answer to a write made on a stale version: the newer version and who saved it.
 create function public.game_set_conflict(existing public.game_sets) returns jsonb
@@ -189,13 +167,9 @@ begin
 end;
 $$;
 
-revoke execute on function public.working_game_set(uuid) from public, anon;
-revoke execute on function public.working_game_sets(uuid[]) from public, anon;
 revoke execute on function public.save_game_set(uuid, uuid, jsonb, integer) from public, anon;
 revoke execute on function public.publish_game_set(uuid, integer, integer, integer) from public, anon;
 revoke execute on function public.relink_game_set(uuid, integer, jsonb, jsonb) from public, anon;
-grant execute on function public.working_game_set(uuid) to authenticated;
-grant execute on function public.working_game_sets(uuid[]) to authenticated;
 grant execute on function public.save_game_set(uuid, uuid, jsonb, integer) to authenticated;
 grant execute on function public.publish_game_set(uuid, integer, integer, integer) to authenticated;
 grant execute on function public.relink_game_set(uuid, integer, jsonb, jsonb) to authenticated;

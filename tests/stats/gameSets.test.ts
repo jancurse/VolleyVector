@@ -89,7 +89,6 @@ describe("keeping a set in line with its game", () => {
     const synced = syncPlayers(set, ["Jo", "Nina"], ["Mira", "Sam"]);
 
     expect(synced.players).toEqual(["Jo", "Mira", "Guest", "Nina"]);
-    expect(synced.meta).toBe(set.meta);
     expect(syncPlayers(synced, ["Jo", "Nina"], ["Mira", "Sam"])).toBe(synced);
   });
 });

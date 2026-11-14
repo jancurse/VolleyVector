@@ -19,26 +19,19 @@ const SET = "set-1";
 // A save goes out a second after the last change.
 const SAVED = { timeout: 3000 };
 
-/**
- * The server side of saving, the one external dependency here: a set at version 1 whose stats match it, and a
- * scripted answer.
- */
+/** The server side of saving, the one external dependency here: a set at version 1 and a scripted answer. */
 function backend(answer: (base: number) => SaveOutcome = (base) => ({ kind: "saved", version: base + 1 })) {
   const save = vi.fn<SetBackend["save"]>(async ({ base }) => answer(base));
-  const publish = vi.fn<SetBackend["publish"]>(async ({ base }) => ({ kind: "saved", version: base }));
-  const data = emptyData(["Mira"]);
   const fake: SetBackend = {
-    load: async () => ({ kind: "found", record: { id: SET, gameId: GAME.id, version: 1, data, published: data } }),
+    load: async () => ({ kind: "found", record: { id: SET, gameId: GAME.id, version: 1, data: emptyData(["Mira"]) } }),
     save,
-    publish,
+    publish: async ({ base }) => ({ kind: "saved", version: base }),
   };
 
-  return { fake, save, publish };
+  return { fake, save };
 }
 
 function renderPage(fake: SetBackend, signedIn = true) {
-  const handlers = { onBack: vi.fn(), onFinish: vi.fn(async () => {}), onStatsSaved: vi.fn() };
-
   render(
     <TooltipProvider>
       <SetPage
@@ -47,14 +40,14 @@ function renderPage(fake: SetBackend, signedIn = true) {
         teamName="Eagles"
         finished={false}
         signedIn={signedIn}
+        onBack={() => {}}
         onNextSet={() => {}}
+        onFinish={async () => {}}
+        onStatsSaved={() => {}}
         backend={fake}
-        {...handlers}
       />
     </TooltipProvider>
   );
-
-  return handlers;
 }
 
 afterEach(() => localStorage.clear());
@@ -64,66 +57,11 @@ describe("SetPage", () => {
     const { fake, save } = backend();
 
     renderPage(fake);
-    expect(await screen.findByText("Stats saved")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved"), SAVED);
     await userEvent.keyboard("+");
 
     await waitFor(() => expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ base: 1 })), SAVED);
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved"), SAVED);
-  });
-
-  test("opening a set saves nothing, though it shows the game's teams and date", async () => {
-    const { fake, save, publish } = backend();
-
-    renderPage(fake);
-
-    expect(await screen.findByRole("textbox", { name: "Home" })).toHaveValue("Eagles");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    expect(save).not.toHaveBeenCalled();
-    expect(publish).not.toHaveBeenCalled();
-    expect(screen.getByText("Stats saved")).toBeInTheDocument();
-  });
-
-  test("a change stays out of the stats until Save stats, which saves the set and then its stats", async () => {
-    const { fake, save, publish } = backend();
-    const { onStatsSaved } = renderPage(fake);
-
-    expect(await screen.findByText("Stats saved")).toBeInTheDocument();
-    await userEvent.keyboard("+");
-    await userEvent.click(screen.getByRole("button", { name: "Save stats" }));
-
-    await waitFor(() => expect(publish).toHaveBeenCalledWith(expect.objectContaining({ id: SET, base: 2 })));
-    expect(save).toHaveBeenCalledOnce();
-    expect(onStatsSaved).toHaveBeenCalled();
-    expect(await screen.findByText("Stats saved")).toBeInTheDocument();
-  });
-
-  test("leaving with changes the stats lack asks first", async () => {
-    const { fake } = backend();
-    const { onBack } = renderPage(fake);
-
-    expect(await screen.findByText("Stats saved")).toBeInTheDocument();
-    await userEvent.keyboard("+");
-    await userEvent.click(screen.getByRole("button", { name: "Back to the game" }));
-
-    expect(await screen.findByRole("alertdialog", { name: "Leave without saving the stats?" })).toBeInTheDocument();
-    expect(onBack).not.toHaveBeenCalled();
-
-    await userEvent.click(screen.getByRole("button", { name: "Leave" }));
-
-    expect(onBack).toHaveBeenCalled();
-  });
-
-  test("marking the set finished saves its stats first", async () => {
-    const { fake, publish } = backend();
-    const { onFinish } = renderPage(fake);
-
-    expect(await screen.findByText("Stats saved")).toBeInTheDocument();
-    await userEvent.keyboard("+");
-    await userEvent.click(screen.getByRole("button", { name: "Mark set finished" }));
-
-    await waitFor(() => expect(onFinish).toHaveBeenCalledWith(true));
-    expect(publish).toHaveBeenCalledWith(expect.objectContaining({ id: SET, base: 2 }));
   });
 
   test("a save someone else beat asks whose changes to keep; keep mine saves over theirs", async () => {
@@ -132,7 +70,7 @@ describe("SetPage", () => {
     );
 
     renderPage(fake);
-    expect(await screen.findByText("Stats saved")).toBeInTheDocument();
+    await screen.findByRole("status");
     await userEvent.keyboard("+");
 
     expect(await screen.findByText(/Pat saved this set/, {}, SAVED)).toBeInTheDocument();

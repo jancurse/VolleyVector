@@ -34,9 +34,8 @@ import type { Game, RosterPlayer } from "./types";
 // A game: its recorded sets and their stats lead, then the squad, with the rotation planning folded below. A
 // coach's edits save themselves shortly after the last change and on leaving the page, and a squad change reaches
 // the game's sets (see gameSets.ts). Opening the page writes nothing: names in the sets with no roster player are
-// offered for matching, which changes the sets only when the coach applies it. A change to the game made elsewhere
-// (an import filling it in) replaces the draft unless an edit is waiting to save. Mount it keyed by the game id
-// so a different game starts a fresh draft.
+// offered for matching, which changes the sets only when the coach applies it. Mount it keyed by the game id so a
+// different game starts a fresh draft.
 type GamePageProps = {
   game: Game;
   teamName: string;
@@ -125,13 +124,6 @@ export function GamePage({
     clearTimeout(timer.current);
     timer.current = setTimeout(flush, SAVE_DELAY);
   };
-
-  useEffect(() => {
-    if (pending.current) return;
-
-    latest.current = game;
-    setDraft(game);
-  }, [game]);
 
   const setData = useGameSetData(game.id, sets);
   const unmatched = unmatchedNames(setData?.sets.flatMap((d) => [...setPlayerNames(d)]) ?? [], roster);

@@ -6,10 +6,10 @@ import { SET_SUMMARY_COLUMNS, setRecordFromRow, setSummaryFromRow } from "../sup
 import type { GameSetRow, SetSummaryRow } from "../supabase/rows";
 import type { AppData, SetSummary } from "./types";
 
-// The recorded sets in Supabase: the summaries the games list shows and the saved stats the stats pages read, which
-// any team member may read, and the working copies only a coach reads (through working_game_set(s)). The tracker
-// saves a set's working copy through the save_game_set compare-and-swap and makes it the stats with
-// publish_game_set; changes that follow the game go through relink_game_set.
+// The recorded sets in Supabase: the summaries the games list shows, the saved stats the stats pages read, and
+// the backend the tracker's saving runs on. The tracker saves a set's working copy through the save_game_set
+// compare-and-swap and makes it the stats with publish_game_set; changes that follow the game go through
+// relink_game_set.
 
 const bySetNumber = (a: { setNumber: number }, b: { setNumber: number }): number => a.setNumber - b.setNumber;
 
@@ -89,7 +89,10 @@ export async function updateSets(
 
   if (gameIds.length === 0) return result;
 
-  const { data, error } = await supabase.rpc("working_game_sets", { game_ids: gameIds });
+  const { data, error } = await supabase
+    .from("game_sets")
+    .select("id, game_id, version, data, published")
+    .in("game_id", gameIds);
 
   if (error) return { ...result, error: error.message };
 
@@ -140,16 +143,13 @@ export async function updateSets(
   return { ...result, error: errors.length ? [...new Set(errors)].join(" ") : null };
 }
 
-/** The working copies of one game's sets, with their ids; none unless the caller coaches the team. */
+/** The stored sets of one game, with their ids. */
 export async function loadSetData(
   gameId: string
 ): Promise<{ sets: { id: string; data: AppData }[]; error: string | null }> {
-  const { data, error } = await supabase.rpc("working_game_sets", { game_ids: [gameId] });
+  const { data, error } = await supabase.from("game_sets").select("id, data").eq("game_id", gameId);
 
-  return {
-    sets: ((data ?? []) as GameSetRow[]).map(({ id, data: set }) => ({ id, data: set })),
-    error: error?.message ?? null,
-  };
+  return { sets: (data ?? []) as { id: string; data: AppData }[], error: error?.message ?? null };
 }
 
 /** Delete a set. A delete the server's rules refuse removes nothing and reports no error, so the row is asked for. */
@@ -228,7 +228,11 @@ const supabaseRelinkBackend: RelinkBackend = { load: supabaseSetBackend.load, re
 async function loadSet(id: string): Promise<LoadOutcome> {
   if (!(await signedIn())) return { kind: "signedOut" };
 
-  const { data, error } = await supabase.rpc("working_game_set", { set_id: id }).maybeSingle();
+  const { data, error } = await supabase
+    .from("game_sets")
+    .select("id, game_id, version, data, published")
+    .eq("id", id)
+    .maybeSingle();
 
   if (error) {
     const f = failure(error);
