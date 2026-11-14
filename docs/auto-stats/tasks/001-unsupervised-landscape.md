@@ -69,7 +69,7 @@ How far to trust it:
 
 - **The tolerance started at ±1 s and was widened to ±3 s.** The labels are hand-timed, and in two matches they sit off the video by a constant: frame strips show the serve contact about 1.5 s after its label in `2025-11-09-f6-llamas-vs-onyx` and 1 to 1.5 s before it in `2025-11-qkx-vs-f6-llamas`. The tables keep the ±1 s figure for comparison.
 - **A window of 6 s is wide.** Rallies start about every 28 s, so a detector that fires twice per rally finds a third of the serves by chance. Read "found" together with the false share and the number of detections.
-- A false detection can still be a real serve: a warm-up serve in a time-out, or one after the set's last labelled rally.
+- A false detection can still be a real serve: a warm-up serve in a break, or one after the set's last labelled rally.
 
 ### Approaches considered
 
@@ -125,7 +125,7 @@ Every script prints the per-match rows for its approach.
 What the numbers say:
 
 - **Claude finds the serves in every match**, including the sideways portrait video. It needs no sound.
-- **Its false detections come in three kinds.** Clusters in long breaks (four in one time-out of `llamas-vs-onyx`, three in one of `qkx`), a detection 3 to 10 s before a real serve while the server gets ready, and one after the set's last rally. None of these were checked against the video.
+- **Its false detections come in three kinds.** Clusters in long breaks between rallies (four in one break of `llamas-vs-onyx`, three in one of `qkx`), a detection 3 to 10 s before a real serve while the server gets ready, and one after the set's last rally. None of these were checked against the video.
 - **The 5 fps second pass is not worth its cost at ±3 s.** It drops a few false detections and loses a few serves.
 - **The whistle is precise but incomplete.** The tagger rarely fires without a serve following (19% false), but it reports 13 to 29 whistles a set for 34 to 41 rallies, and some videos have no sound.
 - **Stillness and the hand-made cues fire too often.** They report 1.7 to 2.4 detections per rally, so much of their "found" share is chance.
