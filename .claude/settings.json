@@ -1,8 +1,7 @@
 {
   "enabledMcpjsonServers": ["playwright", "supabase"],
   "skillOverrides": {
-    "anthropic-skills:writing-style": "off",
-    "anthropic-skills:plan-custom": "off"
+    "anthropic-skills:writing-style": "off"
   },
   "permissions": {
     "allow": [
