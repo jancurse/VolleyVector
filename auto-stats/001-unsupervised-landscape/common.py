@@ -44,20 +44,20 @@ def label_shift(set_file, serves):
 def report(title, detections, verbose=False):
     """Print per-match and overall scores. detections maps clip name to (serves, rally_ends).
 
-    Three readings: the task's rule, a +-2 s tolerance, and the task's rule after moving each clip's labels by one constant.
+    Readings: the agreed +-3 s, then +-1 s, +-2 s, and +-1 s after moving each clip's labels by one constant.
     """
     print(f"== {title}")
-    for reading in ("±1 s", "±2 s", "±1 s, labels shifted per clip"):
+    for reading in ("±3 s", "±1 s", "±2 s", "±1 s, labels shifted per clip"):
         by_match = collections.defaultdict(list)
         for name, match, set_file, _ in clips():
             if name in detections:
                 serves, ends = detections[name]
                 shift = label_shift(set_file, serves) if "shifted" in reading else 0.0
-                row = scorer.score(set_file, serves, ends, tolerance=2.0 if reading == "±2 s" else 1.0, shift=shift)
+                row = scorer.score(set_file, serves, ends, tolerance=float(reading[1]) if "shifted" not in reading else 1.0, shift=shift)
                 by_match[match].append(row)
                 if verbose and "shifted" in reading:
                     print(f"    {name}: label shift {shift:+.1f} s")
-        if reading == "±1 s":
+        if reading == "±3 s":
             for match, rows in by_match.items():
                 print(f"  {match}: {scorer.summary(scorer.total(rows))}")
             first = scorer.total([r for rs in by_match.values() for r in rs])

@@ -9,31 +9,32 @@ With several pairs it prints one row per clip and a total. From Python, call tru
 
 The set files only hold our own team's touches, so the truth is built per rally (see docs/auto-stats/tasks/001):
 
+The labels are hand-timed and can sit a second or two off the video, so the tolerance T is 3 s by default.
+
 Serves
-  exact    the rally has a serve touch at time t. Found when a detection lies in [t - 1, t + 1].
+  exact    the rally has a serve touch at time t. Found when a detection lies in [t - T, t + T].
   approx   they served and our first touch is a receive at time t. Their serve is 0.5 to 2 s earlier, so it is found
-           when a detection lies in [t - 3, t + 0.5].
+           when a detection lies in [t - 2 - T, t - 0.5 + T].
   unknown  no touch tells when the serve was (a rally without touches, our serve was not recorded, or our first
-           touch after their serve is not a receive). One detection
-           between the previous rally's last event and this rally's last event is ignored: neither found nor false.
+           touch after their serve is not a receive). One detection between the previous rally's last event and this
+           rally's first touch or last event, widened by T, is ignored: neither found nor false.
 A detection matches at most one serve. Every other detection is false.
 
 Rally ends
   tight    the last event ends the rally itself (a kill, an error, an ace, a manual point). The ball is dead within
-           seconds, so the end is found when a detection lies in [t - 1, t + 4] ([t - 4, t + 2] for a manual point,
-           which is pressed after the ball is dead).
+           seconds, so the end is found when a detection lies in [t - T, t + 3 + T] ([t - 3 - T, t + 1 + T] for a
+           manual point, which is pressed after the ball is dead).
   loose    the last touch left the ball in play on their side. The real end is unknown, so a detection anywhere from
-           t - 1 to 3 s before the next rally's first event, and at most 10 s after t, counts.
+           t - T to 3 s before the next rally's first event, and at most 10 s after t, counts.
 A detection matches at most one rally. Every other detection is false.
 
-Two options test how much a result depends on the labels' timing: tolerance widens the +-1 s around an exact serve,
-and shift moves every label by a number of seconds (some matches' labels sit a second or more off the video).
+From Python, tolerance sets T and shift moves every label by a number of seconds.
 """
 
 import json
 import sys
 
-SERVE_TOL = 1.0
+SERVE_TOL = 3.0
 APPROX_BEFORE, APPROX_AFTER = 3.0, 0.5
 TERMINAL = {"kill", "ace", "out", "net", "error", "block_kill", "tool", "block_tool", "over_score"}
 
@@ -41,7 +42,7 @@ TERMINAL = {"kill", "ace", "out", "net", "error", "block_kill", "tool", "block_t
 def truth(set_file, tolerance=SERVE_TOL, shift=0.0):
     """Return (serves, ends): one dict per rally with a window [lo, hi] and a kind."""
     data = json.load(open(set_file))
-    extra = tolerance - SERVE_TOL
+    extra = tolerance - 1.0
     for event in data["events"]:
         event["timestamp"] += shift
     for rally in data["rallies"]:
@@ -66,16 +67,16 @@ def truth(set_file, tolerance=SERVE_TOL, shift=0.0):
             serves.append({"kind": "approx", "t": t - 1.2, "lo": t - APPROX_BEFORE - extra, "hi": t + APPROX_AFTER + extra})
         else:
             hi = own[0]["timestamp"] if own else (last if last is not None else previous_end)
-            serves.append({"kind": "unknown", "t": None, "lo": previous_end, "hi": hi})
+            serves.append({"kind": "unknown", "t": None, "lo": previous_end - tolerance, "hi": hi + tolerance})
 
         if last is None:
             ends.append({"kind": "unknown", "t": None, "lo": previous_end, "hi": previous_end})
         elif point and point["timestamp"] >= last:
-            ends.append({"kind": "tight", "t": last, "lo": last - 4, "hi": last + 2})
+            ends.append({"kind": "tight", "t": last, "lo": last - 4 - extra, "hi": last + 2 + extra})
         elif own[-1]["result"] in TERMINAL:
-            ends.append({"kind": "tight", "t": last, "lo": last - 1, "hi": last + 4})
+            ends.append({"kind": "tight", "t": last, "lo": last - 1 - extra, "hi": last + 4 + extra})
         else:
-            ends.append({"kind": "loose", "t": last, "lo": last - 1, "hi": last + 10})
+            ends.append({"kind": "loose", "t": last, "lo": last - 1 - extra, "hi": last + 10})
         if last is not None:
             previous_end = last
 
@@ -89,10 +90,11 @@ def truth(set_file, tolerance=SERVE_TOL, shift=0.0):
 
 
 def match(windows, detections):
-    """Greedy one-to-one matching in time order. Returns (matched window indices, unmatched detections)."""
+    """Greedy one-to-one matching in time order, timed windows before unknown ones. Returns (matched, unmatched)."""
     used, left = set(), []
+    order = sorted(range(len(windows)), key=lambda i: windows[i]["t"] is None)
     for d in sorted(detections):
-        hit = next((i for i, w in enumerate(windows) if i not in used and w["lo"] <= d <= w["hi"]), None)
+        hit = next((i for i in order if i not in used and windows[i]["lo"] <= d <= windows[i]["hi"]), None)
         if hit is None:
             left.append(d)
         else:

@@ -30,7 +30,7 @@ Follow the decision in [../log.md](../log.md): an approach must work across came
 
 ## Scoring
 
-- A serve counts as found when a detection lies within ±1 s of it. Report the share of serves found and the share of detections that are false, per match and overall.
+- A serve counts as found when a detection lies within ±3 s of it (first set at ±1 s, widened on 2026-11-14 because the labels are hand-timed). Report the share of serves found and the share of detections that are false, per match and overall.
 - The labels only hold our own team's touches. A rally they serve starts at our first touch, a moment after their serve, and a rally's end is its last touch, not the ball going dead. Decide how to score against that, state the rule in Results, and say how far it can be trusted.
 - No target is set. This task reports what is realistic.
 
@@ -49,7 +49,7 @@ Follow the decision in [../log.md](../log.md): an approach must work across came
 
 ## Results
 
-No approach reaches a usable serve detector at ±1 s. Claude Sonnet on sampled frames comes closest, and part of its gap is the labels, not the model: in some matches the labels sit 1 to 2 s off the video.
+At ±3 s, Claude Sonnet on one frame per second finds 92% of the serves and 83% of the rally ends, with about a third of its detections false. No local approach comes close without firing far too often.
 
 ### What was built
 
@@ -58,19 +58,18 @@ No approach reaches a usable serve detector at ±1 s. Claude Sonnet on sampled f
 
 ### Scoring rule
 
-`score.py` builds one serve and one rally end per rally from the set file. A detection matches at most one of them, and every unmatched detection is false.
+`score.py` builds one serve and one rally end per rally from the set file. A detection matches at most one of them, and every unmatched detection is false. The tolerance T is 3 s.
 
-- **Our serve** (a serve touch at time t, 266 of 518 rallies): found when a detection lies within ±1 s of t.
-- **Their serve** (our first touch is a receive at t, 194 rallies): found when a detection lies between t - 3 s and t + 0.5 s.
+- **Our serve** (a serve touch at time t, 266 of 518 rallies): found when a detection lies within ±T of t.
+- **Their serve** (our first touch is a receive at t, 194 rallies): the serve is 0.5 to 2 s before t, so it is found when a detection lies between t - 2 s - T and t - 0.5 s + T.
 - **Unknown serve** (58 rallies with no touch that times the serve): one detection in the gap is ignored, neither found nor false.
-- **Rally end**: 507 of 516 rallies end on a touch or manual point that ends play, so the end is found when a detection lies between 1 s before and 4 s after it (4 s before to 2 s after a manual point). The other 9 accept up to 10 s after the last touch.
+- **Rally end**: 507 of 516 rallies end on a touch or manual point that ends play. The ball is dead up to 3 s later, so the end is found when a detection lies between t - T and t + 3 s + T (t - 3 s - T to t + 1 s + T for a manual point, which is pressed after the ball is dead). The other 9 accept up to 10 s after the last touch.
 
 How far to trust it:
 
-- **The labels are offset by match.** Frame strips show the serve contact about 1.5 s after its label in `2025-11-09-f6-llamas-vs-onyx` and 1 to 1.5 s before it in `2025-11-qkx-vs-f6-llamas`. Detectors that share no code agree on the direction per clip. A ±1 s score against these labels understates every approach.
-- The tables therefore give three readings: ±1 s as specified, ±2 s, and ±1 s after moving each clip's labels by one constant (the median offset to the nearest detections). The third is fitted to the detections, so it is an upper bound.
-- A detector that fires often scores well on "found" by chance. Read the false share and the number of detections with it.
-- Rally ends are scored against a key press, not the dead ball, and inherit the same offsets.
+- **The tolerance started at ±1 s and was widened to ±3 s.** The labels are hand-timed, and in two matches they sit off the video by a constant: frame strips show the serve contact about 1.5 s after its label in `2025-11-09-f6-llamas-vs-onyx` and 1 to 1.5 s before it in `2025-11-qkx-vs-f6-llamas`. The tables keep the ±1 s figure for comparison.
+- **A window of 6 s is wide.** Rallies start about every 28 s, so a detector that fires twice per rally finds a third of the serves by chance. Read "found" together with the false share and the number of detections.
+- A false detection can still be a real serve: a warm-up serve in a time-out, or one after the set's last labelled rally.
 
 ### Approaches considered
 
@@ -95,69 +94,82 @@ Gemini prices and free-tier limits come from third-party pages that disagree wit
 
 Hand-made signals, on all 14 clips (460 scored serves, 518 rallies):
 
-| Approach                       | Detections | Found ±1 s | False ±1 s | Found ±2 s | False ±2 s | Found, labels shifted | False, labels shifted |
-|--------------------------------|------------|------------|------------|------------|------------|-----------------------|-----------------------|
-| Whistle (hand-made) + 2.8 s    | 691        | 43%        | 66%        | 65%        | 52%        | 50%                   | 62%                   |
-| Quiet, hit, stillness, whistle | 897        | 37%        | 77%        | 70%        | 60%        | 65%                   | 62%                   |
-| SigLIP zero-shot               | 1225       | 24%        | 88%        | 41%        | 81%        | 30%                   | 85%                   |
+| Approach                       | Detections | Found ±3 s | False ±3 s | Found ±1 s | False ±1 s |
+|--------------------------------|------------|------------|------------|------------|------------|
+| Whistle (hand-made) + 2.8 s    | 691        | 77%        | 42%        | 43%        | 66%        |
+| Quiet, hit, stillness, whistle | 897        | 81%        | 54%        | 37%        | 77%        |
+| SigLIP zero-shot               | 1225       | 55%        | 75%        | 24%        | 88%        |
 
 Model-based approaches, on set 1 of each match (162 scored serves, 183 rallies):
 
-| Approach                          | Detections | Found ±1 s | False ±1 s | Found ±2 s | False ±2 s | Found, labels shifted | False, labels shifted |
-|-----------------------------------|------------|------------|------------|------------|------------|-----------------------|-----------------------|
-| Claude Sonnet, 1 fps              | 240        | 37%        | 70%        | 78%        | 43%        | 71%                   | 46%                   |
-| Claude Sonnet, 1 fps then 5 fps   | 217        | 43%        | 63%        | 75%        | 41%        | 77%                   | 35%                   |
-| Tagger whistle + 2.6 s            | 98         | 28%        | 46%        | 38%        | 31%        | 32%                   | 36%                   |
-| Pose: still, then moving          | 381        | 43%        | 77%        | 70%        | 66%        | 57%                   | 72%                   |
-| Tagger whistle, timed by pose     | 98         | 25%        | 51%        | 39%        | 29%        | 31%                   | 41%                   |
+| Approach                        | Detections | Found ±3 s | False ±3 s | Found ±1 s | False ±1 s |
+|---------------------------------|------------|------------|------------|------------|------------|
+| Claude Sonnet, 1 fps            | 240        | 92%        | 31%        | 37%        | 70%        |
+| Claude Sonnet, 1 fps then 5 fps | 217        | 88%        | 26%        | 43%        | 63%        |
+| Tagger whistle + 2.6 s          | 98         | 44%        | 19%        | 28%        | 46%        |
+| Pose: still, then moving        | 381        | 83%        | 60%        | 43%        | 77%        |
+| Tagger whistle, timed by pose   | 98         | 45%        | 16%        | 25%        | 51%        |
 
-Per match at ±1 s as specified, Claude with both passes found 8% (`llamas-vs-onyx`), 38% (`qkx`), 65% (`onyx-vs-pirates`), 59% (`bg-lions`) and 52% (`r1vals`), with 94%, 65%, 48%, 41% and 58% of detections false. The two worst matches are the two with the label offsets checked by eye. Every script prints the per-match rows.
+Claude Sonnet at 1 fps, per match at ±3 s:
+
+| Match                              | Serves found | Serve detections false | Rally ends found | End detections false |
+|------------------------------------|--------------|------------------------|------------------|----------------------|
+| `2025-11-09-f6-llamas-vs-onyx`     | 92%          | 38%                    | 83%              | 44%                  |
+| `2025-11-qkx-vs-f6-llamas`         | 86%          | 42%                    | 75%              | 51%                  |
+| `2026-10-30-onyx-vs-f6-pirates`    | 94%          | 33%                    | 88%              | 35%                  |
+| `2026-11-07-f6-llamas-vs-bg-lions` | 91%          | 18%                    | 92%              | 23%                  |
+| `2026-11-08-r1vals-vs-f6-pirates`  | 97%          | 17%                    | 74%              | 35%                  |
+
+Every script prints the per-match rows for its approach.
 
 What the numbers say:
 
-- **Claude finds the serves but times them loosely.** At 1 fps it puts 89 to 100% of our serves within ±3 s in every match. The 5 fps pass cuts false detections from 46% to 35% once the label offset is removed.
-- **Many of Claude's false detections are timing, not invention.** In the one set checked, most false detections sat 2 to 5 s from a missed serve. `llamas-vs-onyx` is the exception: 58 serves reported for 41 rallies.
-- **The whistle is precise but incomplete.** The tagger rarely fires without a whistle, and a serve follows 2 to 4 s later. It reports 13 to 29 whistles a set for 34 to 41 rallies, so it cannot be the detector, and some videos have no sound.
-- **Stillness finds serves and much else.** Players also stand still during time-outs and talks, which gives twice as many detections as rallies.
-- **Single frames carry little.** SigLIP separates rally frames from the rest with an AUC of 0.73, too weak to place a serve.
+- **Claude finds the serves in every match**, including the sideways portrait video. It needs no sound.
+- **Its false detections come in three kinds.** Clusters in long breaks (four in one time-out of `llamas-vs-onyx`, three in one of `qkx`), a detection 3 to 10 s before a real serve while the server gets ready, and one after the set's last rally. None of these were checked against the video.
+- **The 5 fps second pass is not worth its cost at ±3 s.** It drops a few false detections and loses a few serves.
+- **The whistle is precise but incomplete.** The tagger rarely fires without a serve following (19% false), but it reports 13 to 29 whistles a set for 34 to 41 rallies, and some videos have no sound.
+- **Stillness and the hand-made cues fire too often.** They report 1.7 to 2.4 detections per rally, so much of their "found" share is chance.
+- **Single frames carry little.** SigLIP separates rally frames from the rest with an AUC of 0.73.
 - **A generic ball detector is unreliable.** It saw a ball in 8%, 50%, 55%, 88% and 100% of rally frames by match, and the 100% includes spare balls on a bench.
 
 ### Results on rally ends
 
-| Approach                         | Clips | Detections | Found | False | Found, labels shifted | False, labels shifted |
-|----------------------------------|-------|------------|-------|-------|-----------------------|-----------------------|
-| Claude Sonnet, 1 fps             | 5     | 246        | 45%   | 66%   | 69%                   | 48%                   |
-| Cheer (rise in loudness)         | 14    | 1062       | 69%   | 66%   | 66%                   | 68%                   |
-| SigLIP zero-shot, falling edge   | 14    | 1226       | 60%   | 75%   | 60%                   | 75%                   |
-| Whistle followed by another      | 14    | 180        | 6%    | 84%   | 6%                    | 83%                   |
+| Approach                       | Clips | Detections | Rallies | Found ±3 s | False ±3 s |
+|--------------------------------|-------|------------|---------|------------|------------|
+| Claude Sonnet, 1 fps           | 5     | 246        | 183     | 83%        | 39%        |
+| Cheer (rise in loudness)       | 14    | 1062       | 518     | 83%        | 60%        |
+| SigLIP zero-shot, falling edge | 14    | 1226       | 518     | 78%        | 67%        |
+| Whistle followed by another    | 14    | 180        | 518     | 8%         | 77%        |
 
-- Claude reports about the right number of rally ends (246 for 183 rallies) and places them a median 1.5 to 4 s after the label.
+- The window for a rally end is 9 s wide, so the cheer and SigLIP rows, which fire more than twice per rally, score mostly by chance.
+- Claude reports 1.3 ends per rally and places them a median 1.5 to 4 s after the label.
 - The referees rarely whistle a rally dead in these matches, so the whistle is no rally-end cue.
-- The cheer and SigLIP rows fire two to three times per rally. Their "found" share is mostly chance.
 
 ### Recommendation
 
-- **Milestone 1, serves.** Use a hosted vision-language model in two passes: a cheap pass over the whole set for candidates, then a dense pass around each candidate for the contact. Claude Sonnet does this at 77% found and 35% false under the lenient reading. Test Gemini on the same clips before choosing: it reads sound and full-rate video, costs about a tenth, and its baseline had no false detections. No local approach is good enough yet.
-- **Milestone 2, rally ends.** Nothing can be chosen yet. Claude is the only approach that reports about one end per rally, but half its detections miss the window. The labels cannot settle it, because they mark a key press and not the dead ball.
+- **Milestone 1, serves.** Use a hosted vision-language model on one frame per second. Claude Sonnet finds 92% with 31% false in a single pass. Test Gemini on the same clips before settling: it reads sound and full-rate video, costs about a tenth, and its baseline had no false detections but missed a third.
+- **Milestone 2, rally ends.** The same single pass gives rally ends at 83% found and 39% false, so one call can serve both milestones. It is less settled than serves: the labels mark a key press and not the dead ball, and the window is wide.
 
-Missing before either choice is firm:
+Open before either is firm:
 
-- Label offsets per match, measured and removed, so that ±1 s means something.
+- What the false detections are. If most are warm-up serves and pre-serve routines, a rule that pairs each serve with the next rally end would remove them.
 - A Gemini run on the same five sets.
-- A volleyball-specific ball tracker, the one local cue that could time both the serve and the dead ball.
+- A volleyball-specific ball tracker, the one local cue that could replace a hosted model.
 
 ### Accounts worth creating
 
 | Account                 | For                                               | Expected cost                                                        |
 |-------------------------|---------------------------------------------------|----------------------------------------------------------------------|
 | Google AI Studio API key | Gemini on whole videos, on the same scripts      | Free tier with a small daily request limit, else about $0.10 to $0.20 a set |
-| Anthropic API key       | Claude without the CLI, with batch pricing        | About $3 a set for both passes at list price. Not needed while the Max plan covers the CLI |
+| Anthropic API key       | Claude without the CLI, with batch pricing        | About $1.13 a set for one pass at list price. Not needed while the Max plan covers the CLI |
 | Hugging Face token      | Gated local models and faster downloads           | Free                                                                 |
 
 ### Follow-ups
 
-- Measure each match's label offset and store it with the data, or fix the set files in the collection.
+- Look at Claude's false detections in the video and sort them by kind.
+- Pair serves with rally ends into rallies, and drop a serve with no end before the next serve.
 - Run Gemini on set 1 of each match with the same prompts, and score it with `score.py`.
+- Run Claude on the other nine clips. Only set 1 of each match was tested.
 - Test VballNet or TrackNetV3 weights for ball tracking, after you approve the downloads.
 - Iterate the Claude prompts: the first prompt was the only one tried.
 - Detect a sideways video automatically. `llamas-vs-onyx` is stored turned by 90°, and the scripts turn it by name.
