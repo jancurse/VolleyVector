@@ -11,7 +11,7 @@ Task: [tasks/001-unsupervised-landscape.md](tasks/001-unsupervised-landscape.md)
 
 ## 2026-11-14 · Learning · A hosted vision model finds serves, local signals do not yet
 
-Claude Sonnet on one frame per second found 92% of the serves and 83% of the rally ends at ±3 s, with about a third of its detections false. Whistles, stillness, single-frame prompts and a generic ball detector each fell well short or fired far too often.
+Claude on one frame per second, asked for rallies, found 91% of the serves at ±3 s with 9% of detections false (Opus) or 19% (Sonnet). Whistles, stillness, single-frame prompts and a generic ball detector each fell well short or fired far too often.
 Task: [tasks/001-unsupervised-landscape.md](tasks/001-unsupervised-landscape.md)
 
 ## 2026-11-07 · Decision · Don't fit approaches to one video

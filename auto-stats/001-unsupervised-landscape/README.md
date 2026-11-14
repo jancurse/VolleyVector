@@ -36,3 +36,4 @@ Each detector prints the scores of [`../score.py`](../score.py) per match and ov
 | `refine.py`         | Scores detection files, or first moves serves to a local audio or motion cue | feature scripts   |
 | `offsets.py`        | How far a detection file's times lie from the labels                     |                       |
 | `false_strips.py`   | Frame strips around a detection file's false serves, to check by eye      | `prep.sh`             |
+| `claude_rallies.py` | Claude asked for rallies (a serve and its end), with any CLI model       | `prep.sh`, CLI login  |

@@ -44,7 +44,7 @@ def sheet(frames, decimals=0):
     return base64.b64encode(cv2.imencode(".jpg", np.vstack(rows), [cv2.IMWRITE_JPEG_QUALITY, 80])[1]).decode()
 
 
-def ask(out, frames, prompt, decimals=0):
+def ask(out, frames, prompt, decimals=0, model=MODEL):
     """Send the frames as 3x3 sheets with the prompt, and return the JSON answer (cached in the file out)."""
     if os.path.exists(out):
         return json.load(open(out))
@@ -52,7 +52,7 @@ def ask(out, frames, prompt, decimals=0):
     content.append({"type": "text", "text": prompt})
     message = json.dumps({"type": "user", "message": {"role": "user", "content": content}})
     run = subprocess.run(
-        ["claude", "-p", "--model", MODEL, "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--system-prompt", SYSTEM, "--tools", "", "--strict-mcp-config", "--setting-sources", ""],
+        ["claude", "-p", "--model", model, "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--system-prompt", SYSTEM, "--tools", "", "--strict-mcp-config", "--setting-sources", ""],
         input=message, capture_output=True, text=True, timeout=600, cwd=common.CACHE,
     )
     result = [json.loads(line) for line in run.stdout.splitlines() if line.startswith("{")][-1]

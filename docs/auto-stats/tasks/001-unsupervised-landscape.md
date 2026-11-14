@@ -49,7 +49,7 @@ Follow the decision in [../log.md](../log.md): an approach must work across came
 
 ## Results
 
-At ±3 s, Claude Sonnet on one frame per second finds 92% of the serves and 83% of the rally ends, with about a third of its detections false. No local approach comes close without firing far too often.
+At ±3 s, Claude on one frame per second finds 91% of the serves. Asked for rallies instead of single events, Sonnet has 19% of its serve detections false and Opus 9%. No local approach comes close without firing far too often.
 
 ### What was built
 
@@ -76,8 +76,8 @@ How far to trust it:
 | Approach                                          | Needs                                    | Cost per set                                   | Status                                                |
 |---------------------------------------------------|------------------------------------------|------------------------------------------------|-------------------------------------------------------|
 | Gemini on the whole video (picture and sound)     | A Google AI Studio key                   | Free tier, or roughly $0.10 to $0.20 paid      | Not tested: no key. Baseline: two thirds found, none false |
-| Claude Sonnet 5.5 on 1 fps contact sheets         | The `claude` CLI login, or an API key    | $1.13 list price, $0 on the Max plan           | Tested                                                |
-| Claude second pass at 5 fps around each serve     | The same                                 | $1.87 more at list price                       | Tested                                                |
+| Claude Sonnet 5.5 or Opus 5.5 on 1 fps contact sheets | The `claude` CLI login, or an API key | $0.69 (Sonnet) or $1.31 (Opus) at API prices, $0 on the Max plan | Tested                                                |
+| Claude second pass at 5 fps around each serve     | The same                                 | About $1 more at API prices                    | Tested                                                |
 | Local vision-language model (Qwen3-VL 8B, SmolVLM2) | A 6 GB model download                  | Free, slow                                     | Not tested                                            |
 | SigLIP zero-shot prompts on frames                | A 0.8 GB model                           | Free, 3 minutes                                | Tested                                                |
 | Whistle from a hand-made spectral detector        | Sound                                    | Free, seconds                                  | Tested                                                |
@@ -148,6 +148,22 @@ All 74 false serve detections of the 1 fps pass were sorted by where they fall i
 - **Only one checked detection was a real serve the labels miss** (`qkx` at 676 s, inside a rally recorded without touches).
 - **Pairing with Claude's own rally ends does not fix it.** Keeping only the last serve before each detected end gives 90% found and 28% false, and keeping the first gives 87% and 30%. The fix has to come from the prompt: one serve per rally, lining up is not a serve, and a rally can be long.
 
+### Asking for rallies
+
+`claude_rallies.py` asks for each rally as a serve and its end together, with rules against the two main kinds of double, and merges the rallies of overlapping windows. Same five sets, 1 fps, ±3 s (183 rallies, 162 scored serves):
+
+| Run                    | Serve detections | Serves found | Serves false | Ends found | Ends false | API cost per set |
+|------------------------|------------------|--------------|--------------|------------|------------|------------------|
+| Sonnet, events prompt  | 240              | 92%          | 31%          | 83%        | 39%        | about $0.60      |
+| Sonnet, rallies prompt | 204              | 91%          | 19%          | 78%        | 31%        | $0.69            |
+| Opus, rallies prompt   | 181              | 91%          | 9%           | 79%        | 22%        | $1.31            |
+
+- **The prompt removed a third of Sonnet's false serves and cost one serve.** Opus on the same prompt reports almost exactly one serve per rally.
+- **Opus per match:** serves found 79% to 97%, false 3% to 20%. `qkx` is the weakest on both counts, and its labels are the messiest.
+- **At ±5 s** Opus finds 95% with 5% false, and at ±1 s 34% with 60% false. The detections are right but 1 to 2 s off the labels.
+- **Rally ends improved less.** A fifth of Opus's ends are still false, and the labels cannot say whether that is the model or the key press.
+- **Cost** is the tokens of each call at the API's plain input and output prices (Sonnet $2 and $10 per million tokens, Opus $4 and $20). Those prices are read off the CLI's own cost figures, assuming its one-hour cache write costs twice the plain input. A set is about 290k input tokens in 13 to 18 calls. Nothing was charged: the runs went through the Max plan.
+
 ### Results on rally ends
 
 | Approach                       | Clips | Detections | Rallies | Found ±3 s | False ±3 s |
@@ -163,18 +179,18 @@ All 74 false serve detections of the 1 fps pass were sorted by where they fall i
 
 ### Recommendation
 
-- **Milestone 1, serves.** Use a hosted vision-language model on one frame per second. Claude Sonnet finds 92% with 31% false in a single pass. Test Gemini on the same clips before settling: it reads sound and full-rate video, costs about a tenth, and its baseline had no false detections but missed a third.
-- **Milestone 2, rally ends.** The same single pass gives rally ends at 83% found and 39% false, so one call can serve both milestones. It is less settled than serves: the labels mark a key press and not the dead ball, and the window is wide.
+- **Milestone 1, serves.** Use a hosted vision-language model on one frame per second, asked for rallies. Opus finds 91% with 9% false for about $1.31 a set, Sonnet 91% with 19% false for $0.69. Test Gemini on the same clips before settling: it reads sound and full-rate video and may cost less.
+- **Milestone 2, rally ends.** The same call gives rally ends at 79% found and 22% false with Opus. It is less settled than serves: the labels mark a key press and not the dead ball, and the window is wide.
 
 Open before either is firm:
 
-- A prompt that stops the double detections before a serve and inside long rallies.
+- What Opus's remaining misses and false detections are, above all in `qkx`.
 - A Gemini run on the same five sets.
 - A volleyball-specific ball tracker, the one local cue that could replace a hosted model.
 
 ### What is seriously wrong
 
-- **One serve detection in three is false.** A coach would get about 1.3 serves per rally. Most are doubles of a real serve, so this is a prompt and pairing problem, not a seeing problem.
+- **One serve detection in three was false with the first prompt.** Most were doubles of a real serve. The rallies prompt brings this to 19% with Sonnet and 9% with Opus.
 - **Rally ends are not measured.** The labels hold the last touch or a key press, never the dead ball, and the window is 9 s wide. The 83% found says little.
 - **The evidence is thin.** Five sets, one prompt, one run each. How much a second run of the same prompt differs is unknown.
 - **Everything depends on one hosted model.** No local approach is close, so there is no fallback and no cross-check.
@@ -202,7 +218,7 @@ Model names, prices and free-tier limits come from third-party pages and were no
 
 ### Follow-ups
 
-- Rewrite the Claude prompt against the two main kinds of false serve, and run it again on the same five sets.
+- Run the rallies prompt with Opus on the other nine clips, and twice on one set to see how much a run varies.
 - Run Gemini on set 1 of each match with the same prompts, and score it with `score.py`.
 - Run Claude on the other nine clips. Only set 1 of each match was tested.
 - Test VballNet or TrackNetV3 weights for ball tracking, after you approve the downloads.
