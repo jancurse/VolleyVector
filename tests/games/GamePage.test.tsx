@@ -6,6 +6,12 @@ import { GamePage } from "../../src/games/GamePage";
 import type { Game } from "../../src/games/types";
 import { GAME, ROSTER } from "../helpers/gameData";
 
+vi.mock("../../src/supabase/client", async () => {
+  const mod = await import("../helpers/supabaseFake");
+
+  return { supabase: mod.supabaseFake };
+});
+
 function renderPage(canEdit: boolean, game: Game = GAME) {
   const onSave = vi.fn((_: Game) => Promise.resolve({ error: null }));
 
@@ -16,8 +22,21 @@ function renderPage(canEdit: boolean, game: Game = GAME) {
       roster={ROSTER}
       canEdit={canEdit}
       onSave={onSave}
+      onSyncSets={() => Promise.resolve(undefined)}
+      onRenameInSets={() => Promise.resolve(undefined)}
+      onAddPlayers={() => Promise.resolve({ error: null, added: [] })}
       onDelete={() => {}}
       onPrint={() => {}}
+      sets={[]}
+      localSets={new Map()}
+      setsError={null}
+      onReloadSets={() => {}}
+      setsLoading={false}
+      onOpenSet={() => {}}
+      onNewSet={() => {}}
+      onDeleteSet={() => {}}
+      onImportSets={() => {}}
+      onStats={() => {}}
     />
   );
 
@@ -29,7 +48,8 @@ const rotation = () => screen.getByRole("region", { name: "Set 1" });
 
 describe("GamePage as a coach", () => {
   test("a new rotation starts as a 5-1 with the setter in I and saves itself", async () => {
-    const onSave = renderPage(true, { ...GAME, rotations: [] });
+    // A game with no opponent is a rotation plan, so its rotations section starts open.
+    const onSave = renderPage(true, { ...GAME, opponent: "", rotations: [] });
 
     await userEvent.click(screen.getByRole("button", { name: "Add rotation" }));
 

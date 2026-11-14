@@ -21,11 +21,13 @@ type SquadDialogProps = {
   game: Game;
   /** The pickable roster as stored, with no game overrides applied. */
   roster: readonly RosterPlayer[];
+  /** Players with stats in the game's sets, who stay in its squad. */
+  locked: ReadonlySet<string>;
   onChange: (game: Game) => void;
   onClose: () => void;
 };
 
-export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProps): JSX.Element {
+export function SquadDialog({ game, roster, locked, onChange, onClose }: SquadDialogProps): JSX.Element {
   const [filter, setFilter] = useState("");
   const [adjusting, setAdjusting] = useState<string | null>(null);
   const query = filter.trim().toLowerCase();
@@ -58,6 +60,7 @@ export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProp
                 <Checkbox
                   ariaLabel={`#${p.number} ${p.name}`}
                   checked={picked}
+                  disabled={picked && locked.has(p.id)}
                   onCheckedChange={(on) =>
                     onChange(setSquad(game, on ? [...game.squad, p.id] : game.squad.filter((id) => id !== p.id)))
                   }
@@ -66,6 +69,7 @@ export function SquadDialog({ game, roster, onChange, onClose }: SquadDialogProp
                     <span className="w-6 text-right font-display font-bold tabular-nums">{p.number}</span>
                     <span>{p.name}</span>
                     {override && <span className="text-xs text-text-dim">this game</span>}
+                    {picked && locked.has(p.id) && <span className="text-xs text-text-dim">has stats in a set</span>}
                   </span>
                 </Checkbox>
                 <span className="ml-auto flex items-center gap-1">

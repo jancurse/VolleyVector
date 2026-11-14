@@ -20,6 +20,19 @@ import { GamePage } from "./games/GamePage";
 import { GamesPage } from "./games/GamesPage";
 import { useGames } from "./games/useGames";
 import { useRoster } from "./games/useRoster";
+import { useSetLinks } from "./games/useSetLinks";
+import type { Game } from "./games/types";
+import { localSets, newSetData, squadNames } from "./stats/gameSets";
+import { ImportSetsDialog } from "./stats/import/ImportSetsDialog";
+import { toReportSet } from "./stats/reportSet";
+import { createSet, deleteSet, finishSet, loadSetData } from "./stats/sets";
+import type { SetSummary } from "./stats/types";
+import { parseImport } from "./stats/store";
+import { readBackup, writeBackup } from "./stats/sync/setSync";
+import { downloadSet, startSet } from "./stats/sync/useSetSync";
+import { SetPage } from "./stats/tracker/SetPage";
+import type { ReportSet } from "./stats/types";
+import { useGameSets } from "./stats/useGameSets";
 import { BoardHistory } from "./history/BoardHistory";
 import { NoteHistory } from "./history/NoteHistory";
 import { Library } from "./library/Library";
@@ -70,6 +83,8 @@ import type { CopyTarget } from "./sharing/CopyToMenu";
 import { copyBoardToSpace, fetchBoardById } from "./sharing/share";
 import { useRoute } from "./routing/useRoute";
 import { buildPath, routeSpace } from "./routing/route";
+import type { StatsView } from "./routing/route";
+import type { StatsTab } from "./stats/StatsPage";
 import { NotFound } from "./routing/NotFound";
 import {
   boardPrintRoute,
@@ -79,6 +94,8 @@ import {
   findNoteId,
   gameRoute,
   gamesRoute,
+  setRoute,
+  statsRoute,
   libraryRoute,
   routeSpaceForSpace,
   spaceForRouteSpace,
@@ -92,6 +109,7 @@ import { NotePrint } from "./print/NotePrint";
 import { GamePrint } from "./print/GamePrint";
 import { AppShell } from "./shell/AppShell";
 import { BrandLockup } from "./shell/BrandMark";
+
 import { Sidebar } from "./shell/Sidebar";
 import { SidebarRail } from "./shell/SidebarRail";
 import { TopBar } from "./shell/TopBar";
@@ -99,6 +117,10 @@ import { AvatarMenu } from "./shell/AvatarMenu";
 import { breadcrumbs } from "./shell/breadcrumb";
 import { useSidebarMode } from "./shell/useSidebarMode";
 import { SidePanel } from "./ui/SidePanel";
+
+// The stats, highlights, and report are heavy (YouTube, Chart.js, jsPDF); only load them when opened.
+const StatsPage = lazy(() => import("./stats/StatsPage").then((m) => ({ default: m.StatsPage })));
+const GameStats = lazy(() => import("./stats/GameStats").then((m) => ({ default: m.GameStats })));
 
 // The page background: a radial glow over the theme base, used by the full-screen gates (loading, error).
 // The authenticated shell paints its own matching background in AppShell.
@@ -252,12 +274,32 @@ export function App(): JSX.Element {
 
   // The games surfaces load the team's games and roster; every other route leaves both unloaded.
   const gamesTeamId =
-    route.kind === "games" || route.kind === "game" || route.kind === "printGame"
+    route.kind === "games" ||
+    route.kind === "game" ||
+    route.kind === "printGame" ||
+    route.kind === "set" ||
+    route.kind === "stats"
       ? findTeamId(allTeams, route.teamSlug)
       : null;
   const games = useGames(gamesTeamId);
   const roster = useRoster(gamesTeamId);
   const gamesTeamName = allTeams.find((t) => t.teamId === gamesTeamId)?.teamName ?? "Team";
+  const gameIds = useMemo(() => games.games.map((g) => g.id), [games.games]);
+  const gameSets = useGameSets(gameIds);
+  const setLinks = useSetLinks(gamesTeamName, games.games, roster.players, games.saveGame, gameSets.reload);
+  // Set files picked for the stats: they live only in memory, so a reload asks for them again.
+  const [fileSets, setFileSets] = useState<ReportSet[] | null>(null);
+  const [importingSets, setImportingSets] = useState<{ intoGameId?: string } | null>(null);
+  // The set open in the tracker, with its game and team as they were when it opened: the tracker stays up
+  // through a sign-out (it keeps recording into this browser), when the workspace and its stores empty.
+  // One held from a local copy alone (`fromBackup`) gives way to the loaded game once the workspace is there.
+  const [heldSet, setHeldSet] = useState<{
+    setId: string;
+    game: Game;
+    teamName: string;
+    userId?: string;
+    fromBackup?: boolean;
+  } | null>(null);
 
   // Selection, open board, and edit mode are all read off the current route.
   const selection: Selection =
@@ -281,6 +323,10 @@ export function App(): JSX.Element {
   // Whether a specific board may be edited is its own derived capability (editor or owner). RLS enforces
   // all of this server-side; these flags only keep the UI honest.
   const canEdit = personal || workspace.isAdmin || workspace.activeRole === "coach";
+  const routeGame = route.kind === "set" ? games.games.find((g) => g.id === route.gameId) : undefined;
+  // A set recorded in this browser carries its game, so it reopens even while the server is out of reach.
+  const routeSetId = route.kind === "set" ? route.setId : null;
+  const routeBackup = useMemo(() => (routeSetId ? readBackup(localStorage, routeSetId) : null), [routeSetId]);
   const canEditBoard = (b: Board): boolean => b.capability === "editor" || b.capability === "owner";
   const canEditNote = (n: Note): boolean => n.capability === "editor" || n.capability === "owner";
 
@@ -315,6 +361,75 @@ export function App(): JSX.Element {
   if (!needsBoardLookup && missingBoardId !== null) setMissingBoardId(null);
 
   const homeRoute = () => libraryRoute(activeSpace, allTeams);
+
+  if (route.kind === "set" && user) {
+    const held = heldSet?.setId === route.setId ? heldSet : null;
+
+    if (spaceReady && routeGame) {
+      if (canEdit && (!held || held.fromBackup))
+        setHeldSet({ setId: route.setId, game: routeGame, teamName: gamesTeamName, userId: user.id });
+      else if (!canEdit && held?.fromBackup) setHeldSet(null);
+    } else if (!held && routeBackup?.context?.userId === user.id)
+      setHeldSet({ setId: route.setId, ...routeBackup.context, fromBackup: true });
+  }
+  if (route.kind !== "set" && heldSet) setHeldSet(null);
+
+  const heldSummary = heldSet ? gameSets.sets.find((s) => s.id === heldSet.setId) : undefined;
+  const heldNumber = heldSummary?.setNumber || routeBackup?.data.meta.setNumber;
+  const crumbs = breadcrumbs(
+    route,
+    allTeams,
+    notes.notes,
+    boards,
+    heldSet ? [heldSet.game, ...games.games] : games.games,
+    heldNumber ? `Set ${heldNumber}` : undefined
+  );
+  /** The number after every set the game has, on the server or only in this browser. */
+  const nextSetNumber = (gameId: string): number =>
+    Math.max(
+      0,
+      ...gameSets.sets.filter((s) => s.gameId === gameId).map((s) => s.setNumber),
+      ...[...localSets(gameId).values()].map((b) => parseInt(b.data.meta.setNumber, 10) || 0)
+    ) + 1;
+  // The open set in the tracker, built here so the signed-out shell below renders the very same element.
+  const setPage =
+    route.kind === "set" && heldSet ? (
+      <SetPage
+        key={heldSet.setId}
+        setId={heldSet.setId}
+        game={heldSet.game}
+        teamName={heldSet.teamName}
+        userId={heldSet.userId}
+        finished={!!heldSummary?.finished}
+        signedIn={user !== null}
+        onBack={() => navigate(gameRoute(heldSet.game.teamId, allTeams, heldSet.game.id))}
+        onNextSet={(next) =>
+          navigate(
+            setRoute(
+              heldSet.game.teamId,
+              allTeams,
+              heldSet.game.id,
+              startSet(
+                { game: heldSet.game, teamName: heldSet.teamName, userId: heldSet.userId },
+                {
+                  ...next,
+                  meta: {
+                    ...next.meta,
+                    setNumber: String(Math.max(nextSetNumber(heldSet.game.id), parseInt(next.meta.setNumber, 10) || 0)),
+                  },
+                }
+              )
+            )
+          )
+        }
+        onFinish={async (finished) => {
+          const { error } = await finishSet(heldSet.setId, finished);
+
+          if (error) void confirm({ title: "Couldn’t change the set", description: error, confirmLabel: "OK" });
+          gameSets.reload();
+        }}
+      />
+    ) : null;
 
   // Follow the URL's space: when the route names a different library than the active one, switch to it.
   useEffect(() => {
@@ -640,6 +755,21 @@ export function App(): JSX.Element {
 
   if (loading) return loader;
 
+  // Signed out (in another tab, or the session lapsed) with a set open: the tracker stays where it was, in a
+  // shell without the workspace's sidebar, and keeps recording into this browser until a sign-in. The tree
+  // mirrors the signed-in shell's (AppShell first, then its main's two children), so the set page is not
+  // remounted and keeps its undo history, its entry in progress, and its video.
+  if (!user && setPage)
+    return (
+      <TooltipProvider>
+        <AppShell mode="drawer" topBar={<TopBar crumbs={crumbs} onNavigate={() => undefined} account={null} />}>
+          {false}
+          {setPage}
+        </AppShell>
+        {dialog}
+      </TooltipProvider>
+    );
+
   // A logged-out visitor always sees the landing page, at the root, a deep link, or an invite link: its
   // header offers Sign in and Sign up, and an invite link raises an Accept banner. Both open one shared
   // auth surface. A signed-in visitor's invite link instead floats that surface over the app (below).
@@ -658,7 +788,8 @@ export function App(): JSX.Element {
   if (isInviteLanding && !passwordReady)
     return <SetPassword email={user.email ?? ""} onDone={() => setPasswordReady(true)} />;
 
-  if (workspace.error) {
+  // An open set carries on through a workspace that cannot load (offline): its saving retries on its own.
+  if (workspace.error && !setPage) {
     return (
       <div className={cx(BG, "items-center justify-center px-6 text-center")}>
         <p className={MUTED}>Couldn’t load your workspace: {workspace.error}</p>
@@ -668,11 +799,17 @@ export function App(): JSX.Element {
 
   // Once the workspace resolves, a user with no display name set must choose one before reaching the
   // app. This wins over the content-loading gate, so the prompt shows without waiting on boards/notes.
-  if (!workspace.loading && workspace.displayName === null) return <NameSetup onSave={workspace.setDisplayName} />;
+  // An open set waits for it: a profile that failed to load offline must not tear the tracker down.
+  if (!setPage && !workspace.loading && workspace.displayName === null)
+    return <NameSetup onSave={workspace.setDisplayName} />;
 
   // Block on the first load only. A later team switch keeps the prior content on screen until the new
   // data arrives, so switching teams (or working in a dialog mid-load) never blanks the whole app.
-  if (workspace.loading || (boardsLoading && boards.length === 0) || (notes.loading && notes.notes.length === 0))
+  // An open set is exempt: signing back in reloads the workspace, and the tracker must not be torn down for it.
+  if (
+    !setPage &&
+    (workspace.loading || (boardsLoading && boards.length === 0) || (notes.loading && notes.notes.length === 0))
+  )
     return loader;
 
   const printNotFound = (
@@ -811,6 +948,9 @@ export function App(): JSX.Element {
     const { id, error } = await games.createGame({
       name: "New game",
       date: new Date().toLocaleDateString("en-CA"),
+      opponent: "",
+      venue: "home",
+      notes: "",
       squad: roster.players.filter((p) => !p.archived).map((p) => p.id),
       overrides: {},
       overviewShift: 0,
@@ -821,20 +961,117 @@ export function App(): JSX.Element {
     else void confirm({ title: "Couldn’t create the game", description: error ?? undefined, confirmLabel: "OK" });
   };
 
-  const removeGame = async (id: string) => {
+  // A new set starts in this browser (safe from its first change, online or not) and opens in the tracker.
+  // It follows the game's last set: the same lineup and video, numbered after every set the game has.
+  const recordSet = async (game: Game) => {
+    const recorded = gameSets.sets.filter((s) => s.gameId === game.id);
+    const setNumber = nextSetNumber(game.id);
+    const last = recorded.at(-1);
+    let previous = last ? readBackup(localStorage, last.id)?.data : undefined;
+
+    if (last && !previous) {
+      const stored = await loadSetData(game.id);
+
+      if (stored.error)
+        return void confirm({ title: "Couldn’t start the set", description: stored.error, confirmLabel: "OK" });
+
+      previous = stored.sets.find((s) => s.id === last.id)?.data;
+    }
+
+    const data = newSetData(game, gamesTeamName, squadNames(game, roster.players), setNumber, previous ?? null);
+
+    navigate(
+      setRoute(game.teamId, allTeams, game.id, startSet({ game, teamName: gamesTeamName, userId: user.id }, data))
+    );
+  };
+
+  const removeSet = async (set: SetSummary) => {
     const ok = await confirm({
-      title: "Delete this game?",
-      description: "Its squad and rotations are deleted for good.",
+      title: `Delete set ${set.setNumber}?`,
+      description: "All its stats are deleted for good. A copy is downloaded first.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+
+    if (!ok) return;
+
+    const stored = await loadSetData(set.gameId);
+    const data = readBackup(localStorage, set.id)?.data ?? stored.sets.find((s) => s.id === set.id)?.data;
+    const { error } = data ? await deleteSet(set.id) : { error: stored.error ?? "The set is already gone." };
+
+    if (data && !error) downloadSet(data, set.id, "deleted");
+
+    if (error) {
+      void confirm({ title: "Couldn’t delete the set", description: error, confirmLabel: "OK" });
+
+      return;
+    }
+
+    writeBackup(localStorage, set.id, null);
+    gameSets.reload();
+  };
+
+  const openGameStats = (picked: readonly Game[], view: StatsView = "stats") => {
+    if (gamesTeamId)
+      navigate(
+        statsRoute(
+          gamesTeamId,
+          allTeams,
+          view,
+          picked.map((g) => g.id)
+        )
+      );
+  };
+
+  // Stats and highlights straight from exported set files, saving nothing.
+  const statsFromFiles = async (files: readonly File[]) => {
+    const sets: ReportSet[] = [];
+    const failed: string[] = [];
+
+    for (const file of files) {
+      try {
+        sets.push(toReportSet(parseImport(JSON.parse(await file.text()))));
+      } catch {
+        failed.push(file.name);
+      }
+    }
+
+    if (failed.length)
+      await confirm({
+        title: "Some files were skipped",
+        description: `Not set exports: ${failed.join(", ")}`,
+        confirmLabel: "OK",
+      });
+
+    if (!sets.length || !gamesTeamId) return;
+
+    setFileSets(sets);
+    navigate(statsRoute(gamesTeamId, allTeams, "stats", null));
+  };
+
+  const removeGame = async (id: string) => {
+    const count = gameSets.sets.filter((s) => s.gameId === id).length;
+    const ok = await confirm({
+      title: count
+        ? `Delete this game and its ${count} recorded ${count === 1 ? "set" : "sets"}?`
+        : "Delete this game?",
+      description: count
+        ? "Its squad, rotations, sets, and their stats are deleted for good. The sets are downloaded first."
+        : "Its squad and rotations are deleted for good.",
       confirmLabel: "Delete",
       danger: true,
     });
 
     if (!ok || !gamesTeamId) return;
 
-    const { error } = await games.deleteGame(id);
+    // The sets go with the game, so each is loaded before the delete and downloaded once it went through.
+    const stored = count ? await loadSetData(id) : { sets: [], error: null };
+    const { error } = stored.error ? stored : await games.deleteGame(id);
 
-    if (error) void confirm({ title: "Couldn’t delete the game", description: error, confirmLabel: "OK" });
-    else navigate(gamesRoute(gamesTeamId, allTeams));
+    if (error) return void confirm({ title: "Couldn’t delete the game", description: error, confirmLabel: "OK" });
+
+    for (const set of stored.sets) downloadSet(set.data, set.id, "deleted");
+    navigate(gamesRoute(gamesTeamId, allTeams));
   };
 
   let content: JSX.Element;
@@ -1036,9 +1273,14 @@ export function App(): JSX.Element {
         games={games.games}
         loading={games.loading}
         canEdit={canEdit}
+        sets={gameSets.sets}
         onOpen={(id) => navigate(gameRoute(gamesTeamId, allTeams, id))}
+        onOpenSet={(gameId, setId) => navigate(setRoute(gamesTeamId, allTeams, gameId, setId))}
         onNew={() => void newGame()}
         onOpenRoster={() => navigate(teamRoute(gamesTeamId, allTeams))}
+        onImport={() => setImportingSets({})}
+        onStats={(picked) => openGameStats(picked)}
+        onStatsFromFiles={(files) => void statsFromFiles(files)}
       />
     ) : (
       <NotFound onHome={() => navigate(homeRoute())} />
@@ -1054,15 +1296,74 @@ export function App(): JSX.Element {
           teamName={gamesTeamName}
           roster={roster.players}
           canEdit={canEdit}
-          onSave={games.saveGame}
+          onSave={setLinks.saveGame}
+          onSyncSets={setLinks.syncSets}
+          onRenameInSets={setLinks.renameInSets}
+          onAddPlayers={roster.addPlayers}
           onDelete={() => void removeGame(game.id)}
           onPrint={() => navigate(gameRoute(gamesTeamId, allTeams, game.id, true))}
+          sets={gameSets.sets.filter((s) => s.gameId === game.id)}
+          localSets={localSets(game.id)}
+          setsLoading={gameSets.loading}
+          setsError={gameSets.error}
+          onReloadSets={gameSets.reload}
+          onOpenSet={(id) => navigate(setRoute(gamesTeamId, allTeams, game.id, id))}
+          onNewSet={(g) => void recordSet(g)}
+          onDeleteSet={(set) => void removeSet(set)}
+          onImportSets={() => setImportingSets({ intoGameId: game.id })}
+          onStats={(g) => openGameStats([g])}
         />
       ) : !spaceReady || games.loading || roster.loading ? (
         <p className={MUTED}>Loading…</p>
       ) : (
         <NotFound onHome={() => navigate(homeRoute())} />
       );
+  } else if (route.kind === "set") {
+    content =
+      setPage ??
+      (!spaceReady || games.loading ? (
+        <p className={MUTED}>Loading…</p>
+      ) : routeGame ? (
+        <p className={MUTED}>Only the team’s coaches record sets. Open the game for its stats.</p>
+      ) : (
+        <NotFound onHome={() => navigate(homeRoute())} />
+      ));
+  } else if (route.kind === "stats") {
+    const onTab = (view: StatsTab) =>
+      view !== "highlights" &&
+      gamesTeamId &&
+      navigate(statsRoute(gamesTeamId, allTeams, view, route.gameIds), { replace: true });
+
+    content = !gamesTeamId ? (
+      <NotFound onHome={() => navigate(homeRoute())} />
+    ) : route.gameIds === null ? (
+      fileSets ? (
+        <Suspense fallback={<p className={MUTED}>Loading…</p>}>
+          <StatsPage
+            sets={fileSets}
+            eyebrow={`${gamesTeamName}, ${fileSets.length} ${fileSets.length === 1 ? "set" : "sets"}`}
+            title="From set files"
+            initialTab={route.view}
+            onTab={onTab}
+          />
+        </Suspense>
+      ) : (
+        <p className={MUTED}>The set files aren’t loaded any more. Pick them again from the games list.</p>
+      )
+    ) : games.loading ? (
+      <p className={MUTED}>Loading…</p>
+    ) : (
+      <Suspense fallback={<p className={MUTED}>Loading…</p>}>
+        <GameStats
+          key={route.gameIds.join(",")}
+          gameIds={route.gameIds}
+          games={games.games}
+          teamName={gamesTeamName}
+          initialTab={route.view}
+          onTab={onTab}
+        />
+      </Suspense>
+    );
   } else if (route.kind === "settings") {
     content = (
       <SettingsPage
@@ -1151,7 +1452,7 @@ export function App(): JSX.Element {
 
   const topBar = (
     <TopBar
-      crumbs={breadcrumbs(route, allTeams, notes.notes, boards, games.games)}
+      crumbs={crumbs}
       onNavigate={navigate}
       onOpenNav={sidebarMode === "drawer" ? () => setNavOpen(true) : undefined}
       account={
@@ -1206,6 +1507,39 @@ export function App(): JSX.Element {
         </SidePanel>
       )}
       {dialog}
+      {importingSets && gamesTeamId && (
+        <ImportSetsDialog
+          teamName={gamesTeamName}
+          games={games.games}
+          sets={gameSets.sets}
+          roster={roster.players}
+          intoGameId={importingSets.intoGameId}
+          createGame={async (fields) => {
+            const game = { ...fields, notes: "", overrides: {}, overviewShift: 0, rotations: [] };
+            const { id, error } = await games.createGame(game);
+
+            return { game: id ? { ...game, id, teamId: gamesTeamId } : null, error };
+          }}
+          saveGame={setLinks.saveGame}
+          addPlayers={roster.addPlayers}
+          createSet={async (gameId, data, id) => {
+            const outcome = await createSet(gameId, data, id);
+
+            return {
+              error:
+                outcome.kind === "saved"
+                  ? null
+                  : outcome.kind === "refused" || outcome.kind === "offline"
+                    ? outcome.message
+                    : `Not saved (${outcome.kind})`,
+            };
+          }}
+          onClose={(imported) => {
+            setImportingSets(null);
+            if (imported) gameSets.reload();
+          }}
+        />
+      )}
       <InviteDialog
         open={inviteOpen}
         onOpenChange={setInviteOpen}

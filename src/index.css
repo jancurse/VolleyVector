@@ -45,6 +45,46 @@
   --text-display-md: 1.27rem;
   --text-display-md--line-height: 1.2;
 
+  /* The score in the stats tracker's scoreboard. */
+  --text-score: 2.4rem;
+  --text-score--line-height: 1.1;
+
+  /* The set report's charts: a full chart, a small (court or pie) chart, and a pie beside its zone chart. */
+  --container-report-chart: 43.75rem;
+  --container-report-chart-sm: 31.25rem;
+  --container-report-pie: 17.5rem;
+  /* A wide report chart is twice as wide as tall, Chart.js's own bar shape. */
+  --aspect-report-wide: 2 / 1;
+  /* A wide dialog, for previewing several items side by side. */
+  --container-dialog-wide: 44rem;
+
+  /* An A4 sheet's width, for laying out the report's PDF pages. */
+  --container-a4: 210mm;
+
+  /* The stats dashboard: the narrowest card column, the width that fits two, and its court diagrams. */
+  --container-dash-card: 22rem;
+  --container-dash-wide: 45rem;
+  --container-dash-court: 21rem;
+  --container-dash-rotations: 38rem;
+  --container-dash-tiles: 36rem;
+  --spacing-rally-log: 28rem;
+  --container-dash-metric: 18rem;
+  --container-dash-col: 4.5rem;
+  --container-dash-rotation: 8.5rem;
+  --container-dash-tile: 4.5rem;
+  --container-dash-name: 3.5rem;
+
+  /* The highlights player: filters beside the video from hl-medium, the clip list beside it too from hl-wide. */
+  --container-hl-medium: 52rem;
+  --container-hl-wide: 88rem;
+  --container-hl-filters: 17rem;
+  --container-hl-clips-min: 18rem;
+  --container-hl-clips: 22rem;
+
+  /* The stats tracker's side column, and the event log's scrolling height. */
+  --container-tracker-side: 26rem;
+  --spacing-event-log: 32rem;
+
   /* The on-screen widths of the rotation slip (w-slip) and the wider overview slip (w-overview). */
   --container-slip: 15rem;
   --container-overview: 18rem;
@@ -110,6 +150,34 @@
   --color-accent-weak: var(--accent-weak);
   --color-on-accent: var(--on-accent);
   --color-danger: var(--danger);
+  /* Stats charts: our side is the accent, the opponent a neutral, errors the danger colour. */
+  --color-chart-us: var(--accent);
+  --color-chart-them: var(--chart-them);
+  --color-chart-bad: var(--danger);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
+}
+
+/* The neutral chart colours mix the theme's text into its page colour. Declared on every themed element, not
+   only the root, so a subtree pinned to one theme (a printed handout) mixes its own colours. */
+:root,
+[data-theme] {
+  --chart-them: color-mix(in srgb, var(--text) 30%, var(--bg));
+  --chart-grid: color-mix(in srgb, var(--text) 9%, var(--bg));
+  --chart-axis: color-mix(in srgb, var(--text) 45%, var(--bg));
+}
+
+/* The match report's outcome colours: one distinct hue per outcome quality so a stacked bar or a
+   pie reads at a glance. Mid tones, so the same values read on the light paper and the dark panel. */
+:root {
+  --outcome-excellent: #20b2aa;
+  --outcome-great: #5dade2;
+  --outcome-ok: #d4a574;
+  --outcome-ok-dark: #a68560;
+  --outcome-error: #e0a5a5;
+  --outcome-bad: #d06060;
+  --outcome-bad-darkest: #9b5050;
+  --outcome-neutral: #a9a9a9;
 }
 
 /* The playing surface keeps one identity in both themes: a warm sport-floor with dark lines, like a

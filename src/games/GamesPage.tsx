@@ -1,33 +1,63 @@
+import { useState } from "react";
 import type { JSX } from "react";
-import { Plus, Users } from "lucide-react";
+import { BarChart3, Plus, Upload, Users } from "lucide-react";
 
+import { ResultBadge } from "../stats/ResultBadge";
+import type { SetSummary } from "../stats/types";
+import { FileButton } from "../ui/FileButton";
 import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Checkbox";
 import { Table, TableCell, TableHeadCell } from "../ui/Table";
-import { EYEBROW, MUTED, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
-import { formatGameDate } from "./format";
+import { EYEBROW, MUTED, PAGE, PAGE_BAR, THEM_TEXT, TITLE } from "../ui/styles";
+import { formatShortDate, VENUE_LABEL } from "./format";
 import type { Game } from "./types";
 
-// A team's games, newest fixture first. A coach starts a new one here; anyone on the team opens one to see
-// its rotations and print its rotation slips, or opens the roster the squads are picked from.
+// A team's games, newest fixture first, with each game's opponent and set scores. A coach starts a new game or
+// imports recorded set files here; anyone on the team opens one, picks several for their combined stats, or
+// opens the roster the squads are picked from.
 type GamesPageProps = {
   teamName: string;
   games: readonly Game[];
+  sets: readonly SetSummary[];
   loading: boolean;
   canEdit: boolean;
   onOpen: (id: string) => void;
+  onOpenSet: (gameId: string, setId: string) => void;
   onNew: () => void;
   onOpenRoster: () => void;
+  onImport: () => void;
+  onStats: (games: readonly Game[]) => void;
+  onStatsFromFiles: (files: File[]) => void;
 };
 
 export function GamesPage({
   teamName,
   games,
+  sets,
   loading,
   canEdit,
   onOpen,
+  onOpenSet,
   onNew,
   onOpenRoster,
+  onImport,
+  onStats,
+  onStatsFromFiles,
 }: GamesPageProps): JSX.Element {
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const setsOf = (id: string) => sets.filter((s) => s.gameId === id);
+  const pickedGames = games.filter((g) => picked.has(g.id));
+
+  const pick = (id: string, on: boolean) =>
+    setPicked((p) => {
+      const next = new Set(p);
+
+      if (on) next.add(id);
+      else next.delete(id);
+
+      return next;
+    });
+
   return (
     <section className={PAGE}>
       <div className={PAGE_BAR}>
@@ -35,16 +65,31 @@ export function GamesPage({
           <p className={EYEBROW}>{teamName}</p>
           <h1 className={TITLE}>Games</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" paired={canEdit} onClick={onOpenRoster}>
             <Users size={15} aria-hidden="true" />
             Roster
           </Button>
+          <FileButton
+            multiple
+            paired={canEdit}
+            onFiles={onStatsFromFiles}
+            title="Stats and highlights from exported set files, saving nothing"
+          >
+            <BarChart3 size={15} aria-hidden="true" />
+            Stats and highlights from set files…
+          </FileButton>
           {canEdit && (
-            <Button variant="primary" onClick={onNew}>
-              <Plus size={15} aria-hidden="true" />
-              New game
-            </Button>
+            <>
+              <Button variant="ghost" paired onClick={onImport}>
+                <Upload size={15} aria-hidden="true" />
+                Import set files
+              </Button>
+              <Button variant="primary" onClick={onNew}>
+                <Plus size={15} aria-hidden="true" />
+                New game
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -54,32 +99,96 @@ export function GamesPage({
       ) : games.length === 0 ? (
         <p className={MUTED}>
           {canEdit
-            ? "Start a game to pick a squad, set your rotations, and print rotation slips."
-            : "No games planned yet."}
+            ? "Start a game to pick a squad, record its sets, and see their stats. Or import sets recorded earlier."
+            : "No games yet."}
         </p>
       ) : (
-        <Table>
-          <thead>
-            <tr>
-              <TableHeadCell>Game</TableHeadCell>
-              <TableHeadCell>Date</TableHeadCell>
-              <TableHeadCell className="text-right">Rotations</TableHeadCell>
-            </tr>
-          </thead>
-          <tbody>
-            {games.map((game) => (
-              <tr key={game.id}>
-                <TableCell className="max-w-xs truncate">
-                  <Button variant="text" className="pl-0 text-base text-text" onClick={() => onOpen(game.id)}>
-                    {game.name || "Untitled game"}
-                  </Button>
-                </TableCell>
-                <TableCell className="text-text-dim">{game.date ? formatGameDate(game.date) : "—"}</TableCell>
-                <TableCell className="text-right tabular-nums">{game.rotations.length}</TableCell>
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="ghost" onClick={() => onStats(pickedGames)} disabled={pickedGames.length === 0}>
+              <BarChart3 size={15} aria-hidden="true" />
+              Stats for {pickedGames.length || "picked"} {pickedGames.length === 1 ? "game" : "games"}
+            </Button>
+            {pickedGames.length > 0 && (
+              <Button variant="text" onClick={() => setPicked(new Set())}>
+                Clear
+              </Button>
+            )}
+          </div>
+          <Table width="page">
+            <thead>
+              <tr>
+                <TableHeadCell className="w-px">Pick</TableHeadCell>
+                <TableHeadCell>Game</TableHeadCell>
+                <TableHeadCell>Opponent</TableHeadCell>
+                <TableHeadCell>Venue</TableHeadCell>
+                <TableHeadCell>Date</TableHeadCell>
+                <TableHeadCell>Result</TableHeadCell>
+                <TableHeadCell>Sets</TableHeadCell>
               </tr>
-            ))}
-          </tbody>
-        </Table>
+            </thead>
+            <tbody>
+              {games.map((game) => (
+                <tr key={game.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={picked.has(game.id)}
+                      onCheckedChange={(on) => pick(game.id, on)}
+                      ariaLabel={`Pick ${game.name || "this game"} for stats`}
+                      disabled={setsOf(game.id).length === 0}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="text"
+                      className="max-w-xs pl-0 text-base"
+                      onClick={() => onOpen(game.id)}
+                      title={game.name}
+                    >
+                      <span className="truncate text-text">{game.name || "Untitled game"}</span>
+                    </Button>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-text-dim">{game.opponent || "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap text-text-dim">{VENUE_LABEL[game.venue]}</TableCell>
+                  <TableCell className="whitespace-nowrap text-text-dim tabular-nums">
+                    {game.date ? formatShortDate(game.date) : "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {setsOf(game.id).length === 0 ? (
+                      <span className="text-text-dim">—</span>
+                    ) : (
+                      <ResultBadge sets={setsOf(game.id)} />
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap tabular-nums">
+                    {setsOf(game.id).length === 0 ? (
+                      <span className="text-text-dim">—</span>
+                    ) : (
+                      <span className="flex items-center gap-4">
+                        {setsOf(game.id).map((s) => (
+                          <Button
+                            key={s.id}
+                            variant="text"
+                            size="sm"
+                            disabled={!canEdit}
+                            onClick={() => onOpenSet(game.id, s.id)}
+                            title={canEdit ? `Open set ${s.setNumber} in the tracker` : `Set ${s.setNumber}`}
+                            aria-label={`Set ${s.setNumber}, ${s.us}–${s.them}`}
+                            className="p-0 text-sm disabled:opacity-100"
+                          >
+                            <span className={s.them > s.us ? THEM_TEXT : "text-text"}>
+                              {s.us}–{s.them}
+                            </span>
+                          </Button>
+                        ))}
+                      </span>
+                    )}
+                  </TableCell>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </>
       )}
     </section>
   );

@@ -6,12 +6,14 @@ import { cx, TABLE, TABLE_CELL, TABLE_FRAME, TABLE_HEAD_CELL } from "./styles";
 // through one component instead of repeating the tokens at each call site. Callers supply their own
 // <thead>/<tbody> rows and use TableHeadCell/TableCell for the cells. Width is a named variant, never a
 // per-table guess, and every variant is a fixed width so a table is the same size regardless of its rows:
-// "fill" is the standard card width, "compact" a narrower one for light, few-column tables.
-type TableWidth = "fill" | "compact";
+// "fill" is the standard card width, "compact" a narrower one for light, few-column tables, and "page" the
+// page's full width, for a data table with many columns (the games list).
+type TableWidth = "fill" | "compact" | "page";
 
 const WIDTH: Record<TableWidth, string> = {
   fill: "max-w-2xl",
   compact: "max-w-md",
+  page: "w-full",
 };
 
 export function Table({ width = "fill", children }: { width?: TableWidth; children: ReactNode }): JSX.Element {

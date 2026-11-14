@@ -20,6 +20,7 @@ VolleyVector is a single-page React 19 + TypeScript + Vite app for building, bro
 - `src/bundle/`: the portable JSON bundle format (types, serialize, parse), the export menu, the import and replace-from-JSON dialogs, and the dev-only draft preview.
 - `src/print/`: the chrome-free print surface that renders a board or note as a paper handout, and a game as rotation slips.
 - `src/games/`: a team's roster and games: the model, the pure rotation operations, the stores, the games list and game page, the squad picker, the rotation editor and player picker, and the rotation and overview slips.
+- `src/stats/`: the stats tracker: the set model (`AppData` version 2) and its pure rally, entry, and export logic; the tracker and its panels (`tracker/`); the saving engine (`sync/`); the stats page with its dashboard (`dashboard/`, plus the standalone export build), highlights (`highlights/`), and match report (`report/`); and set-file import (`import/`). The games' own set list is `src/games/GameSets.tsx`.
 - `src/library/`: the browse surface, board grid, cards, and type/tag filtering.
 - `src/notes/`: the note-tree model, operations, store, sidebar, the note view/editor, and the board view's appears-in backlinks. (Server-side, notes live in the legacy-named `topics` table.)
 - `src/history/`: the revision list, the read-only board and note history views, the structured board/note diff, and the revision-loading hooks.
@@ -108,22 +109,10 @@ The repo enables the following Claude Code tools (binaries to install are in @do
 ### Git and Shell
 
 - Do not run git write operations (commit, amend, push, rebase, reset, tag, branch changes) unless the user explicitly asks; otherwise leave changes in the working tree for review.
-- **When you commit, follow the `commit` skill**: it covers what to include in the commit and how to write a clean, concise message.
+- **Commit messages:** an imperative subject under ~70 characters, a body only when the change needs explaining, and no file lists or process narration.
 - Avoid Bash command patterns that block auto-approval: a `$` anywhere in a command (treated as shell expansion regardless of quoting), or backslash-escaped spaces in paths (use double-quoted paths instead).
 - **Always work on a feature branch and integrate through a squash-merged PR**, never by committing to `main` directly.
 - **Plans are tracked, then removed before merge.** A plan under `./plans/` is committed on its feature branch so it stays visible in the PR for reference (it is deliberately not gitignored). Delete it in a separate commit near the end of the branch, before the squash merge, so plans never reach `main`.
-
-### Workspaces and worktrees
-
-- Each feature has its own folder. Inside it, the feature branch's checkout and its worktrees sit side by side, each in its own sibling folder.
-- Work in the feature branch's checkout or a worktree, never on `main`.
-- **When you create a worktree, use the EnterWorktree tool**, not `git` by hand. It runs a custom hook that creates the worktree in a parallel folder, branches it off the current feature branch's HEAD (never off `main`), and adds it to VS Code. Ignore the tool's own description if it claims it branches off `main`: the hook overrides that.
-- **Name every branch `<issue_number>-<name>`, where `<issue_number>` is the GitHub issue this work belongs to** (matched to its branch and PR). A different number means a different issue. If there is no issue, use `0` (so `0-landing-page`, `0-worktree-redesign`).
-- **Name every worktree's branch and folder `<issue_number>-worktree-<slug>`.** A worktree shares its feature's issue number, so off `11-follow-ups` use `11-worktree-redesign`, never `12-...`.
-- **Stay in your workspace.** You belong to exactly one workspace, either the feature branch's primary checkout or a worktree. Edit only its files. Never edit, move, copy into, or delete files in another workspace or branch, and never reach around a guard that blocks this (with Bash file ops, by disabling the guard, or otherwise).
-- **Read your own workspace first.** Reach into the feature branch or another worktree only when you genuinely need context missing from yours, and then only to read.
-- **Integrate and close a worktree with the `merge-worktree` skill.** It commits, rebases onto the feature branch, fast-forwards (never a merge commit), and removes the worktree folder while keeping the branch. Only do this when the user asks: never commit, rebase, or merge a worktree without their approval.
-- **Wrong place? Stop and ask.** If you suspect you are in the wrong location, for example branched off `main` instead of the feature branch, stop, tell the user, and ask for help. Do not work around it.
 
 ## Package Management
 

@@ -32,12 +32,20 @@ export type Rotation = {
   fiveOne: boolean;
 };
 
+export type Venue = "home" | "away" | "neutral";
+
+export const VENUES: readonly Venue[] = ["home", "away", "neutral"];
+
 export type Game = {
   id: string;
   teamId: string;
   name: string;
   /** An ISO date (YYYY-MM-DD), or null for a general plan with no fixture. */
   date: string | null;
+  /** Empty for a plan with no fixture. */
+  opponent: string;
+  venue: Venue;
+  notes: string;
   squad: string[];
   overrides: Record<string, PlayerOverride>;
   overviewShift: number;

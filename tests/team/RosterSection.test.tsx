@@ -65,7 +65,7 @@ vi.mock("../../src/supabase/client", () => {
     supabase: {
       from: () => ({
         select: () => query("select"),
-        insert: (payload: Row | Row[]) => query("insert", payload),
+        upsert: (payload: Row | Row[]) => query("upsert", payload),
         update: (payload: Row) => query("update", payload),
       }),
     },
@@ -100,7 +100,7 @@ describe("RosterSection", () => {
 
     await waitFor(() =>
       expect(writes[0]).toMatchObject({
-        op: "insert",
+        op: "upsert",
         payload: [
           {
             number: 12,
@@ -112,6 +112,27 @@ describe("RosterSection", () => {
         ],
       })
     );
+  });
+
+  test.each([
+    { name: "bea", outcome: "is refused, since sets name players by name", refused: true },
+    { name: "Gone", outcome: "brings back the removed player of that name", refused: false },
+  ])("adding a player called $name $outcome", async ({ name, refused }) => {
+    render(<RosterSection teamId="t1" teamName="Eagles" canManage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add player" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Number" }), "12");
+    await userEvent.type(screen.getByRole("textbox", { name: "Name" }), name);
+    await userEvent.click(screen.getByRole("button", { name: "Save player" }));
+
+    if (refused) {
+      expect(await screen.findByText(`Another player is already called ${name}.`)).toBeInTheDocument();
+      expect(writes).toEqual([]);
+    } else {
+      await waitFor(() =>
+        expect(writes[0]).toMatchObject({ op: "upsert", payload: [{ id: "r3", name, number: 12, archived_at: null }] })
+      );
+    }
   });
 
   test("a taken number keeps the dialog open with the reason", async () => {

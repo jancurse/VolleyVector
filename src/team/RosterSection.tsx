@@ -30,7 +30,7 @@ export function RosterSection({ teamId, teamName, canManage }: RosterSectionProp
   const { confirm, dialog } = useConfirm();
   const [editing, setEditing] = useState<Editing>(null);
   const [importing, setImporting] = useState(false);
-  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const active = players.filter((p) => !p.archived);
 
   const remove = async (player: RosterPlayer) => {
@@ -43,7 +43,7 @@ export function RosterSection({ teamId, teamName, canManage }: RosterSectionProp
 
     if (!ok) return;
 
-    setRemoveError((await archivePlayer(player.id)).error);
+    setNotice((await archivePlayer(player.id)).error);
   };
 
   return (
@@ -125,13 +125,20 @@ export function RosterSection({ teamId, teamName, canManage }: RosterSectionProp
           </tbody>
         </Table>
       )}
-      {removeError && <p className="m-0 text-sm text-danger">{removeError}</p>}
+      {notice && <p className="m-0 text-sm text-danger">{notice}</p>}
 
       {editing && (
         <PlayerDialog
           title={editing.kind === "add" ? "Add player" : `Edit #${editing.player.number}`}
           initial={editing.kind === "add" ? BLANK : editing.player}
-          onSave={(draft) => (editing.kind === "add" ? addPlayers([draft]) : updatePlayer(editing.player.id, draft))}
+          onSave={async (draft) => {
+            const result =
+              editing.kind === "add" ? await addPlayers([draft]) : await updatePlayer(editing.player.id, draft);
+
+            setNotice("warning" in result ? (result.warning ?? null) : null);
+
+            return result;
+          }}
           onClose={() => setEditing(null)}
         />
       )}

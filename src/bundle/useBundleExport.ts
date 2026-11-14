@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { Bundle } from "./types";
+import { download as saveFile } from "./download";
 
 // Offers one bundle two ways: Copy JSON puts it on the clipboard with a brief "copied" confirmation,
 // Download JSON saves it as a file. Shared by the board, note, and space export surfaces.
@@ -26,15 +27,9 @@ export function useBundleExport(
       .catch(() => {});
   };
 
-  const download = () => {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(bundle(), null, 2)], { type: "application/json" }));
-    const anchor = document.createElement("a");
-
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
+  return {
+    copied,
+    copy,
+    download: () => saveFile(JSON.stringify(bundle(), null, 2), filename, "application/json"),
   };
-
-  return { copied, copy, download };
 }
