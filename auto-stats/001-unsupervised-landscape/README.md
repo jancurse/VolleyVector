@@ -35,3 +35,4 @@ Each detector prints the scores of [`../score.py`](../score.py) per match and ov
 | `claude_refine.py`  | A second Claude pass at 5 fps around each serve                          | `claude_frames.py`    |
 | `refine.py`         | Scores detection files, or first moves serves to a local audio or motion cue | feature scripts   |
 | `offsets.py`        | How far a detection file's times lie from the labels                     |                       |
+| `false_strips.py`   | Frame strips around a detection file's false serves, to check by eye      | `prep.sh`             |

@@ -125,12 +125,28 @@ Every script prints the per-match rows for its approach.
 What the numbers say:
 
 - **Claude finds the serves in every match**, including the sideways portrait video. It needs no sound.
-- **Its false detections come in three kinds.** Clusters in long breaks between rallies (four in one break of `llamas-vs-onyx`, three in one of `qkx`), a detection 3 to 10 s before a real serve while the server gets ready, and one after the set's last rally. None of these were checked against the video.
+- **Its false detections are mostly early or mid-rally, not missed labels.** See [Claude's false serves](#claudes-false-serves).
 - **The 5 fps second pass is not worth its cost at ±3 s.** It drops a few false detections and loses a few serves.
 - **The whistle is precise but incomplete.** The tagger rarely fires without a serve following (19% false), but it reports 13 to 29 whistles a set for 34 to 41 rallies, and some videos have no sound.
 - **Stillness and the hand-made cues fire too often.** They report 1.7 to 2.4 detections per rally, so much of their "found" share is chance.
 - **Single frames carry little.** SigLIP separates rally frames from the rest with an AUC of 0.73.
 - **A generic ball detector is unreliable.** It saw a ball in 8%, 50%, 55%, 88% and 100% of rally frames by match, and the 100% includes spare balls on a bench.
+
+### Claude's false serves
+
+All 74 false serve detections of the 1 fps pass were sorted by where they fall in the labels, and 20 of them were checked by eye on frame strips (`false_strips.py`).
+
+| Where the detection falls           | Count | What the strips show                                                                                   |
+|-------------------------------------|-------|--------------------------------------------------------------------------------------------------------|
+| 3 to 16 s before a labelled serve   | 36    | Players line up, or the server walks out of the picture with the ball. The real serve follows, and Claude reports it too |
+| Inside a labelled rally             | 23    | Live play in a long rally (one lasts 61 s with 25 touches and drew four detections)                     |
+| In a break, away from any serve     | 14    | A ball rolling back, a server whose serve is called off for a substitution, a real serve the labels do not time |
+| After the set's last labelled rally | 1     | A server walking to serve                                                                              |
+
+- **Most are doubles, not inventions.** 59 of 74 sit just before a real serve or inside its rally, where another detection already matched the serve.
+- **The near-side server is often out of the picture.** Claude then guesses the serve from the players lining up, several seconds early.
+- **Only one checked detection was a real serve the labels miss** (`qkx` at 676 s, inside a rally recorded without touches).
+- **Pairing with Claude's own rally ends does not fix it.** Keeping only the last serve before each detected end gives 90% found and 28% false, and keeping the first gives 87% and 30%. The fix has to come from the prompt: one serve per rally, lining up is not a serve, and a rally can be long.
 
 ### Results on rally ends
 
@@ -152,7 +168,7 @@ What the numbers say:
 
 Open before either is firm:
 
-- What the false detections are. If most are warm-up serves and pre-serve routines, a rule that pairs each serve with the next rally end would remove them.
+- A prompt that stops the double detections before a serve and inside long rallies.
 - A Gemini run on the same five sets.
 - A volleyball-specific ball tracker, the one local cue that could replace a hosted model.
 
@@ -166,10 +182,8 @@ Open before either is firm:
 
 ### Follow-ups
 
-- Look at Claude's false detections in the video and sort them by kind.
-- Pair serves with rally ends into rallies, and drop a serve with no end before the next serve.
+- Rewrite the Claude prompt against the two main kinds of false serve, and run it again on the same five sets.
 - Run Gemini on set 1 of each match with the same prompts, and score it with `score.py`.
 - Run Claude on the other nine clips. Only set 1 of each match was tested.
 - Test VballNet or TrackNetV3 weights for ball tracking, after you approve the downloads.
-- Iterate the Claude prompts: the first prompt was the only one tried.
 - Detect a sideways video automatically. `llamas-vs-onyx` is stored turned by 90°, and the scripts turn it by name.
