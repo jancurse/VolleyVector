@@ -36,11 +36,20 @@ function makeBoard({
 // Marker queries scope to the main court, since the rotation panel carries the same accessible names.
 const court = () => within(screen.getByLabelText("Untitled board"));
 
-describe("BoardView", () => {
-  test("a step with an active rotation shows the rotation panel beside the court", () => {
-    render(<BoardView board={makeBoard({ rotation: true })} onBack={vi.fn()} />);
+// The rotation board renders twice: the wide layout's card and the stacked layout's compact diagram, of
+// which CSS shows one.
+const rotationBoards = () => screen.getAllByLabelText("Rotation board");
 
-    expect(screen.getByText("Rotation 1")).toBeInTheDocument();
+describe("BoardView", () => {
+  // Stacked, a Position's compact rotation sits in its description and a Sequence's in its step instruction.
+  test.each([
+    [1, "Description"],
+    [2, "Step instruction"],
+  ])("with %i steps an active rotation shows its card and a compact diagram in the %s", (steps, region) => {
+    render(<BoardView board={makeBoard({ rotation: true, steps })} onBack={vi.fn()} />);
+
+    expect(screen.getAllByText("Rotation 1")).toHaveLength(2);
+    expect(within(screen.getByRole("region", { name: region })).getByLabelText("Rotation board")).toBeInTheDocument();
   });
 
   test("a step without a rotation shows no rotation panel", () => {
@@ -84,14 +93,14 @@ describe("BoardView rotation links", () => {
 
       const main = screen.getByLabelText("Untitled board");
 
-      await user.click(within(screen.getByLabelText(surface)).getByLabelText("Setter"));
+      await user.click(within(screen.getAllByLabelText(surface)[0]).getByLabelText("Setter"));
       // In rotation 1 the setter keys off their front counterpart and their in-row neighbour.
       expect(main.querySelectorAll(".court-link--cue")).toHaveLength(2);
-      expect(screen.getByLabelText("Rotation board").querySelectorAll(".court-link--cue")).toHaveLength(2);
+      rotationBoards().forEach((rotation) => expect(rotation.querySelectorAll(".court-link--cue")).toHaveLength(2));
       // On the main court the other three players and the ball step back.
       expect(main.querySelectorAll(".court-marker--dim")).toHaveLength(4);
 
-      fireEvent.pointerDown(screen.getByLabelText(surface));
+      fireEvent.pointerDown(screen.getAllByLabelText(surface)[0]);
       expect(document.querySelectorAll(".court-link--cue")).toHaveLength(0);
       expect(document.querySelectorAll(".court-marker--dim")).toHaveLength(0);
     }
@@ -107,7 +116,7 @@ describe("BoardView rotation links", () => {
 
     render(<BoardView board={board} onBack={vi.fn()} />);
     expect(screen.getByLabelText("Untitled board").querySelectorAll(".court-link--violation")).toHaveLength(1);
-    expect(screen.getByLabelText("Rotation board").querySelectorAll(".court-link--violation")).toHaveLength(1);
+    rotationBoards().forEach((rotation) => expect(rotation.querySelectorAll(".court-link--violation")).toHaveLength(1));
     expect(document.querySelectorAll(".court-marker--dim")).toHaveLength(0);
   });
 
