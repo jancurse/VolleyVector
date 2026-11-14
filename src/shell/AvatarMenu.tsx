@@ -1,9 +1,8 @@
 import type { JSX } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
 
 import type { ThemePreference } from "../theme/useTheme";
 import { Menu, MenuItem, MenuSeparator } from "../ui/Menu";
-import { ToggleGroup } from "../ui/ToggleGroup";
+import { ThemePicker } from "../ui/ThemePicker";
 import { initials } from "../ui/initials";
 import { cx } from "../ui/styles";
 
@@ -23,12 +22,6 @@ type AvatarMenuProps = {
   onLegal: () => void;
   onSignOut: () => void;
 };
-
-const THEME_OPTIONS: { value: ThemePreference; label: string; icon: JSX.Element }[] = [
-  { value: "system", label: "System", icon: <Monitor size={15} aria-hidden="true" /> },
-  { value: "light", label: "Light", icon: <Sun size={15} aria-hidden="true" /> },
-  { value: "dark", label: "Dark", icon: <Moon size={15} aria-hidden="true" /> },
-];
 
 const AVATAR = cx(
   "grid size-9 flex-none cursor-pointer place-items-center rounded-full border border-border bg-accent-weak",
@@ -70,12 +63,7 @@ export function AvatarMenu({
       <MenuSeparator />
       <div className="flex items-center justify-between gap-4 px-2 py-1.5">
         <span className="font-ui text-sm font-medium text-text-dim">Theme</span>
-        <ToggleGroup
-          ariaLabel="Theme"
-          items={THEME_OPTIONS.map(({ value, label, icon }) => ({ value, label: icon, ariaLabel: label }))}
-          value={themePreference}
-          onValueChange={(value) => onSetTheme(value === "light" || value === "dark" ? value : "system")}
-        />
+        <ThemePicker preference={themePreference} onChange={onSetTheme} />
       </div>
       <MenuSeparator />
       <MenuItem onClick={onReport}>Report a problem…</MenuItem>

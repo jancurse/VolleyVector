@@ -164,7 +164,7 @@ export const PICK_ROW =
 // its last row's rule so it never doubles the frame's border.
 
 /** The bordered card a management table sits in, matching the panel surface. */
-export const TABLE_FRAME = "overflow-hidden rounded-xl border border-border bg-panel";
+export const TABLE_FRAME = "overflow-x-auto rounded-xl border border-border bg-panel";
 
 /** The table element: full width, with the last body row's rule removed. */
 export const TABLE = "w-full border-collapse text-left text-base [&_tbody_tr:last-child_td]:border-0";
@@ -217,3 +217,175 @@ export const STEP_REMOVE =
 /** A slip zone that opens a player picker: the whole zone is the target, tinted on hover and focus. */
 export const SLIP_ZONE_BUTTON =
   "grid h-full w-full cursor-pointer outline-none transition-colors duration-150 ease-settle hover:bg-accent-weak focus-visible:bg-accent-weak focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent";
+
+// ---- Stats tracker ----------------------------------------------------------------------------
+
+/** The tracker's columns: video and log on the left, the side panels on the right; stacked when narrow. */
+export const TRACKER_GRID =
+  "grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_var(--container-tracker-side)] lg:grid-rows-[auto_1fr]";
+
+/** A keyboard-shortcut badge shown on the control it triggers; hidden on a touch screen. */
+export const KBD =
+  "inline-flex min-w-4.5 items-center justify-center rounded-xs border border-b-2 px-1 font-mono text-2xs font-semibold leading-4 transition-opacity pointer-coarse:hidden";
+/** The badge's colours: on a quiet control, or on an accent-filled one. Never both (cx does not merge). */
+export const KBD_QUIET = "border-border bg-control text-text-dim";
+export const KBD_ON_ACCENT = "border-on-accent/40 bg-transparent text-on-accent";
+
+/** Our side (the accent) and theirs (danger) across the tracker and the stats: scores, outcomes, ticks. */
+export const US_TEXT = "text-accent";
+export const THEM_TEXT = "text-danger";
+/** A rally's outcome as a left rule on a log row. */
+export const US_RULE = "border-l-accent";
+export const THEM_RULE = "border-l-danger";
+
+/** A soft tint for "point to us" and "point to them" choices, and the matching hover. */
+export const US_TINT = "bg-accent-weak hover:bg-[color-mix(in_srgb,var(--accent)_28%,transparent)]";
+export const THEM_TINT =
+  "bg-[color-mix(in_srgb,var(--danger)_14%,transparent)] hover:bg-[color-mix(in_srgb,var(--danger)_24%,transparent)]";
+
+export type ChoiceTone = "idle" | "selected" | "suggested" | "good" | "bad";
+
+/** One pick in the stat entry grid (player, skill, result, zone), with its hotkey badge pinned right. */
+export const CHOICE_BASE =
+  "relative w-full cursor-pointer truncate rounded-md py-2 pr-7 pl-2 text-left font-ui text-sm font-semibold transition-colors duration-150 ease-settle focus-visible:outline-2 focus-visible:outline-accent";
+
+export const CHOICE_TONE: Record<ChoiceTone, string> = {
+  idle: "bg-control text-text hover:bg-control-hover",
+  selected: "bg-accent text-on-accent",
+  suggested: "bg-accent-weak text-text outline-2 outline-dashed -outline-offset-2 outline-accent",
+  good: cx(US_TINT, "text-text"),
+  bad: cx(THEM_TINT, "text-text"),
+};
+
+/** The step of the stat entry waiting for input. */
+export const ENTRY_STEP_ACTIVE = "bg-accent-weak ring-2 ring-accent";
+
+/** A boxed call-out in the tracker: a warning on the danger tint, or a quiet note. */
+export const DANGER_TINT = "bg-[color-mix(in_srgb,var(--danger)_10%,transparent)]";
+export const CALLOUT_WARN = cx(
+  "m-0 rounded-md border border-[color-mix(in_srgb,var(--danger)_40%,transparent)] px-3 py-2 text-sm text-text",
+  DANGER_TINT
+);
+export const CALLOUT_NOTE = "m-0 rounded-md border border-border bg-control px-3 py-2 text-sm text-text-dim";
+
+/** The net above a court diagram: a small caption over a heavy line. */
+export const NET_CAPTION = "text-center font-mono text-2xs uppercase tracking-[0.22em] text-text-dim";
+export const NET_LINE = "border-t-4 border-text pt-1.5";
+
+/** The video stage: black in either theme, as a player letterboxes. */
+export const VIDEO_STAGE = "relative flex aspect-video items-center justify-center overflow-hidden bg-black";
+/** A placeholder line on the black video stage. */
+export const VIDEO_STAGE_NOTE = "m-0 text-center text-white/60";
+
+/** The big "point to us / them" button in the scoreboard; the US_TINT or THEM_TINT gives its side. */
+export const POINT_BUTTON =
+  "flex cursor-pointer items-center justify-center gap-1.5 rounded-md py-2 text-sm font-semibold text-text transition-colors duration-150 ease-settle";
+
+/** A link out of the app, in the accent colour or its surroundings' own. */
+export const LINK = { accent: "text-accent hover:underline", inherit: "text-inherit hover:underline" };
+
+/** The fill of a lineup court spot: picked, the libero's, or any other. */
+export const COURT_SPOT_TONE = {
+  active: "bg-accent text-on-accent",
+  libero: "bg-accent-weak text-text hover:bg-control-hover",
+  idle: "bg-control text-text hover:bg-control-hover",
+};
+
+/** The rotations' shading scale: the danger colour at one end, the panel in the middle, the accent at the other. */
+export const HEAT_SCALE =
+  "bg-linear-to-r from-[color-mix(in_srgb,var(--danger)_45%,var(--panel))] via-panel to-[color-mix(in_srgb,var(--accent)_45%,var(--panel))]";
+
+/** A player's spot on the lineup court: a position number pinned left, the name, active when picked. */
+export const COURT_SPOT =
+  "relative w-full cursor-pointer truncate rounded-md py-1.5 pr-2 pl-6 text-left text-sm font-semibold transition-colors duration-150 ease-settle";
+
+/** A notice pinned under the top bar, with its actions at the end (the tracker's save banners). */
+export const STICKY_BANNER =
+  "sticky top-15 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-overlay px-4 py-2 text-sm shadow-overlay";
+
+// ---- Stats dashboard --------------------------------------------------------------------------
+
+/** The dashboard's card grid: as many equal columns as fit, dense packing, a wide card spanning two. */
+export const DASH_GRID =
+  "@container grid grid-flow-row-dense grid-cols-[repeat(auto-fill,minmax(min(100%,var(--container-dash-card)),1fr))] gap-4";
+/** A card that spans two columns once two fit. */
+export const DASH_WIDE = "@dash-wide:col-span-2";
+/** A dashboard card: the panel surface, kept whole on paper. */
+export const DASH_CARD = cx(PANEL, "min-w-0 print:break-inside-avoid");
+export const DASH_CARD_TITLE = "m-0 font-display text-display-xs font-bold text-text";
+/** A section heading over a group of cards, ruled off below. */
+export const DASH_SECTION_TITLE = cx(PANEL_TITLE, "border-b border-border pb-1.5 print:break-after-avoid");
+/** A quiet caption under a card title or beside a chart. */
+export const DASH_NOTE = "m-0 text-xs text-text-dim";
+/** A big figure in a card (a score, a percentage). */
+export const DASH_FIGURE = "font-display text-xl font-bold leading-none tabular-nums";
+/** The text drawn inside the SVG charts. */
+export const CHART_TEXT = "fill-text-dim text-xs";
+/** A legend swatch. */
+export const SWATCH = "inline-block size-3 flex-none rounded-xs";
+/** The fill of each grade level of an outcome (0–1 good, 2 neutral, 3 an error). */
+export const GRADE_FILL: Record<number, string> = {
+  0: "bg-chart-us text-on-accent",
+  1: "bg-chart-us text-on-accent",
+  2: "bg-chart-them text-text",
+  3: "bg-chart-bad text-on-accent",
+};
+/** A stacked outcome bar and one of its segments. */
+export const OUTCOME_BAR = "flex h-5.5 gap-px overflow-hidden rounded-xs";
+export const OUTCOME_SEGMENT =
+  "relative block min-w-0.5 cursor-pointer overflow-hidden px-0.5 text-center text-xs leading-5.5 whitespace-nowrap";
+/** A court zone or rotation cell in the dashboard's diagrams; the caller sets its shape and alignment. */
+export const DASH_ZONE = "relative flex min-w-0 items-center rounded-xs border border-border text-xs";
+/** A compact data table's header and body cells (the rally log). */
+export const DATA_HEAD_TYPE = "font-mono text-2xs font-semibold tracking-[0.16em] text-text-dim uppercase";
+export const DATA_HEAD_CELL = cx(
+  "sticky top-0 border-b border-border bg-overlay px-2 py-1 text-left whitespace-nowrap print:static",
+  DATA_HEAD_TYPE
+);
+export const DATA_CELL = "border-b border-border px-2 py-1 text-xs whitespace-nowrap";
+/** The floating tooltip over a chart: the overlay surface, small text. */
+export const CHART_TIP = cx(
+  OVERLAY_SURFACE,
+  "pointer-events-none absolute flex flex-col gap-0.5 px-2 py-1 text-xs whitespace-nowrap text-text"
+);
+/** A name column, a bar, and two figures: the player rows of the detail and playing-time panels. */
+export const DASH_ROWS =
+  "grid grid-cols-[minmax(var(--container-dash-name),max-content)_1fr_auto_auto] items-center gap-x-4 gap-y-1.5 text-xs";
+/** The panel surface with its content flush to the sides and bottom, for a list that runs edge to edge. */
+export const PANEL_FLUSH = "flex flex-col gap-[0.9rem] rounded-xl border border-border bg-panel pt-[1.1rem]";
+/** The panel surface around a video, which runs to its edges. */
+export const VIDEO_PANEL = "flex flex-col gap-[0.9rem] overflow-hidden rounded-xl border border-border bg-panel";
+/** A panel's own side padding, for the parts of a flush panel that keep it. */
+export const PANEL_PAD_X = "px-[1.15rem]";
+
+/** A small figure tile (a set's score). */
+export const DASH_TILE = "flex flex-col gap-1 rounded-lg border border-border bg-panel p-2";
+/** A row that picks a player in the player grid. */
+export const DASH_ROW_PICK =
+  "cursor-pointer rounded-xs border-0 bg-transparent px-2 py-1 text-left whitespace-nowrap text-text hover:bg-control-hover aria-pressed:bg-accent aria-pressed:text-on-accent print:px-1 print:py-0.5";
+
+// ---- Highlights -------------------------------------------------------------------------------
+
+/**
+ * The highlights layout, rearranged by the view's own width: narrow, the video, then the filters, then the
+ * clips in one column; from hl-medium the filters sit left of the video with the clips under it; from hl-wide
+ * the clips take a third column. --hl-reserve is the height kept under the video for its controls.
+ */
+export const HL_GRID =
+  "grid grid-cols-1 items-start gap-4 [--hl-reserve:12rem] @hl-medium:grid-cols-[var(--container-hl-filters)_minmax(0,1fr)] @hl-medium:grid-rows-[auto_auto] @hl-medium:[--hl-reserve:24rem] @hl-wide:grid-cols-[var(--container-hl-filters)_minmax(0,1fr)_minmax(var(--container-hl-clips-min),var(--container-hl-clips))] @hl-wide:[--hl-reserve:10rem]";
+export const HL_FILTERS =
+  "order-2 flex flex-col gap-3 rounded-xl border border-border bg-panel p-4 @hl-medium:order-1 @hl-medium:row-span-2 @hl-wide:row-span-1";
+export const HL_VIDEO = "order-1 flex flex-col gap-2 @hl-medium:order-2";
+/** The video, its caption, and its controls share one width, no taller than the screen allows. */
+export const HL_VIDEO_WIDTH = "mx-auto w-[min(100%,calc((100dvh-var(--hl-reserve))*16/9))]";
+export const HL_CLIPS = "order-3 flex min-h-0 flex-col";
+/** The highlights' pane on the stats page. */
+export const HL_PANE = "@container";
+export const HL_LIST = "max-h-[60vh] overflow-auto";
+
+// ---- Set report -------------------------------------------------------------------------------
+
+/** A document's own heading inside a page (the report's match), a step below the page title. */
+export const DASH_HEADING = "m-0 font-display text-display-md font-bold leading-tight text-text";
+/** The off-screen A4 sheet each report section is laid out on to be captured for the PDF. */
+export const REPORT_SHEET = "fixed top-0 right-full w-a4 bg-white p-5 font-ui text-text";

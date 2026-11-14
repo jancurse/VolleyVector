@@ -9,6 +9,15 @@
 /** A space in the URL. The team is identified by an opaque handle: its id today, its slug from Stage 4. */
 export type RouteSpace = { kind: "personal" } | { kind: "team"; teamSlug: string };
 
+/** The two ways to look at recorded sets: the stats and highlights, or the match report. */
+export type StatsView = "stats" | "report";
+
+const STATS_VIEWS: readonly StatsView[] = ["stats", "report"];
+
+function isStatsView(value: string): value is StatsView {
+  return (STATS_VIEWS as readonly string[]).includes(value);
+}
+
 /** Which admin sub-page is shown. `/admin` canonicalises to `/admin/teams`. */
 export type AdminSub = "teams" | "accounts" | "recovery" | "requests" | "feedback";
 
@@ -26,6 +35,11 @@ export type Route =
   | { kind: "games"; teamSlug: string }
   | { kind: "game"; teamSlug: string; gameId: string }
   | { kind: "printGame"; teamSlug: string; gameId: string }
+  // One recorded set of a game, open in the stats tracker.
+  | { kind: "set"; teamSlug: string; gameId: string; setId: string }
+  // The stats and highlights, or the match report, over some games' sets; gameIds null means set files
+  // the viewer picked, which live only in memory.
+  | { kind: "stats"; teamSlug: string; view: StatsView; gameIds: string[] | null }
   | { kind: "settings" }
   // The public Terms & Privacy page, reachable with or without an account.
   | { kind: "terms" }
@@ -88,12 +102,24 @@ export function parsePath(pathname: string): Route {
     return space.kind === "team" ? { kind: "team", teamSlug: space.teamSlug } : notFound;
   }
 
+  if (isStatsView(rest[0]) && rest.length === 2) {
+    if (space.kind !== "team") return notFound;
+
+    const gameIds = rest[1] === "files" ? null : rest[1].split(",").filter(Boolean);
+
+    return gameIds?.length === 0 ? notFound : { kind: "stats", teamSlug: space.teamSlug, view: rest[0], gameIds };
+  }
+
   if (rest[0] === "games") {
     if (space.kind !== "team") return notFound;
     if (rest.length === 1) return { kind: "games", teamSlug: space.teamSlug };
     if (rest.length === 2) return { kind: "game", teamSlug: space.teamSlug, gameId: rest[1] };
     if (rest.length === 3 && rest[2] === "print")
       return { kind: "printGame", teamSlug: space.teamSlug, gameId: rest[1] };
+    if (rest.length === 4 && rest[2] === "sets")
+      return { kind: "set", teamSlug: space.teamSlug, gameId: rest[1], setId: rest[3] };
+    if (rest.length === 3 && isStatsView(rest[2]))
+      return { kind: "stats", teamSlug: space.teamSlug, view: rest[2], gameIds: [rest[1]] };
 
     return notFound;
   }
@@ -143,6 +169,15 @@ export function buildPath(route: Route): string {
       return `/t/${encodeURIComponent(route.teamSlug)}/games/${encodeURIComponent(route.gameId)}`;
     case "printGame":
       return `/t/${encodeURIComponent(route.teamSlug)}/games/${encodeURIComponent(route.gameId)}/print`;
+    case "set":
+      return `/t/${encodeURIComponent(route.teamSlug)}/games/${encodeURIComponent(route.gameId)}/sets/${encodeURIComponent(route.setId)}`;
+    case "stats": {
+      const team = `/t/${encodeURIComponent(route.teamSlug)}`;
+
+      if (route.gameIds?.length === 1) return `${team}/games/${encodeURIComponent(route.gameIds[0])}/${route.view}`;
+
+      return `${team}/${route.view}/${route.gameIds ? route.gameIds.map(encodeURIComponent).join(",") : "files"}`;
+    }
     case "settings":
       return "/settings";
     case "terms":
@@ -168,6 +203,8 @@ export function routeSpace(route: Route): RouteSpace | null {
     case "games":
     case "game":
     case "printGame":
+    case "set":
+    case "stats":
       return { kind: "team", teamSlug: route.teamSlug };
     default:
       return null;

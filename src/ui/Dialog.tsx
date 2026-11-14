@@ -9,21 +9,25 @@ type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
+  /** Wide for a dialog previewing a list of items side by side (the set import). */
+  size?: "default" | "wide";
   children: ReactNode;
 };
 
 const POPUP = cx(
   OVERLAY_SURFACE,
-  "fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100vh-3rem)] w-[30rem] max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto p-5 text-text",
+  "fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100vh-3rem)] max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto p-5 text-text",
   OVERLAY_MOTION
 );
 
-export function Dialog({ open, onOpenChange, title, children }: DialogProps): JSX.Element {
+const WIDTH = { default: "w-[30rem]", wide: "w-dialog-wide" };
+
+export function Dialog({ open, onOpenChange, title, size = "default", children }: DialogProps): JSX.Element {
   return (
     <BaseDialog.Root open={open} onOpenChange={onOpenChange}>
       <BaseDialog.Portal>
         <BaseDialog.Backdrop className={BACKDROP} />
-        <BaseDialog.Popup className={POPUP}>
+        <BaseDialog.Popup className={cx(POPUP, WIDTH[size])}>
           <BaseDialog.Title className="m-0 font-display text-display-sm font-bold tracking-[-0.015em] text-text">
             {title}
           </BaseDialog.Title>

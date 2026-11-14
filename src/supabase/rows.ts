@@ -2,8 +2,10 @@ import type { CourtMode } from "../court/roles";
 import { normalizeMarkers, normalizeSteps } from "../boards/normalize";
 import type { StoredStep } from "../boards/normalize";
 import type { Board, BoardMarker, BoardStep } from "../boards/types";
-import type { Game, Rotation, PlayerOverride, Position, RosterPlayer } from "../games/types";
+import type { Game, Rotation, PlayerOverride, Position, RosterPlayer, Venue } from "../games/types";
 import type { Note, NoteBlock } from "../notes/types";
+import type { AppData, SetSummary } from "../stats/types";
+import type { SetRecord } from "../stats/sync/setSync";
 
 // The bridge between the client model and the database. A board/note lives server-side as a row of content
 // columns plus a `created_by` attribution label and a `current_revision_id` pointer; its access list and
@@ -260,6 +262,9 @@ export type GameRow = {
   team_id: string;
   name: string;
   played_on: string | null;
+  opponent: string;
+  venue: Venue;
+  notes: string;
   squad: string[];
   overrides: Record<string, PlayerOverride>;
   overview_shift: number;
@@ -272,6 +277,9 @@ export function gameFromRow(row: GameRow): Game {
     teamId: row.team_id,
     name: row.name,
     date: row.played_on,
+    opponent: row.opponent,
+    venue: row.venue,
+    notes: row.notes,
     squad: row.squad,
     overrides: row.overrides,
     overviewShift: row.overview_shift,
@@ -284,9 +292,52 @@ export function gameToContent(game: Game): Record<string, unknown> {
   return {
     name: game.name,
     played_on: game.date,
+    opponent: game.opponent,
+    venue: game.venue,
+    notes: game.notes,
     squad: game.squad,
     overrides: game.overrides,
     overview_shift: game.overviewShift,
     rotations: game.rotations,
   };
 }
+
+export type SetSummaryRow = {
+  id: string;
+  game_id: string;
+  set_number: number;
+  score_us: number;
+  score_them: number;
+  video_url: string;
+  touches: number;
+  finished_at: string | null;
+  updated_at: string;
+  updated_by_profile: { display_name: string | null } | null;
+};
+
+/** The columns a set summary reads, with the display name of who saved it last. */
+export const SET_SUMMARY_COLUMNS =
+  "id, game_id, set_number, score_us, score_them, video_url, touches, finished_at, updated_at, updated_by_profile:profiles!game_sets_updated_by_fkey(display_name)";
+
+export const setSummaryFromRow = (row: SetSummaryRow): SetSummary => ({
+  id: row.id,
+  gameId: row.game_id,
+  setNumber: row.set_number,
+  us: row.score_us,
+  them: row.score_them,
+  videoUrl: row.video_url,
+  touches: row.touches,
+  finished: row.finished_at !== null,
+  updatedAt: row.updated_at,
+  updatedBy: row.updated_by_profile?.display_name ?? "",
+});
+
+/** A recorded set's row, as the tracker loads it. */
+export type GameSetRow = { id: string; game_id: string; version: number; data: AppData };
+
+export const setRecordFromRow = (row: GameSetRow): SetRecord => ({
+  id: row.id,
+  gameId: row.game_id,
+  version: row.version,
+  data: row.data,
+});

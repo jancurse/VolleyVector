@@ -58,7 +58,9 @@ export function breadcrumbs(
   teams: readonly TeamRef[],
   notes: readonly Note[],
   boards: readonly Board[],
-  games: readonly Game[] = []
+  games: readonly Game[] = [],
+  /** The open set's name in the tracker ("Set 2"), when known. */
+  setLabel?: string
 ): Crumb[] {
   const crumbs: Crumb[] = [];
   const space = routeSpace(route);
@@ -82,12 +84,29 @@ export function breadcrumbs(
       crumbs.push({ label: board?.title || "Board", route: boardRoute(resolved, teams, route.boardId, false) });
     } else if (route.kind === "team") {
       crumbs.push({ label: "Members", route });
-    } else if (route.kind === "games" || route.kind === "game") {
+    } else if (route.kind === "games" || route.kind === "game" || route.kind === "set" || route.kind === "stats") {
       crumbs.push({ label: "Games", route: { kind: "games", teamSlug: route.teamSlug } });
 
-      if (route.kind === "game") {
-        crumbs.push({ label: games.find((g) => g.id === route.gameId)?.name || "Game", route });
+      // A page under one game (its set in the tracker, its stats or report) sits under that game's crumb.
+      const gameId =
+        route.kind === "stats"
+          ? route.gameIds?.length === 1
+            ? route.gameIds[0]
+            : null
+          : route.kind === "games"
+            ? null
+            : route.gameId;
+
+      if (gameId) {
+        crumbs.push({
+          label: games.find((g) => g.id === gameId)?.name || "Game",
+          route: { kind: "game", teamSlug: route.teamSlug, gameId },
+        });
       }
+
+      if (route.kind === "set") crumbs.push({ label: setLabel ?? "Set", route });
+      if (route.kind === "stats")
+        crumbs.push({ label: route.view === "report" ? "Match report" : "Stats and highlights", route });
     }
   } else if (route.kind === "settings") {
     crumbs.push({ label: "Account", route });

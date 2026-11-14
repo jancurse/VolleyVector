@@ -15,7 +15,8 @@ type SelectProps = {
   onValueChange: (value: string) => void;
   options: readonly SelectOption[];
   ariaLabel: string;
-  variant?: "box" | "quiet";
+  /** box: a form field; quiet: an inline control; column: a table column's header filter. */
+  variant?: "box" | "quiet" | "column";
   /** A leading glyph inside the trigger, before the selected value. */
   icon?: ReactNode;
   /** A dim hint row pinned under the options — e.g. why some of them are disabled. */
@@ -26,6 +27,8 @@ const TRIGGER = {
   box: "flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-control px-2.5 py-2 font-ui text-base text-text transition-colors duration-150 ease-settle hover:bg-control-hover focus-visible:border-accent focus-visible:outline-none data-[popup-open]:border-accent",
   quiet:
     "inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:bg-control hover:text-text focus-visible:outline-2 focus-visible:outline-accent data-[popup-open]:text-text",
+  column:
+    "-mx-1 inline-flex max-w-full cursor-pointer items-center gap-1 rounded-sm border-0 bg-transparent px-1 py-0.5 font-mono text-2xs font-semibold tracking-[0.16em] text-text-dim uppercase transition-colors duration-150 ease-settle hover:bg-control hover:text-text focus-visible:outline-2 focus-visible:outline-accent data-[popup-open]:text-text",
 };
 
 const ITEM =
