@@ -54,6 +54,7 @@ import { closeTry, openTry, useTryRoute } from "./landing/useTryRoute";
 import { SetPassword } from "./auth/SetPassword";
 import { ResetPassword } from "./auth/ResetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
+import { GuidePage } from "./guide/GuidePage";
 import { LegalView } from "./legal/LegalView";
 import { Button } from "./ui/Button";
 import { cx, MUTED, PAGE_WIDTH } from "./ui/styles";
@@ -1354,6 +1355,8 @@ export function App(): JSX.Element {
         onDeleteAccount={() => void deleteOwnAccount()}
       />
     );
+  } else if (route.kind === "guide") {
+    content = <GuidePage topicId={route.topic} onOpen={(topic) => navigate({ kind: "guide", topic })} />;
   } else if (route.kind === "team") {
     // The team in the URL is one the user can reach (else it resolves to nothing → not found). Management
     // is coach-facing: a coach of that team or an admin curates it, anyone else reads the roster only. An
@@ -1425,6 +1428,8 @@ export function App(): JSX.Element {
         activeSpace.kind === "team" ? closing(() => navigate(gamesRoute(activeSpace.teamId, allTeams))) : undefined
       }
       gamesActive={route.kind === "games" || route.kind === "game"}
+      guideActive={route.kind === "guide"}
+      onOpenGuide={closing(() => navigate({ kind: "guide", topic: null }))}
       isAdmin={workspace.isAdmin}
       adminActive={route.kind === "admin"}
       onOpenAdmin={closing(() => navigate({ kind: "admin", sub: "teams" }))}
@@ -1445,6 +1450,7 @@ export function App(): JSX.Element {
           onAccountSettings={() => navigate({ kind: "settings" })}
           canInvite={canInvite}
           onInvite={() => setInviteOpen(true)}
+          onGuide={() => navigate({ kind: "guide", topic: null })}
           onReport={() => setFeedbackOpen(true)}
           onLegal={() => navigate({ kind: "terms" })}
           onSignOut={() => void signOut()}
@@ -1469,6 +1475,8 @@ export function App(): JSX.Element {
               onSwitchSpace={switchSpace}
               expanded={navOpen}
               onExpand={() => setNavOpen(true)}
+              guideActive={route.kind === "guide"}
+              onOpenGuide={() => navigate({ kind: "guide", topic: null })}
               isAdmin={workspace.isAdmin}
               adminActive={route.kind === "admin"}
               onOpenAdmin={() => navigate({ kind: "admin", sub: "teams" })}

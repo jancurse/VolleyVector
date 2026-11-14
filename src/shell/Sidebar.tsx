@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { ShieldCheck } from "lucide-react";
+import { BookOpen, ShieldCheck } from "lucide-react";
 
 import type { Selection } from "../library/selection";
 import { NoteSidebar } from "../notes/NoteSidebar";
@@ -11,8 +11,8 @@ import { BrandLockup } from "./BrandMark";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 
 // The persistent left column, present on every authenticated surface including board view and edit. Top
-// to bottom: the brand, the space switcher, the scrolling note navigation, and an admin entry pinned at
-// the foot for admins. The board view and editor keep the full content width; only this column is fixed.
+// to bottom: the brand, the space switcher, the scrolling note navigation, and at the foot the guide
+// and, for admins, the admin entry. The board view and editor keep the full content width; only this column is fixed.
 type SidebarProps = {
   activeSpace: Space;
   teams: readonly TeamMembership[];
@@ -31,13 +31,17 @@ type SidebarProps = {
   canEdit: boolean;
   onOpenGames?: () => void;
   gamesActive: boolean;
+  guideActive: boolean;
+  onOpenGuide: () => void;
   isAdmin: boolean;
   adminActive: boolean;
   onOpenAdmin: () => void;
 };
 
-const ADMIN_ENTRY =
+const FOOT_ENTRY =
   "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left font-ui text-base font-semibold transition-colors duration-150 ease-settle";
+const FOOT_ON = "bg-accent-weak text-text";
+const FOOT_OFF = "text-text-dim hover:bg-control hover:text-text";
 
 export function Sidebar({
   activeSpace,
@@ -57,6 +61,8 @@ export function Sidebar({
   canEdit,
   onOpenGames,
   gamesActive,
+  guideActive,
+  onOpenGuide,
   isAdmin,
   adminActive,
   onOpenAdmin,
@@ -94,22 +100,28 @@ export function Sidebar({
         />
       </div>
 
-      {isAdmin && (
-        <div className="flex flex-col gap-px border-t border-border px-3 py-2">
+      <div className="flex flex-col gap-px border-t border-border px-3 py-2">
+        <button
+          type="button"
+          aria-current={guideActive}
+          className={cx(FOOT_ENTRY, guideActive ? FOOT_ON : FOOT_OFF)}
+          onClick={onOpenGuide}
+        >
+          <BookOpen size={18} aria-hidden="true" className="flex-none" />
+          Guide
+        </button>
+        {isAdmin && (
           <button
             type="button"
             aria-current={adminActive}
-            className={cx(
-              ADMIN_ENTRY,
-              adminActive ? "bg-accent-weak text-text" : "text-text-dim hover:bg-control hover:text-text"
-            )}
+            className={cx(FOOT_ENTRY, adminActive ? FOOT_ON : FOOT_OFF)}
             onClick={onOpenAdmin}
           >
             <ShieldCheck size={18} aria-hidden="true" className="flex-none" />
             Admin
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   );
 }

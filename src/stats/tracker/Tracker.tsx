@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useReducer, useStat
 import type { JSX, ReactNode } from "react";
 import { Redo2, Undo2 } from "lucide-react";
 
+import { GuideLink } from "../../guide/GuideLink";
 import { Button } from "../../ui/Button";
 import { useConfirm } from "../../ui/useConfirm";
 import { cx, MUTED, PAGE_BAR, PAGE_WIDTH, TRACKER_GRID } from "../../ui/styles";
@@ -663,6 +664,7 @@ export function Tracker({
         <header className={PAGE_BAR}>
           {header}
           <div className="flex items-center gap-1">
+            <GuideLink topic="record" />
             <Button variant="text" onClick={() => dispatch({ type: "undo" })} disabled={!state.past.length}>
               <Undo2 size={15} aria-hidden="true" /> Undo <Kbd>Ctrl+Z</Kbd>
             </Button>

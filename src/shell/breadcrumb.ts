@@ -1,5 +1,6 @@
 import type { Board } from "../boards/types";
 import type { Game } from "../games/types";
+import { guideTopic } from "../guide/guideContent";
 import { boardRoute, findNoteId, libraryRoute, spaceForRouteSpace, noteRoute } from "../routing/links";
 import { routeSpace, type AdminSub, type Route } from "../routing/route";
 import type { Note } from "../notes/types";
@@ -110,6 +111,12 @@ export function breadcrumbs(
     }
   } else if (route.kind === "settings") {
     crumbs.push({ label: "Account", route });
+  } else if (route.kind === "guide") {
+    crumbs.push({ label: "Guide", route: { kind: "guide", topic: null } });
+
+    const topic = guideTopic(route.topic);
+
+    if (topic) crumbs.push({ label: topic.title, route });
   } else if (route.kind === "admin") {
     crumbs.push({ label: "Admin", route: { kind: "admin", sub: "teams" } });
     crumbs.push({ label: ADMIN_LABELS[route.sub], route });

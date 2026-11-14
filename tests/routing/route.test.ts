@@ -37,6 +37,8 @@ const cases: { route: Route; path: string }[] = [
   },
   { route: { kind: "set", teamSlug: "acme", gameId: "g-1", setId: "s-1" }, path: "/t/acme/games/g-1/sets/s-1" },
   { route: { kind: "settings" }, path: "/settings" },
+  { route: { kind: "guide", topic: null }, path: "/guide" },
+  { route: { kind: "guide", topic: "record" }, path: "/guide/record" },
   { route: { kind: "admin", sub: "teams" }, path: "/admin/teams" },
   { route: { kind: "admin", sub: "accounts" }, path: "/admin/accounts" },
   { route: { kind: "admin", sub: "requests" }, path: "/admin/requests" },

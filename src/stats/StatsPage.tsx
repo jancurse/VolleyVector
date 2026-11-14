@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { ArrowLeft, BarChart3, Clapperboard, FileDown, FileText, Printer } from "lucide-react";
 
 import { Button } from "../ui/Button";
+import { GuideLink } from "../guide/GuideLink";
 import { Tab, TabList, Tabs } from "../ui/Tabs";
 import { CALLOUT_WARN, EYEBROW, HL_PANE, MUTED, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
 import { emptySelection } from "./clips";
@@ -151,7 +152,11 @@ export function StatsPage({
       {embedded ? (
         exports && <div className="flex justify-end">{exports}</div>
       ) : (
-        <Tabs value={tab} onValueChange={(v) => show(v === "highlights" || v === "report" ? v : "stats")}>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => show(v === "highlights" || v === "report" ? v : "stats")}
+          className="flex items-center gap-2"
+        >
           <TabList ariaLabel="View">
             <Tab value="stats">
               <span className="flex items-center gap-1.5">
@@ -169,6 +174,7 @@ export function StatsPage({
               </span>
             </Tab>
           </TabList>
+          <GuideLink topic={tab === "stats" ? "read-stats" : tab} />
         </Tabs>
       )}
 

@@ -45,6 +45,8 @@ export type Route =
   | { kind: "settings" }
   // The public Terms & Privacy page, reachable with or without an account.
   | { kind: "terms" }
+  // The user guide, inside the shell: its overview, or one topic.
+  | { kind: "guide"; topic: string | null }
   | { kind: "team"; teamSlug: string }
   | { kind: "admin"; sub: AdminSub }
   | { kind: "notFound"; path: string };
@@ -78,6 +80,8 @@ export function parsePath(pathname: string): Route {
   if (segs[0] === "settings") return segs.length === 1 ? { kind: "settings" } : notFound;
 
   if (segs[0] === "terms") return segs.length === 1 ? { kind: "terms" } : notFound;
+
+  if (segs[0] === "guide") return segs.length <= 2 ? { kind: "guide", topic: segs[1] ?? null } : notFound;
 
   if (segs[0] === "admin") {
     if (segs.length === 1) return { kind: "admin", sub: "teams" };
@@ -186,6 +190,8 @@ export function buildPath(route: Route): string {
       return "/settings";
     case "terms":
       return "/terms";
+    case "guide":
+      return route.topic ? `/guide/${encodeURIComponent(route.topic)}` : "/guide";
     case "admin":
       return `/admin/${route.sub}`;
     case "notFound":
