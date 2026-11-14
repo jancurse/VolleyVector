@@ -35,3 +35,4 @@ The project is being set up. No tasks have started.
 - [log.md](log.md): dated decisions and learnings
 - [data.md](data.md): what footage and labels exist and where they live
 - [CLAUDE.md](CLAUDE.md): how sessions work with these docs
+- [../../auto-stats/](../../auto-stats/README.md): scratch code for experiments, outside the app

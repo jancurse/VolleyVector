@@ -24,25 +24,28 @@ Follow the decision in [../log.md](../log.md): an approach must work across came
 
 ## Inputs
 
-- [../data.md](../data.md): the footage and the set files. 14 sets have both video and labels.
-- Each set file has `rallies` with `startTime` and `endTime` in video seconds.
-    - Only our own serves are recorded as touches, so an opponent-served rally starts at the receive.
-    - A rally's `endTime` is its last touch, not the moment the ball goes dead.
+- [../data.md](../data.md): 14 set clips from 5 matches, each with a set file in clip seconds. Read `../data/clips/README.md` before using the labels.
 - Baseline: Gemini (free tier) on one video. Every serve it reported was within ±1 s of a real one, and it found about two thirds of the serves.
-- This machine: RTX 3060 Ti (8 GB), ffmpeg, yt-dlp. No API keys for Gemini, OpenAI or Hugging Face are set.
+- This machine: RTX 3060 Ti (8 GB), ffmpeg, and the current yt-dlp through `uvx`. No API keys for Gemini, OpenAI or Hugging Face are set.
 
-## Open questions
+## Scoring
 
-- Scoring: which tolerance counts as a hit, and which hit rate is good enough for milestone 1?
-- Spending: free and local tests only, or a paid API key with a cap for this task?
-- Output: is the report below the right shape?
+- A serve counts as found when a detection lies within ±1 s of it. Report the share of serves found and the share of detections that are false, per match and overall.
+- The labels only hold our own team's touches. A rally they serve starts at our first touch, a moment after their serve, and a rally's end is its last touch, not the ball going dead. Decide how to score against that, state the rule in Results, and say how far it can be trusted.
+- No target is set. This task reports what is realistic.
+
+## Spending
+
+- Test everything that is free first: local models on this machine and the free tiers of hosted ones.
+- Spend no money and create no accounts. Where a paid service looks worth testing, say which account is needed and what a set would cost.
 
 ## Done when
 
 - Results holds a survey of the approaches considered, each with what it needs and what it costs.
-- Results holds a table of the approaches tested, with hit rate, false alarms and cost per set.
+- Results holds a table of the approaches tested, with the share of serves found, the share of false detections and the cost per set.
 - Results recommends an approach for each milestone, or says what is missing to choose one.
 - Results lists the accounts worth creating for further testing, with the expected cost of each.
+- One reusable script in `auto-stats/` at the repo root scores a list of detected serve and rally-end times against a clip's set file. The task's test scripts are in `auto-stats/001-unsupervised-landscape/`.
 
 ## Results
 
