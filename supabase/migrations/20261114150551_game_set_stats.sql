@@ -2,7 +2,8 @@
 -- A set keeps two copies of its tracker data. `data` is the working copy the tracker saves as it records;
 -- `published` is the stats everyone reads (the dashboard, highlights, and report). A coach copies one to the other
 -- with publish_game_set ("Save stats"), so changes stay out of the stats until then. `unpublished` flags a working
--- copy that differs from its stats. The sets recorded so far were already read as stats, so they start saved.
+-- copy that differs from its stats, unless nothing is recorded in it yet and it has none. The sets recorded so far
+-- were already read as stats, so they start saved.
 --
 -- Everything outside the tracker describes the stats: the list columns (score, video, touch count) are written when
 -- the stats are saved, never by recording. Only the set's identity (its number, finished, who saved) follows the
@@ -17,7 +18,9 @@ alter table public.game_sets
   add column published jsonb,
   add column published_at timestamptz,
   add column published_by uuid references public.profiles (id) on delete set null,
-  add column unpublished boolean generated always as (published is distinct from data) stored;
+  add column unpublished boolean generated always as (
+    published is distinct from data and (published is not null or jsonb_array_length(data -> 'events') > 0)
+  ) stored;
 
 update public.game_sets set published = data, published_at = updated_at, published_by = updated_by;
 

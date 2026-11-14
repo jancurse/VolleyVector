@@ -983,14 +983,19 @@ begin
   if (r ->> 'version')::int <> 1 then raise exception 'FAIL sets: a coach could not create a set (%)', r; end if;
 
   select count(*) into n from public.game_sets
-  where id = '72000000-0000-0000-0000-000000000001' and set_number = 1 and published is null and unpublished
+  where id = '72000000-0000-0000-0000-000000000001' and set_number = 1 and published is null and not unpublished
     and touches = 0 and score_us = 0 and video_url = '';
-  if n <> 1 then raise exception 'FAIL sets: a new set had stats, or its number was not derived'; end if;
+  if n <> 1 then
+    raise exception 'FAIL sets: a new set had stats or stats to save, or its number was not derived';
+  end if;
 
   r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002', recorded, 1);
   if (r ->> 'version')::int <> 2 then raise exception 'FAIL sets: a save on the current version failed (%)', r; end if;
-  select count(*) into n from public.game_sets where id = '72000000-0000-0000-0000-000000000001' and touches = 0 and video_url = '';
-  if n <> 1 then raise exception 'FAIL sets: recording changed the list columns, which follow the stats'; end if;
+  select count(*) into n from public.game_sets
+  where id = '72000000-0000-0000-0000-000000000001' and touches = 0 and video_url = '' and unpublished;
+  if n <> 1 then
+    raise exception 'FAIL sets: recording changed the list columns, which follow the stats, or left nothing to save';
+  end if;
 
   r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002', recorded, 1);
   if (r ->> 'version')::int <> 2 or r ? 'conflict' then

@@ -76,7 +76,7 @@ export function SetPage({
       return;
 
     if (
-      snapshot.stats !== "saved" &&
+      (snapshot.stats === "changed" || snapshot.stats === "saving") &&
       !(await confirm({
         title: "Leave without saving the stats?",
         description:
@@ -240,11 +240,12 @@ export function SetPage({
               <h1 className={TITLE}>{title}</h1>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <SaveStatus snapshot={snapshot} />
-                {snapshot.stats === "saved" ? (
+                {snapshot.stats === "saved" && (
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-text-dim">
                     <Check size={14} aria-hidden="true" /> Stats saved
                   </span>
-                ) : (
+                )}
+                {(snapshot.stats === "changed" || snapshot.stats === "saving") && (
                   <Button size="sm" onClick={() => void saveStats()} disabled={snapshot.stats === "saving"}>
                     <Save size={14} aria-hidden="true" />
                     {snapshot.stats === "saving" ? "Saving stats…" : "Save stats"}
