@@ -30,6 +30,7 @@ import { Input } from "../ui/Input";
 import { Menu, MenuItem } from "../ui/Menu";
 import { Select } from "../ui/Select";
 import { Table, TableCell, TableHeadCell } from "../ui/Table";
+import { GuideLink } from "../guide/GuideLink";
 import { Tab, TabList, Tabs } from "../ui/Tabs";
 import { Textarea } from "../ui/Textarea";
 import { cx, EYEBROW, FIELD_LABEL, MUTED, PAGE, PAGE_BAR, PANEL, PANEL_TITLE, TITLE } from "../ui/styles";
@@ -239,7 +240,11 @@ export function GamePage({
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => onTab(TABS.find((t) => t === v) ?? "overview")}>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => onTab(TABS.find((t) => t === v) ?? "overview")}
+        className="flex items-center gap-2"
+      >
         <TabList ariaLabel="Game">
           <Tab value="overview">
             <span className="flex items-center gap-1.5">
@@ -267,6 +272,7 @@ export function GamePage({
             </span>
           </Tab>
         </TabList>
+        <GuideLink topic={tab === "overview" || tab === "rotations" ? "games" : tab === "stats" ? "read-stats" : tab} />
       </Tabs>
 
       {tab === "overview" && (

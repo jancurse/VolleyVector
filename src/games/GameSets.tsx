@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { Check, Plus, Trash2, Upload, Video, X } from "lucide-react";
 
 import { youtubeAt } from "../stats/clips";
+import { GuideLink } from "../guide/GuideLink";
 import { ResultBadge } from "../stats/ResultBadge";
 import { extractYoutubeId } from "../stats/youtube";
 import { formatWhen } from "./format";
@@ -187,6 +188,7 @@ export function GameSets({
             Sets
           </h2>
           {sets.length > 0 && <ResultBadge sets={sets} />}
+          <GuideLink topic="stats-basics" />
         </div>
         {canEdit && (
           <div className="flex flex-wrap items-center gap-2">

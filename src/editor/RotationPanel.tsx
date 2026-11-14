@@ -1,5 +1,6 @@
 import type { JSX } from "react";
 
+import { GuideLink } from "../guide/GuideLink";
 import { presetAssignment, presetOrder, rotationAssignment, rotationPlayers } from "../boards/rotation";
 import type { RotationLink, RotationViolation } from "../boards/rotation";
 import type { Board, RotationSlot, StepRotation } from "../boards/types";
@@ -87,7 +88,10 @@ export function RotationPanel({
   return (
     <section className={PANEL} aria-label="Rotation">
       <div className="flex items-center justify-between gap-3">
-        <span className={PANEL_TITLE}>Rotation</span>
+        <span className="flex items-center gap-1">
+          <span className={PANEL_TITLE}>Rotation</span>
+          <GuideLink topic="rotation" />
+        </span>
         <Select
           variant="quiet"
           ariaLabel="Rotation"

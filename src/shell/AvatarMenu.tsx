@@ -7,7 +7,7 @@ import { initials } from "../ui/initials";
 import { cx } from "../ui/styles";
 
 // The single top-right account control: an initials avatar opening a menu with account settings, the
-// invite action, the theme picker, and sign out, so nothing else needs to live in the top bar. Deleting
+// invite action, the theme picker, the guide, and sign out, so nothing else needs to live in the top bar. Deleting
 // the account lives on the Account settings page, not here.
 type AvatarMenuProps = {
   displayName: string;
@@ -18,6 +18,7 @@ type AvatarMenuProps = {
   /** Whether the Invite item shows: an admin, an account with quota, or a coach of any team. */
   canInvite: boolean;
   onInvite: () => void;
+  onGuide: () => void;
   onReport: () => void;
   onLegal: () => void;
   onSignOut: () => void;
@@ -39,6 +40,7 @@ export function AvatarMenu({
   onAccountSettings,
   canInvite,
   onInvite,
+  onGuide,
   onReport,
   onLegal,
   onSignOut,
@@ -66,6 +68,7 @@ export function AvatarMenu({
         <ThemePicker preference={themePreference} onChange={onSetTheme} />
       </div>
       <MenuSeparator />
+      <MenuItem onClick={onGuide}>Guide</MenuItem>
       <MenuItem onClick={onReport}>Report a problem…</MenuItem>
       <MenuItem onClick={onLegal}>Terms &amp; Privacy</MenuItem>
       <MenuItem onClick={onSignOut}>Sign out</MenuItem>

@@ -1,5 +1,5 @@
 import type { JSX, ReactNode } from "react";
-import { Lightbulb, ListTree, ShieldCheck } from "lucide-react";
+import { BookOpen, Lightbulb, ListTree, ShieldCheck } from "lucide-react";
 
 import { Tooltip } from "../ui/Tooltip";
 import { cx } from "../ui/styles";
@@ -10,7 +10,7 @@ import { badgeText } from "./SpaceSwitcher";
 import { BrandMark } from "./BrandMark";
 
 // The slim icon rail the sidebar collapses to at middling widths: the brand glyph, one initial badge
-// per space, a toggle that expands the full sidebar as an overlay, and the admin entry at the foot.
+// per space, a toggle that expands the full sidebar as an overlay, and the guide and admin entries at the foot.
 // Everything carries a tooltip since the rail shows no text. Like the full sidebar's rows, the items
 // are hand-rolled nav buttons rather than IconButtons, so the active accent fill applies cleanly.
 type SidebarRailProps = {
@@ -24,6 +24,8 @@ type SidebarRailProps = {
   /** Whether the expanded-sidebar overlay is open; the Notes toggle stays highlighted while it is. */
   expanded: boolean;
   onExpand: () => void;
+  guideActive: boolean;
+  onOpenGuide: () => void;
   isAdmin: boolean;
   adminActive: boolean;
   onOpenAdmin: () => void;
@@ -76,6 +78,8 @@ export function SidebarRail({
   onSwitchSpace,
   expanded,
   onExpand,
+  guideActive,
+  onOpenGuide,
   isAdmin,
   adminActive,
   onOpenAdmin,
@@ -129,6 +133,15 @@ export function SidebarRail({
       </RailButton>
 
       <div className="flex-1" />
+
+      <RailButton
+        label="Guide"
+        active={guideActive}
+        className={cx(ITEM, guideActive ? TOGGLE_ON : TOGGLE_OFF)}
+        onClick={onOpenGuide}
+      >
+        <BookOpen size={16} aria-hidden="true" />
+      </RailButton>
 
       {isAdmin && (
         <RailButton
