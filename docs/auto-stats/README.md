@@ -26,7 +26,7 @@ _TODO: how we know detection is good enough, for example agreement with hand-rec
 
 ## Status
 
-The project is being set up. No tasks have started.
+Task 001 surveyed unsupervised approaches. Its results are in [tasks/001-unsupervised-landscape.md](tasks/001-unsupervised-landscape.md).
 
 ## Files
 
