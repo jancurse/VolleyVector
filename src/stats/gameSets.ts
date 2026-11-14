@@ -6,9 +6,10 @@ import type { Backup } from "./sync/setSync";
 import type { AppData, MatchMeta } from "./types";
 
 // How a game's sets relate to the game. A set file names players only by name, so a set player is the roster
-// player with that name. The game owns the teams and date: every set takes them from it. A player joining the
-// squad joins each set's list, which is otherwise the set's own, and a player the set has stats for stays in
-// the squad. The next set carries the last one's lineup and video.
+// player with that name. The game owns the teams and date: a set is shown with the game's (`withGameMeta`), so
+// what it stores of them may be out of date and is never written back just to match. A player joining the squad
+// joins each set's list, which is otherwise the set's own, and a player the set has stats for stays in the squad.
+// The next set carries the last one's lineup and video.
 
 /** Whether two player or team names are the same, ignoring case and outer spaces. */
 export const sameName = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -86,27 +87,20 @@ export function renameClashes(data: AppData, renames: ReadonlyMap<string, string
 }
 
 /**
- * The set brought in line with its game: the game's teams and date, the players in `added` (new to the squad) on
- * its list, and those in `dropped` (taken out of the squad) off it unless the set has stats for them. The list is
- * otherwise the set's own, so a player taken off it in the tracker stays off. The same object when nothing changes.
+ * The set's player list after a squad change: the players in `added` (new to the squad) on it, and those in
+ * `dropped` (taken out of the squad) off it unless the set has stats for them. The list is otherwise the set's
+ * own, so a player taken off it in the tracker stays off. The same object when nothing changes.
  */
-export function syncWithGame(
-  data: AppData,
-  game: Pick<Game, "opponent" | "venue" | "date">,
-  teamName: string,
-  added: readonly string[] = [],
-  dropped: readonly string[] = []
-): AppData {
-  const synced = withGameMeta(data, game, teamName);
-  const kept = playersWithStats(synced);
+export function syncPlayers(data: AppData, added: readonly string[], dropped: readonly string[]): AppData {
+  const kept = playersWithStats(data);
   const players = [
-    ...synced.players.filter((p) => !dropped.includes(p) || kept.has(p)),
-    ...added.filter((p) => !synced.players.includes(p)),
+    ...data.players.filter((p) => !dropped.includes(p) || kept.has(p)),
+    ...added.filter((p) => !data.players.includes(p)),
   ];
 
-  return players.length === synced.players.length && players.every((p, i) => p === synced.players[i])
-    ? synced
-    : { ...synced, players };
+  return players.length === data.players.length && players.every((p, i) => p === data.players[i])
+    ? data
+    : { ...data, players };
 }
 
 /** Names that match a roster player only when ignoring case or spaces, to the roster's spelling. */

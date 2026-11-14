@@ -2,13 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 import { Ellipsis, Plus, Printer, Users } from "lucide-react";
 
-import { playersWithStats, rosterSpellingsOf, setPlayerNames, withGameMeta } from "../stats/gameSets";
+import { playersWithStats, setPlayerNames } from "../stats/gameSets";
 import { choiceRenames, newPlayers, unmatchedNames } from "../stats/matchPlayers";
 import type { PlayerChoice } from "../stats/matchPlayers";
 import type { SetSummary } from "../stats/types";
 import type { Backup } from "../stats/sync/setSync";
 import { useGameSetData } from "../stats/useGameSetData";
-import type { GameSetData } from "../stats/useGameSetData";
 import type { PlayerDraft } from "./useRoster";
 
 import { Button } from "../ui/Button";
@@ -33,10 +32,10 @@ import { VENUES } from "./types";
 import type { Game, RosterPlayer } from "./types";
 
 // A game: its recorded sets and their stats lead, then the squad, with the rotation planning folded below. A
-// coach's edits save themselves shortly after the last change and on leaving the page, and reach the game's
-// sets (see gameSets.ts). Opening the page brings the two in line: roster players the sets name join the squad,
-// other names are offered for matching, and sets that disagree with the game are updated. Mount it keyed by
-// the game id so a different game starts a fresh draft.
+// coach's edits save themselves shortly after the last change and on leaving the page, and a squad change reaches
+// the game's sets (see gameSets.ts). Opening the page writes nothing: names in the sets with no roster player are
+// offered for matching, which changes the sets only when the coach applies it. Mount it keyed by the game id so a
+// different game starts a fresh draft.
 type GamePageProps = {
   game: Game;
   teamName: string;
@@ -49,8 +48,6 @@ type GamePageProps = {
   setsError: string | null;
   onReloadSets: () => void;
   onSave: (game: Game) => Promise<{ error: string | null; warning?: string }>;
-  /** Bring the game's sets in line with it; resolves to a warning when some weren't. */
-  onSyncSets: (game: Game) => Promise<string | undefined>;
   onRenameInSets: (game: Game, renames: ReadonlyMap<string, string>) => Promise<string | undefined>;
   onAddPlayers: (drafts: readonly PlayerDraft[]) => Promise<{ error: string | null; added: RosterPlayer[] }>;
   onDelete: () => void;
@@ -75,7 +72,6 @@ export function GamePage({
   setsError,
   onReloadSets,
   onSave,
-  onSyncSets,
   onRenameInSets,
   onAddPlayers,
   onDelete,
@@ -129,22 +125,7 @@ export function GamePage({
     timer.current = setTimeout(flush, SAVE_DELAY);
   };
 
-  // Each load of the sets: roster players they name join the squad, names spelled differently from the roster
-  // take its spelling, and sets that disagree with the game are updated.
-  const bringInLine = ({ sets: all, stored }: GameSetData) => {
-    if (!canEdit) return;
-
-    const current = latest.current;
-    const named = all.flatMap((d) => [...setPlayerNames(d)]);
-    const joining = roster.filter((p) => !current.squad.includes(p.id) && named.includes(p.name)).map((p) => p.id);
-    const spellings = rosterSpellingsOf(named, roster);
-
-    if (spellings.size) void onRenameInSets(current, spellings).then((w) => w && setStatus(w));
-    if (joining.length) edit({ ...current, squad: [...current.squad, ...joining] });
-    else if (stored.some((d) => withGameMeta(d, current, teamName) !== d))
-      void onSyncSets(current).then((w) => w && setStatus(w));
-  };
-  const setData = useGameSetData(game.id, sets, bringInLine);
+  const setData = useGameSetData(game.id, sets);
   const unmatched = unmatchedNames(setData?.sets.flatMap((d) => [...setPlayerNames(d)]) ?? [], roster);
   const withStats = new Set(setData?.sets.flatMap((d) => [...playersWithStats(d)]));
 

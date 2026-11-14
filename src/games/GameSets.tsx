@@ -27,7 +27,10 @@ type GameSetsProps = {
   onStats: () => void;
 };
 
-/** A game's recorded sets: the score of each, and the way into the tracker and the stats. */
+/**
+ * A game's recorded sets: the score of each from its saved stats, whether those hold its latest changes, and the
+ * way into the tracker and the stats.
+ */
 export function GameSets({
   sets,
   local,
@@ -43,7 +46,7 @@ export function GameSets({
 }: GameSetsProps): JSX.Element {
   // A set started in this browser that never reached the server is listed from its local copy.
   const onlyLocal = canEdit ? [...local].filter(([id]) => !sets.some((s) => s.id === id)) : [];
-  const hasPoints = sets.some((s) => s.touches > 0 || s.us + s.them > 0);
+  const hasStats = sets.some((s) => s.statsSaved);
 
   return (
     <section className={cx(PANEL, "max-w-full")} aria-labelledby="sets-title">
@@ -55,7 +58,7 @@ export function GameSets({
           {sets.length > 0 && <ResultBadge sets={sets} />}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" paired={canEdit} onClick={onStats} disabled={!hasPoints}>
+          <Button variant="ghost" paired={canEdit} onClick={onStats} disabled={!hasStats}>
             <BarChart3 size={15} aria-hidden="true" />
             Stats and highlights
           </Button>
@@ -103,10 +106,22 @@ export function GameSets({
               <tr key={s.id}>
                 <TableCell className="font-semibold whitespace-nowrap">Set {s.setNumber || "?"}</TableCell>
                 <TableCell className="tabular-nums">
-                  <span className={cx("font-semibold", s.us > s.them ? US_TEXT : s.them > s.us ? THEM_TEXT : "")}>
-                    {s.us}–{s.them}
-                  </span>
+                  {s.statsSaved ? (
+                    <span className={cx("font-semibold", s.us > s.them ? US_TEXT : s.them > s.us ? THEM_TEXT : "")}>
+                      {s.us}–{s.them}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-text-dim">No stats yet</span>
+                  )}
                   {s.finished && <span className={cx(TAG_CHIP, "ml-2")}>Finished</span>}
+                  {canEdit && s.unsavedStats && (
+                    <span
+                      className={cx(TAG_CHIP, "ml-2")}
+                      title="Open the set and save its stats to show these changes"
+                    >
+                      {s.statsSaved ? "Stats not up to date" : "Stats not saved"}
+                    </span>
+                  )}
                   {local.has(s.id) && <span className={cx(TAG_CHIP, "ml-2 text-danger")}>Unsaved changes here</span>}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-text-dim max-sm:hidden">{s.touches}</TableCell>

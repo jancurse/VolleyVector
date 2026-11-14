@@ -9,7 +9,15 @@ import { CALLOUT_NOTE, CALLOUT_WARN, MUTED, PANEL_TITLE } from "../../ui/styles"
 import { FileButton } from "../../ui/FileButton";
 import { ImportGroupRow } from "./ImportGroupRow";
 import { PlayerMatches } from "./PlayerMatches";
-import { renameClashes, renamePlayers, rosterSpellingsOf, sameName, squadNames, syncWithGame } from "../gameSets";
+import {
+  renameClashes,
+  renamePlayers,
+  rosterSpellingsOf,
+  sameName,
+  squadNames,
+  syncPlayers,
+  withGameMeta,
+} from "../gameSets";
 import { clashingSets, gameName, groupImports, isBlankGame, setNumberOf } from "../importSets";
 import { choiceProblems, choiceRenames, defaultChoices, newPlayers, unmatchedNames } from "../matchPlayers";
 import type { PlayerChoice } from "../matchPlayers";
@@ -29,7 +37,7 @@ type ImportSetsDialogProps = {
     fields: Pick<Game, "name" | "date" | "opponent" | "venue" | "squad">
   ) => Promise<{ game: Game | null; error: string | null }>;
   saveGame: (game: Game) => Promise<{ error: string | null }>;
-  /** Save a set under `id`; saving the same set under the same id again is harmless. */
+  /** Save a set and its stats under `id`; saving the same set under the same id again is harmless. */
   createSet: (gameId: string, data: AppData, id: string) => Promise<{ error: string | null }>;
   addPlayers: (drafts: readonly PlayerDraft[]) => Promise<{ error: string | null; added: RosterPlayer[] }>;
   onClose: (imported: boolean) => void;
@@ -209,7 +217,11 @@ export function ImportSetsDialog({
           taken.push(number);
           setProgress(`Saving ${label}, set ${number}…`);
 
-          const { error } = await createSet(game.id, syncWithGame(data, game, teamName, squadNames(game, players)), id);
+          const { error } = await createSet(
+            game.id,
+            syncPlayers(withGameMeta(data, game, teamName), squadNames(game, players), []),
+            id
+          );
 
           if (error) throw new Error(error);
         }

@@ -36,7 +36,7 @@ function memoryStore(): BackupStore & { map: Map<string, string> } {
 type Mode = "online" | "offline" | "signedOut";
 
 /** A server holding one set, with a switch for the network and the session. */
-function fakeServer(initial: { version: number; data: AppData } | null) {
+function fakeServer(initial: { version: number; data: AppData; published?: AppData | null } | null) {
   let record = initial;
   let mode: Mode = "online";
   const saves: SaveRequest[] = [];
@@ -78,6 +78,15 @@ function fakeServer(initial: { version: number; data: AppData } | null) {
 
       return { kind: "saved", version: record.version };
     },
+    async publish({ base }): Promise<SaveOutcome> {
+      if (!record) return { kind: "missing" };
+      if (base !== record.version)
+        return { kind: "conflict", version: record.version, updatedBy: "Pat", updatedAt: "2026-11-10T20:00:00Z" };
+
+      record = { ...record, published: record.data };
+
+      return { kind: "saved", version: base };
+    },
   };
 
   return {
@@ -91,7 +100,7 @@ function fakeServer(initial: { version: number; data: AppData } | null) {
     loseAnswer: () => (answerLost = true),
     /** Someone else saves the set. */
     saveElsewhere: (data: AppData) => {
-      record = { version: (record?.version ?? 0) + 1, data };
+      record = { ...record, version: (record?.version ?? 0) + 1, data };
     },
     /** Hold saves until the returned release is called, to change things while one is in flight. */
     hold: () => {
@@ -459,5 +468,40 @@ describe("the local copy", () => {
     sync.change(withEvents(1));
 
     expect(readBackup(store, SET)?.context).toEqual(context);
+  });
+});
+
+describe("the set's stats", () => {
+  test("opening saves nothing, and a change reaches the stats only once they are saved", async () => {
+    const server = fakeServer({ version: 1, data: withEvents(1), published: withEvents(1) });
+    const sync = new SetSync(SET, GAME, server.backend, memoryStore());
+    const opened = await openReady(sync);
+
+    // The tracker shows the game's teams and date, which are not the set's to save.
+    sync.change({ ...opened, meta: { ...opened.meta, homeTeam: "Eagles", date: "2026-10-31" } });
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY);
+    expect(server.saves).toEqual([]);
+
+    sync.change(withEvents(2));
+    expect(await sync.publish()).toBeNull();
+    expect(server.record).toMatchObject({ version: 2, data: withEvents(2), published: withEvents(2) });
+  });
+
+  test.each([
+    { change: { ...withEvents(1), players: ["Mira", "Lena"] }, error: null, published: withEvents(1) },
+    {
+      change: withEvents(3),
+      error: "Pat saved this set after you opened it, so its stats weren’t saved.",
+      published: null,
+    },
+  ])("after someone else saved the set, saving its stats gives $error", async ({ change, error, published }) => {
+    const server = fakeServer({ version: 1, data: withEvents(1), published: null });
+    const sync = new SetSync(SET, GAME, server.backend, memoryStore());
+
+    await openReady(sync);
+    server.saveElsewhere(change);
+
+    expect(await sync.publish()).toBe(error);
+    expect(server.record?.published).toEqual(published);
   });
 });

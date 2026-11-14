@@ -16,6 +16,9 @@ const SET: SetSummary = {
   videoUrl: "https://youtu.be/abcdefghijk",
   touches: 66,
   finished: true,
+  version: 2,
+  statsSaved: true,
+  unsavedStats: false,
   updatedAt: "2026-11-01T10:00:00Z",
   updatedBy: "Coach",
 };

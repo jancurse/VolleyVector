@@ -25,6 +25,7 @@ function backend(answer: (base: number) => SaveOutcome = (base) => ({ kind: "sav
   const fake: SetBackend = {
     load: async () => ({ kind: "found", record: { id: SET, gameId: GAME.id, version: 1, data: emptyData(["Mira"]) } }),
     save,
+    publish: async ({ base }) => ({ kind: "saved", version: base }),
   };
 
   return { fake, save };
@@ -42,6 +43,7 @@ function renderPage(fake: SetBackend, signedIn = true) {
         onBack={() => {}}
         onNextSet={() => {}}
         onFinish={async () => {}}
+        onStatsSaved={() => {}}
         backend={fake}
       />
     </TooltipProvider>
@@ -55,11 +57,10 @@ describe("SetPage", () => {
     const { fake, save } = backend();
 
     renderPage(fake);
-    // Opening fills in the game's teams and date, which saves straight away.
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved"), SAVED);
     await userEvent.keyboard("+");
 
-    await waitFor(() => expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ base: 2 })), SAVED);
+    await waitFor(() => expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ base: 1 })), SAVED);
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved"), SAVED);
   });
 
@@ -69,6 +70,8 @@ describe("SetPage", () => {
     );
 
     renderPage(fake);
+    await screen.findByRole("status");
+    await userEvent.keyboard("+");
 
     expect(await screen.findByText(/Pat saved this set/, {}, SAVED)).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("changed elsewhere");

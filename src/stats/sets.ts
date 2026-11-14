@@ -1,13 +1,15 @@
 import { supabase } from "../supabase/client";
 import { deriveRallies } from "./rallies";
 import { readBackup } from "./sync/setSync";
-import type { LoadOutcome, SaveOutcome, SaveRequest, SetBackend } from "./sync/setSync";
+import type { LoadOutcome, PublishRequest, SaveOutcome, SaveRequest, SetBackend } from "./sync/setSync";
 import { SET_SUMMARY_COLUMNS, setRecordFromRow, setSummaryFromRow } from "../supabase/rows";
 import type { GameSetRow, SetSummaryRow } from "../supabase/rows";
 import type { AppData, SetSummary } from "./types";
 
-// The recorded sets in Supabase: the summaries the games list shows, the full sets the stats read, and
-// the backend the tracker's saving runs on. Writes go through the save_game_set compare-and-swap.
+// The recorded sets in Supabase: the summaries the games list shows, the saved stats the stats pages read, and
+// the backend the tracker's saving runs on. The tracker saves a set's working copy through the save_game_set
+// compare-and-swap and makes it the stats with publish_game_set; changes that follow the game go through
+// relink_game_set.
 
 const bySetNumber = (a: { setNumber: number }, b: { setNumber: number }): number => a.setNumber - b.setNumber;
 
@@ -24,18 +26,30 @@ export async function listSetSummaries(
   };
 }
 
-/** Every set of the given games, games in the order given and sets in set order. */
-export async function loadGameSets(gameIds: readonly string[]): Promise<{ sets: AppData[]; error: string | null }> {
-  const { data, error } = await supabase.from("game_sets").select("game_id, set_number, data").in("game_id", gameIds);
+/**
+ * The saved stats of every set of the given games that has them, games in the order given and sets in set order.
+ * Their teams and date may be out of date: the game's are the ones to show.
+ */
+export async function loadGameSets(
+  gameIds: readonly string[]
+): Promise<{ sets: { gameId: string; data: AppData }[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from("game_sets")
+    .select("game_id, published")
+    .in("game_id", gameIds)
+    .not("published", "is", null);
 
   if (error) return { sets: [], error: error.message };
 
-  const rows = (data ?? []) as { game_id: string; set_number: number; data: AppData }[];
+  const rows = (data ?? []) as { game_id: string; published: AppData }[];
 
   return {
     sets: [...rows]
-      .sort((a, b) => gameIds.indexOf(a.game_id) - gameIds.indexOf(b.game_id) || a.set_number - b.set_number)
-      .map((r) => r.data),
+      .sort(
+        (a, b) =>
+          gameIds.indexOf(a.game_id) - gameIds.indexOf(b.game_id) || setNumberOf(a.published) - setNumberOf(b.published)
+      )
+      .map((r) => ({ gameId: r.game_id, data: r.published })),
     error: null,
   };
 }
@@ -50,21 +64,35 @@ export type SetUpdate = {
 /** How many times a set that someone else saved in between is reloaded and changed again. */
 const UPDATE_ATTEMPTS = 3;
 
+export type RelinkRequest = { id: string; data: AppData; published: AppData | null; base: number };
+
+/** What `updateSets` saves through: it changes both copies of a set, its working copy and its stats. */
+export type RelinkBackend = Pick<SetBackend, "load"> & { relink: (request: RelinkRequest) => Promise<SaveOutcome> };
+
+const setNumberOf = (data: AppData): number => parseInt(data.meta.setNumber, 10) || 0;
+
+const same = (a: AppData | null | undefined, b: AppData | null | undefined): boolean =>
+  JSON.stringify(a) === JSON.stringify(b);
+
 /**
- * Apply `change` to every stored set of the given games and save the ones it changes, each as a compare-and-swap
- * on the version it was read at: a set saved in between is read again and changed again, never overwritten.
- * `change` returns an error instead to leave a set alone.
+ * Apply `change` to both copies of every stored set of the given games (its working copy and its saved stats) and
+ * save the sets it changes, each as a compare-and-swap on the version it was read at: a set saved in between is
+ * read again and changed again, never overwritten. `change` returns an error instead to leave a set alone. For
+ * changes that follow the game or the roster, never for the recording itself.
  */
 export async function updateSets(
   gameIds: readonly string[],
   change: (data: AppData, gameId: string) => AppData | { error: string },
-  backend: SetBackend = supabaseSetBackend
+  backend: RelinkBackend = supabaseRelinkBackend
 ): Promise<SetUpdate> {
   const result: SetUpdate = { updated: 0, skipped: 0, error: null };
 
   if (gameIds.length === 0) return result;
 
-  const { data, error } = await supabase.from("game_sets").select("id, game_id, version, data").in("game_id", gameIds);
+  const { data, error } = await supabase
+    .from("game_sets")
+    .select("id, game_id, version, data, published")
+    .in("game_id", gameIds);
 
   if (error) return { ...result, error: error.message };
 
@@ -75,18 +103,23 @@ export async function updateSets(
 
     for (let attempt = 1; ; attempt++) {
       const next = change(record.data, record.gameId);
+      const published = record.published ? change(record.published, record.gameId) : null;
 
       if ("error" in next) {
         errors.push(next.error);
         break;
       }
-      if (JSON.stringify(next) === JSON.stringify(record.data)) break;
+      if (published && "error" in published) {
+        errors.push(published.error);
+        break;
+      }
+      if (same(next, record.data) && same(published, record.published)) break;
       if (readBackup(localStorage, row.id)) {
         result.skipped++;
         break;
       }
 
-      const saved = await backend.save({ id: record.id, gameId: record.gameId, data: next, base: record.version });
+      const saved = await backend.relink({ id: record.id, data: next, published, base: record.version });
 
       if (saved.kind === "saved") {
         result.updated++;
@@ -135,11 +168,13 @@ export async function finishSet(id: string, finished: boolean): Promise<{ error:
 }
 
 /**
- * Save straight to the server, for imported sets: they are complete, so version 0. The caller mints `id` and
+ * Save straight to the server with its stats, for imported sets: they are complete. The caller mints `id` and
  * passes it again to retry, which then never makes a second set.
  */
-export async function createSet(gameId: string, data: AppData, id: string): Promise<SaveOutcome> {
-  return supabaseSetBackend.save({ id, gameId, data, base: 0 });
+export async function importSet(gameId: string, data: AppData, id: string): Promise<SaveOutcome> {
+  const created = await supabaseSetBackend.save({ id, gameId, data, base: 0 });
+
+  return created.kind === "saved" ? supabaseSetBackend.publish({ id, base: created.version, data }) : created;
 }
 
 type PostgrestErrorLike = { code?: string; message: string };
@@ -185,14 +220,17 @@ type SaveResponse = {
 export const supabaseSetBackend: SetBackend = {
   load: (id) => timed(loadSet(id), timedOut),
   save: (request) => timed(saveSet(request), timedOut),
+  publish: (request) => timed(publishSet(request), timedOut),
 };
+
+const supabaseRelinkBackend: RelinkBackend = { load: supabaseSetBackend.load, relink: relinkSet };
 
 async function loadSet(id: string): Promise<LoadOutcome> {
   if (!(await signedIn())) return { kind: "signedOut" };
 
   const { data, error } = await supabase
     .from("game_sets")
-    .select("id, game_id, version, data")
+    .select("id, game_id, version, data, published")
     .eq("id", id)
     .maybeSingle();
 
@@ -212,16 +250,41 @@ async function saveSet({ id, gameId, data, base }: SaveRequest): Promise<SaveOut
   // which must not read as "not allowed". Keep the changes and wait for a sign-in instead.
   if (!(await signedIn())) return { kind: "signedOut" };
 
+  const { data: res, error } = await supabase.rpc("save_game_set", { set_id: id, game: gameId, content: data, base });
+
+  return answer(res, error, base + 1);
+}
+
+async function publishSet({ id, base, data }: PublishRequest): Promise<SaveOutcome> {
+  if (!(await signedIn())) return { kind: "signedOut" };
+
+  // The list shows the stats' score, which follows from the rally rules, so it is derived here.
   const score = deriveRallies(data.events, data.meta).at(-1)?.score ?? { us: 0, them: 0 };
-  const { data: res, error } = await supabase.rpc("save_game_set", {
+  const { data: res, error } = await supabase.rpc("publish_game_set", {
     set_id: id,
-    game: gameId,
-    content: data,
     base,
     us: score.us,
     them: score.them,
   });
 
+  return answer(res, error, base);
+}
+
+async function relinkSet({ id, data, published, base }: RelinkRequest): Promise<SaveOutcome> {
+  if (!(await signedIn())) return { kind: "signedOut" };
+
+  const { data: res, error } = await supabase.rpc("relink_game_set", {
+    set_id: id,
+    base,
+    content: data,
+    stats: published,
+  });
+
+  return answer(res, error, base + 1);
+}
+
+/** A set RPC's answer as an outcome; `version` is the one it saved when the answer leaves it out. */
+function answer(res: unknown, error: PostgrestErrorLike | null, version: number): SaveOutcome {
   if (error) return failure(error);
 
   const r = res as SaveResponse;
@@ -235,5 +298,5 @@ async function saveSet({ id, gameId, data, base }: SaveRequest): Promise<SaveOut
     };
   if (r.missing) return { kind: "missing" };
 
-  return { kind: "saved", version: r.version ?? base + 1 };
+  return { kind: "saved", version: r.version ?? version };
 }

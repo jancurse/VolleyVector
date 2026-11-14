@@ -22,7 +22,6 @@ function renderPage(canEdit: boolean, game: Game = GAME) {
       roster={ROSTER}
       canEdit={canEdit}
       onSave={onSave}
-      onSyncSets={() => Promise.resolve(undefined)}
       onRenameInSets={() => Promise.resolve(undefined)}
       onAddPlayers={() => Promise.resolve({ error: null, added: [] })}
       onDelete={() => {}}

@@ -10,7 +10,7 @@ import type { AppData } from "../../src/stats/types";
 const fake = vi.hoisted(() => ({
   session: true as boolean,
   rpc: vi.fn(),
-  rows: [] as { id: string; game_id: string; version: number; data: unknown }[],
+  rows: [] as { id: string; game_id: string; version: number; data: unknown; published?: unknown }[],
 }));
 
 vi.mock("../../src/supabase/client", () => ({
@@ -36,18 +36,14 @@ beforeEach(() => {
 });
 
 describe("saving through Supabase", () => {
-  test("sends the set with its derived score as a compare-and-swap on the version", async () => {
+  test("saves the set as a compare-and-swap on the version, and its stats with their derived score", async () => {
     fake.rpc.mockResolvedValue({ data: { version: 4 }, error: null });
 
     expect(await supabaseSetBackend.save(request)).toEqual({ kind: "saved", version: 4 });
-    expect(fake.rpc).toHaveBeenCalledWith("save_game_set", {
-      set_id: "s",
-      game: "g",
-      content: data,
-      base: 3,
-      us: 1,
-      them: 0,
-    });
+    expect(fake.rpc).toHaveBeenCalledWith("save_game_set", { set_id: "s", game: "g", content: data, base: 3 });
+
+    await supabaseSetBackend.publish({ id: "s", base: 4, data });
+    expect(fake.rpc).toHaveBeenLastCalledWith("publish_game_set", { set_id: "s", base: 4, us: 1, them: 0 });
   });
 
   test("signed out, nothing is sent and the changes wait for a sign-in", async () => {
@@ -91,33 +87,38 @@ describe("saving through Supabase", () => {
 
 describe("updating stored sets", () => {
   const rename = (d: AppData): AppData => ({ ...d, players: d.players.map((p) => (p === "Mira" ? "Mirabel" : p)) });
-  const backend = { load: vi.fn(), save: vi.fn() };
+  const backend = { load: vi.fn(), relink: vi.fn() };
 
   beforeEach(() => {
     backend.load.mockReset();
-    backend.save.mockReset();
+    backend.relink.mockReset();
     fake.rows = [
-      { id: "a", game_id: "g", version: 3, data },
-      { id: "b", game_id: "g", version: 1, data: emptyData(["Jo"]) },
+      { id: "a", game_id: "g", version: 3, data, published: data },
+      { id: "b", game_id: "g", version: 1, data: emptyData(["Jo"]), published: null },
     ];
   });
 
-  test("saves only the sets that change, on the version they were read at", async () => {
-    backend.save.mockResolvedValue({ kind: "saved", version: 4 });
+  test("saves both copies of only the sets that change, on the version they were read at", async () => {
+    backend.relink.mockResolvedValue({ kind: "saved", version: 4 });
 
     expect(await updateSets(["g"], rename, backend)).toEqual({ updated: 1, skipped: 0, error: null });
-    expect(backend.save).toHaveBeenCalledExactlyOnceWith({ id: "a", gameId: "g", data: rename(data), base: 3 });
+    expect(backend.relink).toHaveBeenCalledExactlyOnceWith({
+      id: "a",
+      data: rename(data),
+      published: rename(data),
+      base: 3,
+    });
   });
 
   test("a set saved in between is read again and changed again, never overwritten", async () => {
     const theirs = { ...data, players: ["Mira", "Suki"] };
 
-    backend.save.mockResolvedValueOnce({ kind: "conflict", version: 4, updatedBy: "Pat", updatedAt: "" });
-    backend.save.mockResolvedValueOnce({ kind: "saved", version: 5 });
+    backend.relink.mockResolvedValueOnce({ kind: "conflict", version: 4, updatedBy: "Pat", updatedAt: "" });
+    backend.relink.mockResolvedValueOnce({ kind: "saved", version: 5 });
     backend.load.mockResolvedValue({ kind: "found", record: { id: "a", gameId: "g", version: 4, data: theirs } });
 
     expect((await updateSets(["g"], rename, backend)).updated).toBe(1);
-    expect(backend.save).toHaveBeenLastCalledWith({ id: "a", gameId: "g", data: rename(theirs), base: 4 });
+    expect(backend.relink).toHaveBeenLastCalledWith({ id: "a", data: rename(theirs), published: null, base: 4 });
   });
 
   test("a set with unsaved changes in this browser, or one the change refuses, is left alone", async () => {
@@ -125,6 +126,6 @@ describe("updating stored sets", () => {
 
     expect(await updateSets(["g"], rename, backend)).toEqual({ updated: 0, skipped: 1, error: null });
     expect(await updateSets(["g"], () => ({ error: "Clash." }), backend)).toMatchObject({ error: "Clash." });
-    expect(backend.save).not.toHaveBeenCalled();
+    expect(backend.relink).not.toHaveBeenCalled();
   });
 });

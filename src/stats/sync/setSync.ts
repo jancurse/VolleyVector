@@ -5,13 +5,22 @@ import type { AppData } from "../types";
 // together with the server version it was made on, and to the server a moment later; the local copy is
 // cleared only once the server confirms it holds that exact data. Saves are a compare-and-swap on the
 // version: if someone else saved in between, saving stops and the coach chooses whose changes to keep.
+// What is saved this way is the set's working copy. Its stats, which everyone else reads, change only when the
+// coach saves them (`publish`), which makes the working copy as the server holds it the stats.
 // Nothing here depends on React or Supabase, so the rules are tested against a fake backend.
 
 export type SaveState = "saved" | "saving" | "unsaved" | "offline" | "signedOut" | "conflict" | "refused";
 
 export type Conflict = { version: number; updatedBy: string; updatedAt: string };
 
-export type SetRecord = { id: string; gameId: string; version: number; data: AppData };
+export type SetRecord = {
+  id: string;
+  gameId: string;
+  version: number;
+  data: AppData;
+  /** The set's saved stats; null before they are first saved. */
+  published?: AppData | null;
+};
 
 export type LoadOutcome =
   | { kind: "found"; record: SetRecord }
@@ -20,6 +29,9 @@ export type LoadOutcome =
   | { kind: "offline"; message: string };
 
 export type SaveRequest = { id: string; gameId: string; data: AppData; base: number };
+
+/** Make the working copy at version `base`, which holds `data`, the set's stats. */
+export type PublishRequest = { id: string; base: number; data: AppData };
 
 export type SaveOutcome =
   | { kind: "saved"; version: number }
@@ -34,6 +46,7 @@ export type SaveOutcome =
 export type SetBackend = {
   load: (id: string) => Promise<LoadOutcome>;
   save: (request: SaveRequest) => Promise<SaveOutcome>;
+  publish: (request: PublishRequest) => Promise<SaveOutcome>;
 };
 
 /** The browser storage the local copies live in (localStorage in the app). */
@@ -64,8 +77,15 @@ export type Opened =
   | { kind: "missing"; backup: Backup | null }
   | { kind: "error"; message: string };
 
+/**
+ * Whether the set's stats hold its latest changes: "changed" until the coach saves them, and "empty" while nothing
+ * is recorded and no stats are saved, so there is nothing to save.
+ */
+export type StatsState = "saved" | "changed" | "saving" | "empty";
+
 export type SyncSnapshot = {
   saveState: SaveState;
+  stats: StatsState;
   conflict: Conflict | null;
   /** Why the last save failed, for the save status's detail. */
   error: string | null;
@@ -106,6 +126,10 @@ const sameData = (a: AppData, b: AppData): boolean => JSON.stringify(a) === JSON
 const recorded = ({ events, meta }: AppData): string =>
   JSON.stringify({ events, meta: { ...meta, homeTeam: "", awayTeam: "", date: "" } });
 
+/** Everything the stats show of a set but the teams and date, which are read from the game. */
+const statsOf = ({ players, events, meta }: AppData): string =>
+  JSON.stringify({ players, events, meta: { ...meta, homeTeam: "", awayTeam: "", date: "" } });
+
 export class SetSync {
   private version = 0;
   private latest: AppData | null = null;
@@ -113,12 +137,21 @@ export class SetSync {
   private confirmed: AppData | null = null;
   /** The data of a save that got no answer, so it may have reached the server. */
   private unconfirmed: AppData | null = null;
+  /** The set's saved stats, as last loaded or saved; null when there are none or they are not known. */
+  private published: AppData | null = null;
   private dirty = false;
   private inFlight: Promise<void> | null = null;
+  private publishing: Promise<string | null> | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
   /** Set by a conflict or a refusal: no save until the coach resolves it. */
   private blocked = false;
-  private snapshot: SyncSnapshot = { saveState: "saved", conflict: null, error: null, storageFailed: false };
+  private snapshot: SyncSnapshot = {
+    saveState: "saved",
+    stats: "changed",
+    conflict: null,
+    error: null,
+    storageFailed: false,
+  };
   private listeners = new Set<() => void>();
 
   constructor(
@@ -137,6 +170,7 @@ export class SetSync {
     this.latest = null;
     this.confirmed = null;
     this.unconfirmed = null;
+    this.published = null;
     this.set({ saveState: "saved", conflict: null, error: null });
 
     const backup = readBackup(this.store, this.id);
@@ -147,6 +181,7 @@ export class SetSync {
 
       this.version = record.version;
       this.confirmed = record.data;
+      this.published = record.published ?? null;
 
       if (!backup || sameData(backup.data, record.data)) {
         if (backup) writeBackup(this.store, this.id, null);
@@ -191,6 +226,7 @@ export class SetSync {
   resolveReopen(choice: ReopenChoice, keepMine: boolean): Opened {
     this.version = choice.theirs.version;
     this.confirmed = choice.theirs.data;
+    this.published = choice.theirs.published ?? null;
 
     if (keepMine) return this.ready(choice.mine, true);
 
@@ -202,6 +238,7 @@ export class SetSync {
   private ready(data: AppData, dirty: boolean): Opened {
     this.latest = data;
     this.dirty = dirty;
+    this.compareStats();
 
     if (dirty) {
       this.keep(data);
@@ -216,9 +253,17 @@ export class SetSync {
   change(data: AppData): void {
     if (data === this.latest) return;
 
+    // Only the teams or date differ (the tracker showing the game's): nothing to save.
+    if (this.latest && statsOf(data) === statsOf(this.latest)) {
+      this.latest = data;
+
+      return;
+    }
+
     this.latest = data;
     this.dirty = true;
     this.keep(data);
+    this.compareStats();
 
     if (this.blocked) return;
 
@@ -312,7 +357,11 @@ export class SetSync {
       (this.unconfirmed && sameData(data, this.unconfirmed)) ||
       (this.confirmed && recorded(data) === recorded(this.confirmed));
 
-    if (ours) this.version = version;
+    if (ours) {
+      this.version = version;
+      this.published = theirs.record.published ?? null;
+      this.compareStats();
+    }
 
     return !!ours;
   }
@@ -346,6 +395,83 @@ export class SetSync {
         this.schedule(RETRY_DELAY);
         break;
     }
+  }
+
+  private compareStats(): void {
+    if (this.snapshot.stats === "saving") return;
+
+    const { latest, published } = this;
+
+    if (!published) return this.set({ stats: latest && !latest.events.length ? "empty" : "changed" });
+
+    this.set({ stats: latest && statsOf(published) === statsOf(latest) ? "saved" : "changed" });
+  }
+
+  /**
+   * Save the set's stats: save the working copy, then make it the stats. Resolves to why it failed, or null.
+   * Changes made while it runs are saved as usual and wait for the next time. A call while one runs shares it.
+   */
+  publish(): Promise<string | null> {
+    this.publishing ??= this.publishOnce().finally(() => {
+      this.publishing = null;
+    });
+
+    return this.publishing;
+  }
+
+  private async publishOnce(): Promise<string | null> {
+    this.set({ stats: "saving" });
+
+    const failed = (message: string) => {
+      this.set({ stats: "changed" });
+      this.compareStats();
+
+      return message;
+    };
+
+    if (!(await this.flush()) || !this.confirmed)
+      return failed("The set isn’t saved yet, so its stats weren’t either. Check your connection and try again.");
+
+    const data = this.confirmed;
+    let outcome: SaveOutcome;
+
+    try {
+      outcome = await this.backend.publish({ id: this.id, base: this.version, data });
+    } catch (e) {
+      outcome = { kind: "offline", message: e instanceof Error ? e.message : String(e) };
+    }
+
+    // The set moved on since this browser last saved it. When that was no one else's recording, this browser's copy
+    // is saved on the new version and its stats with it; otherwise the coach chooses whose changes to keep.
+    if (outcome.kind === "conflict") {
+      if (await this.rebased()) {
+        this.dirty = true;
+        if (this.latest) this.keep(this.latest);
+
+        return this.publishOnce();
+      }
+
+      this.fail(outcome);
+
+      return failed(`${outcome.updatedBy} saved this set after you opened it, so its stats weren’t saved.`);
+    }
+
+    if (outcome.kind !== "saved")
+      return failed(
+        outcome.kind === "missing"
+          ? "This set was deleted from the game."
+          : outcome.kind === "refused"
+            ? outcome.message
+            : outcome.kind === "signedOut"
+              ? "You are signed out. Sign in to save the stats."
+              : `Couldn’t reach the server: ${outcome.message}`
+      );
+
+    this.published = data;
+    this.set({ stats: "changed" });
+    this.compareStats();
+
+    return null;
   }
 
   /** Resolve a save conflict by saving this browser's copy over theirs. */
