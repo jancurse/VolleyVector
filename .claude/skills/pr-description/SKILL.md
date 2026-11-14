@@ -26,7 +26,7 @@ The file is the title line, then the body. Nothing wraps the body.
     - a 1–2 line summary of the change,
     - a couple of bullets for the notable parts,
     - a closing issue line: `Closes #N`, or `First part of #N` when the branch only starts that issue.
-- Derive `#N` from the branch name (`<issue>-<name>`). Drop the line if there is no issue.
+- Branch names carry no issue number. Take `#N` from the issue the user named or the plan refers to; if none is clear, ask. Drop the line if there is no issue.
 - No headings in the body. For a multi-topic PR, lead each topic with a bold label (`**DNS.** …`) as its own bullet or short paragraph, never a `##`/`###` section. A single-topic PR stays one block.
 
 Keep it proportional: a small PR gets a sentence and one bullet, a large one a short paragraph and a handful. Say each thing once, cut process narration, and describe what changed, not how you found or built it.

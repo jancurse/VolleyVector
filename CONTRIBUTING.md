@@ -10,5 +10,5 @@ See the [developer guide](docs/development.md) for setup, development and deploy
 
 ## Conventions
 
-- Open a PR from a branch named `<issue-number>-<short-name>` (e.g. `45-feedback-form`), rather than pushing to `main`.
+- Open a PR rather than pushing to `main`.
 - Squash-merge with a clear commit message (e.g. the PR description).
