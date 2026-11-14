@@ -24,8 +24,17 @@ const cases: { route: Route; path: string }[] = [
   { route: { kind: "printNote", space: team, noteSlug: "rotations" }, path: "/t/acme/note/rotations/print" },
   { route: { kind: "team", teamSlug: "acme" }, path: "/t/acme/team" },
   { route: { kind: "games", teamSlug: "acme" }, path: "/t/acme/games" },
-  { route: { kind: "game", teamSlug: "acme", gameId: "g-1" }, path: "/t/acme/games/g-1" },
+  { route: { kind: "game", teamSlug: "acme", gameId: "g-1", tab: "overview" }, path: "/t/acme/games/g-1" },
+  { route: { kind: "game", teamSlug: "acme", gameId: "g-1", tab: "rotations" }, path: "/t/acme/games/g-1/rotations" },
   { route: { kind: "printGame", teamSlug: "acme", gameId: "g-1" }, path: "/t/acme/games/g-1/print" },
+  {
+    route: { kind: "stats", teamSlug: "acme", view: "highlights", gameIds: ["g-1"] },
+    path: "/t/acme/games/g-1/highlights",
+  },
+  {
+    route: { kind: "stats", teamSlug: "acme", view: "highlights", gameIds: ["g-1", "g-2"] },
+    path: "/t/acme/highlights/g-1,g-2",
+  },
   { route: { kind: "set", teamSlug: "acme", gameId: "g-1", setId: "s-1" }, path: "/t/acme/games/g-1/sets/s-1" },
   { route: { kind: "settings" }, path: "/settings" },
   { route: { kind: "admin", sub: "teams" }, path: "/admin/teams" },
@@ -107,7 +116,7 @@ describe("routeSpace", () => {
     expect(routeSpace({ kind: "printBoard", space: team, boardId: "b" })).toEqual(team);
     expect(routeSpace({ kind: "printNote", space: personal, noteSlug: "x" })).toEqual(personal);
     expect(routeSpace({ kind: "team", teamSlug: "acme" })).toEqual(team);
-    expect(routeSpace({ kind: "game", teamSlug: "acme", gameId: "g" })).toEqual(team);
+    expect(routeSpace({ kind: "game", teamSlug: "acme", gameId: "g", tab: "overview" })).toEqual(team);
   });
 
   it("returns null for the space-less routes", () => {

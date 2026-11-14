@@ -1,9 +1,12 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, test, vi } from "vitest";
 
 import { GamePage } from "../../src/games/GamePage";
 import type { Game } from "../../src/games/types";
+import type { GameTab } from "../../src/routing/route";
+import type { StatsTab } from "../../src/stats/StatsPage";
 import { GAME, ROSTER } from "../helpers/gameData";
 
 vi.mock("../../src/supabase/client", async () => {
@@ -12,11 +15,18 @@ vi.mock("../../src/supabase/client", async () => {
   return { supabase: mod.supabaseFake };
 });
 
+// Opens on the rotations tab, where most of these tests work; the tabs switch as in the app.
+function Page(props: Omit<Parameters<typeof GamePage>[0], "tab" | "onTab">) {
+  const [tab, setTab] = useState<GameTab | StatsTab>("rotations");
+
+  return <GamePage {...props} tab={tab} onTab={setTab} />;
+}
+
 function renderPage(canEdit: boolean, game: Game = GAME) {
   const onSave = vi.fn((_: Game) => Promise.resolve({ error: null }));
 
   render(
-    <GamePage
+    <Page
       game={game}
       teamName="Eagles"
       roster={ROSTER}
@@ -32,10 +42,10 @@ function renderPage(canEdit: boolean, game: Game = GAME) {
       onReloadSets={() => {}}
       setsLoading={false}
       onOpenSet={() => {}}
-      onNewSet={() => {}}
+      onNewSet={() => Promise.resolve()}
       onDeleteSet={() => {}}
       onImportSets={() => {}}
-      onStats={() => {}}
+      onScoreSet={() => Promise.resolve(null)}
     />
   );
 
@@ -47,7 +57,6 @@ const rotation = () => screen.getByRole("region", { name: "Set 1" });
 
 describe("GamePage as a coach", () => {
   test("a new rotation starts as a 5-1 with the setter in I and saves itself", async () => {
-    // A game with no opponent is a rotation plan, so its rotations section starts open.
     const onSave = renderPage(true, { ...GAME, opponent: "", rotations: [] });
 
     await userEvent.click(screen.getByRole("button", { name: "Add rotation" }));
@@ -161,9 +170,11 @@ describe("GamePage as a coach", () => {
   test("dropping a player from the squad clears them from the rotation", async () => {
     const onSave = renderPage(true);
 
+    await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
     await userEvent.click(screen.getByRole("button", { name: "Pick squad" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "#1 Lena Vogt" }));
     await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Rotations" }));
 
     expect(screen.getByRole("button", { name: "Position I: empty" })).toBeInTheDocument();
     await waitFor(() => expect(lastSaved(onSave).squad).not.toContain("p-s"));
@@ -175,6 +186,7 @@ describe("GamePage as a coach", () => {
   ])("a one-game number %s %s", async (number, _, overrides) => {
     const onSave = renderPage(true);
 
+    await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
     await userEvent.click(screen.getByRole("button", { name: "Pick squad" }));
     await userEvent.click(screen.getByRole("button", { name: "Adjust #17 for this game" }));
     await userEvent.clear(screen.getByRole("textbox", { name: "Number" }));
@@ -182,6 +194,30 @@ describe("GamePage as a coach", () => {
 
     await waitFor(() => expect(lastSaved(onSave).overrides).toEqual(overrides));
     expect(screen.queryByText("Also worn by #4 Mia Kraus") !== null).toBe(number === "4");
+  });
+
+  test("the details show as text until Edit details opens them, and save from the form", async () => {
+    const onSave = renderPage(true);
+
+    await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
+    expect(screen.getByText("Riverside")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Opponent" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit details" }));
+    await userEvent.clear(screen.getByRole("textbox", { name: "Opponent" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Opponent" }), "Harbour");
+    await waitFor(() => expect(lastSaved(onSave).opponent).toBe("Harbour"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByText("Harbour")).toBeInTheDocument();
+  });
+
+  test("a game with no details opens them in the form", async () => {
+    renderPage(true, { ...GAME, date: null, opponent: "", notes: "" });
+
+    await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
+
+    expect(screen.getByRole("textbox", { name: "Opponent" })).toBeInTheDocument();
   });
 
   test("toggling a print version saves it", async () => {

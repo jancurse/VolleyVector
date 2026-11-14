@@ -62,6 +62,10 @@ export function parseImport(raw: unknown): AppData {
     if (Array.isArray(m.lineup) && m.lineup.length === 6) meta.lineup = m.lineup.map(String);
 
     if (typeof m.libero === "string") meta.libero = m.libero;
+    const score = m.score as { us?: unknown; them?: unknown } | undefined;
+
+    if (typeof score?.us === "number" && typeof score.them === "number")
+      meta.score = { us: score.us, them: score.them };
 
     if (obj.version === 2 && Array.isArray(obj.events) && obj.events.every(isEvent)) {
       const events = obj.events;

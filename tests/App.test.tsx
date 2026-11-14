@@ -1182,6 +1182,8 @@ describe("games", () => {
 
     expect(await screen.findByRole("textbox", { name: "Game name" })).toHaveValue("Cup final");
 
+    await user.click(screen.getByRole("tab", { name: "Rotations" }));
+    expect(window.location.pathname).toMatch(/\/games\/[^/]+\/rotations$/);
     await user.click(screen.getByRole("button", { name: "Print slips" }));
 
     expect(window.location.pathname).toBe("/t/my-team/games/game-1/print");
