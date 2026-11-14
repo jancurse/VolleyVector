@@ -40,6 +40,8 @@ export function useSetSync(
   discardMine: () => void;
   retry: () => void;
   flush: () => Promise<boolean>;
+  /** Save the set's stats; resolves to why it failed, or null. */
+  publish: () => Promise<string | null>;
   reload: () => void;
 } {
   const [sync] = useState(() => new SetSync(id, context.game.id, backend, store, context));
@@ -109,6 +111,7 @@ export function useSetSync(
     discardMine,
     retry: useCallback(() => sync.retry(), [sync]),
     flush: useCallback(() => sync.flush(), [sync]),
+    publish: useCallback(() => sync.publish(), [sync]),
     reload: useCallback(() => {
       setOpened(null);
       setAttempt((n) => n + 1);

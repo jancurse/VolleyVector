@@ -1,34 +1,39 @@
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
-import type { Game } from "../games/types";
+import type { Game, RosterPlayer } from "../games/types";
 import { CALLOUT_WARN, MUTED } from "../ui/styles";
 import { versus } from "../games/format";
+import { renameClashes, renamePlayers, rosterSpellingsOf, setPlayerNames, withGameMeta } from "./gameSets";
 import { toReportSet } from "./reportSet";
 import { loadGameSets } from "./sets";
 import { StatsPage } from "./StatsPage";
 import type { StatsTab } from "./StatsPage";
-import type { ReportSet } from "./types";
+import type { AppData, ReportSet } from "./types";
 
 type GameStatsProps = {
   gameIds: readonly string[];
   games: readonly Game[];
   teamName: string;
+  roster: readonly RosterPlayer[];
   initialTab: StatsTab;
   onTab: (tab: StatsTab) => void;
 };
 
-/** The stats page over some games' recorded sets, loaded from the server. Mount it keyed by the game ids. */
-export function GameStats({ gameIds, games, teamName, initialTab, onTab }: GameStatsProps): JSX.Element {
-  const [loaded, setLoaded] = useState<{ sets: ReportSet[]; error: string | null } | null>(null);
+/**
+ * The stats page over some games' saved stats, loaded from the server: a set shows only once its stats are saved,
+ * with its game's teams and date and the roster's spelling of its players. Mount it keyed by the game ids.
+ */
+export function GameStats({ gameIds, games, teamName, roster, initialTab, onTab }: GameStatsProps): JSX.Element {
+  const [loaded, setLoaded] = useState<{ sets: { gameId: string; data: AppData }[]; error: string | null } | null>(
+    null
+  );
   const key = gameIds.join(",");
 
   useEffect(() => {
     let active = true;
 
-    void loadGameSets(key.split(",")).then(
-      ({ sets, error }) => active && setLoaded({ sets: sets.map(toReportSet), error })
-    );
+    void loadGameSets(key.split(",")).then((result) => active && setLoaded(result));
 
     return () => {
       active = false;
@@ -37,7 +42,15 @@ export function GameStats({ gameIds, games, teamName, initialTab, onTab }: GameS
 
   if (!loaded) return <p className={MUTED}>Loading the sets…</p>;
   if (loaded.error) return <p className={CALLOUT_WARN}>Couldn’t load the sets: {loaded.error}</p>;
-  if (loaded.sets.length === 0) return <p className={MUTED}>No sets recorded yet.</p>;
+  if (loaded.sets.length === 0) return <p className={MUTED}>No stats saved yet.</p>;
+
+  const sets: ReportSet[] = loaded.sets.map(({ gameId, data }) => {
+    const game = games.find((g) => g.id === gameId);
+    const spellings = rosterSpellingsOf(setPlayerNames(data), roster);
+    const spelled = renameClashes(data, spellings).length ? data : renamePlayers(data, spellings);
+
+    return toReportSet(game ? withGameMeta(spelled, game, teamName) : spelled);
+  });
 
   const only = gameIds.length === 1 ? games.find((g) => g.id === gameIds[0]) : undefined;
   const title = only
@@ -46,8 +59,8 @@ export function GameStats({ gameIds, games, teamName, initialTab, onTab }: GameS
 
   return (
     <StatsPage
-      sets={loaded.sets}
-      eyebrow={`${teamName}, ${loaded.sets.length} ${loaded.sets.length === 1 ? "set" : "sets"}`}
+      sets={sets}
+      eyebrow={`${teamName}, ${sets.length} ${sets.length === 1 ? "set" : "sets"}`}
       title={title}
       initialTab={initialTab}
       onTab={onTab}

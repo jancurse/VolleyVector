@@ -135,7 +135,7 @@ export function GamesPage({
                       checked={picked.has(game.id)}
                       onCheckedChange={(on) => pick(game.id, on)}
                       ariaLabel={`Pick ${game.name || "this game"} for stats`}
-                      disabled={setsOf(game.id).length === 0}
+                      disabled={!setsOf(game.id).some((s) => s.statsSaved)}
                     />
                   </TableCell>
                   <TableCell>
@@ -173,12 +173,16 @@ export function GamesPage({
                             disabled={!canEdit}
                             onClick={() => onOpenSet(game.id, s.id)}
                             title={canEdit ? `Open set ${s.setNumber} in the tracker` : `Set ${s.setNumber}`}
-                            aria-label={`Set ${s.setNumber}, ${s.us}–${s.them}`}
+                            aria-label={`Set ${s.setNumber}, ${s.statsSaved ? `${s.us}–${s.them}` : "no stats yet"}`}
                             className="p-0 text-sm disabled:opacity-100"
                           >
-                            <span className={s.them > s.us ? THEM_TEXT : "text-text"}>
-                              {s.us}–{s.them}
-                            </span>
+                            {s.statsSaved ? (
+                              <span className={s.them > s.us ? THEM_TEXT : "text-text"}>
+                                {s.us}–{s.them}
+                              </span>
+                            ) : (
+                              <span className="text-text-dim">–</span>
+                            )}
                           </Button>
                         ))}
                       </span>

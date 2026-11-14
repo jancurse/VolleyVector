@@ -16,11 +16,14 @@ const SET: SetSummary = {
   videoUrl: "https://youtu.be/abcdefghijk",
   touches: 66,
   finished: true,
+  version: 3,
+  statsSaved: true,
+  unsavedStats: false,
   updatedAt: "2026-11-01T10:00:00Z",
   updatedBy: "Coach",
 };
 
-function renderSets(canEdit: boolean, error: string | null = null) {
+function renderSets(canEdit: boolean, error: string | null = null, sets: SetSummary[] = [SET]) {
   const handlers = {
     onOpen: vi.fn(),
     onNew: vi.fn(),
@@ -35,7 +38,7 @@ function renderSets(canEdit: boolean, error: string | null = null) {
 
   render(
     <TooltipProvider>
-      <GameSets sets={[SET]} local={local} loading={false} error={error} canEdit={canEdit} {...handlers} />
+      <GameSets sets={sets} local={local} loading={false} error={error} canEdit={canEdit} {...handlers} />
     </TooltipProvider>
   );
 
@@ -64,6 +67,22 @@ describe("GameSets", () => {
     await userEvent.click(screen.getByRole("button", { name }));
 
     expect(handlers[handler]).toHaveBeenCalled();
+  });
+
+  test.each([
+    { set: { ...SET, unsavedStats: true }, chip: "Stats not up to date", stats: true, score: "25–20" },
+    {
+      set: { ...SET, statsSaved: false, unsavedStats: true },
+      chip: "Stats not saved",
+      stats: false,
+      score: "No stats yet",
+    },
+  ])("a set whose changes are not in its stats says so: $chip", ({ set, chip, stats, score }) => {
+    renderSets(true, null, [set]);
+
+    expect(screen.getByText(chip)).toBeInTheDocument();
+    expect(screen.getByText(score)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stats and highlights" })).toHaveProperty("disabled", !stats);
   });
 
   test("a failed load says so and starts no set, since the sets shown may be out of date", async () => {

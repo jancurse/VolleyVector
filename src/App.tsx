@@ -22,10 +22,10 @@ import { useGames } from "./games/useGames";
 import { useRoster } from "./games/useRoster";
 import { useSetLinks } from "./games/useSetLinks";
 import type { Game } from "./games/types";
-import { localSets, newSetData, squadNames } from "./stats/gameSets";
+import { localSets, newSetData, squadNames, withGameMeta } from "./stats/gameSets";
 import { ImportSetsDialog } from "./stats/import/ImportSetsDialog";
 import { toReportSet } from "./stats/reportSet";
-import { createSet, deleteSet, finishSet, loadSetData } from "./stats/sets";
+import { deleteSet, finishSet, importSet, loadSetData } from "./stats/sets";
 import type { SetSummary } from "./stats/types";
 import { parseImport } from "./stats/store";
 import { readBackup, writeBackup } from "./stats/sync/setSync";
@@ -286,7 +286,7 @@ export function App(): JSX.Element {
   const gamesTeamName = allTeams.find((t) => t.teamId === gamesTeamId)?.teamName ?? "Team";
   const gameIds = useMemo(() => games.games.map((g) => g.id), [games.games]);
   const gameSets = useGameSets(gameIds);
-  const setLinks = useSetLinks(gamesTeamName, games.games, roster.players, games.saveGame, gameSets.reload);
+  const setLinks = useSetLinks(games.games, roster.players, games.saveGame, gameSets.reload);
   // Set files picked for the stats: they live only in memory, so a reload asks for them again.
   const [fileSets, setFileSets] = useState<ReportSet[] | null>(null);
   const [importingSets, setImportingSets] = useState<{ intoGameId?: string } | null>(null);
@@ -422,6 +422,7 @@ export function App(): JSX.Element {
             )
           )
         }
+        onStatsSaved={gameSets.reload}
         onFinish={async (finished) => {
           const { error } = await finishSet(heldSet.setId, finished);
 
@@ -999,7 +1000,9 @@ export function App(): JSX.Element {
     const data = readBackup(localStorage, set.id)?.data ?? stored.sets.find((s) => s.id === set.id)?.data;
     const { error } = data ? await deleteSet(set.id) : { error: stored.error ?? "The set is already gone." };
 
-    if (data && !error) downloadSet(data, set.id, "deleted");
+    const game = games.games.find((g) => g.id === set.gameId);
+
+    if (data && !error) downloadSet(game ? withGameMeta(data, game, gamesTeamName) : data, set.id, "deleted");
 
     if (error) {
       void confirm({ title: "Couldn’t delete the set", description: error, confirmLabel: "OK" });
@@ -1070,7 +1073,10 @@ export function App(): JSX.Element {
 
     if (error) return void confirm({ title: "Couldn’t delete the game", description: error, confirmLabel: "OK" });
 
-    for (const set of stored.sets) downloadSet(set.data, set.id, "deleted");
+    const game = games.games.find((g) => g.id === id);
+
+    for (const set of stored.sets)
+      downloadSet(game ? withGameMeta(set.data, game, gamesTeamName) : set.data, set.id, "deleted");
     navigate(gamesRoute(gamesTeamId, allTeams));
   };
 
@@ -1297,7 +1303,6 @@ export function App(): JSX.Element {
           roster={roster.players}
           canEdit={canEdit}
           onSave={setLinks.saveGame}
-          onSyncSets={setLinks.syncSets}
           onRenameInSets={setLinks.renameInSets}
           onAddPlayers={roster.addPlayers}
           onDelete={() => void removeGame(game.id)}
@@ -1359,6 +1364,7 @@ export function App(): JSX.Element {
           gameIds={route.gameIds}
           games={games.games}
           teamName={gamesTeamName}
+          roster={roster.players}
           initialTab={route.view}
           onTab={onTab}
         />
@@ -1523,7 +1529,7 @@ export function App(): JSX.Element {
           saveGame={setLinks.saveGame}
           addPlayers={roster.addPlayers}
           createSet={async (gameId, data, id) => {
-            const outcome = await createSet(gameId, data, id);
+            const outcome = await importSet(gameId, data, id);
 
             return {
               error:

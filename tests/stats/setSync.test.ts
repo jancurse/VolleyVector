@@ -36,7 +36,7 @@ function memoryStore(): BackupStore & { map: Map<string, string> } {
 type Mode = "online" | "offline" | "signedOut";
 
 /** A server holding one set, with a switch for the network and the session. */
-function fakeServer(initial: { version: number; data: AppData } | null) {
+function fakeServer(initial: { version: number; data: AppData; published?: AppData | null } | null) {
   let record = initial;
   let mode: Mode = "online";
   const saves: SaveRequest[] = [];
@@ -68,7 +68,7 @@ function fakeServer(initial: { version: number; data: AppData } | null) {
       if (request.base !== record.version)
         return { kind: "conflict", version: record.version, updatedBy: "Pat", updatedAt: "2026-11-10T20:00:00Z" };
 
-      record = { version: record.version + 1, data: request.data };
+      record = { ...record, version: record.version + 1, data: request.data };
 
       if (answerLost) {
         answerLost = false;
@@ -77,6 +77,16 @@ function fakeServer(initial: { version: number; data: AppData } | null) {
       }
 
       return { kind: "saved", version: record.version };
+    },
+    async publish({ base }): Promise<SaveOutcome> {
+      if (mode === "offline") return { kind: "offline", message: "Failed to fetch" };
+      if (!record) return { kind: "missing" };
+      if (base !== record.version)
+        return { kind: "conflict", version: record.version, updatedBy: "Pat", updatedAt: "2026-11-10T20:00:00Z" };
+
+      record = { ...record, published: record.data };
+
+      return { kind: "saved", version: base };
     },
   };
 
@@ -91,7 +101,7 @@ function fakeServer(initial: { version: number; data: AppData } | null) {
     loseAnswer: () => (answerLost = true),
     /** Someone else saves the set. */
     saveElsewhere: (data: AppData) => {
-      record = { version: (record?.version ?? 0) + 1, data };
+      record = { ...record, version: (record?.version ?? 0) + 1, data };
     },
     /** Hold saves until the returned release is called, to change things while one is in flight. */
     hold: () => {
@@ -459,5 +469,67 @@ describe("the local copy", () => {
     sync.change(withEvents(1));
 
     expect(readBackup(store, SET)?.context).toEqual(context);
+  });
+});
+
+describe("the set's stats", () => {
+  test("a recorded change reaches the stats only once they are saved", async () => {
+    const server = fakeServer({ version: 1, data: emptyData(["Mira"]), published: emptyData(["Mira"]) });
+    const sync = new SetSync(SET, GAME, server.backend, memoryStore());
+
+    await openReady(sync);
+
+    expect(sync.getSnapshot().stats).toBe("saved");
+
+    sync.change(withEvents(1));
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY);
+
+    expect(server.record).toMatchObject({ version: 2, data: withEvents(1), published: emptyData(["Mira"]) });
+    expect(sync.getSnapshot()).toMatchObject({ saveState: "saved", stats: "changed" });
+
+    expect(await sync.publish()).toBeNull();
+    expect(server.record?.published).toEqual(withEvents(1));
+    expect(sync.getSnapshot().stats).toBe("saved");
+  });
+
+  test("saving the stats saves the set first, so the latest change is in them", async () => {
+    const server = fakeServer({ version: 1, data: emptyData(["Mira"]), published: null });
+    const sync = new SetSync(SET, GAME, server.backend, memoryStore());
+
+    await openReady(sync);
+
+    expect(sync.getSnapshot().stats).toBe("changed");
+
+    sync.change(withEvents(2));
+
+    expect(await sync.publish()).toBeNull();
+    expect(server.record).toMatchObject({ version: 2, published: withEvents(2) });
+  });
+
+  test("the teams and date, which follow the game, do not count as a change to the stats", async () => {
+    const published = { ...emptyData(["Mira"]), meta: { ...emptyData().meta, homeTeam: "Old name" } };
+    const sync = new SetSync(SET, GAME, fakeServer({ version: 1, data: published, published }).backend, memoryStore());
+
+    await openReady(sync);
+    sync.change({ ...published, meta: { ...published.meta, homeTeam: "Eagles", date: "2026-10-31" } });
+
+    expect(sync.getSnapshot().stats).toBe("saved");
+  });
+
+  test("offline, or after someone else saved, the stats stay as they were and the coach is told why", async () => {
+    const server = fakeServer({ version: 1, data: emptyData(["Mira"]), published: null });
+    const sync = new SetSync(SET, GAME, server.backend, memoryStore());
+
+    await openReady(sync);
+    server.setMode("offline");
+
+    expect(await sync.publish()).toMatch(/^Couldn’t reach the server/);
+
+    server.setMode("online");
+    server.saveElsewhere(withEvents(3));
+
+    expect(await sync.publish()).toBe("Pat changed this set just now, so its stats weren’t saved. Try again.");
+    expect(server.record?.published).toBeNull();
+    expect(sync.getSnapshot().stats).toBe("changed");
   });
 });

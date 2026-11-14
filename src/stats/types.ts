@@ -97,7 +97,7 @@ export type ReportSet = {
   rallies: Rally[];
 };
 
-/** A recorded set as the games list shows it: its score and video, without the event data. */
+/** A recorded set as the games list shows it: its saved stats' score and video, without the event data. */
 export type SetSummary = {
   id: string;
   gameId: string;
@@ -107,6 +107,12 @@ export type SetSummary = {
   videoUrl: string;
   touches: number;
   finished: boolean;
+  /** The working copy's version: it changes with every save. */
+  version: number;
+  /** Whether the set has saved stats, which the stats pages read. */
+  statsSaved: boolean;
+  /** Whether the working copy has changes its saved stats lack (always, before they are first saved). */
+  unsavedStats: boolean;
   updatedAt: string;
   /** Who saved it last: their display name, empty when unknown. */
   updatedBy: string;

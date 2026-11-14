@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
-import { AlertTriangle, ArrowLeft, Download } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Download, Save } from "lucide-react";
 
 import { LoginForm } from "../../auth/LoginForm";
 import type { Game } from "../../games/types";
@@ -33,10 +33,15 @@ type SetPageProps = {
   /** Open the next set, started in this browser from `next`. */
   onNextSet: (next: AppData) => void;
   onFinish: (finished: boolean) => Promise<void>;
+  /** The set's stats were saved, so its summary changed. */
+  onStatsSaved: () => void;
   backend?: SetBackend;
 };
 
-/** One set in the tracker, kept safe as it changes (see setSync.ts). Mount it keyed by the set id. */
+/**
+ * One set in the tracker, kept safe as it changes (see setSync.ts). Its changes reach the stats everyone reads
+ * only when the coach saves them, or marks the set finished. Mount it keyed by the set id.
+ */
 export function SetPage({
   setId,
   game,
@@ -47,6 +52,7 @@ export function SetPage({
   onBack,
   onNextSet,
   onFinish,
+  onStatsSaved,
   backend = supabaseSetBackend,
 }: SetPageProps): JSX.Element {
   const sync = useSetSync(setId, { game, teamName, userId }, backend);
@@ -69,7 +75,27 @@ export function SetPage({
     )
       return;
 
+    if (
+      snapshot.stats !== "saved" &&
+      !(await confirm({
+        title: "Leave without saving the stats?",
+        description:
+          "Your changes are kept with the set, but the stats show them only once you save the stats. You can do that the next time you open the set.",
+        confirmLabel: "Leave",
+      }))
+    )
+      return;
+
     onBack();
+  };
+
+  const saveStats = async (): Promise<boolean> => {
+    const error = await sync.publish();
+
+    if (error) await confirm({ title: "Couldn’t save the stats", description: error, confirmLabel: "OK" });
+    else onStatsSaved();
+
+    return !error;
   };
 
   const nextSet = async (next: AppData) => {
@@ -86,9 +112,14 @@ export function SetPage({
     onNextSet(next);
   };
 
-  // Finishing marks the server's copy, so everything is saved first.
+  // Finishing marks the server's copy, so everything is saved first, and a finished set's stats with it.
   const finish = async (done: boolean) => {
-    if (await sync.flush()) return onFinish(done);
+    if (done) {
+      if (await saveStats()) await onFinish(true);
+
+      return;
+    }
+    if (await sync.flush()) return onFinish(false);
 
     await confirm({
       title: "This set isn’t saved yet",
@@ -207,8 +238,18 @@ export function SetPage({
                   .join(", ")}
               </p>
               <h1 className={TITLE}>{title}</h1>
-              <div className="mt-2">
+              <div className="mt-2 flex flex-wrap items-center gap-3">
                 <SaveStatus snapshot={snapshot} />
+                {snapshot.stats === "saved" ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-text-dim">
+                    <Check size={14} aria-hidden="true" /> Stats saved
+                  </span>
+                ) : (
+                  <Button size="sm" onClick={() => void saveStats()} disabled={snapshot.stats === "saving"}>
+                    <Save size={14} aria-hidden="true" />
+                    {snapshot.stats === "saving" ? "Saving stats…" : "Save stats"}
+                  </Button>
+                )}
               </div>
             </div>
           }

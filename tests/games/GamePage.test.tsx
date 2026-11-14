@@ -4,7 +4,10 @@ import { describe, expect, test, vi } from "vitest";
 
 import { GamePage } from "../../src/games/GamePage";
 import type { Game } from "../../src/games/types";
+import { emptyData } from "../../src/stats/store";
+import type { AppData } from "../../src/stats/types";
 import { GAME, ROSTER } from "../helpers/gameData";
+import { recordedRpcs, recordedWrites, resetRecorded } from "../helpers/supabaseFake";
 
 vi.mock("../../src/supabase/client", async () => {
   const mod = await import("../helpers/supabaseFake");
@@ -12,18 +15,24 @@ vi.mock("../../src/supabase/client", async () => {
   return { supabase: mod.supabaseFake };
 });
 
-function renderPage(canEdit: boolean, game: Game = GAME) {
-  const onSave = vi.fn((_: Game) => Promise.resolve({ error: null }));
+const stored = vi.hoisted(() => ({ sets: [] as { id: string; data: unknown }[] }));
 
-  render(
+vi.mock("../../src/stats/sets", async (original) => ({
+  ...(await original<typeof import("../../src/stats/sets")>()),
+  loadSetData: async () => ({ sets: stored.sets, error: null }),
+}));
+
+const onRenameInSets = vi.fn((_: Game, __: ReadonlyMap<string, string>) => Promise.resolve(undefined));
+
+function page(canEdit: boolean, game: Game, onSave: (game: Game) => Promise<{ error: null }>) {
+  return (
     <GamePage
       game={game}
       teamName="Eagles"
       roster={ROSTER}
       canEdit={canEdit}
       onSave={onSave}
-      onSyncSets={() => Promise.resolve(undefined)}
-      onRenameInSets={() => Promise.resolve(undefined)}
+      onRenameInSets={onRenameInSets}
       onAddPlayers={() => Promise.resolve({ error: null, added: [] })}
       onDelete={() => {}}
       onPrint={() => {}}
@@ -39,11 +48,56 @@ function renderPage(canEdit: boolean, game: Game = GAME) {
       onStats={() => {}}
     />
   );
+}
 
-  return onSave;
+function renderPage(canEdit: boolean, game: Game = GAME) {
+  const onSave = vi.fn((_: Game) => Promise.resolve({ error: null }));
+  const { rerender } = render(page(canEdit, game, onSave));
+
+  return Object.assign(onSave, { rerender: (next: Game) => rerender(page(canEdit, next, onSave)) });
 }
 
 const lastSaved = (onSave: ReturnType<typeof renderPage>): Game => onSave.mock.calls.at(-1)![0];
+
+describe("GamePage and the game's sets", () => {
+  // A set out of line with the game: old teams and date, a roster player in another spelling, and a roster
+  // player the squad lacks. Opening the page used to save over all of that; it must now write nothing.
+  const outOfLine: AppData = {
+    ...emptyData(["lena vogt", "Kim Roth", "Guest"]),
+    meta: { ...emptyData().meta, setNumber: "1", homeTeam: "Old", awayTeam: "Names", date: "2020-01-01" },
+  };
+
+  test("opening the page as a coach writes nothing, to the sets or the game", async () => {
+    resetRecorded();
+    onRenameInSets.mockClear();
+    stored.sets = [{ id: "set-1", data: outOfLine }];
+
+    const onSave = renderPage(true, { ...GAME, squad: GAME.squad.filter((id) => id !== "p-sub") });
+
+    // The sets have loaded once their unknown name is offered for matching.
+    expect(await screen.findByRole("region", { name: "In the sets, not on the roster" })).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onRenameInSets).not.toHaveBeenCalled();
+    expect(recordedRpcs).toEqual([]);
+    expect(recordedWrites).toEqual([]);
+    stored.sets = [];
+  });
+
+  test("a change to the game made elsewhere replaces the draft, so a later edit keeps it", async () => {
+    const onSave = renderPage(true, { ...GAME, opponent: "" });
+
+    onSave.rerender({ ...GAME, opponent: "Riverside United" });
+
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Opponent" })).toHaveValue("Riverside United"));
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Game notes" }), "Bring the ball bag");
+
+    await waitFor(() => expect(lastSaved(onSave)).toMatchObject({ opponent: "Riverside United" }));
+    expect(lastSaved(onSave).notes).toBe("Bring the ball bag");
+  });
+});
 const rotation = () => screen.getByRole("region", { name: "Set 1" });
 
 describe("GamePage as a coach", () => {

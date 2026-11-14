@@ -8,7 +8,7 @@ import {
   renameClashes,
   renamePlayers,
   squadNames,
-  syncWithGame,
+  syncPlayers,
   withGameMeta,
 } from "../../src/stats/gameSets";
 import { emptyData } from "../../src/stats/store";
@@ -86,10 +86,10 @@ describe("keeping a set in line with its game", () => {
 
   test("the squad joins the set's list, and a dropped player leaves it only without stats", () => {
     const set = recorded(["Jo", "Mira", "Guest", "Sam"]);
-    const synced = syncWithGame(set, GAME, "Eagles", ["Jo", "Nina"], ["Mira", "Sam"]);
+    const synced = syncPlayers(set, ["Jo", "Nina"], ["Mira", "Sam"]);
 
     expect(synced.players).toEqual(["Jo", "Mira", "Guest", "Nina"]);
-    expect(synced.meta).toMatchObject({ homeTeam: "Eagles", awayTeam: "Riverside", date: "2026-10-31" });
-    expect(syncWithGame(synced, GAME, "Eagles", ["Jo", "Nina"], ["Mira", "Sam"])).toBe(synced);
+    expect(synced.meta).toBe(set.meta);
+    expect(syncPlayers(synced, ["Jo", "Nina"], ["Mira", "Sam"])).toBe(synced);
   });
 });

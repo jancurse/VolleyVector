@@ -964,9 +964,10 @@ end $$;
 reset role;
 
 -- ---------------------------------------------------------------------------
--- Recorded sets: any member of the game's team reads, a coach of the team or an admin saves (only through
--- save_game_set, a compare-and-swap on the version) and deletes, and an outsider does neither. Clients have
--- no direct insert or update.
+-- Recorded sets: any member of the game's team reads the list columns and the saved stats, a coach of the team
+-- or an admin also reads the working copy (only through working_game_set(s)), saves it (save_game_set, a
+-- compare-and-swap on the version), saves its stats (publish_game_set), and deletes, and an outsider does none
+-- of it. Clients have no direct insert or update, and no one reads the working copy from the table.
 -- ---------------------------------------------------------------------------
 insert into public.games (id, team_id, name) values
   ('71000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-00000000000c', 'League game');
@@ -975,50 +976,80 @@ set local role authenticated;
 set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}'; -- coachA
 do $$
 declare r jsonb; n int; blocked boolean := false;
+  recorded jsonb := '{"version":2,"players":["Ana"],"events":[{"kind":"touch","id":1,"timestamp":1,"player":"Ana","stat":"serve","result":"ace","zone":"1"}],"meta":{"setNumber":"1","youtubeUrl":"https://youtu.be/abcdefghijk"}}';
 begin
   r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002',
-    '{"version":2,"players":["Ana"],"events":[{"kind":"touch","id":1,"timestamp":1,"player":"Ana","stat":"serve","result":"ace","zone":"1"}],"meta":{"setNumber":"1","youtubeUrl":"https://youtu.be/abcdefghijk"}}',
-    0, 1, 0);
+    '{"version":2,"players":[],"events":[],"meta":{"setNumber":"1"}}', 0);
   if (r ->> 'version')::int <> 1 then raise exception 'FAIL sets: a coach could not create a set (%)', r; end if;
 
   select count(*) into n from public.game_sets
-  where id = '72000000-0000-0000-0000-000000000001' and set_number = 1 and touches = 1 and score_us = 1
-    and video_url = 'https://youtu.be/abcdefghijk';
-  if n <> 1 then raise exception 'FAIL sets: the list columns were not derived from the set'; end if;
+  where id = '72000000-0000-0000-0000-000000000001' and set_number = 1 and published is null and unpublished
+    and touches = 0 and score_us = 0 and video_url = '';
+  if n <> 1 then raise exception 'FAIL sets: a new set had stats, or its number was not derived'; end if;
 
-  r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002',
-    '{"version":2,"players":[],"events":[],"meta":{"setNumber":"1"}}', 1, 0, 0);
+  r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002', recorded, 1);
   if (r ->> 'version')::int <> 2 then raise exception 'FAIL sets: a save on the current version failed (%)', r; end if;
+  select count(*) into n from public.game_sets where id = '72000000-0000-0000-0000-000000000001' and touches = 0 and video_url = '';
+  if n <> 1 then raise exception 'FAIL sets: recording changed the list columns, which follow the stats'; end if;
 
-  r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002',
-    '{"version":2,"players":[],"events":[],"meta":{"setNumber":"1"}}', 1, 0, 0);
+  r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002', recorded, 1);
   if (r ->> 'version')::int <> 2 or r ? 'conflict' then
     raise exception 'FAIL sets: repeating a save the server already holds did not succeed again (%)', r;
   end if;
 
   r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002',
-    '{"version":2,"players":["Bea"],"events":[],"meta":{"setNumber":"1"}}', 1, 0, 0);
+    '{"version":2,"players":["Bea"],"events":[],"meta":{"setNumber":"1"}}', 1);
   if not coalesce((r ->> 'conflict')::boolean, false) or (r ->> 'version')::int <> 2 then
     raise exception 'FAIL sets: a save on a stale version was not refused as a conflict (%)', r;
   end if;
 
   r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002',
-    '{"version":2,"players":[],"events":[],"meta":{}}', 0, 0, 0);
+    '{"version":2,"players":[],"events":[],"meta":{}}', 0);
   if not coalesce((r ->> 'conflict')::boolean, false) then
     raise exception 'FAIL sets: creating a set whose id exists was not refused as a conflict (%)', r;
   end if;
 
   begin
     perform public.save_game_set('72000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000002',
-      '{"version":1,"stats":[]}', 0, 0, 0);
+      '{"version":1,"stats":[]}', 0);
   exception when others then blocked := true;
   end;
   if not blocked then raise exception 'FAIL sets: a set not in the version 2 format was saved'; end if;
 
   perform public.finish_game_set('72000000-0000-0000-0000-000000000001', true);
-  select count(*) into n from public.game_sets
-  where id = '72000000-0000-0000-0000-000000000001' and finished_at is not null;
+  select count(*) into n from public.game_sets where id = '72000000-0000-0000-0000-000000000001' and finished_at is not null;
   if n <> 1 then raise exception 'FAIL sets: finishing a set did not mark it finished'; end if;
+
+  select count(*) into n from public.working_game_set('72000000-0000-0000-0000-000000000001')
+  where version = 2 and data = recorded and published is null;
+  if n <> 1 then raise exception 'FAIL sets: a coach could not read the working copy'; end if;
+  select count(*) into n from public.working_game_sets(array['71000000-0000-0000-0000-000000000002'::uuid]);
+  if n <> 1 then raise exception 'FAIL sets: a coach could not read a game''s working copies'; end if;
+
+  r := public.publish_game_set('72000000-0000-0000-0000-000000000001', 2, 1, 0);
+  if (r ->> 'version')::int <> 2 then raise exception 'FAIL sets: a coach could not save a set''s stats (%)', r; end if;
+  select count(*) into n from public.game_sets
+  where id = '72000000-0000-0000-0000-000000000001' and published = recorded and not unpublished
+    and published_by = 'a0000000-0000-0000-0000-000000000002' and published_at is not null
+    and score_us = 1 and score_them = 0 and touches = 1 and video_url = 'https://youtu.be/abcdefghijk';
+  if n <> 1 then raise exception 'FAIL sets: saving the stats did not make the working copy the stats and the list'; end if;
+
+  r := public.publish_game_set('72000000-0000-0000-0000-000000000001', 1, 0, 0);
+  if not coalesce((r ->> 'conflict')::boolean, false) or (r ->> 'version')::int <> 2 then
+    raise exception 'FAIL sets: saving the stats of a stale version was not refused as a conflict (%)', r;
+  end if;
+
+  r := public.publish_game_set('72000000-0000-0000-0000-00000000ffff', 1, 0, 0);
+  if not coalesce((r ->> 'missing')::boolean, false) then
+    raise exception 'FAIL sets: saving the stats of a missing set did not say so (%)', r;
+  end if;
+
+  blocked := false;
+  begin
+    perform data from public.game_sets;
+  exception when insufficient_privilege then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL sets: a client read a working copy from the table'; end if;
 
   blocked := false;
   begin
@@ -1035,12 +1066,25 @@ set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000004","
 do $$
 declare n int; blocked boolean := false;
 begin
-  select count(*) into n from public.game_sets where game_id = '71000000-0000-0000-0000-000000000002';
-  if n <> 1 then raise exception 'FAIL sets: a player could not read their team''s sets (% rows)', n; end if;
+  select count(*) into n from public.game_sets
+  where game_id = '71000000-0000-0000-0000-000000000002' and published is not null and score_us = 1;
+  if n <> 1 then raise exception 'FAIL sets: a player could not read their team''s saved stats (% rows)', n; end if;
 
   begin
+    perform data from public.game_sets;
+  exception when insufficient_privilege then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL sets: a player read a working copy'; end if;
+
+  select count(*) into n from public.working_game_set('72000000-0000-0000-0000-000000000001');
+  if n <> 0 then raise exception 'FAIL sets: a player read a working copy through the coaches'' RPC'; end if;
+  select count(*) into n from public.working_game_sets(array['71000000-0000-0000-0000-000000000002'::uuid]);
+  if n <> 0 then raise exception 'FAIL sets: a player read a game''s working copies'; end if;
+
+  blocked := false;
+  begin
     perform public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002',
-      '{"version":2,"players":[],"events":[],"meta":{}}', 2, 0, 0);
+      '{"version":2,"players":[],"events":[],"meta":{}}', 2);
   exception when others then blocked := true;
   end;
   if not blocked then raise exception 'FAIL sets: a player saved a set'; end if;
@@ -1051,6 +1095,21 @@ begin
   exception when others then blocked := true;
   end;
   if not blocked then raise exception 'FAIL sets: a player reopened a set'; end if;
+
+  blocked := false;
+  begin
+    perform public.publish_game_set('72000000-0000-0000-0000-000000000001', 2, 0, 0);
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL sets: a player saved a set''s stats'; end if;
+
+  blocked := false;
+  begin
+    perform public.relink_game_set('72000000-0000-0000-0000-000000000001', 2,
+      '{"version":2,"players":[],"events":[],"meta":{}}', null);
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL sets: a player changed a set through relink'; end if;
 
   delete from public.game_sets where game_id = '71000000-0000-0000-0000-000000000002';
   get diagnostics n = row_count;
@@ -1066,12 +1125,22 @@ begin
   select count(*) into n from public.game_sets where game_id = '71000000-0000-0000-0000-000000000002';
   if n <> 0 then raise exception 'FAIL sets: an outsider read another team''s sets'; end if;
 
+  select count(*) into n from public.working_game_sets(array['71000000-0000-0000-0000-000000000002'::uuid]);
+  if n <> 0 then raise exception 'FAIL sets: an outsider read another team''s working copies'; end if;
+
   begin
     perform public.save_game_set('72000000-0000-0000-0000-000000000004', '71000000-0000-0000-0000-000000000002',
-      '{"version":2,"players":[],"events":[],"meta":{}}', 0, 0, 0);
+      '{"version":2,"players":[],"events":[],"meta":{}}', 0);
   exception when others then blocked := true;
   end;
   if not blocked then raise exception 'FAIL sets: an outsider created a set in another team''s game'; end if;
+
+  blocked := false;
+  begin
+    perform public.publish_game_set('72000000-0000-0000-0000-000000000001', 2, 0, 0);
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL sets: an outsider saved another team''s set stats'; end if;
 
   delete from public.game_sets where game_id = '71000000-0000-0000-0000-000000000002';
   get diagnostics n = row_count;
@@ -1082,11 +1151,42 @@ reset role;
 set local role authenticated;
 set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-000000000001","role":"authenticated"}'; -- admin
 do $$
-declare r jsonb; n int;
+declare r jsonb; n int; blocked boolean := false;
+  relinked jsonb := '{"version":2,"players":["Cy"],"events":[],"meta":{"setNumber":"1"}}';
 begin
+  -- A change that follows the game reaches both copies, keeps the stats current, and leaves who saved alone.
+  r := public.relink_game_set('72000000-0000-0000-0000-000000000001', 2, relinked, relinked);
+  if (r ->> 'version')::int <> 3 then raise exception 'FAIL sets: an admin could not relink a set (%)', r; end if;
+  select count(*) into n from public.working_game_set('72000000-0000-0000-0000-000000000001')
+  where version = 3 and data = relinked and published = relinked;
+  if n <> 1 then raise exception 'FAIL sets: a relink did not change both copies'; end if;
+  select count(*) into n from public.game_sets
+  where id = '72000000-0000-0000-0000-000000000001' and not unpublished and updated_by = 'a0000000-0000-0000-0000-000000000002' and score_us = 1;
+  if n <> 1 then raise exception 'FAIL sets: a relink changed who saved, the score, or left the stats out of date'; end if;
+
+  r := public.relink_game_set('72000000-0000-0000-0000-000000000001', 2, relinked, relinked);
+  if (r ->> 'version')::int <> 3 or r ? 'conflict' then
+    raise exception 'FAIL sets: repeating a relink the server already holds did not succeed again (%)', r;
+  end if;
+
+  r := public.relink_game_set('72000000-0000-0000-0000-000000000001', 2,
+    '{"version":2,"players":[],"events":[],"meta":{}}', null);
+  if not coalesce((r ->> 'conflict')::boolean, false) then
+    raise exception 'FAIL sets: a relink on a stale version was not refused as a conflict (%)', r;
+  end if;
+
+  begin
+    perform public.relink_game_set('72000000-0000-0000-0000-000000000001', 3, relinked, '{"stats":[]}');
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL sets: a relink saved stats not in the version 2 format'; end if;
+
   r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002',
-    '{"version":2,"players":[],"events":[],"meta":{}}', 2, 0, 0);
-  if (r ->> 'version')::int <> 3 then raise exception 'FAIL sets: an admin could not save a set (%)', r; end if;
+    '{"version":2,"players":[],"events":[],"meta":{}}', 3);
+  if (r ->> 'version')::int <> 4 then raise exception 'FAIL sets: an admin could not save a set (%)', r; end if;
+  select count(*) into n from public.game_sets where id = '72000000-0000-0000-0000-000000000001' and unpublished and published = relinked;
+  if n <> 1 then raise exception 'FAIL sets: saving the working copy changed the stats'; end if;
+
   delete from public.game_sets where id = '72000000-0000-0000-0000-000000000001';
   get diagnostics n = row_count;
   if n <> 1 then raise exception 'FAIL sets: an admin could not delete a set'; end if;

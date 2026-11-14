@@ -311,13 +311,16 @@ export type SetSummaryRow = {
   video_url: string;
   touches: number;
   finished_at: string | null;
+  version: number;
+  unpublished: boolean;
+  published_at: string | null;
   updated_at: string;
   updated_by_profile: { display_name: string | null } | null;
 };
 
 /** The columns a set summary reads, with the display name of who saved it last. */
 export const SET_SUMMARY_COLUMNS =
-  "id, game_id, set_number, score_us, score_them, video_url, touches, finished_at, updated_at, updated_by_profile:profiles!game_sets_updated_by_fkey(display_name)";
+  "id, game_id, set_number, score_us, score_them, video_url, touches, finished_at, version, unpublished, published_at, updated_at, updated_by_profile:profiles!game_sets_updated_by_fkey(display_name)";
 
 export const setSummaryFromRow = (row: SetSummaryRow): SetSummary => ({
   id: row.id,
@@ -328,16 +331,20 @@ export const setSummaryFromRow = (row: SetSummaryRow): SetSummary => ({
   videoUrl: row.video_url,
   touches: row.touches,
   finished: row.finished_at !== null,
+  version: row.version,
+  statsSaved: row.published_at !== null,
+  unsavedStats: row.unpublished,
   updatedAt: row.updated_at,
   updatedBy: row.updated_by_profile?.display_name ?? "",
 });
 
-/** A recorded set's row, as the tracker loads it. */
-export type GameSetRow = { id: string; game_id: string; version: number; data: AppData };
+/** A recorded set's row, as the tracker loads it: the working copy and the saved stats. */
+export type GameSetRow = { id: string; game_id: string; version: number; data: AppData; published: AppData | null };
 
 export const setRecordFromRow = (row: GameSetRow): SetRecord => ({
   id: row.id,
   gameId: row.game_id,
   version: row.version,
   data: row.data,
+  published: row.published,
 });
