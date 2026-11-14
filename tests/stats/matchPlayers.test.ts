@@ -28,6 +28,15 @@ describe("linking set players to the roster", () => {
     });
   });
 
+  test("a name added later is numbered after the choices already kept", () => {
+    const kept = defaultChoices(["Kim"], roster);
+
+    expect(defaultChoices(["Guest", "Kim"], roster, kept)).toEqual({
+      Guest: { kind: "add", number: "3", main: "outside" },
+      Kim: { kind: "add", number: "0", main: "outside" },
+    });
+  });
+
   test("a name is never matched to someone in the same set", () => {
     expect(matchable("Lena", sets, roster).map((p) => p.name)).toEqual(["Mia Kraus"]);
     expect(matchable("Kim", sets, roster)).toHaveLength(3);

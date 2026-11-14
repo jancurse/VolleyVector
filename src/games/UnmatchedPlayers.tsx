@@ -22,8 +22,7 @@ export function UnmatchedPlayers({ names, sets, roster, onApply }: UnmatchedPlay
   const [chosen, setChosen] = useState<Record<string, PlayerChoice>>({});
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const defaults = defaultChoices(names, roster);
-  const choices = Object.fromEntries(names.map((n) => [n, chosen[n] ?? defaults[n]!]));
+  const choices = defaultChoices(names, roster, chosen);
 
   const apply = async () => {
     setBusy(true);
