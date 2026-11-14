@@ -77,7 +77,7 @@ export function ImportSetsDialog({
         return kept ? { ...kept, sets: g.sets, players: g.players } : intoGameId ? { ...g, gameId: intoGameId } : g;
       })
     );
-    setChoices((kept) => ({ ...defaultChoices(unmatched, roster), ...kept }));
+    setChoices((kept) => ({ ...kept, ...defaultChoices(unmatched, roster, kept) }));
   };
 
   const pick = async (list: File[]) => {

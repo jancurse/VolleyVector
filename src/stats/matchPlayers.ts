@@ -14,15 +14,28 @@ export function unmatchedNames(names: Iterable<string>, roster: readonly RosterP
   return [...new Set(names)].filter((n) => n.trim() && !roster.some((p) => sameName(p.name, n)));
 }
 
-/** A choice for each name: a new roster player each, numbered from the lowest free numbers. */
+const parseNumber = (value: string): number | null => {
+  const n = Number(value);
+
+  return value.trim() !== "" && Number.isInteger(n) && n >= 0 && n <= 99 ? n : null;
+};
+
+/** A choice for each name: its kept choice, or a new roster player numbered from the lowest numbers still free. */
 export function defaultChoices(
   names: readonly string[],
-  roster: readonly RosterPlayer[]
+  roster: readonly RosterPlayer[],
+  kept: Readonly<Record<string, PlayerChoice>> = {}
 ): Record<string, PlayerChoice> {
-  const free = Array.from({ length: 100 }, (_, n) => n).filter((n) => !roster.some((p) => p.number === n));
+  const taken = names.flatMap((n) => (kept[n]?.kind === "add" ? [parseNumber(kept[n].number)] : []));
+  const free = Array.from({ length: 100 }, (_, n) => n).filter(
+    (n) => !roster.some((p) => p.number === n) && !taken.includes(n)
+  );
 
   return Object.fromEntries(
-    names.map((n, i) => [n, { kind: "add", number: String(free[i] ?? ""), main: "outside" } satisfies PlayerChoice])
+    names.map((n) => [
+      n,
+      kept[n] ?? ({ kind: "add", number: String(free.shift() ?? ""), main: "outside" } satisfies PlayerChoice),
+    ])
   );
 }
 
@@ -32,12 +45,6 @@ export function matchable(name: string, sets: readonly AppData[], roster: readon
 
   return roster.filter((p) => !p.archived && !together.some((n) => sameName(n, p.name)));
 }
-
-const parseNumber = (value: string): number | null => {
-  const n = Number(value);
-
-  return value.trim() !== "" && Number.isInteger(n) && n >= 0 && n <= 99 ? n : null;
-};
 
 /** What stops the choices from being applied, as one message per problem. */
 export function choiceProblems(
