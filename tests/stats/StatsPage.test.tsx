@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 
+import { formatGameDate } from "../../src/games/format";
 import { deriveRallies } from "../../src/stats/rallies";
 import { StatsPage } from "../../src/stats/StatsPage";
 import { emptyData } from "../../src/stats/store";
@@ -49,7 +50,7 @@ describe("StatsPage", () => {
     expect(screen.getByRole("heading", { name: "Cup final" })).toBeInTheDocument();
     // One page title: the dashboard's own title is only for its exported page.
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(screen.getByText("1 November 2026")).toBeInTheDocument();
+    expect(screen.getByText(formatGameDate("2026-11-01"))).toBeInTheDocument();
 
     for (const name of [
       "Point breakdown",

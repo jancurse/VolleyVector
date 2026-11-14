@@ -166,6 +166,9 @@ function standaloneDashboard(): Plugin {
 
 export default defineConfig(({ command }) => {
   if (command === "serve") loadDevCredentials();
+  // One locale and time zone for every test run, set before Vitest starts its workers, so CI and every machine
+  // format dates the same.
+  if (process.env.VITEST) Object.assign(process.env, { LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8", TZ: "UTC" });
 
   return {
     plugins: [react(), tailwindcss(), standaloneDashboard()],
