@@ -12,5 +12,5 @@ Data, code and earlier tasks this builds on.
 
 ## Results
 
-Filled in by the session at the end: what was built, what worked, what didn't, follow-ups.
+The session fills this in at the end: what was built, what worked, what didn't, and follow-ups.
 Add anything that matters beyond this task to ../log.md.

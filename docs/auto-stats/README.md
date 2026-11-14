@@ -2,9 +2,9 @@
 
 Detect volleyball stats automatically instead of recording every contact by hand in the tracker.
 
-The VolleyVector clone at `~/Code/VolleyVector/auto-stats/auto-stats` is this project's home, checked out
-on `auto-stats`. That branch is where all work is integrated. Each task gets its own branch cut from
-`auto-stats`, in a worktree at `~/Code/VolleyVector/auto-stats/<task>`, and merges back into it.
+The VolleyVector clone at `~/Code/VolleyVector/auto-stats/auto-stats` is this project's home, checked out on `auto-stats`.
+That branch is where all work is integrated.
+Each task gets its own branch cut from `auto-stats`, in a worktree at `~/Code/VolleyVector/auto-stats/<task>`, and merges back into it.
 
 ## Goals
 
@@ -26,7 +26,7 @@ _TODO: how we know detection is good enough, for example agreement with hand-rec
 
 ## Status
 
-Setup. No tasks started.
+The project is being set up. No tasks have started.
 
 ## Files
 
