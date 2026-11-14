@@ -172,13 +172,33 @@ Open before either is firm:
 - A Gemini run on the same five sets.
 - A volleyball-specific ball tracker, the one local cue that could replace a hosted model.
 
-### Accounts worth creating
+### What is seriously wrong
 
-| Account                 | For                                               | Expected cost                                                        |
-|-------------------------|---------------------------------------------------|----------------------------------------------------------------------|
-| Google AI Studio API key | Gemini on whole videos, on the same scripts      | Free tier with a small daily request limit, else about $0.10 to $0.20 a set |
-| Anthropic API key       | Claude without the CLI, with batch pricing        | About $1.13 a set for one pass at list price. Not needed while the Max plan covers the CLI |
-| Hugging Face token      | Gated local models and faster downloads           | Free                                                                 |
+- **One serve detection in three is false.** A coach would get about 1.3 serves per rally. Most are doubles of a real serve, so this is a prompt and pairing problem, not a seeing problem.
+- **Rally ends are not measured.** The labels hold the last touch or a key press, never the dead ball, and the window is 9 s wide. The 83% found says little.
+- **The evidence is thin.** Five sets, one prompt, one run each. How much a second run of the same prompt differs is unknown.
+- **Everything depends on one hosted model.** No local approach is close, so there is no fallback and no cross-check.
+
+### Closing the gap
+
+1. Ask for rallies, not events: each answer is a list of (serve, end) pairs. That forces one serve per rally and removes both main kinds of double. Tell the model that lining up is not a serve and that the near server can be out of the picture.
+2. Merge the overlapping windows by rally, and drop a rally shorter than a second or one that starts inside another.
+3. Use the whistle where there is sound. The tagger's whistles are rarely false (19%), so a whistle 2 to 4 s before a candidate confirms it and a candidate without one in a refereed match is suspect.
+4. Fix the measurement: run all 14 clips, run each twice, and mark the dead ball by hand in one set so rally ends can be scored.
+5. Run a second model on the same clips. Where two models agree, trust the rally. Where they differ, look.
+
+### Other models to try
+
+| Model                                   | Access                                                        | Why                                                                                         |
+|-----------------------------------------|---------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| Gemini (current Flash and Pro)          | Google AI Studio API key. Free tier, paid needs billing set up | Reads the video and its sound directly, and takes a YouTube link, which every match here has |
+| Claude Opus 5.5 or Fable 5.2            | The same `claude` CLI on the Max plan. No new key             | Same script with `MODEL` changed. Shows whether a stronger model drops the doubles          |
+| GPT (current vision model)              | OpenAI API key, paid. A ChatGPT subscription does not cover it | Frames like Claude, as a second opinion                                                     |
+| Qwen3-VL through a host                 | OpenRouter API key, paid, about $0.15 to $0.25 per million input tokens | Trained for timing events in video. Cheap                                            |
+| Qwen3-VL 8B on this machine             | A free Hugging Face download of about 6 GB                    | The only route to a local fallback. Slow on 8 GB                                            |
+| Twelve Labs Pegasus                     | Twelve Labs account, about $1.75 per hour of video            | Built for video search and timing, priced by the hour                                       |
+
+Model names, prices and free-tier limits come from third-party pages and were not checked against the providers. An Anthropic API key is only needed to run Claude without the CLI.
 
 ### Follow-ups
 
