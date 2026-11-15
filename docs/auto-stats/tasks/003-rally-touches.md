@@ -25,12 +25,18 @@ Gemini 4 Hydrogen at low resolution with sound, as task 002 recommends.
 
 - **The player.** Who touched the ball needs player tracking, and is a later task.
 - **The zone.**
+- **Our own agent loop**, where the model asks for a closer look at a stretch of video. It is a follow-up if frame rate matters and single touches stay unclear.
 - **The result** (`kill`, `dig23`, `on`, ...) is optional. Try it once on the best setting and report it apart.
 
 ### Settings
 
-- **One call for the whole clip**, at 2 fps, with the touches added to task 002's prompt.
-- **One call per rally.** Cut a clip from 3 s before each serve to the rally's end, from task 002's detections, and send it at a higher frame rate (5 and 10 fps). Touches are a second apart or less, so 2 fps may not show them.
+Two routes are compared, each from the video to the touch list:
+
+- **One pass.** One call for the whole clip at 2 fps, with the touches added to task 002's prompt.
+- **Two passes.** Find the rallies in the whole clip at 1 fps, with task 002's prompt as it is ($0.22 a set). Then cut a clip from 3 s before each serve to the rally's end, and send each at a higher frame rate (5 and 10 fps). Touches are a second apart or less, so 2 fps may not show them.
+    - Task 002 holds 1 fps rallies for set 1 of each match only. Run the other 9 clips at 1 fps if this route goes to all 14.
+    - Its cost per set is both passes together.
+- **Agentic processing** (`"processing": "agentic"`) on one clip, where Gemini chooses how to read the video. Report its tokens and cost, and take it further only if it beats both routes.
 - **Carbon** once, on the best setting, before its price doubles on 1 December 2026.
 
 ### Order
