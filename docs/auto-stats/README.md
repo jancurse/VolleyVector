@@ -27,6 +27,7 @@ _TODO: how we know detection is good enough, for example agreement with hand-rec
 ## Status
 
 Task 001 surveyed unsupervised approaches. Its results are in [tasks/001-unsupervised-landscape.md](tasks/001-unsupervised-landscape.md).
+Task 002 tested Gemini on the whole video. Its results are in [tasks/002-gemini-video.md](tasks/002-gemini-video.md).
 
 ## Files
 

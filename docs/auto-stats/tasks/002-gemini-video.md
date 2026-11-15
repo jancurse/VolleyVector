@@ -1,6 +1,6 @@
 # 002 · Gemini on the whole video
 
-Branch: `002-gemini-video` · Status: planned
+Branch: `002-gemini-video` · Status: done
 
 ## Goal
 
@@ -82,5 +82,120 @@ Report what it removes and what it loses. Its timing cannot be scored against th
 
 ## Results
 
-The session fills this in at the end: what was built, what worked, what didn't, and follow-ups.
-Add anything that matters beyond this task to ../log.md.
+Gemini 4 Hydrogen on the whole clip, at 2 frames per second and low resolution with sound, finds 94% of the serves at ±3 s with 5% of its detections false, over all 14 clips. It finds 94% of the rally ends with 5% false. A set costs $0.38, against $1.34 for Opus at 90% and 10%.
+
+### What was built
+
+- [`auto-stats/002-gemini-video/`](../../../auto-stats/002-gemini-video/README.md) holds the scripts: uploads, one call per clip, the score report, a serve-by-serve comparison, and frame strips. Its README lists them and what the API accepted.
+- The rallies prompt is task 001's, reworded for a video and asking for `MM:SS` times. One call covers the whole clip, so nothing is merged.
+
+### Models and settings
+
+Set 1 of each match (5 clips, 183 rallies, 162 scored serves), at ±3 s. Tokens and cost are per set at the paid prices of 2026-11-15.
+
+| Model      | Settings              | Serve detections | Serves found | Serves false | Ends found | Ends false | Input tokens | Thinking tokens | Cost per set |
+|------------|-----------------------|------------------|--------------|--------------|------------|------------|--------------|-----------------|--------------|
+| Hydrogen   | low, 2 fps, sound     | 182              | 96%          | 4%           | 93%        | 7%         | 204k         | 8k              | $0.37        |
+| Hydrogen   | low, 1 fps, sound     | 182              | 91%          | 9%           | 95%        | 5%         | 113k         | 5k              | $0.22        |
+| Hydrogen   | low, 1 fps, no sound  | 179              | 91%          | 8%           | 89%        | 9%         | 79k          | 9k              | $0.19        |
+| Hydrogen   | high, 1 fps, sound    | 173              | 90%          | 6%           | 90%        | 5%         | 325k         | 6k              | $0.54        |
+| Carbon     | low, 2 fps, sound     | 193              | 94%          | 11%          | 92%        | 13%        | 204k         | 1k              | $0.43        |
+| 3.8 Flash  | low, 2 fps, sound     | 204              | 87%          | 23%          | 84%        | 25%        | 168k         | 4k              | $0.15        |
+| Flash-Lite | low, 2 fps, sound     | 330              | 83%          | 54%          | 85%        | 53%        | 168k         | 0               | $0.05        |
+| Flash-Lite | low, 1 fps, sound     | 219              | 81%          | 32%          | 78%        | 36%        | 98k          | 0               | $0.03        |
+| Opus (001) | frames at 1 fps       | 181              | 91%          | 9%           | 79%        | 22%        | 290k         |                 | $1.31        |
+
+- **Hydrogen is the model to use.** Carbon does not beat it, so Argon was not run. Flash-Lite and 3.8 Flash invent rallies.
+- **Carbon costs twice as much from 1 December 2026** ($0.85 a set), and 3.8 Flash from 1 January 2027.
+- **Thinking is 16% of Hydrogen's cost**, so no lower thinking level was tried. Each answer is about 800 output tokens.
+- **Agentic processing was tried on one clip.** It read 331k tokens of video for $0.60 and found the same serves as the $0.20 static pass. It only takes the plain string `"processing": "agentic"`.
+
+What each setting changes, on Hydrogen:
+
+- **Frame rate.** 2 fps lifts serves found from 91% to 96%. The gain is timing, not detection: both rates report the same serves, and 2 fps places them closer to the contact. With each clip's labels moved by one constant, both find 97% with 3% false.
+- **Resolution.** High costs 2.5 times as much and finds no more. It reports fewer rallies (173 against 182).
+- **Sound.** Without it the overall serve score is the same, but `llamas-vs-onyx` drops from 97% found to 81%, and rally ends fall from 95% to 89%. With sound at 1 fps, serves are timed up to a second earlier, which costs `qkx` at ±3 s (52% found, against 76% without sound).
+
+### All 14 clips
+
+Hydrogen at low resolution, 2 fps, with sound (505 serves reported for 518 rallies, 460 scored serves), beside Opus from task 001:
+
+| Match                              | Sets | Serves found | Serves false | Ends found | Ends false | Opus serves found | Opus serves false | Opus ends found | Opus ends false |
+|------------------------------------|------|--------------|--------------|------------|------------|-------------------|-------------------|-----------------|-----------------|
+| `2025-11-09-f6-llamas-vs-onyx`     | 2    | 93%          | 7%           | 92%        | 5%         | 87%               | 12%               | 72%             | 27%             |
+| `2025-11-qkx-vs-f6-llamas`         | 2    | 90%          | 7%           | 86%        | 10%        | 86%               | 15%               | 85%             | 16%             |
+| `2026-10-30-onyx-vs-f6-pirates`    | 4    | 98%          | 4%           | 96%        | 5%         | 90%               | 12%               | 82%             | 21%             |
+| `2026-11-07-f6-llamas-vs-bg-lions` | 3    | 90%          | 5%           | 93%        | 3%         | 91%               | 7%                | 86%             | 13%             |
+| `2026-11-08-r1vals-vs-f6-pirates`  | 3    | 97%          | 2%           | 98%        | 2%         | 92%               | 5%                | 79%             | 18%             |
+| All                                | 14   | 94%          | 5%           | 94%        | 5%         | 90%               | 10%               | 81%             | 19%             |
+
+- **The worst sets** are `bg-lions` set 3 (74% of serves found) and `qkx` set 1 (79%). Eleven of the 14 find 94% or more.
+- **At ±5 s** it finds 97% with 2% false, and at ±1 s 73% with 25% false (Opus: 40% and 56%).
+- **Rally ends are still not measured.** The labels hold the last touch or a key press, never the dead ball, and the window is 9 s wide.
+- False serves are under 10%, so the second pass was not run.
+
+### Two runs of the same set
+
+Two sets were run twice with the same prompt and settings (`qkx` set 1 and `llamas-vs-onyx` set 1).
+
+- **The runs agree on 73 of 78 serves.** One run reports 3 serves the other lacks, the other 2.
+- **The score moves more than the detections.** `qkx` set 1 went from 79% found to 72%, and `llamas-vs-onyx` set 1 from 100% to 95%. Shared serves shift by a second between runs, and in `qkx` the labels sit 2 s off, so a second decides whether a serve falls inside ±3 s.
+
+### False and missed serves
+
+The 14-clip run has 24 false and 27 missed serves. 20 false and 21 missed were checked on frame strips (`strips.py`). The strips are one frame per second, so a contact is judged from the players and the ball's flight.
+
+| False serves (20 checked)                              | Count |
+|--------------------------------------------------------|-------|
+| A real serve, with its label more than 3 s away        | 7     |
+| A real serve the labels do not time                    | 4     |
+| Live play in a rally (two of them a serve timed late)  | 6     |
+| Dead time: players standing or the ball rolled back    | 3     |
+
+| Missed serves (21 checked)                                             | Count |
+|------------------------------------------------------------------------|-------|
+| Reported, but more than 3 s from its label                             | 8     |
+| Reported 4 to 7 s late, inside the rally                               | 2     |
+| Two labelled serves in one unbroken rally                              | 3     |
+| Reported within 2 s, but matched to another label by the scorer        | 1     |
+| Not reported: the rally is skipped, or merged with the one before it   | 7     |
+
+- **About half of both lists are the labels, not the model.** 11 of the 20 false serves are real serves, and 12 of the 21 missed ones were reported or are doubtful labels.
+- **The real misses are whole rallies.** `bg-lions` set 3 has six: Gemini reports 32 rallies for 38 and joins two of them into one of 51 s.
+- **Few are inventions.** 3 of 20 fall in dead time.
+
+### Gemini against Opus
+
+Serves of the two models within 4 s of each other count as the same serve. All 14 clips:
+
+| Serves             | Count | Near a labelled serve | In an unscored gap | Neither |
+|--------------------|-------|-----------------------|--------------------|---------|
+| Both report        | 477   | 428                   | 44                 | 5       |
+| Only Gemini        | 28    | 16                    | 4                  | 8       |
+| Only Opus          | 32    | 10                    | 3                  | 19      |
+
+- **A serve both report is almost always real.** 472 of 477 lie near a labelled serve or in a rally the labels do not time.
+- **Opus's extras are mostly false, Gemini's mostly real.** 19 of Opus's 32 lie away from any serve, against 8 of Gemini's 28.
+- **They miss different serves.** Only 3 of 460 labelled serves have no detection from either within 5 s. In `bg-lions` set 3, Opus reports six labelled serves that Gemini skips.
+- Gemini's times are a median 0 to 1 s before Opus's.
+
+### Recommendation
+
+Use Gemini 4 Hydrogen on the whole clip at low resolution, 2 fps, with sound: $0.38 a set, a quarter of Opus's cost, with half its false serves. At 1 fps it costs $0.22 and reports the same serves a little further from the contact.
+
+Missing before it is firm:
+
+- **A dead-ball label.** Rally ends, and any timing finer than 3 s, cannot be scored.
+- **The skipped rallies.** One set in 14 lost six. A second run or the Opus pass would catch them, since the models miss different serves.
+- **Variation.** Only two sets were run twice.
+
+### Spending
+
+The runs come to about $14.80 at paid prices, counted from the tokens of each call. Google's own bill was not checked. No call failed for lack of credit.
+
+### Follow-ups
+
+- Mark the dead ball by hand in one set, so rally ends and serve timing can be scored.
+- Run each set twice, or Hydrogen and Opus together, and look at the rallies only one reports.
+- Fix the labels the strips showed wrong: two serves in one rally (`qkx` set 1 at 68 s and 398 s, `llamas-vs-onyx` set 2 at 179 s) and serves labelled 4 to 5 s off.
+- Test a video without re-uploading 0.1 to 1.1 GB per set: a downscaled copy, or a YouTube link for a public video.

@@ -3,6 +3,11 @@
 Dated decisions and learnings, newest first.
 Start each entry with **Decision** or **Learning**, and link the task it came from when there is one.
 
+## 2026-11-15 · Learning · Gemini on the whole video beats Opus on frames, at a quarter of the cost
+
+Gemini 4 Hydrogen at 2 fps, low resolution, with sound found 94% of the serves at ±3 s with 5% false on all 14 clips, for $0.38 a set (Opus: 90%, 10%, $1.34). About half of its remaining errors are labels that sit off the video. Its real misses are whole rallies skipped, and Opus misses different ones.
+Task: [tasks/002-gemini-video.md](tasks/002-gemini-video.md)
+
 ## 2026-11-14 · Decision · Score serves and rally ends at ±3 s
 
 The labels are hand-timed and sit up to 2 s off the video in some matches, so ±1 s measured the labels more than the detectors. `auto-stats/score.py` uses ±3 s by default.
