@@ -49,7 +49,7 @@ Follow the decision in [../log.md](../log.md): an approach must work across came
 
 ## Results
 
-At ±3 s, Claude on one frame per second finds 91% of the serves. Asked for rallies instead of single events, Sonnet has 19% of its serve detections false and Opus 9%. No local approach comes close without firing far too often.
+Claude Opus on one frame per second, asked for rallies, finds 90% of the serves at ±3 s with 10% of its detections false, over all 14 clips. It reports 509 serves for 518 rallies. No local approach comes close without firing far too often.
 
 ### What was built
 
@@ -159,10 +159,23 @@ All 74 false serve detections of the 1 fps pass were sorted by where they fall i
 | Opus, rallies prompt   | 181              | 91%          | 9%           | 79%        | 22%        | $1.31            |
 
 - **The prompt removed a third of Sonnet's false serves and cost one serve.** Opus on the same prompt reports almost exactly one serve per rally.
-- **Opus per match:** serves found 79% to 97%, false 3% to 20%. `qkx` is the weakest on both counts, and its labels are the messiest.
-- **At ±5 s** Opus finds 95% with 5% false, and at ±1 s 34% with 60% false. The detections are right but 1 to 2 s off the labels.
-- **Rally ends improved less.** A fifth of Opus's ends are still false, and the labels cannot say whether that is the model or the key press.
+- **Rally ends improved less.** A fifth of Opus's ends are still false on the five sets, and the labels cannot say whether that is the model or the key press.
 - **Cost** is the tokens of each call at the API's plain input and output prices (Sonnet $2 and $10 per million tokens, Opus $4 and $20). Those prices are read off the CLI's own cost figures, assuming its one-hour cache write costs twice the plain input. A set is about 290k input tokens in 13 to 18 calls. Nothing was charged: the runs went through the Max plan.
+
+Opus with the rallies prompt on all 14 clips (518 rallies, 460 scored serves, 217 calls, about $1.34 a set):
+
+| Match                              | Sets | Serves found | Serve detections false | Rally ends found | End detections false |
+|------------------------------------|------|--------------|------------------------|------------------|----------------------|
+| `2025-11-09-f6-llamas-vs-onyx`     | 2    | 87%          | 12%                    | 72%              | 27%                  |
+| `2025-11-qkx-vs-f6-llamas`         | 2    | 86%          | 15%                    | 85%              | 16%                  |
+| `2026-10-30-onyx-vs-f6-pirates`    | 4    | 90%          | 12%                    | 82%              | 21%                  |
+| `2026-11-07-f6-llamas-vs-bg-lions` | 3    | 91%          | 7%                     | 86%              | 13%                  |
+| `2026-11-08-r1vals-vs-f6-pirates`  | 3    | 92%          | 5%                     | 79%              | 18%                  |
+| All                                | 14   | 90%          | 10%                    | 81%              | 19%                  |
+
+- **The five-set result holds on all 14.** The worst single set finds 79% of its serves and the best 97%. The most false is 20%.
+- **Our serves are found more often than theirs** (93% against 85%). Their serve is only known from our first touch, so part of that gap is the labels.
+- **At ±5 s** Opus finds 95% with 5% false, and at ±1 s 40% with 56% false. The detections are right but 1 to 2 s off the labels.
 
 ### Results on rally ends
 
@@ -179,8 +192,8 @@ All 74 false serve detections of the 1 fps pass were sorted by where they fall i
 
 ### Recommendation
 
-- **Milestone 1, serves.** Use a hosted vision-language model on one frame per second, asked for rallies. Opus finds 91% with 9% false for about $1.31 a set, Sonnet 91% with 19% false for $0.69. Test Gemini on the same clips before settling: it reads sound and full-rate video and may cost less.
-- **Milestone 2, rally ends.** The same call gives rally ends at 79% found and 22% false with Opus. It is less settled than serves: the labels mark a key press and not the dead ball, and the window is wide.
+- **Milestone 1, serves.** Use a hosted vision-language model on one frame per second, asked for rallies. Opus finds 90% with 10% false on all 14 clips for about $1.34 a set. Sonnet finds 91% with 19% false on five sets for $0.69. Test Gemini on the same clips before settling: it reads sound and full-rate video and may cost less.
+- **Milestone 2, rally ends.** The same call gives rally ends at 81% found and 19% false with Opus. It is less settled than serves: the labels mark a key press and not the dead ball, and the window is wide.
 
 Open before either is firm:
 
@@ -190,9 +203,9 @@ Open before either is firm:
 
 ### What is seriously wrong
 
-- **One serve detection in three was false with the first prompt.** Most were doubles of a real serve. The rallies prompt brings this to 19% with Sonnet and 9% with Opus.
+- **One serve detection in three was false with the first prompt.** Most were doubles of a real serve. The rallies prompt brings this to 19% with Sonnet and 10% with Opus.
 - **Rally ends are not measured.** The labels hold the last touch or a key press, never the dead ball, and the window is 9 s wide. The 83% found says little.
-- **The evidence is thin.** Five sets, one prompt, one run each. How much a second run of the same prompt differs is unknown.
+- **Each clip was run once.** How much a second run of the same prompt differs is unknown.
 - **Everything depends on one hosted model.** No local approach is close, so there is no fallback and no cross-check.
 
 ### Closing the gap
@@ -200,7 +213,7 @@ Open before either is firm:
 1. Ask for rallies, not events: each answer is a list of (serve, end) pairs. That forces one serve per rally and removes both main kinds of double. Tell the model that lining up is not a serve and that the near server can be out of the picture.
 2. Merge the overlapping windows by rally, and drop a rally shorter than a second or one that starts inside another.
 3. Use the whistle where there is sound. The tagger's whistles are rarely false (19%), so a whistle 2 to 4 s before a candidate confirms it and a candidate without one in a refereed match is suspect.
-4. Fix the measurement: run all 14 clips, run each twice, and mark the dead ball by hand in one set so rally ends can be scored.
+4. Fix the measurement: run a set twice, and mark the dead ball by hand in one set so rally ends can be scored.
 5. Run a second model on the same clips. Where two models agree, trust the rally. Where they differ, look.
 
 ### Other models to try
@@ -218,7 +231,7 @@ Model names, prices and free-tier limits come from third-party pages and were no
 
 ### Follow-ups
 
-- Run the rallies prompt with Opus on the other nine clips, and twice on one set to see how much a run varies.
+- Run the rallies prompt twice on one set to see how much a run varies.
 - Run Gemini on set 1 of each match with the same prompts, and score it with `score.py`.
 - Run Claude on the other nine clips. Only set 1 of each match was tested.
 - Test VballNet or TrackNetV3 weights for ball tracking, after you approve the downloads.
