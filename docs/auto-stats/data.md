@@ -18,7 +18,9 @@ It comes in two forms, each complete on its own:
 Set files are the stats tracker's JSON exports, with every touch and every rally's start, end, server and winner.
 
 - 16 sets from 5 matches have labels. 14 of them have video.
-- Only our own team's touches are recorded, and a rally ends at its last touch.
+- Only our own team's touches are recorded.
+- **Times are approximate.** A person set each one by pressing a key while watching, so an action can sit a second or two from where it happens in the video. In some matches every label is off by the same amount ([task 001](tasks/001-unsupervised-landscape.md) measured about 1.5 s in two of them).
+- **No rally has an end time.** A rally's `endTime` is its last recorded action, a touch or a manually entered point, not the moment the ball goes dead.
 - The `volleyball-stats-collection` repo (`~/Code/volleyball-stats/volleyball-stats-collection/`) stays the source. Fix a set there, copy it into `data/videos/<match>/`, and run `data/cut_sets.py` again.
 
 ## Full videos
