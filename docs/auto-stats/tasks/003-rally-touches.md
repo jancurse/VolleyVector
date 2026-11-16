@@ -80,7 +80,7 @@ Two routes are compared, each from the video to the touch list:
 
 ## Results
 
-Gemini 4 Hydrogen names the serving side in 92% of rallies and finds 80% of our touches, with 22% of the touches it reports false, over all 14 clips. That is two passes at low thinking, for $0.67 a set. The touch list of a rally matches the labels in 47% of rallies, and a guess made without the video reaches 41%. It is not good enough to pre-fill the tracker.
+Gemini 4 Hydrogen names the serving side in 92% of rallies and finds 80% of our touches, with 22% of the touches it reports false, over all 14 clips. That is two passes at low thinking, for $0.67 a set. The touch list of a rally matches the labels in 47% of rallies, so it cannot record a set unattended. As a draft for a person to correct it helps: 76% of our touches get a time within 1.5 s, and two thirds of those already carry the right skill.
 
 ### What was built
 
@@ -93,15 +93,15 @@ Gemini 4 Hydrogen names the serving side in 92% of rallies and finds 80% of our 
 
 One clip (`r1vals` set 1: 35 rallies, 102 touches of ours), every setting on Hydrogen unless named. The cost of two passes includes the rallies pass ($0.20).
 
-| Route                                | Serving side right | Touches found | Touches false | Rallies fully right | Cost per set |
-|--------------------------------------|--------------------|---------------|---------------|---------------------|--------------|
-| One pass, 2 fps                      | 80%                | 80%           | 40%           | 37%                 | $0.42        |
-| One pass, agentic                    | 97%                | 75%           | 27%           | 40%                 | $2.04        |
-| Two passes, 5 fps, default thinking  | 94%                | 75%           | 20%           | 43%                 | $3.45        |
-| Two passes, 2 fps, low thinking      | 94%                | 82%           | 19%           | 51%                 | $0.60        |
-| Two passes, 5 fps, low thinking      | 100%               | 83%           | 22%           | 49%                 | $0.73        |
-| Two passes, 10 fps, low thinking     | 97%                | 87%           | 21%           | 43%                 | $1.00        |
-| Carbon, two passes, 2 fps, low       | 86%                | 80%           | 29%           | 43%                 | $0.47        |
+| Route                               | Serving side right | Touches found | Touches false | Rallies fully right | Cost per set |
+|-------------------------------------|--------------------|---------------|---------------|---------------------|--------------|
+| One pass, 2 fps                     | 80%                | 80%           | 40%           | 37%                 | $0.42        |
+| One pass, agentic                   | 97%                | 75%           | 27%           | 40%                 | $2.04        |
+| Two passes, 5 fps, default thinking | 94%                | 75%           | 20%           | 43%                 | $3.45        |
+| Two passes, 2 fps, low thinking     | 94%                | 82%           | 19%           | 51%                 | $0.60        |
+| Two passes, 5 fps, low thinking     | 100%               | 83%           | 22%           | 49%                 | $0.73        |
+| Two passes, 10 fps, low thinking    | 97%                | 87%           | 21%           | 43%                 | $1.00        |
+| Carbon, two passes, 2 fps, low      | 86%                | 80%           | 29%           | 43%                 | $0.47        |
 
 - **One pass fails.** It adds a second and third `defense set attack` to rallies that have none, and names our side as server in 7 rallies they served.
 - **Thinking must be set to low.** At the default level the 35 rally calls used 393k thinking tokens, one of them 65k before it came back unfinished. Low thinking uses 30k and scores no worse.
@@ -171,6 +171,23 @@ A guess that knows who serves and reports `serve` when we serve and `receive set
 - **Gemini is worse than the guess on short rallies**, where it adds touches, and right in a quarter of the long ones.
 - Its lists follow the pattern `defense set attack` closely. Much of what it gets right is what a rally usually holds.
 
+### As a draft to correct
+
+The aim is to save the recorder work, not to record a set unattended. So the same run is scored by time alone (`report.py --times`): over the whole clip, each touch is matched to the nearest label, each label at most once, whatever its skill.
+
+| Touches taken     | Within | Labelled touches with a touch nearby | Of those, same skill | Reported touches with no label nearby | Median offset |
+|-------------------|--------|--------------------------------------|----------------------|---------------------------------------|---------------|
+| Given to our side | 1 s    | 69%                                  | 68%                  | 33%                                   | 0.35 s        |
+| Given to our side | 1.5 s  | 76%                                  | 67%                  | 26%                                   | 0.40 s        |
+| Given to our side | 2 s    | 80%                                  | 67%                  | 22%                                   | 0.42 s        |
+| Of either side    | 1.5 s  | 92%                                  | 51%                  | 54%                                   | 0.32 s        |
+
+- **Three of four touches come placed in time.** The recorder would delete about one drafted touch in four and add the missing quarter, mostly blocks, freeballs and last digs.
+- **The times are close.** The median offset is 0.4 s, and the labels are themselves hand-timed, so part of it is theirs.
+- **Two thirds of the placed touches need no skill typed.** Serve, receive, set, attack and defense hold. A block or a freeball nearly always needs fixing.
+- **The loss is the team, not the touch.** 92% of our touches have a touch of either side within 1.5 s. Some of that is chance, since a rally has a touch every second or so. A wrong serving side gives a whole rally's touches to the other team.
+- **Not measured:** whether correcting a draft is faster than recording from nothing. That depends on how cheap deleting and retyping are in the tracker.
+
 ### Two runs of the same set
 
 `r1vals` set 1 was run twice, both passes.
@@ -183,24 +200,26 @@ A guess that knows who serves and reports `serve` when we serve and `receive set
 
 20 rallies of at most 6 s, spread over all 14 clips, on frame pages at 3 fps cropped to the court (`strips.py`). Longer rallies were left out, so this says little about them.
 
-| Kind                                                                    | Count |
-|-------------------------------------------------------------------------|-------|
-| The model's error: the wrong serving side, the server out of picture    | 5     |
-| The model's error: a `set` and `attack` that did not happen             | 3     |
-| The model's error: a block or a last dig missed                         | 3     |
-| A label error: a touch or a serve of ours not recorded                  | 3     |
-| A difference in judgment: `block` against `defense` or `attack`         | 2     |
-| Not settled on the frames: a block attempt, or the far side too small   | 4     |
+| Kind                                                                  | Count |
+|-----------------------------------------------------------------------|-------|
+| The model's error: the wrong serving side, the server out of picture  | 5     |
+| The model's error: a `set` and `attack` that did not happen           | 3     |
+| The model's error: a block or a last dig missed                       | 3     |
+| A label error: a touch or a serve of ours not recorded                | 3     |
+| A difference in judgment: `block` against `defense` or `attack`       | 2     |
+| Not settled on the frames: a block attempt, or the far side too small | 4     |
 
 - **11 of 20 are the model's.** No case was `defense` against `freeball`.
 - **A wrong serving side spoils the whole rally**: the touches are then given to the wrong teams.
 
 ### Recommendation
 
-Do not pre-fill the tracker from this touch list. A coach would correct half the rallies, and it barely beats a guess.
+Offer the touch list as a draft the recorder corrects, on top of the rallies from task 002. Do not use it unattended: half the rallies need a correction.
 
-- **If a setting is used**, it is Hydrogen in two passes at low thinking, 2 fps per rally, with the clip upright: $0.67 a set.
-- **The serving side is the usable part**, at 92%. It is not enough for the score on its own.
+- **The setting** is Hydrogen in two passes at low thinking, 2 fps per rally, with the clip upright: $0.67 a set.
+- **What the draft gives**, in falling order of trust: each rally's start and end (task 002), the serving side (92%), a time for three of four touches, and the skill of the common ones.
+- **What the recorder still does:** the player and the result of every touch, the blocks and freeballs, deleting about one drafted touch in four, and checking the serving side.
+- **Fix the serving side first.** It is the largest single loss, and 5 fps got it right in 103 of 103 rallies on three clips for about $0.15 more a set.
 
 ### Spending
 
@@ -208,10 +227,11 @@ The runs come to $20.81 at paid prices, counted from the tokens of each cached a
 
 - $5.50 went on two tests that failed: default thinking ($3.45) and agentic processing ($2.04).
 - The result was not asked for (`kill`, `dig23`, ...), to save the cost.
-- Task 002's cached rallies were gone with its worktree, so all 14 clips were uploaded and run at 1 fps again ($3.02).
+- Task 002's cached rallies were gone with its worktree, so all 14 clips were uploaded and run at 1 fps again ($3.02, and 80 minutes of upload). The cache now lives in `../data/cache/`, outside every worktree ([data.md](../data.md#cache)).
 
 ### Follow-ups
 
+- Load a draft into the tracker and time a recorder correcting it against recording from nothing.
 - Run 5 fps on all 14 clips for the serving side alone, or ask for the server in a call of its own on the seconds around the serve.
 - Derive the score from the serving sides with a check that it must rise by one point per rally, and see how many sets it repairs.
 - Test whether the touches improve when the model is told the serving side and the rally's length, or is asked to describe each ball crossing before it names touches.

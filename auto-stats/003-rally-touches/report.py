@@ -1,10 +1,11 @@
 """Score the cached runs of touches.py against the set files.
 
-Usage: report.py [--clips set1|all|NAME] [--skills] [--rallies] [--noshift] [SETTINGS ...]
+Usage: report.py [--clips set1|all|NAME] [--skills] [--rallies] [--times] [--noshift] [SETTINGS ...]
     SETTINGS   folder names under cache/gemini/touches/ (default: all of them)
     --clips    score only set 1 of each match, one clip by name, or every clip a run holds (default)
     --skills   also print the table per skill and the table of mistaken skills
     --rallies  also print every paired rally whose touch list differs from the labels
+    --times    also print how many touches match a label by time alone, see near()
     --noshift  pair against the labels as they are. By default each clip's labels are first moved by one constant, the
                median offset between the detected serves and the labelled ones, since some clips' labels sit 2 s off
 
@@ -129,6 +130,27 @@ def score(set_file, det, shifted=True):
     return c, confusion, per_skill, wrong, f"{points[0]}–{points[1]} (labels {last[0]}–{last[1]})"
 
 
+def near(set_file, det, within, side="us"):
+    """Match touches to labels by time alone, each to at most one, nearest first, over the whole clip.
+
+    Returns (labelled, reported, matched, matched with the same skill, the offsets in seconds).
+    side "us" takes the touches the model gives to our side, None takes those of both sides.
+    """
+    rallies = [r for r in det["rallies"] if r["serve"] is not None]
+    want = [e for r in labels(set_file, label_shift(set_file, [r["serve"] for r in rallies])) for e in r["touches"]]
+    got = [x for r in det["rallies"] for x in r["touches"] if x["t"] is not None and side in (None, x["side"])]
+    gaps = sorted((abs(x["t"] - e["timestamp"]), i, j) for i, e in enumerate(want) for j, x in enumerate(got) if abs(x["t"] - e["timestamp"]) <= within)
+    used_i, used_j, same, off = set(), set(), 0, []
+    for gap, i, j in gaps:
+        if i not in used_i and j not in used_j:
+            used_i.add(i)
+            used_j.add(j)
+            same += want[i]["stat"] == got[j]["skill"]
+            off.append(gap)
+
+    return len(want), len(got), len(off), same, off
+
+
 def share(a, b):
     return f"{100 * a / b:.0f}%" if b else "–"
 
@@ -176,6 +198,14 @@ if __name__ == "__main__":
             print("    labelled (rows) against reported (columns) | " + " | ".join(SKILLS + ["–"]))
             for a in SKILLS + ["–"]:
                 print(f"    {a} | " + " | ".join(str(confusion[(a, b)]) for b in SKILLS + ["–"]))
+        if "--times" in args:
+            print("    side | within | labelled touches with a touch nearby | of those, same skill | reported touches with no label nearby | median offset")
+            for side in ("us", None):
+                for within in (1.0, 1.5, 2.0):
+                    parts = [near(sets[name], det, within, side) for name, _, det, _, _ in rows]
+                    lab, rep, hit, same = (sum(p[k] for p in parts) for k in range(4))
+                    off = sorted(o for p in parts for o in p[4])
+                    print(f"    {side or 'either'} | {within:g} s | {share(hit, lab)} | {share(same, hit)} | {share(rep - hit, rep)} | {off[len(off) // 2]:.2f} s")
         if "--rallies" in args:
             for name, _, _, wrong, _ in rows:
                 for w in wrong:

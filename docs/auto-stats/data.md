@@ -24,6 +24,12 @@ Set files are the stats tracker's JSON exports, with every touch and every rally
 - **No rally has an end time.** A rally's `endTime` is its last recorded action, a touch or a manually entered point, not the moment the ball goes dead.
 - The `volleyball-stats-collection` repo (`~/Code/volleyball-stats/volleyball-stats-collection/`) stays the source. Fix a set there, copy it into `data/videos/<match>/`, and run `data/cut_sets.py` again.
 
+## Cache
+
+- Everything a script fetches or computes goes to `data/cache/`, not into the worktree. A worktree is deleted when its task ends, and task 002's paid answers were lost that way.
+- `../data/cache/README.md` lists every folder there: what it holds, what it costs to make again, and whether it is still useful. Update it when you add or change a folder.
+- A model's answers are the costly part. Uploads are not kept: Google deletes them after 48 hours, and uploading all 14 clips took 80 minutes at 1 to 1.6 MB/s.
+
 ## Full videos
 
 - Five matches (6 videos, 5.6 hours, 8.3 GB) were downloaded from YouTube at up to 1080p. A video is `match.mp4` when it holds the whole match, and `set N.mp4` when it holds one set.

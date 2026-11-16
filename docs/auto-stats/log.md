@@ -3,9 +3,19 @@
 Dated decisions and learnings, newest first.
 Start each entry with **Decision** or **Learning**, and link the task it came from when there is one.
 
-## 2026-11-16 · Learning · Gemini's touch list is too weak to pre-fill the tracker
+## 2026-11-16 · Decision · Judge detection as a draft for the recorder, not as automatic stats
 
-Hydrogen, asked per rally for every touch, finds 80% of our touches with 22% false on all 14 clips, and matches the labelled list in 47% of rallies. A guess without the video matches 41%. It names the serving side in 92% of rallies, and misses blocks and freeballs almost entirely.
+Fully automatic stats are not expected soon. The aim is to save the recorder work: rally starts and ends, then touches placed in time, then their skill. Score a method by what is left to correct, not by whether a rally is exactly right.
+Task: [tasks/003-rally-touches.md](tasks/003-rally-touches.md)
+
+## 2026-11-16 · Decision · Keep caches beside the data, outside the worktrees
+
+Task 002's paid answers were deleted with its worktree, and task 003 paid $3.02 and 80 minutes of upload to get them again. Caches now live in `../data/cache/`, with a list of what each costs to redo.
+Task: [tasks/003-rally-touches.md](tasks/003-rally-touches.md)
+
+## 2026-11-16 · Learning · Gemini's touch list works as a draft, not unattended
+
+Hydrogen, asked per rally for every touch, gives 76% of our touches a time within 1.5 s (median 0.4 s off), two thirds of them with the right skill, and a quarter of what it drafts must be deleted. The list is exactly right in 47% of rallies. It names the serving side in 92% of rallies, and misses blocks and freeballs almost entirely.
 Task: [tasks/003-rally-touches.md](tasks/003-rally-touches.md)
 
 ## 2026-11-16 · Learning · Set low thinking, and send every clip upright

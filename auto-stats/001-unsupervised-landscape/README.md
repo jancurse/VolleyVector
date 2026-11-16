@@ -1,6 +1,6 @@
 # Task 001 test scripts
 
-Scripts behind [the task's results](../../docs/auto-stats/tasks/001-unsupervised-landscape.md). Run them from `auto-stats/` with `.venv/bin/python`. Everything they compute is cached in `auto-stats/cache/`, which git ignores.
+Scripts behind [the task's results](../../docs/auto-stats/tasks/001-unsupervised-landscape.md). Run them from `auto-stats/` with `.venv/bin/python`. Everything they compute is cached in `../data/cache/`, beside the data and outside every worktree ([data.md](../../docs/auto-stats/data.md#cache)).
 
 ## Setup
 

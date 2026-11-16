@@ -11,7 +11,7 @@ sys.path.insert(0, ROOT)
 import score as scorer  # noqa: E402
 
 CLIPS = os.path.normpath(os.path.join(ROOT, "..", "..", "data", "clips"))
-CACHE = os.path.join(ROOT, "cache")
+CACHE = os.path.normpath(os.path.join(ROOT, "..", "..", "data", "cache"))
 
 
 def clips():

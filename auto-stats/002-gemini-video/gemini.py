@@ -2,7 +2,7 @@
 
 Usage: gemini.py upload CLIP_NAME    uploads one clip and prints its file name and state
 The key is read from ~/.config/volleyvector/auto-stats.env and only ever sent in the x-goog-api-key header.
-Uploaded files are remembered in cache/gemini/files.json. Google deletes them after 48 hours.
+Uploaded files are remembered in ../data/cache/gemini/files.json. Google deletes them after 48 hours.
 """
 
 import glob
@@ -21,7 +21,7 @@ import score as scorer  # noqa: E402
 
 API = "https://generativelanguage.googleapis.com"
 CLIPS = os.path.normpath(os.path.join(ROOT, "..", "..", "data", "clips"))
-CACHE = os.path.join(ROOT, "cache", "gemini")
+CACHE = os.path.normpath(os.path.join(ROOT, "..", "..", "data", "cache", "gemini"))
 FILES = os.path.join(CACHE, "files.json")
 KEEP = 46 * 3600
 

@@ -1,6 +1,6 @@
 # Task 003 scripts
 
-Scripts behind [the task's results](../../docs/auto-stats/tasks/003-rally-touches.md). Run them from this folder with the system `python3`: they need only the standard library and `ffmpeg`. They import the key, the uploads and the rallies call from [`../002-gemini-video/`](../002-gemini-video/README.md), and cache every answer in `auto-stats/cache/gemini/`, which git ignores.
+Scripts behind [the task's results](../../docs/auto-stats/tasks/003-rally-touches.md). Run them from this folder with the system `python3`: they need only the standard library and `ffmpeg`. They import the key, the uploads and the rallies call from [`../002-gemini-video/`](../002-gemini-video/README.md), and cache every answer in `../data/cache/gemini/`, beside the data and outside every worktree ([data.md](../../docs/auto-stats/data.md#cache)).
 
 ## Scripts
 
@@ -8,6 +8,7 @@ Scripts behind [the task's results](../../docs/auto-stats/tasks/003-rally-touche
 |--------------|-----------------------------------------------------------------------------------------------------------------|
 | `touches.py` | Asks Gemini who serves each rally and for every touch with its side and skill, in one pass or two               |
 | `report.py`  | Scores every cached run against the set files: serving side, touches found and false, rallies fully right, cost |
+|              | With `--times` it also matches touches to labels by time alone                                                  |
 | `compare.py` | Compares two runs rally by rally                                                                                |
 | `strips.py`  | Zoomed frame pages of rallies whose touch list differs from the labels, to check by eye                         |
 
@@ -16,7 +17,7 @@ Scripts behind [the task's results](../../docs/auto-stats/tasks/003-rally-touche
 ```bash
 python3 touches.py two gemini-4-hydrogen 2026-11-08-r1vals-vs-f6-pirates__set1 --fps 2 --thinking low
 python3 report.py --skills two_gemini-4-hydrogen_2fps_think-low
-python3 strips.py two_gemini-4-hydrogen_2fps_think-low ../cache/strips003
+python3 strips.py two_gemini-4-hydrogen_2fps_think-low ../../../data/cache/strips003
 ```
 
 ## What the scripts assume
@@ -32,3 +33,4 @@ python3 strips.py two_gemini-4-hydrogen_2fps_think-low ../cache/strips003
 - Inside a paired rally, the model's touches of our side are lined up with the labelled ones by order and skill, with the cheapest edit script. Time plays no part.
 - A labelled touch is **found** when it lines up with a touch of the same skill. A touch of the model is **false** when it is not found.
 - A rally is **fully right** when the two lists are the same.
+- `--times` scores the run as a pre-fill instead. Over the whole clip, each touch is matched to the nearest label within 1, 1.5 or 2 s, each label at most once, whatever its skill.

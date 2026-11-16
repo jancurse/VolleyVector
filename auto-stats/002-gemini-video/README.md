@@ -1,6 +1,6 @@
 # Task 002 scripts
 
-Scripts behind [the task's results](../../docs/auto-stats/tasks/002-gemini-video.md). Run them from this folder with the system `python3`: they need only the standard library and `ffmpeg`. Everything they fetch is cached in `auto-stats/cache/gemini/`, which git ignores.
+Scripts behind [the task's results](../../docs/auto-stats/tasks/002-gemini-video.md). Run them from this folder with the system `python3`: they need only the standard library and `ffmpeg`. Everything they fetch is cached in `../data/cache/gemini/`, beside the data and outside every worktree ([data.md](../../docs/auto-stats/data.md#cache)).
 
 ## Setup
 
