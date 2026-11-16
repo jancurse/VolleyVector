@@ -3,6 +3,16 @@
 Dated decisions and learnings, newest first.
 Start each entry with **Decision** or **Learning**, and link the task it came from when there is one.
 
+## 2026-11-16 · Learning · Gemini's touch list is too weak to pre-fill the tracker
+
+Hydrogen, asked per rally for every touch, finds 80% of our touches with 22% false on all 14 clips, and matches the labelled list in 47% of rallies. A guess without the video matches 41%. It names the serving side in 92% of rallies, and misses blocks and freeballs almost entirely.
+Task: [tasks/003-rally-touches.md](tasks/003-rally-touches.md)
+
+## 2026-11-16 · Learning · Set low thinking, and send every clip upright
+
+A call on one rally can use 65,000 thinking tokens at the default level. Low thinking costs a tenth and scores no worse. A clip stored turned a quarter turn makes Gemini mix up the two teams: the serving side is right in 75% of rallies as stored and 96% upright.
+Task: [tasks/003-rally-touches.md](tasks/003-rally-touches.md)
+
 ## 2026-11-15 · Learning · Gemini on the whole video beats Opus on frames, at a quarter of the cost
 
 Gemini 4 Hydrogen at 2 fps, low resolution, with sound found 94% of the serves at ±3 s with 5% false on all 14 clips, for $0.38 a set (Opus: 90%, 10%, $1.34). About half of its remaining errors are labels that sit off the video. Its real misses are whole rallies skipped, and Opus misses different ones.

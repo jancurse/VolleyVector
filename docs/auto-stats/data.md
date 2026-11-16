@@ -11,7 +11,8 @@ It comes in two forms, each complete on its own:
 
 - 14 clips from 5 matches (4.3 hours, 6.5 GB), in `data/clips/<match>/setN.mp4` with `setN.json` beside each.
 - A clip runs from about 20 s before the set's first touch to 20 s after its last. It is cut without re-encoding.
-- The matches differ in camera, venue, resolution (720p to 1080p) and frame rate (25 to 60 fps), and one is filmed in portrait.
+- The matches differ in camera, venue, resolution (720p to 1080p) and frame rate (25 to 60 fps). `llamas-vs-onyx` is filmed in landscape but stored turned a quarter turn, as a portrait video.
+- Our team plays on the far half in the four `onyx-vs-f6-pirates` sets and on the near half in the other ten. The set files do not say.
 
 ## Labels
 

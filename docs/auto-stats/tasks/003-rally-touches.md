@@ -1,6 +1,6 @@
 # 003 · Touches inside a rally
 
-Branch: `003-rally-touches` · Status: planned
+Branch: `003-rally-touches` · Status: done
 
 ## Goal
 
@@ -80,5 +80,140 @@ Two routes are compared, each from the video to the touch list:
 
 ## Results
 
-The session fills this in at the end: what was built, what worked, what didn't, and follow-ups.
-Add anything that matters beyond this task to ../log.md.
+Gemini 4 Hydrogen names the serving side in 92% of rallies and finds 80% of our touches, with 22% of the touches it reports false, over all 14 clips. That is two passes at low thinking, for $0.67 a set. The touch list of a rally matches the labels in 47% of rallies, and a guess made without the video reaches 41%. It is not good enough to pre-fill the tracker.
+
+### What was built
+
+- [`auto-stats/003-rally-touches/`](../../../auto-stats/003-rally-touches/README.md) holds the scripts: the calls for both routes, the score report, a run comparison, and zoomed frame pages. Its README says how a run is scored.
+- **The second pass cuts nothing.** It sends the uploaded clip once per rally with `start_offset` and `end_offset`, from 3 s before the serve to 2 s after the end.
+- **Our side is set by hand per match.** The set files do not say. Ours is the far half in the four `onyx-vs-f6-pirates` sets and the near half in the other ten.
+- **Rallies are paired after moving each clip's labels by one constant**, the median offset of the serves. Unmoved, 486 of 518 rallies pair, and moved 498.
+
+### Settings
+
+One clip (`r1vals` set 1: 35 rallies, 102 touches of ours), every setting on Hydrogen unless named. The cost of two passes includes the rallies pass ($0.20).
+
+| Route                                | Serving side right | Touches found | Touches false | Rallies fully right | Cost per set |
+|--------------------------------------|--------------------|---------------|---------------|---------------------|--------------|
+| One pass, 2 fps                      | 80%                | 80%           | 40%           | 37%                 | $0.42        |
+| One pass, agentic                    | 97%                | 75%           | 27%           | 40%                 | $2.04        |
+| Two passes, 5 fps, default thinking  | 94%                | 75%           | 20%           | 43%                 | $3.45        |
+| Two passes, 2 fps, low thinking      | 94%                | 82%           | 19%           | 51%                 | $0.60        |
+| Two passes, 5 fps, low thinking      | 100%               | 83%           | 22%           | 49%                 | $0.73        |
+| Two passes, 10 fps, low thinking     | 97%                | 87%           | 21%           | 43%                 | $1.00        |
+| Carbon, two passes, 2 fps, low       | 86%                | 80%           | 29%           | 43%                 | $0.47        |
+
+- **One pass fails.** It adds a second and third `defense set attack` to rallies that have none, and names our side as server in 7 rallies they served.
+- **Thinking must be set to low.** At the default level the 35 rally calls used 393k thinking tokens, one of them 65k before it came back unfinished. Low thinking uses 30k and scores no worse.
+- **Agentic processing read 1.1M tokens of video** and found fewer touches than two passes. It was not taken further.
+- **Carbon does not beat Hydrogen**, and costs about $0.95 a set from 1 December 2026.
+- **Frame rate does not change the touches.** On three set-1 clips (108 rallies), 2 fps finds 81% with 23% false and 5 fps 84% with 23% false. The two rates give the same touch list in 65 of 107 rallies.
+- **5 fps may name the server better**: 103 of 103 paired rallies on those three clips, against 96 at 2 fps. It was not run on all 14.
+- **A clip stored on its side must be turned upright.** `llamas-vs-onyx` is filmed in landscape and stored turned a quarter turn. Sent as stored, the serving side is right in 75% of rallies and 34% of the touches are false. Sent upright: 96% and 26%.
+
+### All 14 clips
+
+Two passes at 2 fps and low thinking, with `llamas-vs-onyx` upright: 498 of 518 rallies paired, 1,691 labelled touches.
+
+| Match                              | Sets | Rallies paired | Serving side right | Touches found | Touches false | Rallies fully right |
+|------------------------------------|------|----------------|--------------------|---------------|---------------|---------------------|
+| `2025-11-09-f6-llamas-vs-onyx`     | 2    | 77/86          | 96%                | 86%           | 26%           | 55%                 |
+| `2025-11-qkx-vs-f6-llamas`         | 2    | 68/75          | 88%                | 80%           | 26%           | 41%                 |
+| `2026-10-30-onyx-vs-f6-pirates`    | 4    | 136/136        | 87%                | 78%           | 21%           | 49%                 |
+| `2026-11-07-f6-llamas-vs-bg-lions` | 3    | 107/109        | 95%                | 83%           | 18%           | 48%                 |
+| `2026-11-08-r1vals-vs-f6-pirates`  | 3    | 110/112        | 93%                | 75%           | 23%           | 43%                 |
+| All                                | 14   | 498/518        | 92%                | 80%           | 22%           | 47%                 |
+
+- **The 20 unpaired rallies hold 39 touches**, so 78% of all labelled touches are found.
+- **The score is right in 1 set of 14.** One wrong server moves it by a point, and a set has three. The side is right in 96% of the rallies we serve and 87% of those they serve.
+- **Time agrees.** 91% of the found touches lie within 3 s of their label.
+
+Per skill, inside paired rallies:
+
+| Skill      | Labelled | Found | Reported | False |
+|------------|----------|-------|----------|-------|
+| `serve`    | 262      | 96%   | 288      | 13%   |
+| `receive`  | 191      | 86%   | 185      | 11%   |
+| `set`      | 400      | 85%   | 409      | 17%   |
+| `attack`   | 377      | 84%   | 395      | 20%   |
+| `block`    | 84       | 14%   | 62       | 81%   |
+| `defense`  | 292      | 79%   | 306      | 25%   |
+| `freeball` | 46       | 26%   | 62       | 81%   |
+
+Labelled skill (rows) against the skill Gemini gives the touch lined up with it (columns). The last column is a labelled touch with none lined up, and the last row a reported touch with no label.
+
+| Labelled   | `serve` | `receive` | `set` | `attack` | `block` | `defense` | `freeball` | None |
+|------------|---------|-----------|-------|----------|---------|-----------|------------|------|
+| `serve`    | 251     | 1         | 1     | 3        | 0       | 0         | 0          | 6    |
+| `receive`  | 5       | 165       | 3     | 1        | 0       | 6         | 0          | 11   |
+| `set`      | 6       | 2         | 339   | 3        | 3       | 4         | 7          | 36   |
+| `attack`   | 5       | 0         | 1     | 315      | 12      | 2         | 27         | 15   |
+| `block`    | 1       | 1         | 3     | 19       | 12      | 5         | 3          | 40   |
+| `defense`  | 0       | 2         | 11    | 2        | 9       | 231       | 3          | 34   |
+| `freeball` | 0       | 0         | 1     | 13       | 0       | 19        | 12         | 1    |
+| None       | 20      | 14        | 50    | 39       | 26      | 39        | 10         |      |
+
+- **Blocks and freeballs are not found.** Half the labelled blocks get no touch at all, and a labelled freeball is called an attack or a defense.
+- **The four common skills hold**, at 79% to 96% found.
+
+### Against a guess
+
+A guess that knows who serves and reports `serve` when we serve and `receive set attack` when they do, without the video, is fully right in 41% of rallies. It finds 48% of the touches with 19% false.
+
+| Labelled touches in the rally | Rallies | Gemini fully right | Guess fully right |
+|-------------------------------|---------|--------------------|-------------------|
+| 0                             | 43      | 21                 | 0                 |
+| 1                             | 141     | 104                | 123               |
+| 2 to 3                        | 147     | 67                 | 82                |
+| 4 to 6                        | 105     | 37                 | 0                 |
+| 7 or more                     | 62      | 6                  | 0                 |
+
+- **Gemini is worse than the guess on short rallies**, where it adds touches, and right in a quarter of the long ones.
+- Its lists follow the pattern `defense set attack` closely. Much of what it gets right is what a rally usually holds.
+
+### Two runs of the same set
+
+`r1vals` set 1 was run twice, both passes.
+
+- Both runs report the same 35 rallies.
+- The serving side is the same in 33, and the list of our touches in 27.
+- 93 of 106 touches agree. Both runs find 82%, with 19% and 14% false.
+
+### 20 wrong rallies checked by eye
+
+20 rallies of at most 6 s, spread over all 14 clips, on frame pages at 3 fps cropped to the court (`strips.py`). Longer rallies were left out, so this says little about them.
+
+| Kind                                                                    | Count |
+|-------------------------------------------------------------------------|-------|
+| The model's error: the wrong serving side, the server out of picture    | 5     |
+| The model's error: a `set` and `attack` that did not happen             | 3     |
+| The model's error: a block or a last dig missed                         | 3     |
+| A label error: a touch or a serve of ours not recorded                  | 3     |
+| A difference in judgment: `block` against `defense` or `attack`         | 2     |
+| Not settled on the frames: a block attempt, or the far side too small   | 4     |
+
+- **11 of 20 are the model's.** No case was `defense` against `freeball`.
+- **A wrong serving side spoils the whole rally**: the touches are then given to the wrong teams.
+
+### Recommendation
+
+Do not pre-fill the tracker from this touch list. A coach would correct half the rallies, and it barely beats a guess.
+
+- **If a setting is used**, it is Hydrogen in two passes at low thinking, 2 fps per rally, with the clip upright: $0.67 a set.
+- **The serving side is the usable part**, at 92%. It is not enough for the score on its own.
+
+### Spending
+
+The runs come to $20.81 at paid prices, counted from the tokens of each cached answer, against the $15 aimed for. A call that timed out and one clip that may have run twice could add $1.40. Google's own bill was not checked.
+
+- $5.50 went on two tests that failed: default thinking ($3.45) and agentic processing ($2.04).
+- The result was not asked for (`kill`, `dig23`, ...), to save the cost.
+- Task 002's cached rallies were gone with its worktree, so all 14 clips were uploaded and run at 1 fps again ($3.02).
+
+### Follow-ups
+
+- Run 5 fps on all 14 clips for the serving side alone, or ask for the server in a call of its own on the seconds around the serve.
+- Derive the score from the serving sides with a check that it must rise by one point per rally, and see how many sets it repairs.
+- Test whether the touches improve when the model is told the serving side and the rally's length, or is asked to describe each ball crossing before it names touches.
+- Record in each set file which half is ours and whether the video is stored on its side.
+- Fix the labels the strips showed wrong: `bg-lions` set 1 rally 34, set 2 rally 14 and set 3 rally 24.
