@@ -4,7 +4,7 @@ import type { JSX } from "react";
 import { Button } from "../../ui/Button";
 import { Field } from "../../ui/Field";
 import { Select } from "../../ui/Select";
-import { CALLOUT_WARN, MUTED, NET_CAPTION, NET_LINE, PANEL, PANEL_TITLE } from "../../ui/styles";
+import { CALLOUT_WARN, MUTED, NET_CAPTION, NET_LINE, PANEL_TITLE, SUBPANEL } from "../../ui/styles";
 import { COURT_ROWS } from "./courtRows";
 
 type LineupEditorProps = {
@@ -32,7 +32,7 @@ export function LineupEditor({
 
   if (!open) {
     return (
-      <section className={PANEL} aria-label="Lineup">
+      <section className={SUBPANEL} aria-label="Lineup">
         <div className="flex items-center justify-between gap-2">
           <p className={MUTED}>Set the starting lineup to track who’s on court and who serves.</p>
           <Button variant="ghost" onClick={onOpen} disabled={players.length < 6}>
@@ -49,7 +49,7 @@ export function LineupEditor({
   const options = (none: string) => [{ value: "", label: none }, ...players.map((p) => ({ value: p, label: p }))];
 
   return (
-    <section className={PANEL} aria-labelledby="lineup-title">
+    <section className={SUBPANEL} aria-labelledby="lineup-title">
       <h2 id="lineup-title" className={PANEL_TITLE}>
         Starting lineup
       </h2>

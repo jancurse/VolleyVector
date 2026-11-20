@@ -62,6 +62,7 @@ export function parseImport(raw: unknown): AppData {
     if (Array.isArray(m.lineup) && m.lineup.length === 6) meta.lineup = m.lineup.map(String);
 
     if (typeof m.libero === "string") meta.libero = m.libero;
+    if (m.detailed === true) meta.detailed = true;
     const score = m.score as { us?: unknown; them?: unknown } | undefined;
 
     if (typeof score?.us === "number" && typeof score.them === "number")
@@ -91,6 +92,7 @@ export function nextSetData(data: AppData, keepPlayers = true): AppData {
     // Usually the same starters next set; easy to change if not.
     lineup: data.meta.lineup,
     libero: data.meta.libero,
+    ...(data.meta.detailed && { detailed: true }),
     setNumber: Number.isFinite(setNum) ? String(setNum + 1) : "",
   };
 
@@ -112,7 +114,7 @@ export type Action =
   | { type: "deleteEvent"; id: number }
   | { type: "addPlayer"; name: string }
   | { type: "removePlayer"; name: string }
-  | { type: "movePlayer"; name: string; delta: number }
+  | { type: "movePlayer"; name: string; to: number }
   | { type: "setMeta"; meta: Partial<MatchMeta> }
   | { type: "setLineup"; lineup: string[]; libero: string }
   | { type: "replace"; data: AppData }
@@ -145,11 +147,10 @@ function apply(data: AppData, action: Action): AppData | null {
     case "movePlayer": {
       const players = [...data.players];
       const from = players.indexOf(action.name);
-      const to = from + action.delta;
 
-      if (from < 0 || to < 0 || to >= players.length) return null;
+      if (from < 0 || action.to < 0 || action.to >= players.length || action.to === from) return null;
       players.splice(from, 1);
-      players.splice(to, 0, action.name);
+      players.splice(action.to, 0, action.name);
 
       return { ...data, players };
     }

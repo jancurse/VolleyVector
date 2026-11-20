@@ -7,7 +7,7 @@ import type { Game } from "../../games/types";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import { useConfirm } from "../../ui/useConfirm";
-import { CALLOUT_WARN, cx, EYEBROW, PAGE_WIDTH, STICKY_BANNER, TITLE } from "../../ui/styles";
+import { CALLOUT_WARN, cx, EYEBROW, STICKY_BANNER, TITLE, TRACKER_WIDTH } from "../../ui/styles";
 import { formatGameDate, versus } from "../../games/format";
 import { withGameMeta } from "../gameSets";
 import { supabaseSetBackend } from "../sets";
@@ -29,6 +29,9 @@ type SetPageProps = {
   finished: boolean;
   /** False once the session is gone (signed out elsewhere, or it lapsed): recording carries on locally. */
   signedIn: boolean;
+  /** Whether the app's sidebar and top bar are hidden for the tracker, and how to switch that. */
+  focus?: boolean;
+  onFocus?: (focus: boolean) => void;
   onBack: () => void;
   /** Open the next set, started in this browser from `next`. */
   onNextSet: (next: AppData) => void;
@@ -49,6 +52,8 @@ export function SetPage({
   userId,
   finished,
   signedIn,
+  focus,
+  onFocus,
   onBack,
   onNextSet,
   onFinish,
@@ -180,7 +185,7 @@ export function SetPage({
   }
 
   return (
-    <div className={cx("mx-auto flex flex-col gap-3", PAGE_WIDTH)}>
+    <div className={cx("mx-auto flex flex-col gap-3", TRACKER_WIDTH)}>
       {snapshot.conflict && (
         <div className={STICKY_BANNER}>
           <AlertTriangle size={16} aria-hidden="true" className="text-danger" />
@@ -220,6 +225,8 @@ export function SetPage({
           initial={initial}
           names={{ us: teamName || "Us", them: game.opponent || "Them" }}
           finished={finished}
+          focus={focus}
+          onFocus={onFocus}
           onChange={sync.onChange}
           onNextSet={(next) => void nextSet(next)}
           onFinish={(f) => void finish(f)}
@@ -241,12 +248,20 @@ export function SetPage({
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <SaveStatus snapshot={snapshot} />
                 {snapshot.stats === "saved" && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-text-dim">
-                    <Check size={14} aria-hidden="true" /> Stats saved
+                  <span
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-text-dim"
+                    title="The stats pages show the set as it is now"
+                  >
+                    <Check size={14} aria-hidden="true" /> Stats up to date
                   </span>
                 )}
                 {(snapshot.stats === "changed" || snapshot.stats === "saving") && (
-                  <Button size="sm" onClick={() => void saveStats()} disabled={snapshot.stats === "saving"}>
+                  <Button
+                    size="sm"
+                    onClick={() => void saveStats()}
+                    disabled={snapshot.stats === "saving"}
+                    title="The stats pages still show the set as it was when the stats were last saved"
+                  >
                     <Save size={14} aria-hidden="true" />
                     {snapshot.stats === "saving" ? "Saving stats…" : "Save stats"}
                   </Button>

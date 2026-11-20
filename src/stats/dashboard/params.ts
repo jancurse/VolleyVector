@@ -25,9 +25,9 @@ export const DEFAULT_PARAMS: Params = {
 };
 
 /** The actions in the order the dashboard lists them. */
-export const ORDER: readonly Action[] = ["serve", "receive", "set", "tip", "attack", "block", "defense", "freeball"];
+export const ORDER: readonly Action[] = ["serve", "receive", "set", "tip", "attack", "freeball", "block", "defense"];
 
-export const ZONE_SKILLS: readonly Skill[] = ["serve", "receive", "set", "attack", "block", "defense", "freeball"];
+export const ZONE_SKILLS: readonly Skill[] = ["serve", "receive", "set", "attack", "freeball", "block", "defense"];
 
 export const NOUN: Partial<Record<Action, string>> = {
   serve: "serves",
@@ -41,11 +41,11 @@ export const NOUN: Partial<Record<Action, string>> = {
 };
 
 export const ZONE_HINTS: Partial<Record<Skill, string>> = {
-  serve: "Where the serve went (0 is an error).",
+  serve: "Where the serve went (0 is an error or no zone).",
   receive: "Where the player received from.",
   set: "Who was set: 1 back row, 2 opposite, 3 middle, 4 outside, 5 libero, 6 pipe.",
-  attack: "Where the attack went (0 is an error).",
+  attack: "Where the attack went (0 is an error or no zone).",
   block: "Where the attack came from (0 when not recorded).",
   defense: "Where the player defended from.",
-  freeball: "Where the freeball went (0 is an error).",
+  freeball: "Where the freeball went (0 is an error or no zone).",
 };

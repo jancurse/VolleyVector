@@ -7,9 +7,11 @@ import {
   playersWithStats,
   renameClashes,
   renamePlayers,
+  rotationLineup,
   squadNames,
   syncPlayers,
   withGameMeta,
+  withLineup,
 } from "../../src/stats/gameSets";
 import { emptyData } from "../../src/stats/store";
 import type { AppData } from "../../src/stats/types";
@@ -33,28 +35,53 @@ describe("a game's sets", () => {
     expect(withGameMeta(fixed, GAME, "Eagles")).toBe(fixed);
   });
 
-  test("a first set starts from the squad in squad order; the next keeps the last set's lineup and extras", () => {
-    const squad = squadNames(GAME, ROSTER);
-    const first = newSetData(GAME, "Eagles", squad, 1, null);
+  test.each([
+    { name: "without a rotation the next set keeps the last set's lineup", game: { ...GAME, rotations: [] } },
+    { name: "the game's first rotation is every set's starting lineup", game: GAME },
+  ])("a first set starts from the squad in squad order; $name", ({ game }) => {
+    const squad = squadNames(game, ROSTER);
+    const planned = rotationLineup(game, ROSTER);
+    const first = newSetData(game, "Eagles", ROSTER, 1, null);
 
     expect(first.players).toEqual(squad);
     expect(first.meta).toMatchObject({ setNumber: "1", homeTeam: "Eagles", awayTeam: "Riverside" });
+    expect(first.meta.lineup).toEqual(planned?.lineup ?? []);
     expect(squad.at(-1)).toBe(ROSTER.find((p) => p.main === "libero")?.name);
 
     const played = {
       ...first,
       players: [...first.players, "Guest"],
-      meta: { ...first.meta, youtubeUrl: "https://youtu.be/abcdefghijk", lineup: squad.slice(0, 6), libero: "" },
+      meta: {
+        ...first.meta,
+        youtubeUrl: "https://youtu.be/abcdefghijk",
+        lineup: squad.slice(0, 6).reverse(),
+        libero: "",
+      },
     };
-    const second = newSetData(GAME, "Eagles", squad, 2, played);
+    const second = newSetData(game, "Eagles", ROSTER, 2, played);
 
     expect(second.players).toEqual([...squad, "Guest"]);
     expect(second.events).toEqual([]);
     expect(second.meta).toMatchObject({
       setNumber: "2",
       youtubeUrl: "https://youtu.be/abcdefghijk",
-      lineup: squad.slice(0, 6),
+      lineup: planned?.lineup ?? played.meta.lineup,
+      libero: planned?.libero ?? "",
     });
+  });
+
+  test("a rotation with an empty position is no lineup, and one naming a player outside the set adds them", () => {
+    const [rotation] = GAME.rotations;
+
+    expect(
+      rotationLineup(
+        { ...GAME, rotations: [{ ...rotation, positions: [null, ...rotation.positions.slice(1)] }] },
+        ROSTER
+      )
+    ).toBeNull();
+    expect(withLineup(emptyData(["Mira"]), { lineup: ["A", "B", "C", "D", "E", "Mira"], libero: "L" }).players).toEqual(
+      ["Mira", "A", "B", "C", "D", "E", "L"]
+    );
   });
 });
 

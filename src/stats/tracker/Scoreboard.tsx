@@ -8,6 +8,7 @@ import { CALLOUT_WARN, cx, PANEL, POINT_BUTTON, THEM_TINT, US_TINT } from "../..
 import { POINT_REASONS } from "../codes";
 import type { MatchMeta, Rally, Team } from "../types";
 import { Kbd } from "./Kbd";
+import { LOCKED_HINT } from "./locked";
 import { TeamScore } from "./TeamScore";
 
 type ScoreboardProps = {
@@ -19,6 +20,8 @@ type ScoreboardProps = {
   /** A just-recorded manual point still waiting for an (optional) reason. */
   pending: { id: number; winner: Team } | null;
   notice: string | null;
+  /** A finished set: no points or set details can change. */
+  locked: boolean;
   onPoint: (winner: Team, reason?: string) => void;
   onReason: (reason: string) => void;
   onMeta: (meta: Partial<MatchMeta>) => void;
@@ -32,6 +35,7 @@ export function Scoreboard({
   hasEvents,
   pending,
   notice,
+  locked,
   onPoint,
   onReason,
   onMeta,
@@ -74,11 +78,14 @@ export function Scoreboard({
                   <button
                     type="button"
                     onClick={() => onPoint(side)}
+                    disabled={locked}
                     className={cx(POINT_BUTTON, side === "us" ? US_TINT : THEM_TINT)}
                     title={
-                      side === "us"
-                        ? "Rally won by us without one of our touches deciding it (e.g. opponent error)"
-                        : "Rally won by the opponent without one of our touches deciding it"
+                      locked
+                        ? LOCKED_HINT
+                        : side === "us"
+                          ? "Rally won by us without one of our touches deciding it (e.g. opponent error)"
+                          : "Rally won by the opponent without one of our touches deciding it"
                     }
                   >
                     Point {names[side]} <Kbd>{key}</Kbd>
@@ -92,6 +99,7 @@ export function Scoreboard({
                       variant="ghost"
                       size="sm"
                       className="justify-between"
+                      disabled={locked}
                       onClick={() => (waiting ? onReason(r.id) : onPoint(side, r.id))}
                       title={waiting ? "Set the reason for the point just recorded" : "Record a point with this reason"}
                     >
@@ -108,7 +116,7 @@ export function Scoreboard({
 
       {notice && <p className={CALLOUT_WARN}>{notice}</p>}
 
-      {!hasEvents && (
+      {!hasEvents && !locked && (
         <div className="flex flex-wrap gap-3">
           <Field label="First serve" className="w-40">
             <Select

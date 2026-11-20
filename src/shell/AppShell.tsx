@@ -12,6 +12,8 @@ type AppShellProps = {
   /** The left column's content (the full sidebar or the rail); omitted in drawer mode. */
   sidebar?: ReactNode;
   topBar: ReactNode;
+  /** Give the content the whole window: no sidebar and no top bar (the tracker's focus mode). */
+  bare?: boolean;
   children: ReactNode;
 };
 
@@ -26,12 +28,12 @@ const COLUMNS: Record<SidebarMode, string> = {
 const CONTENT =
   "flex min-h-0 flex-1 flex-col items-center px-[clamp(1rem,3vw,2.5rem)] pt-[clamp(1rem,2.5vh,1.75rem)] pb-[clamp(1.5rem,4vh,2.5rem)]";
 
-export function AppShell({ mode, sidebar, topBar, children }: AppShellProps): JSX.Element {
+export function AppShell({ mode, sidebar, topBar, bare = false, children }: AppShellProps): JSX.Element {
   return (
-    <div className={cx(SHELL, COLUMNS[mode])}>
-      {sidebar}
+    <div className={cx(SHELL, COLUMNS[bare ? "drawer" : mode])}>
+      {!bare && sidebar}
       <div className="flex min-w-0 flex-col">
-        {topBar}
+        {!bare && topBar}
         <main className={CONTENT}>{children}</main>
       </div>
     </div>

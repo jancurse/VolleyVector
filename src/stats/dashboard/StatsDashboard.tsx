@@ -16,15 +16,16 @@ import {
   TITLE,
 } from "../../ui/styles";
 import type { Selection } from "../clips";
-import { skillDef } from "../codes";
 import type { ReportSet } from "../types";
 import { ClipsContext } from "./clips";
 import { DashboardCard } from "./DashboardCard";
+import { DetailStats } from "./DetailStats";
 import {
   actionLabel,
   ALL,
   clipSelection,
   clipTouches,
+  detailGroups,
   matchTables,
   momentum,
   plusMinus,
@@ -118,6 +119,7 @@ export default function StatsDashboard({
   const dates = [...new Set(tables.sets.map((s) => s.date).filter(Boolean))].map(formatGameDate).join(", ");
   const setLabels = new Map(tables.sets.map((s) => [s.id, s.label]));
   const actions = ORDER.filter((a) => calc.summary.some((r) => r.set === p.set && r.skill === a));
+  const details = useMemo(() => detailGroups(tables.touches, p.set, p.player), [tables, p.set, p.player]);
 
   return (
     <ClipsContext.Provider value={clips}>
@@ -223,7 +225,7 @@ export default function StatsDashboard({
                 ariaLabel="Zones for"
                 value={p.skill}
                 onValueChange={(v) => up({ skill: ZONE_SKILLS.find((s) => s === v) ?? p.skill })}
-                items={ZONE_SKILLS.map((s) => ({ value: s, label: skillDef(s).label }))}
+                items={ZONE_SKILLS.map((s) => ({ value: s, label: actionLabel(s) }))}
               />
               <p className={DASH_NOTE}>{ZONE_HINTS[p.skill]}</p>
               <p className={DASH_NOTE}>
@@ -236,6 +238,12 @@ export default function StatsDashboard({
                 player={p.player}
               />
             </DashboardCard>
+            {details.length > 0 && (
+              <DashboardCard title="Detailed stats">
+                <p className={DASH_NOTE}>From the touches recorded with detailed stats.</p>
+                <DetailStats groups={details} />
+              </DashboardCard>
+            )}
           </div>
         </section>
 

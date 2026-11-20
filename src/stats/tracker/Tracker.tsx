@@ -1,19 +1,34 @@
 import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useReducer, useState } from "react";
 import type { JSX, ReactNode } from "react";
-import { Redo2, Undo2 } from "lucide-react";
+import { CheckCircle2, Lock, Maximize2, Minimize2, Redo2, RotateCcw, Undo2 } from "lucide-react";
 
 import { GuideLink } from "../../guide/GuideLink";
 import { Button } from "../../ui/Button";
+import { IconButton } from "../../ui/IconButton";
 import { useConfirm } from "../../ui/useConfirm";
-import { cx, MUTED, PAGE_BAR, PAGE_WIDTH, TRACKER_GRID } from "../../ui/styles";
+import {
+  cx,
+  MUTED,
+  PAGE_BAR,
+  TRACKER_ENTRY,
+  TRACKER_GRID,
+  TRACKER_LOG,
+  TRACKER_PANE,
+  TRACKER_SCORE,
+  TRACKER_SIDE,
+  TRACKER_VIDEO,
+  TRACKER_WIDTH,
+} from "../../ui/styles";
 import {
   POINT_REASONS,
   predictSkill,
+  predictType,
   resultLabel,
   resultsFor,
   SKILL_BY_KEY,
   touchOutcome,
   touchReasonsFor,
+  typesFor,
   ZONE_GRID,
 } from "../codes";
 import {
@@ -24,6 +39,7 @@ import {
   isComplete,
   newDraft,
   setField,
+  setType,
   toggleReason,
 } from "../draft";
 import type { Draft, Field } from "../draft";
@@ -32,15 +48,15 @@ import { exportFilename, toCsv, toJson } from "../exporters";
 import { deriveRallies, predictPlayer } from "../rallies";
 import { toReportSet } from "../reportSet";
 import { emptyData, initState, newId, nextSetData, parseImport, reducer } from "../store";
+import type { Action } from "../store";
 import type { AppData, MatchEvent, Rally, ReportSet, Skill, Team } from "../types";
 import { FRAME, usePlayer } from "../usePlayer";
 import { extractYoutubeId } from "../youtube";
 import { EventLog } from "./EventLog";
 import { Kbd } from "./Kbd";
-import { LineupPanel } from "./LineupPanel";
-import { PlayersPanel } from "./PlayersPanel";
+import { PlayersDialog } from "./PlayersDialog";
 import { Scoreboard } from "./Scoreboard";
-import { SetPanel } from "./SetPanel";
+import { SetMenu } from "./SetMenu";
 import { ShortcutHelp } from "./ShortcutHelp";
 import { StatEntry } from "./StatEntry";
 import { RATES, VideoPanel } from "./VideoPanel";
@@ -55,13 +71,19 @@ const MARK_LEAD = 0.3;
 /** A manual point this soon after a decisive touch is almost certainly a duplicate. */
 const DOUBLE_POINT_WINDOW = 4;
 const ZONES = new Set(ZONE_GRID.flat().filter(Boolean));
+/** The keys a finished set still answers: the video's, and focus mode. */
+const VIEW_KEYS = new Set([" ", "ArrowLeft", "ArrowRight", ",", ".", "[", "]", "v", "V"]);
 
 type TrackerProps = {
   /** The set as loaded. */
   initial: AppData;
   /** Our team's name and the opponent's, for the scoreboard. */
   names: { us: string; them: string };
+  /** A finished set is locked: it plays and shows its stats, and changes only once reopened. */
   finished: boolean;
+  /** Whether the app's sidebar and top bar are hidden, and how to switch that; absent where there are none. */
+  focus?: boolean;
+  onFocus?: (focus: boolean) => void;
   /** Called with the set after every change, to be saved. */
   onChange: (data: AppData) => void;
   /** Start the next set of the game from `next` (same players, lineup, and video). */
@@ -76,13 +98,20 @@ export function Tracker({
   initial,
   names,
   finished,
+  focus = false,
+  onFocus,
   onChange,
   onNextSet,
   onFinish,
   header,
 }: TrackerProps): JSX.Element {
-  const [state, dispatch] = useReducer(reducer, initial, initState);
+  const [state, apply] = useReducer(reducer, initial, initState);
   const { data } = state;
+  const detailed = !!data.meta.detailed;
+  // Nothing changes a finished set, whichever control or key asks.
+  const dispatch = (action: Action) => {
+    if (!finished) apply(action);
+  };
   const [player, stage] = usePlayer(extractYoutubeId(initial.meta.youtubeUrl));
   const { confirm, dialog } = useConfirm();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -95,6 +124,16 @@ export function Tracker({
   const [notice, setNotice] = useState<string | null>(null);
   // A manual point that can still be given a reason with a single number key.
   const [pendingPoint, setPendingPoint] = useState<{ id: number; winner: Team } | null>(null);
+  const [playersOpen, setPlayersOpen] = useState(false);
+
+  // Finishing the set drops whatever was still being entered.
+  if (finished && (draft || pendingPoint || marks.length || review || playersOpen)) {
+    setDraft(null);
+    setPendingPoint(null);
+    setMarks([]);
+    setReview(null);
+    setPlayersOpen(false);
+  }
 
   useEffect(() => onChange(data), [data, onChange]);
 
@@ -153,8 +192,8 @@ export function Tracker({
   };
 
   /** Start a new stat now, or at `at` (a marked contact) without touching playback. */
-  const startEntry = (opts: { player?: string; stat?: Skill } = {}, at?: number) => {
-    if (draft) return;
+  const startEntry = (opts: { player?: string; stat?: Skill; type?: string } = {}, at?: number) => {
+    if (draft || finished) return;
 
     setPendingPoint(null);
 
@@ -177,16 +216,23 @@ export function Tracker({
       rallyMeta
     );
     const ctx = before[before.length - 1];
-    const stat = opts.stat ?? predictSkill(ctx.touches[ctx.touches.length - 1] ?? null, ctx.serving);
+    const last = ctx.touches[ctx.touches.length - 1] ?? null;
+    const stat = opts.stat ?? predictSkill(last, ctx.serving);
     const who = opts.player ?? predictPlayer(before, stat);
-    const d = newDraft(timestamp, who, stat);
+    const d = newDraft(timestamp, who, stat, detailed);
 
-    setDraft({ ...d, suggested: { player: d.suggested.player && !opts.player, stat: d.suggested.stat && !opts.stat } });
+    setDraft({
+      ...d,
+      type: opts.type ?? predictType(last, stat, detailed),
+      suggested: { player: d.suggested.player && !opts.player, stat: d.suggested.stat && !opts.stat },
+    });
   };
 
   // --- Contact marks ---------------------------------------------------------
 
   const mark = () => {
+    if (finished) return;
+
     const t = Math.max(0, player.getTime() - MARK_LEAD);
 
     setMarks((m) => [...m, t].sort((a, b) => a - b));
@@ -257,6 +303,16 @@ export function Tracker({
     // New stats save themselves as soon as the last field is filled in.
     if (next.editingId === null && next.stat !== "misc" && isComplete(next)) commit(next);
     else setDraft(next);
+  };
+
+  /** Move the stat being edited in time, and show that moment. */
+  const retime = (to: number | "video") => {
+    if (!draft) return;
+
+    const timestamp = Math.max(0, to === "video" ? player.getTime() : draft.timestamp + to);
+
+    setDraft({ ...draft, timestamp });
+    if (to !== "video") player.seek(timestamp);
   };
 
   /** Esc: drop this stat. While reviewing, that also discards the contact mark. */
@@ -341,7 +397,7 @@ export function Tracker({
     if (e.kind === "sub") return;
 
     setResumeAfterEntry(false);
-    setDraft(draftFromTouch(e));
+    setDraft(draftFromTouch(e, detailed));
   };
 
   // --- Keyboard ------------------------------------------------------------
@@ -364,6 +420,7 @@ export function Tracker({
       !!t.closest?.("[role=dialog],[role=alertdialog],[role=listbox]");
 
     if (typing) return;
+    if (finished && !VIEW_KEYS.has(e.key)) return;
 
     const mod = e.ctrlKey || e.metaKey;
 
@@ -424,7 +481,7 @@ export function Tracker({
       if (step === "player" && playerAt) change("player", playerAt);
 
       if (step === "result") {
-        const r = resultsFor(draft.stat)[Number(digit) - 1];
+        const r = resultsFor(draft.stat, detailed)[Number(digit) - 1];
 
         if (r) change("result", r.id);
       }
@@ -439,6 +496,24 @@ export function Tracker({
     if (touchReason) {
       e.preventDefault();
       setDraft(toggleReason(draft, touchReason.id));
+
+      return;
+    }
+
+    // A kind of attack or defense, once that skill is picked. T is a tip whatever the skill so far.
+    const type = !e.shiftKey && typesFor(draft?.stat ?? "", detailed).find((t) => t.key === e.key.toLowerCase());
+
+    if (draft && type) {
+      e.preventDefault();
+      setDraft(setType(draft, type.id));
+
+      return;
+    }
+
+    if (detailed && !e.shiftKey && e.key.toLowerCase() === "t") {
+      e.preventDefault();
+      if (draft) setDraft(setType(setField(draft, "stat", "attack"), "tip"));
+      else startEntry({ stat: "attack", type: "tip" });
 
       return;
     }
@@ -501,6 +576,14 @@ export function Tracker({
       case "_":
         handled();
         recordPoint("them");
+        break;
+      case "v":
+      case "V":
+        if (onFocus) {
+          handled();
+          onFocus(!focus);
+        }
+
         break;
       case "Enter":
         handled();
@@ -622,7 +705,8 @@ export function Tracker({
     if (
       !(await confirm({
         title: "Start the next set?",
-        description: "Players, lineup, and video are kept.",
+        description:
+          "Players and video are kept. The lineup starts from the game’s first rotation, or else from this set’s.",
         confirmLabel: "Start",
       }))
     )
@@ -647,7 +731,7 @@ export function Tracker({
   };
 
   return (
-    <div className={cx("mx-auto flex flex-col gap-4", PAGE_WIDTH)}>
+    <div className={cx("mx-auto flex flex-col gap-4", TRACKER_WIDTH, TRACKER_PANE)}>
       {statsView && (
         <Suspense fallback={<p className={MUTED}>Loading the stats…</p>}>
           <StatsPage
@@ -663,86 +747,31 @@ export function Tracker({
       <div hidden={!!statsView} className="flex flex-col gap-4">
         <header className={PAGE_BAR}>
           {header}
-          <div className="flex items-center gap-1">
-            <GuideLink topic="record" />
-            <Button variant="text" onClick={() => dispatch({ type: "undo" })} disabled={!state.past.length}>
-              <Undo2 size={15} aria-hidden="true" /> Undo <Kbd>Ctrl+Z</Kbd>
-            </Button>
-            <Button variant="text" onClick={() => dispatch({ type: "redo" })} disabled={!state.future.length}>
-              <Redo2 size={15} aria-hidden="true" /> Redo <Kbd>Ctrl+⇧+Z</Kbd>
-            </Button>
-          </div>
-        </header>
-
-        {/* On a narrow screen the entry comes straight after the video, and the log after both. */}
-        <div className={TRACKER_GRID}>
-          <div className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
-            <VideoPanel
-              player={player}
-              stage={stage}
-              youtubeUrl={data.meta.youtubeUrl}
-              onYoutubeUrl={(youtubeUrl) => dispatch({ type: "setMeta", meta: { youtubeUrl } })}
-              markers={markers}
-              marks={marks}
-              onMark={mark}
-            />
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-            <Scoreboard
-              rally={openRally}
-              meta={data.meta}
-              names={names}
-              hasEvents={data.events.length > 0}
-              pending={pendingPoint}
-              notice={notice}
-              onPoint={recordPoint}
-              onReason={setPointReason}
-              onMeta={(meta) => dispatch({ type: "setMeta", meta })}
-            />
-            <StatEntry
-              draft={draft}
-              players={data.players}
-              onStart={(opts) => startEntry(opts)}
-              onChange={change}
-              onReason={(reason) => draft && setDraft(toggleReason(draft, reason))}
-              onSave={() => draft && commit(draft)}
-              onCancel={cancel}
-              marks={marks.length}
-              review={review && { index: review.total - marks.length + 1, total: review.total }}
-              onClearMarks={clearMarks}
-              court={entryCourt}
-            />
-            <LineupPanel
-              court={openRally.court}
-              serving={openRally.serving}
-              players={data.players}
-              lineup={data.meta.lineup}
-              libero={data.meta.libero}
-              onSetLineup={(l, lib) => dispatch({ type: "setLineup", lineup: l, libero: lib })}
-              onSub={(out, inn) =>
-                dispatch({
-                  type: "addEvent",
-                  event: {
-                    kind: "sub",
-                    id: newId(data.events),
-                    timestamp: review ? review.returnTo : player.getTime(),
-                    out,
-                    in: inn,
-                  },
-                })
-              }
-            />
-            <PlayersPanel
-              players={data.players}
-              onAdd={(name) => dispatch({ type: "addPlayer", name })}
-              onRemove={(name) => dispatch({ type: "removePlayer", name })}
-              onMove={(name, delta) => dispatch({ type: "movePlayer", name, delta })}
-            />
-            <SetPanel
+          <div className="flex flex-wrap items-center gap-1">
+            {finished ? (
+              <>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-text-dim">
+                  <Lock size={14} aria-hidden="true" /> Finished
+                </span>
+                <Button onClick={() => onFinish(false)}>
+                  <RotateCcw size={15} aria-hidden="true" /> Reopen set
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="ghost"
+                paired
+                onClick={() => onFinish(true)}
+                disabled={!data.events.length}
+                title="Save the stats and lock the set against changes"
+              >
+                <CheckCircle2 size={15} aria-hidden="true" /> Mark set finished
+              </Button>
+            )}
+            <SetMenu
               meta={data.meta}
               hasEvents={data.events.length > 0}
-              finished={finished}
+              locked={finished}
               onMeta={(meta) => dispatch({ type: "setMeta", meta })}
               onExport={exportAs}
               onStats={() => {
@@ -752,17 +781,91 @@ export function Tracker({
               onImport={(file) => void importFile(file)}
               onStatsFromFiles={(files) => void statsFromFiles(files)}
               onNextSet={() => void nextSet()}
-              onFinish={onFinish}
               onClear={() => void clearAll()}
             />
+            <Button variant="text" onClick={() => dispatch({ type: "undo" })} disabled={finished || !state.past.length}>
+              <Undo2 size={15} aria-hidden="true" /> Undo <Kbd>Ctrl+Z</Kbd>
+            </Button>
+            <Button
+              variant="text"
+              onClick={() => dispatch({ type: "redo" })}
+              disabled={finished || !state.future.length}
+            >
+              <Redo2 size={15} aria-hidden="true" /> Redo <Kbd>Ctrl+⇧+Z</Kbd>
+            </Button>
             <ShortcutHelp />
+            <GuideLink topic="record" />
+            {onFocus && (
+              <IconButton
+                variant="plain"
+                size="sm"
+                aria-label={focus ? "Leave focus mode" : "Focus mode"}
+                tooltip={focus ? "Show the sidebar and top bar (V)" : "Hide the sidebar and top bar (V)"}
+                aria-pressed={focus}
+                onClick={() => onFocus(!focus)}
+              >
+                {focus ? <Minimize2 size={16} aria-hidden="true" /> : <Maximize2 size={16} aria-hidden="true" />}
+              </IconButton>
+            )}
+          </div>
+        </header>
+
+        <div className={TRACKER_GRID}>
+          <div className={TRACKER_VIDEO}>
+            <VideoPanel
+              player={player}
+              stage={stage}
+              youtubeUrl={data.meta.youtubeUrl}
+              onYoutubeUrl={(youtubeUrl) => dispatch({ type: "setMeta", meta: { youtubeUrl } })}
+              markers={markers}
+              marks={marks}
+              onMark={mark}
+              locked={finished}
+            />
           </div>
 
-          <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <div className={TRACKER_SIDE}>
+            <div className={TRACKER_SCORE}>
+              <Scoreboard
+                rally={openRally}
+                meta={data.meta}
+                names={names}
+                hasEvents={data.events.length > 0}
+                pending={pendingPoint}
+                notice={notice}
+                locked={finished}
+                onPoint={recordPoint}
+                onReason={setPointReason}
+                onMeta={(meta) => dispatch({ type: "setMeta", meta })}
+              />
+            </div>
+            <div className={TRACKER_ENTRY}>
+              <StatEntry
+                draft={draft}
+                players={data.players}
+                onStart={(opts) => startEntry(opts)}
+                onChange={change}
+                onType={(type) => draft && setDraft(setType(draft, type))}
+                onRetime={retime}
+                onPlayers={() => setPlayersOpen(true)}
+                locked={finished}
+                onReason={(reason) => draft && setDraft(toggleReason(draft, reason))}
+                onSave={() => draft && commit(draft)}
+                onCancel={cancel}
+                marks={marks.length}
+                review={review && { index: review.total - marks.length + 1, total: review.total }}
+                onClearMarks={clearMarks}
+                court={entryCourt}
+              />
+            </div>
+          </div>
+
+          <div className={TRACKER_LOG}>
             <EventLog
               rallies={rallies}
               currentTime={player.currentTime}
               editingId={draft?.editingId ?? null}
+              locked={finished}
               onSeek={player.seek}
               onEdit={editEvent}
               onDelete={(id) => dispatch({ type: "deleteEvent", id })}
@@ -771,6 +874,31 @@ export function Tracker({
           </div>
         </div>
       </div>
+      <PlayersDialog
+        open={playersOpen}
+        onOpenChange={setPlayersOpen}
+        court={openRally.court}
+        serving={openRally.serving}
+        players={data.players}
+        lineup={data.meta.lineup}
+        libero={data.meta.libero}
+        onSetLineup={(l, lib) => dispatch({ type: "setLineup", lineup: l, libero: lib })}
+        onSub={(out, inn) =>
+          dispatch({
+            type: "addEvent",
+            event: {
+              kind: "sub",
+              id: newId(data.events),
+              timestamp: review ? review.returnTo : player.getTime(),
+              out,
+              in: inn,
+            },
+          })
+        }
+        onAdd={(name) => dispatch({ type: "addPlayer", name })}
+        onRemove={(name) => dispatch({ type: "removePlayer", name })}
+        onMove={(name, to) => dispatch({ type: "movePlayer", name, to })}
+      />
       {dialog}
     </div>
   );

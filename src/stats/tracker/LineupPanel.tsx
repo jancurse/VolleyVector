@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { Button } from "../../ui/Button";
-import { MUTED, NET_CAPTION, NET_LINE, PANEL, PANEL_TITLE } from "../../ui/styles";
+import { MUTED, NET_CAPTION, NET_LINE, PANEL_TITLE, SUBPANEL } from "../../ui/styles";
 import type { Court, Team } from "../types";
 import { COURT_ROWS } from "./courtRows";
 import { CourtSpot } from "./CourtSpot";
@@ -53,7 +53,7 @@ export function LineupPanel({
   const toggle = (name: string) => setSubFor(subFor === name ? null : name);
 
   return (
-    <section className={PANEL} aria-labelledby="court-title">
+    <section className={SUBPANEL} aria-labelledby="court-title">
       <div className="flex items-center justify-between">
         <h2 id="court-title" className={PANEL_TITLE}>
           On court

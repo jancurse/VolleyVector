@@ -3,7 +3,17 @@ import { describe, expect, test } from "vitest";
 
 import { formatGameDate } from "../../src/games/format";
 
-import { predictSkill } from "../../src/stats/codes";
+import {
+  predictSkill,
+  predictType,
+  resultsFor,
+  skillLabel,
+  touchOutcome,
+  typesFor,
+  zeroLabel,
+  zoneHint,
+  zoneSide,
+} from "../../src/stats/codes";
 import {
   OPPONENT,
   buildClips,
@@ -12,8 +22,25 @@ import {
   highlightRallies,
   matchLabel,
 } from "../../src/stats/clips";
-import { clearLast, currentStep, isComplete, newDraft, setField } from "../../src/stats/draft";
-import { ALL, clipSelection, matchTables, pointTypes, setScores, skillSummary } from "../../src/stats/dashboard/data";
+import {
+  clearLast,
+  currentStep,
+  draftToTouch,
+  draftType,
+  isComplete,
+  newDraft,
+  setField,
+  setType,
+} from "../../src/stats/draft";
+import {
+  ALL,
+  clipSelection,
+  detailGroups,
+  matchTables,
+  pointTypes,
+  setScores,
+  skillSummary,
+} from "../../src/stats/dashboard/data";
 import { csvCell, toCsv } from "../../src/stats/exporters";
 import { deriveRallies, predictPlayer } from "../../src/stats/rallies";
 import { emptyData, initState, parseImport, reducer } from "../../src/stats/store";
@@ -171,6 +198,68 @@ describe("draft", () => {
     d = setField(d, "zone", "4");
     expect(clearLast(d).zone).toBe("");
     expect(clearLast(setField(newDraft(0, "M", "serve"), "result", "out")).result).toBe("");
+  });
+});
+
+describe("kinds of attack and defense", () => {
+  test("a freeball is picked as a kind of attack and stays its own skill in the file", () => {
+    const d = setType(newDraft(0, "Mira", "attack"), "freeball");
+
+    expect([d.stat, draftType(d)]).toEqual(["freeball", "freeball"]);
+    expect(skillLabel(draftToTouch(d, 1))).toBe("Attack, freeball");
+    expect(draftType(setType(d, "hit"))).toBe("hit");
+    expect(draftToTouch(setType(d, "hit"), 1)).not.toHaveProperty("type");
+  });
+
+  test.each([
+    { detailed: false, attack: ["Hit", "Freeball"], defense: [], results: "kill,defended", type: undefined },
+    {
+      detailed: true,
+      attack: ["Hit", "Tip", "Freeball"],
+      defense: ["Hit", "Block cover", "Free ball", "Down ball"],
+      results: "kill,dig01",
+      type: "hit",
+    },
+  ])("detailed stats ($detailed) decide the kinds, the results, and the stored type", (c) => {
+    const labels = (skill: Skill) => typesFor(skill, c.detailed).map((t) => t.label);
+
+    expect([labels("attack"), labels("defense")]).toEqual([c.attack, c.defense]);
+    expect(
+      resultsFor("attack", c.detailed)
+        .slice(0, 2)
+        .map((r) => r.id)
+        .join()
+    ).toBe(c.results);
+    expect(draftToTouch(newDraft(0, "Mira", "attack", c.detailed), 1).type).toBe(c.type);
+  });
+
+  test("both result lists share one order, and every result resolves whichever set recorded it", () => {
+    expect(resultsFor("freeball", true).map((r) => r.label)).toEqual(
+      resultsFor("attack", true).map((r) => (r.id === "kill" ? "Point" : r.label))
+    );
+    expect(touchOutcome({ stat: "attack", result: "dig01" })).toBeNull();
+    expect(touchOutcome({ stat: "freeball", result: "block_tool" })).toBe("us");
+  });
+
+  test("a defense after our attack came back off the block is suggested as a block cover", () => {
+    const blocked = touch(1, "Mira", "attack", "block_inplay") as Touch;
+
+    expect(predictType(blocked, "defense", true)).toBe("block_cover");
+    expect(predictType(blocked, "defense", false)).toBe("");
+  });
+});
+
+describe("zones", () => {
+  test.each([
+    { stat: "serve", result: "ace", side: "theirs", zero: "N/A", hint: "Where the serve went" },
+    { stat: "serve", result: "net", side: "theirs", zero: "Err", hint: "Where the serve went" },
+    { stat: "attack", result: "block_tool", side: "theirs", zero: "N/A", hint: /where the attacker aimed/ },
+    { stat: "block", result: "touch", side: "theirs", zero: "N/A", hint: /Mostly 0/ },
+    { stat: "receive", result: "dig23", side: "ours", zero: "N/A", hint: "Where the player received from" },
+  ] as const)("$stat $result: zone on $side side, zone 0 reads $zero", ({ stat, result, side, zero, hint }) => {
+    expect(zoneSide(stat)).toBe(side);
+    expect(zeroLabel(stat, result)).toBe(zero);
+    expect(zoneHint(stat, result)).toMatch(hint);
   });
 });
 
@@ -440,6 +529,50 @@ describe("stats dashboard", () => {
     expect(pointTypes(tables.rallies).filter((r) => r.set === ALL)).toEqual([
       { set: ALL, type: "Kills", us: 2, them: 0 },
       { set: ALL, type: "Opponent errors", us: 0, them: 1 },
+    ]);
+  });
+
+  test("detailed numbers count only the touches that carry the detail, and say how many", () => {
+    const typed = (t: MatchEvent, type: string): MatchEvent => (t.kind === "touch" ? { ...t, type } : t);
+    const detailed = matchTables([
+      {
+        meta: emptyData().meta,
+        rallies: deriveRallies(
+          [
+            touch(1, "Sian", "attack", "defended"),
+            typed(touch(2, "Sian", "attack", "dig01"), "hit"),
+            typed(touch(3, "Sian", "attack", "dig23"), "tip"),
+            typed(touch(4, "Sian", "attack", "kill"), "tip"),
+            typed(touch(20, "Juno", "defense", "dig23"), "block_cover"),
+          ],
+          meta
+        ),
+      },
+    ]);
+    const all = skillSummary(detailed.touches).find((r) => r.set === ALL && r.player === ALL && r.skill === "attack");
+
+    expect(all).toMatchObject({ attempts: 4, pos: 1, score: 0.25 });
+    expect(detailGroups(tables.touches, ALL, ALL)).toEqual([]);
+    expect(detailGroups(detailed.touches, ALL, ALL).map((g) => [g.title, g.covered, g.total, g.rows])).toEqual([
+      [
+        "Attacks they dug",
+        2,
+        3,
+        [
+          { label: "Out of system", n: 1, figure: "50%", name: "of graded digs" },
+          { label: "In system", n: 1, figure: "50%", name: "of graded digs" },
+        ],
+      ],
+      [
+        "Attacks by kind",
+        3,
+        4,
+        [
+          { label: "Hit", n: 1, figure: "0%", name: "Hitting %" },
+          { label: "Tip", n: 2, figure: "+50%", name: "Hitting %" },
+        ],
+      ],
+      ["Defense by kind", 1, 1, [{ label: "Block cover", n: 1, figure: "100%", name: "Positive %" }]],
     ]);
   });
 

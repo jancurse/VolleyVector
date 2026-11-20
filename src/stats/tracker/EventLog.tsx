@@ -10,6 +10,8 @@ type EventLogProps = {
   rallies: readonly Rally[];
   currentTime: number;
   editingId: number | null;
+  /** A finished set: its events can be watched, not changed. */
+  locked: boolean;
   onSeek: (t: number) => void;
   onEdit: (e: MatchEvent) => void;
   onDelete: (id: number) => void;
@@ -25,6 +27,7 @@ export function EventLog({
   rallies,
   currentTime,
   editingId,
+  locked,
   onSeek,
   onEdit,
   onDelete,
@@ -43,7 +46,7 @@ export function EventLog({
           {total} touches · {rallies.length - 1} rallies
         </span>
       </div>
-      <div className="max-h-event-log overflow-y-auto border-t border-border lg:max-h-none">
+      <div className="max-h-event-log overflow-y-auto border-t border-border @tracker-wide:max-h-none">
         {visible.length === 0 ? (
           <p className={cx(MUTED, "p-6 text-center")}>No stats recorded yet</p>
         ) : (
@@ -72,7 +75,7 @@ export function EventLog({
                     <i className="font-normal">in progress</i>
                   )}
                 </Button>
-                {r.inferred && winner && (
+                {r.inferred && winner && !locked && (
                   <InferredEnd rally={{ ...r, winner }} onAnnotate={(reason) => onAnnotate(r, reason)} />
                 )}
                 {[...r.subs, ...r.touches, ...(r.endedBy?.kind === "point" ? [r.endedBy] : [])]
@@ -82,6 +85,7 @@ export function EventLog({
                       key={e.id}
                       event={e}
                       editing={e.id === editingId}
+                      locked={locked}
                       onSeek={() => onSeek(e.timestamp - SEEK_LEAD)}
                       onEdit={() => onEdit(e)}
                       onDelete={() => onDelete(e.id)}

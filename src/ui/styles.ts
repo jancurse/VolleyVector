@@ -91,6 +91,9 @@ export const TOGGLE_PILL =
 export const PANEL =
   "flex flex-col gap-[0.9rem] rounded-xl border border-border bg-panel pt-[1.1rem] px-[1.15rem] pb-[1.25rem]";
 
+/** A group inside a dialog or panel that is itself a surface: a lighter border, no fill of its own. */
+export const SUBPANEL = "flex flex-col gap-3 rounded-lg border border-border p-3";
+
 /** A small uppercase mono caption, used as a panel title and section heading. */
 export const PANEL_TITLE = "m-0 font-mono text-xs font-medium uppercase tracking-[0.22em] text-text-dim";
 
@@ -220,9 +223,26 @@ export const SLIP_ZONE_BUTTON =
 
 // ---- Stats tracker ----------------------------------------------------------------------------
 
-/** The tracker's columns: video and log on the left, the side panels on the right; stacked when narrow. */
+/** The tracker's page: wider than other pages, so a large video still has the entry beside it. */
+export const TRACKER_WIDTH = "w-full max-w-tracker";
+/**
+ * The tracker's layout, by its own width. Wide, the video and log sit left of the scoreboard and entry. Narrower,
+ * the video runs full width with the entry and the log side by side under it, and narrowest all three stack.
+ * --tracker-reserve is the height kept free around the video, so the entry stays in view with it.
+ */
+export const TRACKER_PANE = "@container";
 export const TRACKER_GRID =
-  "grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_var(--container-tracker-side)] lg:grid-rows-[auto_1fr]";
+  "grid grid-cols-1 items-start gap-4 [--tracker-reserve:26rem] @tracker-mid:grid-cols-2 @tracker-wide:grid-cols-[minmax(0,1fr)_var(--container-tracker-side)] @tracker-wide:grid-rows-[auto_1fr] @tracker-wide:[--tracker-reserve:18rem]";
+export const TRACKER_VIDEO = "min-w-0 @tracker-mid:col-span-full @tracker-wide:col-span-1 @tracker-wide:col-start-1";
+export const TRACKER_SIDE =
+  "flex min-w-0 flex-col gap-4 @tracker-wide:col-start-2 @tracker-wide:row-span-2 @tracker-wide:row-start-1";
+export const TRACKER_LOG = "min-w-0 @tracker-wide:col-start-1 @tracker-wide:row-start-2";
+/** Under the video the entry leads and the scoreboard follows; beside it the scoreboard is on top. */
+export const TRACKER_ENTRY = "order-1 @tracker-wide:order-2";
+export const TRACKER_SCORE = "order-2 @tracker-wide:order-1";
+/** The video and its controls share one width: no wider than its cap, no taller than the window allows. */
+export const TRACKER_VIDEO_WIDTH =
+  "mx-auto w-[min(100%,var(--container-tracker-video),max(var(--container-tracker-video-min),calc((100dvh-var(--tracker-reserve))*16/9)))]";
 
 /** A keyboard-shortcut badge shown on the control it triggers; hidden on a touch screen. */
 export const KBD =
@@ -247,7 +267,7 @@ export type ChoiceTone = "idle" | "selected" | "suggested" | "good" | "bad";
 
 /** One pick in the stat entry grid (player, skill, result, zone), with its hotkey badge pinned right. */
 export const CHOICE_BASE =
-  "relative w-full cursor-pointer truncate rounded-md py-2 pr-7 pl-2 text-left font-ui text-sm font-semibold transition-colors duration-150 ease-settle focus-visible:outline-2 focus-visible:outline-accent";
+  "relative w-full cursor-pointer truncate rounded-md py-2 pr-7 pl-2 text-left font-ui text-sm font-semibold transition-colors duration-150 ease-settle focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50";
 
 export const CHOICE_TONE: Record<ChoiceTone, string> = {
   idle: "bg-control text-text hover:bg-control-hover",
@@ -271,6 +291,10 @@ export const CALLOUT_NOTE = "m-0 rounded-md border border-border bg-control px-3
 /** The net above a court diagram: a small caption over a heavy line. */
 export const NET_CAPTION = "text-center font-mono text-2xs uppercase tracking-[0.22em] text-text-dim";
 export const NET_LINE = "border-t-4 border-text pt-1.5";
+/** The net under a court diagram, for the opponent's court seen from our side. */
+export const NET_LINE_BELOW = "border-b-4 border-text pb-1.5";
+/** A group of controls that disables as one (a finished set's entry); it adds no box of its own. */
+export const FIELDSET = "m-0 min-w-0 border-0 p-0";
 
 /** The video stage: black in either theme, as a player letterboxes. */
 export const VIDEO_STAGE = "relative flex aspect-video items-center justify-center overflow-hidden bg-black";
@@ -279,10 +303,15 @@ export const VIDEO_STAGE_NOTE = "m-0 text-center text-white/60";
 
 /** The big "point to us / them" button in the scoreboard; the US_TINT or THEM_TINT gives its side. */
 export const POINT_BUTTON =
-  "flex cursor-pointer items-center justify-center gap-1.5 rounded-md py-2 text-sm font-semibold text-text transition-colors duration-150 ease-settle";
+  "flex cursor-pointer items-center justify-center gap-1.5 rounded-md py-2 text-sm font-semibold text-text transition-colors duration-150 ease-settle disabled:cursor-not-allowed disabled:opacity-50";
 
 /** A link out of the app, in the accent colour or its surroundings' own. */
 export const LINK = { accent: "text-accent hover:underline", inherit: "text-inherit hover:underline" };
+
+/** A player's row in the set's list, which drags to reorder; the row it would drop on is outlined. */
+export const PLAYER_ROW =
+  "flex cursor-grab items-center gap-1 rounded-md bg-control py-1 pr-1 pl-1 active:cursor-grabbing";
+export const PLAYER_ROW_TARGET = "outline-2 -outline-offset-2 outline-accent";
 
 /** The fill of a lineup court spot: picked, the libero's, or any other. */
 export const COURT_SPOT_TONE = {

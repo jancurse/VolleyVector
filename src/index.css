@@ -81,8 +81,15 @@
   --container-hl-clips-min: 18rem;
   --container-hl-clips: 22rem;
 
-  /* The stats tracker's side column, and the event log's scrolling height. */
+  /* The stats tracker: its page, its side column, the video's widest and narrowest, and the widths from which
+     the entry and log share a row under the video (tracker-mid) and the entry sits beside it (tracker-wide). */
+  --container-tracker: 107rem;
   --container-tracker-side: 26rem;
+  --container-tracker-video: 80rem;
+  --container-tracker-video-min: 20rem;
+  --container-tracker-mid: 44rem;
+  --container-tracker-wide: 72rem;
+  /* The event log's scrolling height. */
   --spacing-event-log: 32rem;
 
   /* The on-screen widths of the rotation slip (w-slip) and the wider overview slip (w-overview). */

@@ -5,7 +5,7 @@ import { cx } from "../../ui/styles";
 import type { SyncSnapshot } from "../sync/setSync";
 
 const LOOK: Record<SyncSnapshot["saveState"], [tone: string, icon: ReactNode, label: string]> = {
-  saved: ["text-text-dim", <Check key="i" size={14} aria-hidden="true" />, "Saved"],
+  saved: ["text-text-dim", <Check key="i" size={14} aria-hidden="true" />, "Recording saved"],
   saving: ["text-text-dim", <Loader2 key="i" size={14} aria-hidden="true" className="animate-spin" />, "Saving…"],
   unsaved: ["text-text-dim", <Loader2 key="i" size={14} aria-hidden="true" className="animate-spin" />, "Saving…"],
   offline: [
@@ -25,7 +25,10 @@ export function SaveStatus({ snapshot }: { snapshot: SyncSnapshot }): JSX.Elemen
   return (
     <span
       role="status"
-      title={snapshot.error ?? undefined}
+      title={
+        snapshot.error ??
+        (snapshot.saveState === "saved" ? "Every change to the set is stored as you make it" : undefined)
+      }
       className={cx("inline-flex items-center gap-1 text-xs font-semibold", tone)}
     >
       {icon} {label}

@@ -22,7 +22,7 @@ import { useGames } from "./games/useGames";
 import { useRoster } from "./games/useRoster";
 import { useSetLinks } from "./games/useSetLinks";
 import type { Game } from "./games/types";
-import { localSets, newSetData, squadNames, withGameMeta } from "./stats/gameSets";
+import { localSets, newSetData, rotationLineup, withGameMeta, withLineup } from "./stats/gameSets";
 import { ImportSetsDialog } from "./stats/import/ImportSetsDialog";
 import { addSet, deleteSet, finishSet, importSet, loadSetData, saveSetScore } from "./stats/sets";
 import type { SetSummary } from "./stats/types";
@@ -289,6 +289,8 @@ export function App(): JSX.Element {
   // The set open in the tracker, with its game and team as they were when it opened: the tracker stays up
   // through a sign-out (it keeps recording into this browser), when the workspace and its stores empty.
   // One held from a local copy alone (`fromBackup`) gives way to the loaded game once the workspace is there.
+  // The tracker's focus mode: the set page alone, without the sidebar and top bar.
+  const [trackerFocus, setTrackerFocus] = useState(false);
   const [heldSet, setHeldSet] = useState<{
     setId: string;
     game: Game;
@@ -369,6 +371,7 @@ export function App(): JSX.Element {
       setHeldSet({ setId: route.setId, ...routeBackup.context, fromBackup: true });
   }
   if (route.kind !== "set" && heldSet) setHeldSet(null);
+  if (route.kind !== "set" && trackerFocus) setTrackerFocus(false);
 
   const heldSummary = heldSet ? gameSets.sets.find((s) => s.id === heldSet.setId) : undefined;
   const heldNumber = heldSummary?.setNumber || routeBackup?.data.meta.setNumber;
@@ -398,6 +401,8 @@ export function App(): JSX.Element {
         userId={heldSet.userId}
         finished={!!heldSummary?.finished}
         signedIn={user !== null}
+        focus={trackerFocus}
+        onFocus={setTrackerFocus}
         onBack={() => navigate(gameRoute(heldSet.game.teamId, allTeams, heldSet.game.id))}
         onNextSet={(next) =>
           navigate(
@@ -407,13 +412,18 @@ export function App(): JSX.Element {
               heldSet.game.id,
               startSet(
                 { game: heldSet.game, teamName: heldSet.teamName, userId: heldSet.userId },
-                {
-                  ...next,
-                  meta: {
-                    ...next.meta,
-                    setNumber: String(Math.max(nextSetNumber(heldSet.game.id), parseInt(next.meta.setNumber, 10) || 0)),
+                withLineup(
+                  {
+                    ...next,
+                    meta: {
+                      ...next.meta,
+                      setNumber: String(
+                        Math.max(nextSetNumber(heldSet.game.id), parseInt(next.meta.setNumber, 10) || 0)
+                      ),
+                    },
                   },
-                }
+                  rotationLineup(heldSet.game, roster.players)
+                )
               )
             )
           )
@@ -759,7 +769,11 @@ export function App(): JSX.Element {
   if (!user && setPage)
     return (
       <TooltipProvider>
-        <AppShell mode="drawer" topBar={<TopBar crumbs={crumbs} onNavigate={() => undefined} account={null} />}>
+        <AppShell
+          mode="drawer"
+          bare={trackerFocus}
+          topBar={<TopBar crumbs={crumbs} onNavigate={() => undefined} account={null} />}
+        >
           {false}
           {setPage}
         </AppShell>
@@ -975,10 +989,7 @@ export function App(): JSX.Element {
       previous = stored.sets.find((s) => s.id === last.id)?.data;
     }
 
-    const error = await addSet(
-      game.id,
-      newSetData(game, gamesTeamName, squadNames(game, roster.players), setNumber, previous ?? null)
-    );
+    const error = await addSet(game.id, newSetData(game, gamesTeamName, roster.players, setNumber, previous ?? null));
 
     if (error) void confirm({ title: "Couldn’t add the set", description: error, confirmLabel: "OK" });
     else gameSets.reload();
@@ -1484,6 +1495,7 @@ export function App(): JSX.Element {
           ) : undefined
         }
         topBar={topBar}
+        bare={trackerFocus && setPage !== null}
       >
         {(boardsError || notes.error) && (
           <p className={cx("mb-3", PAGE_WIDTH, "text-sm text-danger")}>{boardsError ?? notes.error}</p>

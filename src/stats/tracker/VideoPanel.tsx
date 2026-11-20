@@ -7,11 +7,12 @@ import { FileButton } from "../../ui/FileButton";
 import { IconButton } from "../../ui/IconButton";
 import { Input } from "../../ui/Input";
 import { Select } from "../../ui/Select";
-import { CALLOUT_WARN, cx, VIDEO_PANEL, VIDEO_STAGE, VIDEO_STAGE_NOTE } from "../../ui/styles";
+import { CALLOUT_WARN, cx, TRACKER_VIDEO_WIDTH, VIDEO_PANEL, VIDEO_STAGE, VIDEO_STAGE_NOTE } from "../../ui/styles";
 import { FRAME } from "../usePlayer";
 import type { Player, PlayerStage } from "../usePlayer";
 import { extractYoutubeId } from "../youtube";
 import { Kbd } from "./Kbd";
+import { LOCKED_HINT } from "./locked";
 import { SeekBar } from "./SeekBar";
 import { TransportButton } from "./TransportButton";
 
@@ -26,6 +27,8 @@ type VideoPanelProps = {
   /** Contacts marked during play, still waiting to be described. */
   marks: readonly number[];
   onMark: () => void;
+  /** A finished set: its video link stays, and no contacts are marked. */
+  locked: boolean;
 };
 
 /** The match video (YouTube or a local file), its transport, and where to load it from. */
@@ -37,6 +40,7 @@ export function VideoPanel({
   markers,
   marks,
   onMark,
+  locked,
 }: VideoPanelProps): JSX.Element {
   const [urlInput, setUrlInput] = useState(youtubeUrl);
   const [shownUrl, setShownUrl] = useState(youtubeUrl);
@@ -68,7 +72,7 @@ export function VideoPanel({
   };
 
   return (
-    <section className={VIDEO_PANEL} aria-label="Video">
+    <section className={cx(VIDEO_PANEL, TRACKER_VIDEO_WIDTH)} aria-label="Video">
       <div className={VIDEO_STAGE}>
         {source?.type === "file" && (
           <video
@@ -114,7 +118,8 @@ export function VideoPanel({
                 size="sm"
                 paired
                 onClick={onMark}
-                title="Mark a contact without pausing; describe them all after the rally"
+                disabled={locked}
+                title={locked ? LOCKED_HINT : "Mark a contact without pausing; describe them all after the rally"}
               >
                 Mark contact
                 {marks.length > 0 && (
@@ -217,8 +222,10 @@ export function VideoPanel({
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="YouTube link"
               className="flex-1"
+              disabled={locked}
+              title={locked ? LOCKED_HINT : undefined}
             />
-            <Button type="submit" variant="ghost" paired disabled={!urlId}>
+            <Button type="submit" variant="ghost" paired disabled={!urlId || locked}>
               Load
             </Button>
           </form>

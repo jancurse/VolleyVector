@@ -9,7 +9,7 @@ import type { AppData, MatchMeta } from "./types";
 // player with that name. The game owns the teams and date: a set is shown with the game's (`withGameMeta`), so
 // what it stores of them may be out of date and is never written back just to match. A player joining the squad
 // joins each set's list, which is otherwise the set's own, and a player the set has stats for stays in the squad.
-// The next set carries the last one's lineup and video.
+// The next set carries the last one's video, and its lineup unless the game has a rotation to start from.
 
 /** Whether two player or team names are the same, ignoring case and outer spaces. */
 export const sameName = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -121,24 +121,51 @@ export function squadNames(game: Pick<Game, "squad" | "overrides">, roster: read
   return sortSquad(game.squad.flatMap((id) => players.get(id) ?? [])).map((p) => p.name);
 }
 
+/** The game's first rotation as a set's starting lineup, by name; null unless all six positions are filled. */
+export function rotationLineup(
+  game: Pick<Game, "rotations" | "overrides">,
+  roster: readonly RosterPlayer[]
+): Pick<MatchMeta, "lineup" | "libero"> | null {
+  const rotation = game.rotations[0];
+  const players = playerMap(roster, game.overrides);
+  const name = (id: string | null) => (id && players.get(id)?.name) || "";
+  const lineup = rotation?.positions.map(name) ?? [];
+
+  return rotation && lineup.length === 6 && lineup.every(Boolean) ? { lineup, libero: name(rotation.libero) } : null;
+}
+
+/** A set starting from `lineup` (see rotationLineup), its players added to the set's when missing. */
+export function withLineup(data: AppData, lineup: Pick<MatchMeta, "lineup" | "libero"> | null): AppData {
+  if (!lineup) return data;
+
+  const missing = [...lineup.lineup, lineup.libero].filter((p) => p && !data.players.includes(p));
+
+  return { ...data, players: [...data.players, ...missing], meta: { ...data.meta, ...lineup } };
+}
+
 /**
  * A new set for the game, numbered `setNumber`. After an earlier set it keeps that set's lineup and video and
- * anyone added while tracking it; otherwise it starts from the squad.
+ * anyone added while tracking it; otherwise it starts from the squad. The game's first rotation, when it has
+ * one, is every set's starting lineup instead.
  */
 export function newSetData(
   game: Game,
   teamName: string,
-  squad: readonly string[],
+  roster: readonly RosterPlayer[],
   setNumber: number,
   previous: AppData | null
 ): AppData {
   const base = previous ? nextSetData(previous) : emptyData();
+  const squad = squadNames(game, roster);
 
-  return {
-    ...base,
-    players: [...squad, ...(previous?.players ?? []).filter((p) => !squad.includes(p))],
-    meta: { ...base.meta, ...gameMeta(game, teamName), setNumber: String(setNumber) },
-  };
+  return withLineup(
+    {
+      ...base,
+      players: [...squad, ...(previous?.players ?? []).filter((p) => !squad.includes(p))],
+      meta: { ...base.meta, ...gameMeta(game, teamName), setNumber: String(setNumber) },
+    },
+    rotationLineup(game, roster)
+  );
 }
 
 /** Sets of this game kept in this browser and not yet on the server, by set id. */

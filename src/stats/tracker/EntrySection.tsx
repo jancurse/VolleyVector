@@ -7,11 +7,14 @@ export function EntrySection({
   title,
   active,
   hint,
+  action,
   children,
 }: {
   title: string;
   active: boolean;
   hint?: string;
+  /** A control beside the title (the players' Change button). */
+  action?: ReactNode;
   children: ReactNode;
 }): JSX.Element {
   return (
@@ -20,7 +23,10 @@ export function EntrySection({
       className={cx("-m-2 rounded-lg p-2 transition-colors duration-150 ease-settle", active && ENTRY_STEP_ACTIVE)}
     >
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
-        <h3 className="m-0 text-sm font-semibold text-text">{title}</h3>
+        <div className="flex items-baseline gap-2">
+          <h3 className="m-0 text-sm font-semibold text-text">{title}</h3>
+          {action}
+        </div>
         {hint && (
           <span
             className={cx(

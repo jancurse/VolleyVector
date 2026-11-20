@@ -4,20 +4,23 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { IconButton } from "../../ui/IconButton";
 import { cx, THEM_RULE, US_RULE } from "../../ui/styles";
-import { pointReasonLabel, resultLabel, touchOutcome, touchReasonLabel } from "../codes";
+import { pointReasonLabel, resultLabel, skillLabel, touchOutcome, touchReasonLabel } from "../codes";
 import { formatTime } from "../exporters";
 import type { MatchEvent } from "../types";
+import { LOCKED_HINT } from "./locked";
 
 /** One recorded event in the log: its time (seeks the video), what happened, and edit and delete. */
 export function EventRow({
   event: e,
   editing,
+  locked,
   onSeek,
   onEdit,
   onDelete,
 }: {
   event: MatchEvent;
   editing: boolean;
+  locked: boolean;
   onSeek: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -44,7 +47,7 @@ export function EventRow({
       <div className="flex-1 truncate text-sm">
         {e.kind === "touch" ? (
           <>
-            <b className="text-text">{e.player}</b> <span className="capitalize text-text-dim">{e.stat}</span>{" "}
+            <b className="text-text">{e.player}</b> <span className="text-text-dim">{skillLabel(e)}</span>{" "}
             <span className="text-text">{resultLabel(e.stat, e.result)}</span>{" "}
             {e.reason && <span className="text-danger">({touchReasonLabel(e.stat, e.result, e.reason)})</span>}{" "}
             <span className="text-text-dim">z{e.zone}</span>
@@ -66,11 +69,25 @@ export function EventRow({
       </div>
       <div className="flex opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
         {e.kind !== "sub" && (
-          <IconButton variant="plain" size="sm" aria-label="Edit" onClick={onEdit}>
+          <IconButton
+            variant="plain"
+            size="sm"
+            aria-label="Edit"
+            tooltip={locked ? LOCKED_HINT : undefined}
+            disabled={locked}
+            onClick={onEdit}
+          >
             <Pencil size={14} aria-hidden="true" />
           </IconButton>
         )}
-        <IconButton variant="plain" size="sm" aria-label="Delete" onClick={onDelete}>
+        <IconButton
+          variant="plain"
+          size="sm"
+          aria-label="Delete"
+          tooltip={locked ? LOCKED_HINT : undefined}
+          disabled={locked}
+          onClick={onDelete}
+        >
           <Trash2 size={14} aria-hidden="true" />
         </IconButton>
       </div>
