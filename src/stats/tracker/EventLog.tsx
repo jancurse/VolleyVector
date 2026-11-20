@@ -1,4 +1,4 @@
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 import { Button } from "../../ui/Button";
 import { cx, MUTED, PANEL_FLUSH, PANEL_PAD_X, PANEL_TITLE, THEM_TEXT, US_TEXT } from "../../ui/styles";
@@ -10,8 +10,12 @@ type EventLogProps = {
   rallies: readonly Rally[];
   currentTime: number;
   editingId: number | null;
-  /** A finished set: its events can be watched, not changed. */
+  /** A locked set: its events can be watched, not changed. */
   locked: boolean;
+  /** Fill the pane it sits in and scroll inside it. */
+  fill: boolean;
+  /** The score row, above the list. */
+  score: ReactNode;
   onSeek: (t: number) => void;
   onEdit: (e: MatchEvent) => void;
   onDelete: (id: number) => void;
@@ -28,6 +32,8 @@ export function EventLog({
   currentTime,
   editingId,
   locked,
+  fill,
+  score,
   onSeek,
   onEdit,
   onDelete,
@@ -37,7 +43,8 @@ export function EventLog({
   const visible = rallies.filter((r) => r.touches.length || r.winner || r.subs.length).reverse();
 
   return (
-    <section className={PANEL_FLUSH} aria-labelledby="log-title">
+    <section className={cx(PANEL_FLUSH, fill && "h-full min-h-0")} aria-labelledby="log-title">
+      {score}
       <div className={cx("flex justify-between", PANEL_PAD_X)}>
         <h2 id="log-title" className={PANEL_TITLE}>
           Recorded stats
@@ -46,7 +53,7 @@ export function EventLog({
           {total} touches · {rallies.length - 1} rallies
         </span>
       </div>
-      <div className="max-h-event-log overflow-y-auto border-t border-border @tracker-wide:max-h-none">
+      <div className={cx("overflow-y-auto border-t border-border", fill ? "min-h-0 flex-1" : "max-h-event-log")}>
         {visible.length === 0 ? (
           <p className={cx(MUTED, "p-6 text-center")}>No stats recorded yet</p>
         ) : (

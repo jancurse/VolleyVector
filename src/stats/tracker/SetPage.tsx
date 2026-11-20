@@ -1,14 +1,22 @@
 import { useMemo, useState } from "react";
 import type { JSX } from "react";
-import { AlertTriangle, ArrowLeft, Check, Download, Save } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Download } from "lucide-react";
 
 import { LoginForm } from "../../auth/LoginForm";
 import type { Game } from "../../games/types";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
+import { IconButton } from "../../ui/IconButton";
 import { useConfirm } from "../../ui/useConfirm";
-import { CALLOUT_WARN, cx, EYEBROW, STATUS_NOTE, STICKY_BANNER, TITLE, TRACKER_WIDTH } from "../../ui/styles";
-import { formatGameDate, versus } from "../../games/format";
+import {
+  CALLOUT_WARN,
+  STATUS_NOTE,
+  STICKY_BANNER,
+  TRACKER_STACK,
+  TRACKER_TITLE,
+  TRACKER_WORKSPACE,
+} from "../../ui/styles";
+import { versus } from "../../games/format";
 import { withGameMeta } from "../gameSets";
 import { supabaseSetBackend } from "../sets";
 import { writeBackup } from "../sync/setSync";
@@ -32,6 +40,8 @@ type SetPageProps = {
   /** Whether the app's sidebar and top bar are hidden for the tracker, and how to switch that. */
   focus?: boolean;
   onFocus?: (focus: boolean) => void;
+  /** Lay the tracker out as panes filling the window (a wide enough screen), not as a stacked page. */
+  panes?: boolean;
   onBack: () => void;
   /** Open the next set, started in this browser from `next`. */
   onNextSet: (next: AppData) => void;
@@ -43,7 +53,7 @@ type SetPageProps = {
 
 /**
  * One set in the tracker, kept safe as it changes (see setSync.ts). Its changes reach the stats everyone reads
- * only when the coach saves them, or marks the set finished. Mount it keyed by the set id.
+ * only when the coach presses Done. Mount it keyed by the set id.
  */
 export function SetPage({
   setId,
@@ -54,6 +64,7 @@ export function SetPage({
   signedIn,
   focus,
   onFocus,
+  panes = false,
   onBack,
   onNextSet,
   onFinish,
@@ -83,9 +94,9 @@ export function SetPage({
     if (
       (snapshot.stats === "changed" || snapshot.stats === "saving") &&
       !(await confirm({
-        title: "Leave without saving the stats?",
+        title: "Leave without pressing Done?",
         description:
-          "Your changes are kept with the set, but the stats show them only once you save the stats. You can do that the next time you open the set.",
+          "Your changes are kept with the set, but the team’s stats show them only once you press Done. You can do that the next time you open the set.",
         confirmLabel: "Leave",
       }))
     )
@@ -117,20 +128,29 @@ export function SetPage({
     onNextSet(next);
   };
 
-  // Finishing marks the server's copy, so everything is saved first, and a finished set's stats with it.
-  const finish = async (done: boolean) => {
+  // Done saves the set's stats and marks the server's copy finished, so everything is saved first. Editing takes
+  // a finished set back, once what this browser holds is saved.
+  const finish = async (done: boolean): Promise<boolean> => {
     if (done) {
-      if (await saveStats()) await onFinish(true);
+      if (!(await saveStats())) return false;
+      await onFinish(true);
 
-      return;
+      return true;
     }
-    if (await sync.flush()) return onFinish(false);
+    if (!finished) return true;
+    if (await sync.flush()) {
+      await onFinish(false);
+
+      return true;
+    }
 
     await confirm({
       title: "This set isn’t saved yet",
-      description: "So it wasn’t changed. Check your connection and try again.",
+      description: "So it wasn’t opened for editing. Check your connection and try again.",
       confirmLabel: "OK",
     });
+
+    return false;
   };
 
   const discard = async () => {
@@ -185,7 +205,7 @@ export function SetPage({
   }
 
   return (
-    <div className={cx("mx-auto flex flex-col gap-3", TRACKER_WIDTH)}>
+    <div className={panes ? TRACKER_WORKSPACE : TRACKER_STACK}>
       {snapshot.conflict && (
         <div className={STICKY_BANNER}>
           <AlertTriangle size={16} aria-hidden="true" className="text-danger" />
@@ -224,46 +244,26 @@ export function SetPage({
         <Tracker
           initial={initial}
           names={{ us: teamName || "Us", them: game.opponent || "Them" }}
-          finished={finished}
           focus={focus}
           onFocus={onFocus}
+          panes={panes}
           onChange={sync.onChange}
           onNextSet={(next) => void nextSet(next)}
-          onFinish={(f) => void finish(f)}
+          onFinish={finish}
           header={
-            <div className="flex min-w-0 flex-col">
-              <Button variant="text" className="mb-2 self-start pl-0" onClick={() => void back()}>
-                <ArrowLeft size={15} aria-hidden="true" /> Back to the game
-              </Button>
-              <p className={EYEBROW}>
-                {[
-                  `Set ${initial.meta.setNumber || "?"}`,
-                  game.date && formatGameDate(game.date),
-                  finished && "finished",
-                ]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-              <h1 className={TITLE}>{title}</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <SaveStatus snapshot={snapshot} />
-                {snapshot.stats === "saved" && (
-                  <span className={STATUS_NOTE} title="The stats pages show the set as it is now">
-                    <Check size={14} aria-hidden="true" /> Stats up to date
-                  </span>
-                )}
-                {(snapshot.stats === "changed" || snapshot.stats === "saving") && (
-                  <Button
-                    size="sm"
-                    onClick={() => void saveStats()}
-                    disabled={snapshot.stats === "saving"}
-                    title="The stats pages still show the set as it was when the stats were last saved"
-                  >
-                    <Save size={14} aria-hidden="true" />
-                    {snapshot.stats === "saving" ? "Saving stats…" : "Save stats"}
-                  </Button>
-                )}
-              </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <IconButton variant="plain" size="sm" aria-label="Back to the game" onClick={() => void back()}>
+                <ArrowLeft size={16} aria-hidden="true" />
+              </IconButton>
+              <h1 className={TRACKER_TITLE}>
+                Set {initial.meta.setNumber || "?"} · {title}
+              </h1>
+              <SaveStatus snapshot={snapshot} />
+              {snapshot.stats === "changed" && (
+                <span className={STATUS_NOTE} title="Press Done to put your changes in the team’s stats">
+                  Not in the stats yet
+                </span>
+              )}
             </div>
           }
         />

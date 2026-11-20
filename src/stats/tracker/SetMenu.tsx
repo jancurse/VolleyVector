@@ -1,19 +1,15 @@
-import type { JSX } from "react";
-import { BarChart3, ChevronDown, Download, FilePlus2, Trash2, Upload } from "lucide-react";
+import { useRef } from "react";
+import type { ChangeEvent, JSX } from "react";
+import { Ellipsis } from "lucide-react";
 
-import { Button } from "../../ui/Button";
-import { Checkbox } from "../../ui/Checkbox";
-import { Field } from "../../ui/Field";
-import { FileButton } from "../../ui/FileButton";
-import { Input } from "../../ui/Input";
-import { Popover } from "../../ui/Popover";
+import { IconButton } from "../../ui/IconButton";
+import { Menu, MenuItem, MenuSeparator } from "../../ui/Menu";
 import type { MatchMeta } from "../types";
-import { LOCKED_HINT } from "./locked";
 
 type SetMenuProps = {
   meta: MatchMeta;
   hasEvents: boolean;
-  /** A finished set: nothing here may change it. */
+  /** A locked set: nothing here may change it. */
   locked: boolean;
   onMeta: (meta: Partial<MatchMeta>) => void;
   onExport: (format: "json" | "csv") => void;
@@ -24,7 +20,7 @@ type SetMenuProps = {
   onClear: () => void;
 };
 
-/** The set's details and files, behind one button: its number, its stats, export and import, and the next set. */
+/** The set's own actions in one menu: its stats, export and import, detailed stats, the next set, and clearing it. */
 export function SetMenu({
   meta,
   hasEvents,
@@ -37,66 +33,66 @@ export function SetMenu({
   onNextSet,
   onClear,
 }: SetMenuProps): JSX.Element {
-  const lockedTitle = locked ? LOCKED_HINT : undefined;
+  const statsFiles = useRef<HTMLInputElement>(null);
+  const importFile = useRef<HTMLInputElement>(null);
+  const picked = (onFiles: (files: File[]) => void) => (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+
+    if (files.length) onFiles(files);
+    e.target.value = "";
+  };
 
   return (
-    <Popover
-      ariaLabel="Set"
-      align="end"
-      trigger={
-        <Button variant="ghost" aria-label="Set menu">
-          Set {meta.setNumber} <ChevronDown size={14} aria-hidden="true" />
-        </Button>
-      }
-    >
-      <div className="flex w-72 flex-col gap-3">
-        <Field label="Set number" className="w-24">
-          <Input
-            value={meta.setNumber}
-            onChange={(e) => onMeta({ setNumber: e.target.value })}
-            placeholder="1"
-            disabled={locked}
-            title={lockedTitle}
-          />
-        </Field>
-        <Checkbox
-          ariaLabel="Detailed stats"
-          checked={!!meta.detailed}
-          onCheckedChange={(detailed) => onMeta({ detailed: detailed || undefined })}
-          disabled={locked}
-        >
-          <b>Detailed stats</b>: record the kind of each attack and defense, and how the opponent dug your attacks.
-        </Checkbox>
-        <div className="flex flex-col gap-2 border-t border-border pt-3">
-          <Button variant="ghost" onClick={onStats} disabled={!hasEvents}>
-            <BarChart3 size={15} aria-hidden="true" /> Stats and highlights for this set
-          </Button>
-          <FileButton
-            multiple
-            onFiles={onStatsFromFiles}
-            title="Select the exported JSON of every set for their stats, highlight clips, and match report"
-          >
-            <BarChart3 size={15} aria-hidden="true" /> Stats and highlights from set files…
-          </FileButton>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="ghost" onClick={() => onExport("json")} disabled={!hasEvents}>
-              <Download size={15} aria-hidden="true" /> Export JSON
-            </Button>
-            <Button variant="ghost" onClick={() => onExport("csv")} disabled={!hasEvents}>
-              <Download size={15} aria-hidden="true" /> Export CSV
-            </Button>
-            <FileButton onFiles={([file]) => onImport(file)} disabled={locked} title={lockedTitle}>
-              <Upload size={15} aria-hidden="true" /> Import JSON
-            </FileButton>
-            <Button variant="ghost" onClick={onNextSet} disabled={!hasEvents}>
-              <FilePlus2 size={15} aria-hidden="true" /> Next set
-            </Button>
-          </div>
-          <Button variant="danger" onClick={onClear} disabled={locked} title={lockedTitle}>
-            <Trash2 size={15} aria-hidden="true" /> Clear all data
-          </Button>
-        </div>
-      </div>
-    </Popover>
+    <>
+      <Menu
+        tooltip="More actions"
+        trigger={
+          <IconButton variant="plain" size="sm" aria-label="Set actions">
+            <Ellipsis size={16} aria-hidden="true" />
+          </IconButton>
+        }
+      >
+        <MenuItem onClick={onStats} disabled={!hasEvents}>
+          Stats and highlights for this set
+        </MenuItem>
+        <MenuItem onClick={() => statsFiles.current?.click()}>Stats and highlights from set files…</MenuItem>
+        <MenuSeparator />
+        <MenuItem onClick={() => onExport("json")} disabled={!hasEvents}>
+          Export JSON
+        </MenuItem>
+        <MenuItem onClick={() => onExport("csv")} disabled={!hasEvents}>
+          Export CSV
+        </MenuItem>
+        <MenuItem onClick={() => importFile.current?.click()} disabled={locked}>
+          Import JSON…
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem onClick={() => onMeta({ detailed: !meta.detailed || undefined })} disabled={locked}>
+          {meta.detailed ? "Turn off detailed stats" : "Turn on detailed stats"}
+        </MenuItem>
+        <MenuItem onClick={onNextSet} disabled={!hasEvents}>
+          Next set
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem onClick={onClear} disabled={locked}>
+          Clear all data
+        </MenuItem>
+      </Menu>
+      <input
+        ref={statsFiles}
+        type="file"
+        accept="application/json,.json"
+        multiple
+        hidden
+        onChange={picked(onStatsFromFiles)}
+      />
+      <input
+        ref={importFile}
+        type="file"
+        accept="application/json,.json"
+        hidden
+        onChange={picked(([file]) => onImport(file))}
+      />
+    </>
   );
 }

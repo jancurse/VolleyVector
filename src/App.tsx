@@ -300,6 +300,8 @@ export function App(): JSX.Element {
   } | null>(null);
   // The tracker's focus mode: the set page alone, without the sidebar and top bar.
   const [trackerFocus, setTrackerFocus] = useState(false);
+  // The tracker lays out as panes filling the window wherever the screen is wide enough for a sidebar or rail.
+  const trackerPanes = sidebarMode !== "drawer";
 
   // Selection, open board, and edit mode are all read off the current route.
   const selection: Selection =
@@ -410,6 +412,7 @@ export function App(): JSX.Element {
         signedIn={user !== null}
         focus={trackerFocus}
         onFocus={setTrackerFocus}
+        panes={trackerPanes}
         onBack={() => navigate(gameRoute(heldSet.game.teamId, allTeams, heldSet.game.id))}
         onNextSet={(next) =>
           navigate(
@@ -779,6 +782,7 @@ export function App(): JSX.Element {
         <AppShell
           mode="drawer"
           bare={trackerFocus}
+          fill={trackerPanes}
           topBar={<TopBar crumbs={crumbs} onNavigate={() => undefined} account={null} />}
         >
           {false}
@@ -1503,6 +1507,7 @@ export function App(): JSX.Element {
         }
         topBar={topBar}
         bare={trackerFocus && setPage !== null}
+        fill={trackerPanes && setPage !== null}
       >
         {(boardsError || notes.error) && (
           <p className={cx("mb-3", PAGE_WIDTH, "text-sm text-danger")}>{boardsError ?? notes.error}</p>

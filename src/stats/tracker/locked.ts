@@ -1,2 +1,2 @@
-/** Why a control is disabled on a finished set, as its tooltip. */
-export const LOCKED_HINT = "This set is finished. Reopen it to change it.";
+/** Why a control is disabled on a locked set, as its tooltip. */
+export const LOCKED_HINT = "This set is locked. Press Edit set to change it.";

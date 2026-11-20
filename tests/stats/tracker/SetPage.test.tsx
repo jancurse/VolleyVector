@@ -57,11 +57,11 @@ describe("SetPage", () => {
     const { fake, save } = backend();
 
     renderPage(fake);
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Recording saved"), SAVED);
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved"), SAVED);
     await userEvent.keyboard("+");
 
     await waitFor(() => expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ base: 1 })), SAVED);
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Recording saved"), SAVED);
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved"), SAVED);
   });
 
   test("a save someone else beat asks whose changes to keep; keep mine saves over theirs", async () => {
@@ -79,7 +79,7 @@ describe("SetPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Keep mine (overwrite)" }));
 
     await waitFor(() => expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ base: 5 })), SAVED);
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Recording saved"), SAVED);
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved"), SAVED);
   });
 
   test("a local copy made on an older version asks which to keep before opening", async () => {

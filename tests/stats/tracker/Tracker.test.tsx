@@ -13,9 +13,9 @@ vi.mock("../../../src/supabase/client", async () => {
   return { supabase: mod.supabaseFake };
 });
 
-function renderTracker(initial: AppData = emptyData(["Mira", "Suki"]), finished = false) {
+function renderTracker(initial: AppData = emptyData(["Mira", "Suki"])) {
   const onChange = vi.fn<(data: AppData) => void>();
-  const onFinish = vi.fn<(finished: boolean) => void>();
+  const onFinish = vi.fn<(finished: boolean) => Promise<boolean>>(async () => true);
   const onFocus = vi.fn<(focus: boolean) => void>();
 
   render(
@@ -23,7 +23,6 @@ function renderTracker(initial: AppData = emptyData(["Mira", "Suki"]), finished 
       <Tracker
         initial={initial}
         names={{ us: "Eagles", them: "Riverside" }}
-        finished={finished}
         onFocus={onFocus}
         onChange={onChange}
         onNextSet={() => {}}
@@ -142,16 +141,15 @@ describe("Tracker", () => {
     const { last } = renderTracker();
 
     await userEvent.keyboard("1a");
-    await userEvent.click(screen.getByRole("button", { name: "Set menu" }));
-    await userEvent.click(screen.getByRole("checkbox", { name: "Detailed stats" }));
-    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: "Set actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Turn on detailed stats" }));
     expect(section("Result").getByRole("button", { name: /Dig 0-1/ })).toBeInTheDocument();
 
     await userEvent.keyboard("t24");
     expect(last()?.events).toEqual([expect.objectContaining({ stat: "attack", type: "tip", result: "dig01" })]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Set menu" }));
-    await userEvent.click(screen.getByRole("checkbox", { name: "Detailed stats" }));
+    await userEvent.click(screen.getByRole("button", { name: "Set actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Turn off detailed stats" }));
     expect(JSON.parse(JSON.stringify(last()?.meta))).not.toHaveProperty("detailed");
   });
 
@@ -161,6 +159,7 @@ describe("Tracker", () => {
       events: [{ kind: "touch", id: 1, timestamp: 10, player: "Mira", stat: "serve", result: "ace", zone: "1" }],
     });
 
+    await userEvent.click(screen.getByRole("button", { name: "Edit set" }));
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
     await userEvent.click(screen.getByRole("button", { name: "+0.5s" }));
     await userEvent.click(screen.getByRole("button", { name: "+0.5s" }));
@@ -174,28 +173,39 @@ describe("Tracker", () => {
     expect(last()?.events[0]).toMatchObject({ timestamp: 0 });
   });
 
-  test("a finished set is locked until it is reopened", async () => {
+  test("a set with stats opens locked: nothing changes it until Edit set, and Done locks it again", async () => {
     const set: AppData = {
       ...emptyData(["Mira"]),
       events: [{ kind: "touch", id: 1, timestamp: 10, player: "Mira", stat: "serve", result: "ace", zone: "1" }],
     };
-    const { last, onFinish } = renderTracker(set, true);
+    const { last, onFinish } = renderTracker(set);
 
     await userEvent.keyboard("1s11+");
     await userEvent.click(section("Player").getByRole("button", { name: /Mira/ }));
     expect(last()?.events).toHaveLength(1);
-    expect(screen.queryByRole("region", { name: "Result" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /New stat/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Stat entry" })).toHaveTextContent("Reopen it to change it");
-    for (const name of ["Edit", "Delete", "Change", /Undo/])
+    expect(screen.queryByRole("region", { name: "Result" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Stat entry" })).toHaveTextContent(
+      "Locked, so nothing changes it by accident."
+    );
+    for (const name of ["Edit", "Delete", "Change", "Undo"])
       expect(screen.getByRole("button", { name })).toBeDisabled();
 
-    await userEvent.click(screen.getByRole("button", { name: "Reopen set" }));
-    expect(onFinish).toHaveBeenCalledWith(false);
+    await userEvent.click(screen.getByRole("button", { name: "Edit set" }));
+    expect(onFinish).toHaveBeenLastCalledWith(false);
+    await userEvent.keyboard("+");
+    expect(last()?.events).toHaveLength(2);
+
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(onFinish).toHaveBeenLastCalledWith(true);
+    expect(await screen.findByRole("button", { name: "Edit set" })).toBeInTheDocument();
   });
 
-  test("focus mode is switched by its button and by V, on a finished set too", async () => {
-    const { onFocus } = renderTracker(undefined, true);
+  test("focus mode is switched by its button and by V, on a locked set too", async () => {
+    const { onFocus } = renderTracker({
+      ...emptyData(["Mira"]),
+      events: [{ kind: "point", id: 1, timestamp: 1, winner: "us" }],
+    });
 
     await userEvent.click(screen.getByRole("button", { name: "Focus mode" }));
     await userEvent.keyboard("v");

@@ -2,9 +2,10 @@ import type { JSX } from "react";
 
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
-import type { Court, Team } from "../types";
+import type { Court, MatchMeta, Team } from "../types";
 import { LineupPanel } from "./LineupPanel";
 import { PlayersPanel } from "./PlayersPanel";
+import { SetupPanel } from "./SetupPanel";
 
 type PlayersDialogProps = {
   open: boolean;
@@ -19,9 +20,13 @@ type PlayersDialogProps = {
   onAdd: (name: string) => void;
   onRemove: (name: string) => void;
   onMove: (name: string, to: number) => void;
+  meta: MatchMeta;
+  names: { us: string; them: string };
+  hasEvents: boolean;
+  onMeta: (meta: Partial<MatchMeta>) => void;
 };
 
-/** Who plays the set: the starting lineup, substitutions, and the player list with its number keys. */
+/** How the set is set up: the starting lineup, substitutions, the player list with its number keys, and its start. */
 export function PlayersDialog({
   open,
   onOpenChange,
@@ -35,6 +40,10 @@ export function PlayersDialog({
   onAdd,
   onRemove,
   onMove,
+  meta,
+  names,
+  hasEvents,
+  onMeta,
 }: PlayersDialogProps): JSX.Element {
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Lineup and players">
@@ -48,6 +57,7 @@ export function PlayersDialog({
         onSub={onSub}
       />
       <PlayersPanel players={players} onAdd={onAdd} onRemove={onRemove} onMove={onMove} />
+      <SetupPanel meta={meta} names={names} hasEvents={hasEvents} onMeta={onMeta} />
       <div className="flex justify-end">
         <Button variant="ghost" onClick={() => onOpenChange(false)}>
           Done

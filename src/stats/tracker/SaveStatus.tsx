@@ -5,7 +5,7 @@ import { cx, STATUS_LINE } from "../../ui/styles";
 import type { SyncSnapshot } from "../sync/setSync";
 
 const LOOK: Record<SyncSnapshot["saveState"], [tone: string, icon: ReactNode, label: string]> = {
-  saved: ["text-text-dim", <Check key="i" size={14} aria-hidden="true" />, "Recording saved"],
+  saved: ["text-text-dim", <Check key="i" size={14} aria-hidden="true" />, "Saved"],
   saving: ["text-text-dim", <Loader2 key="i" size={14} aria-hidden="true" className="animate-spin" />, "Saving…"],
   unsaved: ["text-text-dim", <Loader2 key="i" size={14} aria-hidden="true" className="animate-spin" />, "Saving…"],
   offline: [

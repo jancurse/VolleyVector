@@ -560,7 +560,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       },
       {
         term: "The team sees it when you say so",
-        text: "The stats everyone reads change only when you press **Save stats** in the tracker, or mark the set finished. A half-recorded set never shows up in the stats by accident.",
+        text: "The stats everyone reads change only when you press **Done** in the tracker. A half-recorded set never shows up in the stats by accident.",
       },
     ],
     tips: [
@@ -584,7 +584,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           "Load the video: paste a YouTube link and press **Load**, or press **Load local video** for a file on your computer.",
           "Press **Change** beside **Player**. The list starts as the game's squad. The first ten players get the keys `1` to `9` and `0`, in list order, so drag your regulars to the front.",
           "Press **Set lineup** and choose who starts in positions 1 to 6, and the **Libero**. Position 1 serves. A game with rotations starts every set from its first one.",
-          "On the scoreboard, set **Start rotation**. Leave **First serve** on **Auto-detect** unless you want to fix it.",
+          "In the same dialog, set **Start rotation**. Leave **First serve** on **Auto-detect** unless you want to fix it.",
         ],
         after: "**First serve** and **Start rotation** can only be changed before the first stat.",
       },
@@ -641,25 +641,26 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         title: "Finish the set",
         steps: [
           "Give the last point by hand if no touch decided it.",
-          "Press **Mark set finished** at the top. This saves the stats for the team and locks the set.",
-          "Open the **Set** menu and press **Next set** to start the next one with the same players and video.",
+          "Press **Done** at the top. This puts your changes in the team's stats and locks the set.",
+          "Open **More actions** at the top and press **Next set** to start the next one with the same players and video.",
         ],
         after:
-          "Not done yet but want the team to see what you have? Press **Save stats** at the top of the tracker. It reads **Stats up to date** when they are.",
+          "A set with stats opens locked, so nothing changes it by accident. Press **Edit set** to carry on, and **Done** again when you stop.",
       },
       {
         title: "Give the video more room",
         steps: [
-          "Press **Focus mode** at the top, or `V`. The app's sidebar and top bar hide.",
-          "Press it again to bring them back.",
+          "Drag any line between the video, the entry, and the recorded stats. Your sizes are remembered in this browser.",
+          "Press `X`, or the panel button at the top, to move the entry beside the video or under it.",
+          "Press **Focus mode** at the top, or `V`, to hide the app's sidebar and top bar. Press it again to bring them back.",
         ],
-        after: "The video grows as far as the window allows while the entry stays in view.",
+        after: "On a small screen the video, the entry, and the stats are stacked, with nothing to drag.",
       },
       {
         title: "Record detailed stats",
         intro: "Optional. It adds a kind to each attack and defense, and grades how the opponent dug your attacks.",
         steps: [
-          "Open the **Set** menu and tick **Detailed stats**. The next set of the game starts with the same choice.",
+          "Open **More actions** at the top and press **Turn on detailed stats**. The next set of the game starts with the same choice.",
           "Record as usual. An attack or defense starts as a **Hit**. Press the kind's letter to change it.",
         ],
         after: "The stats add a **Detailed stats** card, built only from the touches recorded this way.",
@@ -734,12 +735,13 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           [", .", "One frame back or forward"],
           ["[ ]", "Slower or faster"],
           ["V", "Focus mode"],
+          ["X", "Entry beside the video, or under it"],
           ["Ctrl+Z", "Undo (add Shift to redo)"],
         ],
       },
     ],
     tips: [
-      "A sideways or distant video? Use the rotate and zoom buttons under it.",
+      "A sideways or distant video? Rotate and zoom are under **Video options**, at the end of the row under the video.",
       "Every key is also listed behind the **Keyboard shortcuts** button at the top of the tracker.",
       "You can click everything instead of using keys. It is slower, but works without a keyboard.",
     ],
@@ -756,6 +758,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       {
         title: "Correct a touch",
         steps: [
+          "Press **Edit set** at the top if the set is locked.",
           "Find it in **Recorded stats**. The newest rally is at the top.",
           "Press its time to jump the video to that moment.",
           "Press the pencil, change what is wrong, and press `Enter`.",
@@ -782,7 +785,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       {
         title: "Back up or move a set",
         steps: [
-          "Open the **Set** menu and press **Export JSON** to download the whole set, or **Export CSV** for a spreadsheet.",
+          "Open **More actions** at the top and press **Export JSON** to download the whole set, or **Export CSV** for a spreadsheet.",
           "Press **Import JSON** to replace this set's stats with a file.",
         ],
       },
@@ -806,9 +809,8 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         title: "The save status",
         intro: "It sits at the top of the tracker.",
         rows: [
-          ["Recording saved", "Your recording is stored."],
-          ["Save stats", "You have changes the team's stats do not show yet. Press it to publish them."],
-          ["Stats up to date", "The team's stats match what you recorded."],
+          ["Saved", "Your recording is stored."],
+          ["Not in the stats yet", "You have changes the team's stats do not show. Press **Done** to publish them."],
           [
             "Offline: kept in this browser, retrying",
             "Keep recording. It saves when the connection returns. Use the same browser until it does.",
@@ -824,8 +826,8 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     tips: [
       "If a set changed in two places while you were away, the app asks which to keep and downloads the other as a file first.",
       "Deleting a set cannot be undone, so the app downloads it as a file as it goes, unless you untick that.",
-      "On the game page, **Stats not saved** or **Stats not up to date** on a set means it has changes the stats do not show. Open it and press **Save stats**.",
-      "A finished set is locked, so nothing changes it by accident. Press **Reopen set** at the top to edit it, then **Mark set finished** again.",
+      "On the game page, **Stats not saved** or **Stats not up to date** on a set means it has changes the stats do not show. Open it, press **Edit set**, then **Done**.",
+      "A set with stats opens locked, so nothing changes it by accident. Press **Edit set** at the top to change it, then **Done**.",
     ],
     related: ["record", "import-sets"],
   },
@@ -842,7 +844,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         steps: [
           "For one game, open it and press its **Stats** tab.",
           "For several games, open **Games**, tick the box in front of each, and press **Stats for 2 games**. Only games with saved stats can be ticked.",
-          "While recording, press **Stats and highlights for this set** under **Set**.",
+          "While recording, open **More actions** and press **Stats and highlights for this set**.",
         ],
       },
       {
@@ -918,7 +920,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       },
     ],
     tips: [
-      "The stats show what was last saved with **Save stats**. If a set looks out of date, its recorder has not saved the stats yet.",
+      "The stats show a set as it was when its recorder last pressed **Done**. If a set looks out of date, they have not pressed it yet.",
       "Hover a metric's name to see its formula on the page.",
       "A ball the setter sends over counts as a **Setter tip**, not a set.",
     ],
@@ -1025,7 +1027,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       {
         title: "Look at files without saving them",
         steps: [
-          "Open any set in the tracker. Under **Set**, press **Stats and highlights from set files…**.",
+          "Open any set in the tracker. Open **More actions** and press **Stats and highlights from set files…**.",
           "Pick the files. The stats open, and nothing is stored.",
         ],
       },

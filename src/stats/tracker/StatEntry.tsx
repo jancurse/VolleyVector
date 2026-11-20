@@ -1,8 +1,9 @@
 import type { JSX } from "react";
+import { Pencil } from "lucide-react";
 
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
-import { CALLOUT_NOTE, cx, ENTRY_STEPS, PANEL } from "../../ui/styles";
+import { CALLOUT_NOTE, cx, ENTRY_STEPS, PANEL, PANEL_SCROLL } from "../../ui/styles";
 import {
   ENTRY_SKILLS,
   resultLabel,
@@ -38,10 +39,14 @@ type StatEntryProps = {
   onRetime: (to: number | "video") => void;
   /** Open the lineup and player list. */
   onPlayers: () => void;
-  /** A finished set: nothing can be entered until it is reopened. */
+  /** A locked set: nothing can be entered until Edit set is pressed. */
   locked: boolean;
+  onEdit: () => void;
+  editDisabled: boolean;
   /** Whether the set records detailed stats, which decides the kinds and results on offer. */
   detailed: boolean;
+  /** Fill the pane it sits in and scroll inside it, its steps side by side when the pane is wide. */
+  fill: boolean;
   onReason: (reason: string) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -54,6 +59,9 @@ type StatEntryProps = {
   court: Court | null;
 };
 
+/** Skills and kinds: four across in a column, two across once the steps sit side by side in a wide pane. */
+const CHOICE_GRID = "grid grid-cols-2 gap-1.5 sm:grid-cols-4 @4xl:grid-cols-2";
+
 /** Entering a stat: player, skill, result, zone, each by click or by key. New stats save once complete. */
 export function StatEntry({
   draft,
@@ -64,7 +72,10 @@ export function StatEntry({
   onRetime,
   onPlayers,
   locked,
+  onEdit,
+  editDisabled,
   detailed,
+  fill,
   onReason,
   onSave,
   onCancel,
@@ -82,9 +93,14 @@ export function StatEntry({
   const results = draft ? resultsFor(draft.stat, detailed) : [];
 
   return (
-    <section className={PANEL} aria-label="Stat entry">
+    <section className={cx(fill ? PANEL_SCROLL : PANEL, "@container")} aria-label="Stat entry">
       {locked ? (
-        <p className={CALLOUT_NOTE}>{LOCKED_HINT}</p>
+        <>
+          <Button className="w-full" onClick={onEdit} disabled={editDisabled}>
+            <Pencil size={15} aria-hidden="true" /> Edit set
+          </Button>
+          <p className="m-0 -mt-2 text-center text-xs text-text-dim">Locked, so nothing changes it by accident.</p>
+        </>
       ) : !draft && marks > 0 ? (
         <div className="flex gap-2">
           <Button className="flex-1" onClick={() => onStart()}>
@@ -190,7 +206,7 @@ export function StatEntry({
           active={step === "stat"}
           hint={draft ? "letter keys, any time" : "letter key to start"}
         >
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+          <div className={CHOICE_GRID}>
             {ENTRY_SKILLS.map((s) => (
               <Choice
                 key={s.id}
@@ -208,7 +224,7 @@ export function StatEntry({
 
         {draft && types.length > 0 && (
           <EntrySection title="Kind" active={false} hint="letter keys, any time">
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            <div className={CHOICE_GRID}>
               {types.map((t) => (
                 <Choice
                   key={t.id}
@@ -245,7 +261,7 @@ export function StatEntry({
                 placeholder="Describe what happened"
               />
             ) : (
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5 @4xl:grid-cols-2">
                 {results.map((r, i) => (
                   <Choice
                     key={r.id}
