@@ -10,6 +10,7 @@ type FileButtonProps = {
   /** Beside a primary button, as on `Button`. */
   paired?: boolean;
   title?: string;
+  disabled?: boolean;
   className?: string;
   onFiles: (files: File[]) => void;
 };
@@ -21,6 +22,7 @@ export function FileButton({
   multiple,
   paired,
   title,
+  disabled,
   className,
   onFiles,
 }: FileButtonProps): JSX.Element {
@@ -32,6 +34,7 @@ export function FileButton({
         variant="ghost"
         paired={paired}
         title={title}
+        disabled={disabled}
         className={className}
         onClick={() => input.current?.click()}
       >

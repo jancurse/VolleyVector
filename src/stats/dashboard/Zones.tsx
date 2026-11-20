@@ -1,9 +1,8 @@
 import type { JSX } from "react";
 
 import { cx, DASH_ZONE } from "../../ui/styles";
-import { skillDef } from "../codes";
 import type { Skill } from "../types";
-import { ALL } from "./data";
+import { actionLabel, ALL } from "./data";
 import type { GradeCount } from "./data";
 import { byGrade, pct } from "./format";
 import { gradeClass, gradeKey } from "./grades";
@@ -33,7 +32,7 @@ export function Zones({
 
   const zoneN = (g: readonly GradeCount[]) => g.reduce((a, r) => a + r.n, 0);
   const max = Math.max(1, ...[...byZone.values()].map(zoneN));
-  const label = skillDef(skill).label;
+  const label = actionLabel(skill);
 
   return (
     <TipBox className="grid max-w-dash-court grid-cols-3 gap-0.75">

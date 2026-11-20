@@ -1,19 +1,22 @@
 import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useReducer, useState } from "react";
 import type { JSX, ReactNode } from "react";
-import { Redo2, Undo2 } from "lucide-react";
+import { Check, Lock, Maximize2, Minimize2, PanelBottom, PanelRight, Redo2, Undo2 } from "lucide-react";
 
 import { GuideLink } from "../../guide/GuideLink";
 import { Button } from "../../ui/Button";
+import { IconButton } from "../../ui/IconButton";
 import { useConfirm } from "../../ui/useConfirm";
-import { cx, MUTED, PAGE_BAR, PAGE_WIDTH, TRACKER_GRID } from "../../ui/styles";
+import { MUTED, STATUS_NOTE, TRACKER_BAR, TRACKER_WORKSPACE } from "../../ui/styles";
 import {
   POINT_REASONS,
   predictSkill,
+  predictType,
   resultLabel,
   resultsFor,
   SKILL_BY_KEY,
   touchOutcome,
   touchReasonsFor,
+  typesFor,
   ZONE_GRID,
 } from "../codes";
 import {
@@ -24,6 +27,7 @@ import {
   isComplete,
   newDraft,
   setField,
+  setType,
   toggleReason,
 } from "../draft";
 import type { Draft, Field } from "../draft";
@@ -32,17 +36,18 @@ import { exportFilename, toCsv, toJson } from "../exporters";
 import { deriveRallies, predictPlayer } from "../rallies";
 import { toReportSet } from "../reportSet";
 import { emptyData, initState, newId, nextSetData, parseImport, reducer } from "../store";
+import type { Action } from "../store";
 import type { AppData, MatchEvent, Rally, ReportSet, Skill, Team } from "../types";
 import { FRAME, usePlayer } from "../usePlayer";
 import { extractYoutubeId } from "../youtube";
 import { EventLog } from "./EventLog";
-import { Kbd } from "./Kbd";
-import { LineupPanel } from "./LineupPanel";
-import { PlayersPanel } from "./PlayersPanel";
+import { PlayersDialog } from "./PlayersDialog";
 import { Scoreboard } from "./Scoreboard";
-import { SetPanel } from "./SetPanel";
+import { SetMenu } from "./SetMenu";
 import { ShortcutHelp } from "./ShortcutHelp";
 import { StatEntry } from "./StatEntry";
+import { initialArrangement, saveArrangement, TrackerPanes } from "./TrackerPanes";
+import type { Arrangement } from "./TrackerPanes";
 import { RATES, VideoPanel } from "./VideoPanel";
 
 // The stats and highlights load YouTube and are heavy; only load them when opened.
@@ -55,18 +60,30 @@ const MARK_LEAD = 0.3;
 /** A manual point this soon after a decisive touch is almost certainly a duplicate. */
 const DOUBLE_POINT_WINDOW = 4;
 const ZONES = new Set(ZONE_GRID.flat().filter(Boolean));
+/** The keys a locked set still answers: the video's, focus mode, and the arrangement. */
+const VIEW_KEYS = new Set([" ", "ArrowLeft", "ArrowRight", ",", ".", "[", "]", "v", "V", "x", "X"]);
 
 type TrackerProps = {
   /** The set as loaded. */
   initial: AppData;
   /** Our team's name and the opponent's, for the scoreboard. */
   names: { us: string; them: string };
-  finished: boolean;
+  /** Whether the app's sidebar and top bar are hidden, and how to switch that; absent where there are none. */
+  focus?: boolean;
+  onFocus?: (focus: boolean) => void;
+  /** Lay the tracker out as resizable panes filling the window; without it, as a plain stacked page. */
+  panes?: boolean;
+  /** Whether the team's stats lack changes the set already holds, so Done has something to publish. */
+  statsBehind?: boolean;
   /** Called with the set after every change, to be saved. */
   onChange: (data: AppData) => void;
-  /** Start the next set of the game from `next` (same players, lineup, and video). */
+  /** Start the next set of the game from `next` (same players and video). */
   onNextSet: (next: AppData) => void;
-  onFinish: (finished: boolean) => void;
+  /**
+   * Put the set's changes in the team's stats and mark it finished (true), or take it back into editing (false).
+   * Resolves to whether that worked.
+   */
+  onFinish: (finished: boolean) => Promise<boolean>;
   /** The left of the header: where this set belongs and whether it is saved. */
   header: ReactNode;
 };
@@ -75,14 +92,35 @@ type TrackerProps = {
 export function Tracker({
   initial,
   names,
-  finished,
+  focus = false,
+  onFocus,
+  panes = false,
+  statsBehind = false,
   onChange,
   onNextSet,
   onFinish,
   header,
 }: TrackerProps): JSX.Element {
-  const [state, dispatch] = useReducer(reducer, initial, initState);
+  const [state, apply] = useReducer(reducer, initial, initState);
   const { data } = state;
+  const detailed = !!data.meta.detailed;
+  // A set with stats opens locked, so nothing changes it by accident: it plays and shows its stats, and changes
+  // only between Edit set and Done.
+  const [editing, setEditing] = useState(initial.events.length === 0);
+  const [switching, setSwitching] = useState(false);
+  const locked = !editing;
+  // Nothing changes a locked set, whichever control or key asks, nor one on its way to being locked.
+  const dispatch = (action: Action) => {
+    if (!locked && !switching) apply(action);
+  };
+  const switchEditing = async (on: boolean) => {
+    setSwitching(true);
+    try {
+      if (await onFinish(!on)) setEditing(on);
+    } finally {
+      setSwitching(false);
+    }
+  };
   const [player, stage] = usePlayer(extractYoutubeId(initial.meta.youtubeUrl));
   const { confirm, dialog } = useConfirm();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -95,6 +133,23 @@ export function Tracker({
   const [notice, setNotice] = useState<string | null>(null);
   // A manual point that can still be given a reason with a single number key.
   const [pendingPoint, setPendingPoint] = useState<{ id: number; winner: Team } | null>(null);
+  const [playersOpen, setPlayersOpen] = useState(false);
+  const [arrangement, setArrangement] = useState<Arrangement>(initialArrangement);
+  const flip = () => {
+    const next = arrangement === "beside" ? "below" : "beside";
+
+    setArrangement(next);
+    saveArrangement(next);
+  };
+
+  // Locking the set drops whatever was still being entered.
+  if (locked && (draft || pendingPoint || marks.length || review || playersOpen)) {
+    setDraft(null);
+    setPendingPoint(null);
+    setMarks([]);
+    setReview(null);
+    setPlayersOpen(false);
+  }
 
   useEffect(() => onChange(data), [data, onChange]);
 
@@ -153,8 +208,8 @@ export function Tracker({
   };
 
   /** Start a new stat now, or at `at` (a marked contact) without touching playback. */
-  const startEntry = (opts: { player?: string; stat?: Skill } = {}, at?: number) => {
-    if (draft) return;
+  const startEntry = (opts: { player?: string; stat?: Skill; type?: string } = {}, at?: number) => {
+    if (draft || locked) return;
 
     setPendingPoint(null);
 
@@ -177,23 +232,30 @@ export function Tracker({
       rallyMeta
     );
     const ctx = before[before.length - 1];
-    const stat = opts.stat ?? predictSkill(ctx.touches[ctx.touches.length - 1] ?? null, ctx.serving);
+    const last = ctx.touches[ctx.touches.length - 1] ?? null;
+    const stat = opts.stat ?? predictSkill(last, ctx.serving);
     const who = opts.player ?? predictPlayer(before, stat);
-    const d = newDraft(timestamp, who, stat);
+    const d = newDraft(timestamp, who, stat, detailed);
 
-    setDraft({ ...d, suggested: { player: d.suggested.player && !opts.player, stat: d.suggested.stat && !opts.stat } });
+    setDraft({
+      ...d,
+      type: opts.type ?? predictType(last, stat, detailed),
+      suggested: { player: d.suggested.player && !opts.player, stat: d.suggested.stat && !opts.stat },
+    });
   };
 
   // --- Contact marks ---------------------------------------------------------
 
   const mark = () => {
+    if (locked) return;
+
     const t = Math.max(0, player.getTime() - MARK_LEAD);
 
     setMarks((m) => [...m, t].sort((a, b) => a - b));
   };
 
   /** Pause and walk through the marked contacts one at a time. */
-  const beginReview = (opts: { player?: string; stat?: Skill } = {}) => {
+  const beginReview = (opts: { player?: string; stat?: Skill; type?: string } = {}) => {
     const first = marks[0];
 
     if (first === undefined) return;
@@ -252,11 +314,21 @@ export function Tracker({
   const change = (field: Field, value: string) => {
     if (!draft) return;
 
-    const next = setField(draft, field, value);
+    const next = setField(draft, field, value, detailed);
 
     // New stats save themselves as soon as the last field is filled in.
     if (next.editingId === null && next.stat !== "misc" && isComplete(next)) commit(next);
     else setDraft(next);
+  };
+
+  /** Move the stat being edited in time, and show that moment. */
+  const retime = (to: number | "video") => {
+    if (!draft) return;
+
+    const timestamp = Math.max(0, to === "video" ? player.getTime() : draft.timestamp + to);
+
+    setDraft({ ...draft, timestamp });
+    if (to !== "video") player.seek(timestamp);
   };
 
   /** Esc: drop this stat. While reviewing, that also discards the contact mark. */
@@ -364,6 +436,7 @@ export function Tracker({
       !!t.closest?.("[role=dialog],[role=alertdialog],[role=listbox]");
 
     if (typing) return;
+    if (locked && !VIEW_KEYS.has(e.key)) return;
 
     const mod = e.ctrlKey || e.metaKey;
 
@@ -424,7 +497,7 @@ export function Tracker({
       if (step === "player" && playerAt) change("player", playerAt);
 
       if (step === "result") {
-        const r = resultsFor(draft.stat)[Number(digit) - 1];
+        const r = resultsFor(draft.stat, detailed)[Number(digit) - 1];
 
         if (r) change("result", r.id);
       }
@@ -439,6 +512,24 @@ export function Tracker({
     if (touchReason) {
       e.preventDefault();
       setDraft(toggleReason(draft, touchReason.id));
+
+      return;
+    }
+
+    // A kind of attack or defense, once that skill is picked. T is a tip whatever the skill so far.
+    const type = !e.shiftKey && typesFor(draft?.stat ?? "", detailed).find((t) => t.key === e.key.toLowerCase());
+
+    if (draft && type) {
+      e.preventDefault();
+      setDraft(setType(draft, type.id, detailed));
+
+      return;
+    }
+
+    if (detailed && !e.shiftKey && e.key.toLowerCase() === "t") {
+      e.preventDefault();
+      if (draft) setDraft(setType(setField(draft, "stat", "attack", detailed), "tip", detailed));
+      else startEntry({ stat: "attack", type: "tip" });
 
       return;
     }
@@ -501,6 +592,22 @@ export function Tracker({
       case "_":
         handled();
         recordPoint("them");
+        break;
+      case "v":
+      case "V":
+        if (onFocus) {
+          handled();
+          onFocus(!focus);
+        }
+
+        break;
+      case "x":
+      case "X":
+        if (panes) {
+          handled();
+          flip();
+        }
+
         break;
       case "Enter":
         handled();
@@ -622,7 +729,8 @@ export function Tracker({
     if (
       !(await confirm({
         title: "Start the next set?",
-        description: "Players, lineup, and video are kept.",
+        description:
+          "Players and video are kept. The lineup starts from the game’s first rotation, or else from this set’s.",
         confirmLabel: "Start",
       }))
     )
@@ -646,8 +754,69 @@ export function Tracker({
     dispatch({ type: "replace", data: { ...emptyData(), meta: { ...data.meta, lineup: [], libero: "" } } });
   };
 
+  const video = (
+    <VideoPanel
+      player={player}
+      stage={stage}
+      youtubeUrl={data.meta.youtubeUrl}
+      onYoutubeUrl={(youtubeUrl) => dispatch({ type: "setMeta", meta: { youtubeUrl } })}
+      markers={markers}
+      marks={marks}
+      onMark={mark}
+      locked={locked}
+      fill={panes}
+    />
+  );
+  const actions = (
+    <StatEntry
+      draft={draft}
+      players={data.players}
+      onStart={(opts) => startEntry(opts)}
+      onChange={change}
+      onType={(type) => draft && setDraft(setType(draft, type, detailed))}
+      onRetime={retime}
+      onPlayers={() => setPlayersOpen(true)}
+      locked={locked}
+      onEdit={() => void switchEditing(true)}
+      editDisabled={switching}
+      detailed={detailed}
+      fill={panes}
+      onReason={(reason) => draft && setDraft(toggleReason(draft, reason))}
+      onSave={() => draft && commit(draft)}
+      onCancel={cancel}
+      marks={marks.length}
+      review={review && { index: review.total - marks.length + 1, total: review.total }}
+      onClearMarks={clearMarks}
+      court={entryCourt}
+    />
+  );
+  const stats = (
+    <EventLog
+      rallies={rallies}
+      currentTime={player.currentTime}
+      editingId={draft?.editingId ?? null}
+      locked={locked}
+      fill={panes}
+      score={
+        <Scoreboard
+          rally={openRally}
+          names={names}
+          pending={pendingPoint}
+          notice={notice}
+          locked={locked}
+          onPoint={recordPoint}
+          onReason={setPointReason}
+        />
+      }
+      onSeek={player.seek}
+      onEdit={editEvent}
+      onDelete={(id) => dispatch({ type: "deleteEvent", id })}
+      onAnnotate={annotateRally}
+    />
+  );
+
   return (
-    <div className={cx("mx-auto flex flex-col gap-4", PAGE_WIDTH)}>
+    <div className={panes ? TRACKER_WORKSPACE : "flex flex-col gap-4"}>
       {statsView && (
         <Suspense fallback={<p className={MUTED}>Loading the stats…</p>}>
           <StatsPage
@@ -660,89 +829,31 @@ export function Tracker({
         </Suspense>
       )}
       {/* The tracker stays mounted under the stats, so the video and the entry in progress are where they were. */}
-      <div hidden={!!statsView} className="flex flex-col gap-4">
-        <header className={PAGE_BAR}>
-          {header}
-          <div className="flex items-center gap-1">
-            <GuideLink topic="record" />
-            <Button variant="text" onClick={() => dispatch({ type: "undo" })} disabled={!state.past.length}>
-              <Undo2 size={15} aria-hidden="true" /> Undo <Kbd>Ctrl+Z</Kbd>
-            </Button>
-            <Button variant="text" onClick={() => dispatch({ type: "redo" })} disabled={!state.future.length}>
-              <Redo2 size={15} aria-hidden="true" /> Redo <Kbd>Ctrl+⇧+Z</Kbd>
-            </Button>
+      <div hidden={!!statsView} className={panes ? "flex min-h-0 flex-1 flex-col gap-2" : "flex flex-col gap-4"}>
+        <header className={TRACKER_BAR}>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {header}
+            {locked ? (
+              <span className={STATUS_NOTE}>
+                <Lock size={14} aria-hidden="true" /> Locked
+              </span>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void switchEditing(false)}
+                disabled={switching || (!data.events.length && !statsBehind)}
+                title="Put your changes in the team’s stats and lock the set"
+              >
+                <Check size={15} aria-hidden="true" /> Done
+              </Button>
+            )}
           </div>
-        </header>
-
-        {/* On a narrow screen the entry comes straight after the video, and the log after both. */}
-        <div className={TRACKER_GRID}>
-          <div className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
-            <VideoPanel
-              player={player}
-              stage={stage}
-              youtubeUrl={data.meta.youtubeUrl}
-              onYoutubeUrl={(youtubeUrl) => dispatch({ type: "setMeta", meta: { youtubeUrl } })}
-              markers={markers}
-              marks={marks}
-              onMark={mark}
-            />
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-            <Scoreboard
-              rally={openRally}
-              meta={data.meta}
-              names={names}
-              hasEvents={data.events.length > 0}
-              pending={pendingPoint}
-              notice={notice}
-              onPoint={recordPoint}
-              onReason={setPointReason}
-              onMeta={(meta) => dispatch({ type: "setMeta", meta })}
-            />
-            <StatEntry
-              draft={draft}
-              players={data.players}
-              onStart={(opts) => startEntry(opts)}
-              onChange={change}
-              onReason={(reason) => draft && setDraft(toggleReason(draft, reason))}
-              onSave={() => draft && commit(draft)}
-              onCancel={cancel}
-              marks={marks.length}
-              review={review && { index: review.total - marks.length + 1, total: review.total }}
-              onClearMarks={clearMarks}
-              court={entryCourt}
-            />
-            <LineupPanel
-              court={openRally.court}
-              serving={openRally.serving}
-              players={data.players}
-              lineup={data.meta.lineup}
-              libero={data.meta.libero}
-              onSetLineup={(l, lib) => dispatch({ type: "setLineup", lineup: l, libero: lib })}
-              onSub={(out, inn) =>
-                dispatch({
-                  type: "addEvent",
-                  event: {
-                    kind: "sub",
-                    id: newId(data.events),
-                    timestamp: review ? review.returnTo : player.getTime(),
-                    out,
-                    in: inn,
-                  },
-                })
-              }
-            />
-            <PlayersPanel
-              players={data.players}
-              onAdd={(name) => dispatch({ type: "addPlayer", name })}
-              onRemove={(name) => dispatch({ type: "removePlayer", name })}
-              onMove={(name, delta) => dispatch({ type: "movePlayer", name, delta })}
-            />
-            <SetPanel
+          <div className="flex flex-wrap items-center gap-1">
+            <SetMenu
               meta={data.meta}
               hasEvents={data.events.length > 0}
-              finished={finished}
+              locked={locked}
               onMeta={(meta) => dispatch({ type: "setMeta", meta })}
               onExport={exportAs}
               onStats={() => {
@@ -752,25 +863,101 @@ export function Tracker({
               onImport={(file) => void importFile(file)}
               onStatsFromFiles={(files) => void statsFromFiles(files)}
               onNextSet={() => void nextSet()}
-              onFinish={onFinish}
               onClear={() => void clearAll()}
             />
+            <IconButton
+              variant="plain"
+              size="sm"
+              aria-label="Undo"
+              tooltip="Undo (Ctrl+Z)"
+              onClick={() => dispatch({ type: "undo" })}
+              disabled={locked || !state.past.length}
+            >
+              <Undo2 size={16} aria-hidden="true" />
+            </IconButton>
+            <IconButton
+              variant="plain"
+              size="sm"
+              aria-label="Redo"
+              tooltip="Redo (Ctrl+Shift+Z)"
+              onClick={() => dispatch({ type: "redo" })}
+              disabled={locked || !state.future.length}
+            >
+              <Redo2 size={16} aria-hidden="true" />
+            </IconButton>
             <ShortcutHelp />
+            <GuideLink topic="record" />
+            {panes && (
+              <IconButton
+                variant="plain"
+                size="sm"
+                aria-label={
+                  arrangement === "beside" ? "Put the entry under the video" : "Put the entry beside the video"
+                }
+                tooltip={arrangement === "beside" ? "Entry under the video (X)" : "Entry beside the video (X)"}
+                onClick={flip}
+              >
+                {arrangement === "beside" ? (
+                  <PanelBottom size={16} aria-hidden="true" />
+                ) : (
+                  <PanelRight size={16} aria-hidden="true" />
+                )}
+              </IconButton>
+            )}
+            {onFocus && (
+              <IconButton
+                variant="plain"
+                size="sm"
+                aria-label={focus ? "Leave focus mode" : "Focus mode"}
+                tooltip={focus ? "Show the sidebar and top bar (V)" : "Hide the sidebar and top bar (V)"}
+                aria-pressed={focus}
+                onClick={() => onFocus(!focus)}
+              >
+                {focus ? <Minimize2 size={16} aria-hidden="true" /> : <Maximize2 size={16} aria-hidden="true" />}
+              </IconButton>
+            )}
           </div>
+        </header>
 
-          <div className="min-w-0 lg:col-start-1 lg:row-start-2">
-            <EventLog
-              rallies={rallies}
-              currentTime={player.currentTime}
-              editingId={draft?.editingId ?? null}
-              onSeek={player.seek}
-              onEdit={editEvent}
-              onDelete={(id) => dispatch({ type: "deleteEvent", id })}
-              onAnnotate={annotateRally}
-            />
-          </div>
-        </div>
+        {panes ? (
+          <TrackerPanes arrangement={arrangement} video={video} actions={actions} stats={stats} />
+        ) : (
+          <>
+            {video}
+            {actions}
+            {stats}
+          </>
+        )}
       </div>
+      <PlayersDialog
+        open={playersOpen}
+        onOpenChange={setPlayersOpen}
+        court={openRally.court}
+        serving={openRally.serving}
+        players={data.players}
+        lineup={data.meta.lineup}
+        libero={data.meta.libero}
+        onSetLineup={(l, lib) => dispatch({ type: "setLineup", lineup: l, libero: lib })}
+        onSub={(out, inn) =>
+          dispatch({
+            type: "addEvent",
+            event: {
+              kind: "sub",
+              id: newId(data.events),
+              timestamp: review ? review.returnTo : player.getTime(),
+              out,
+              in: inn,
+            },
+          })
+        }
+        onAdd={(name) => dispatch({ type: "addPlayer", name })}
+        onRemove={(name) => dispatch({ type: "removePlayer", name })}
+        onMove={(name, to) => dispatch({ type: "movePlayer", name, to })}
+        meta={data.meta}
+        names={names}
+        hasEvents={data.events.length > 0}
+        onMeta={(meta) => dispatch({ type: "setMeta", meta })}
+      />
       {dialog}
     </div>
   );

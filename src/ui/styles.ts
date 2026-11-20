@@ -91,6 +91,9 @@ export const TOGGLE_PILL =
 export const PANEL =
   "flex flex-col gap-[0.9rem] rounded-xl border border-border bg-panel pt-[1.1rem] px-[1.15rem] pb-[1.25rem]";
 
+/** A group inside a dialog or panel that is itself a surface: a lighter border, no fill of its own. */
+export const SUBPANEL = "flex flex-col gap-3 rounded-lg border border-border p-3";
+
 /** A small uppercase mono caption, used as a panel title and section heading. */
 export const PANEL_TITLE = "m-0 font-mono text-xs font-medium uppercase tracking-[0.22em] text-text-dim";
 
@@ -151,7 +154,7 @@ export const OVERLAY_MOTION =
 
 /** A highlightable row inside an overlay (menu item, listbox option). */
 export const OVERLAY_ITEM =
-  "flex w-full items-center cursor-default select-none rounded-sm px-2 py-1.5 text-left font-ui text-base font-semibold text-text outline-none data-[highlighted]:bg-control-hover data-[selected]:bg-control-hover";
+  "flex w-full items-center cursor-default select-none rounded-sm px-2 py-1.5 text-left font-ui text-base font-semibold text-text outline-none data-[disabled]:opacity-40 data-[highlighted]:bg-control-hover data-[selected]:bg-control-hover";
 
 /** A choosable row in a picker panel: a plain button that highlights on hover and keyboard focus. */
 export const PICK_ROW =
@@ -220,9 +223,23 @@ export const SLIP_ZONE_BUTTON =
 
 // ---- Stats tracker ----------------------------------------------------------------------------
 
-/** The tracker's columns: video and log on the left, the side panels on the right; stacked when narrow. */
-export const TRACKER_GRID =
-  "grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_var(--container-tracker-side)] lg:grid-rows-[auto_1fr]";
+/** The tracker as a workspace filling the window: a one-line bar, then its panes, each scrolling inside itself. */
+export const TRACKER_WORKSPACE = "flex h-full min-h-0 w-full flex-col gap-2";
+/** The tracker on a small screen: a plain page, the video, the entry, then the score and log. */
+export const TRACKER_STACK = cx("mx-auto flex flex-col gap-4", "w-full max-w-[var(--shell-max)]");
+/** The set's name in the tracker's bar: a page title at the size of a line. */
+export const TRACKER_TITLE = "m-0 min-w-0 truncate font-display text-display-sm font-bold text-text";
+/** The tracker's one-line bar: where the set belongs and its status on the left, its actions on the right. */
+export const TRACKER_BAR = "flex flex-none flex-wrap items-center justify-between gap-x-3 gap-y-1";
+/** One pane of the tracker's grid, and the box inside it that holds the pane's panel at full size. */
+export const TRACKER_CELL = "min-h-0 min-w-0 p-1";
+export const TRACKER_PANE_FILL = "h-full min-h-0";
+/** The line between two panes that drags to resize them: quiet until hovered, focused, or dragged. */
+const GRIDLINE =
+  "rounded-pill bg-border transition-colors duration-150 ease-settle hover:bg-accent focus-visible:bg-accent focus-visible:outline-none data-[separator=active]:bg-accent";
+
+/** The line between columns is upright and the one between rows lies flat; each is as thin as the other. */
+export const TRACKER_GRIDLINE = { column: cx(GRIDLINE, "w-1"), row: cx(GRIDLINE, "h-1") };
 
 /** A keyboard-shortcut badge shown on the control it triggers; hidden on a touch screen. */
 export const KBD =
@@ -247,7 +264,7 @@ export type ChoiceTone = "idle" | "selected" | "suggested" | "good" | "bad";
 
 /** One pick in the stat entry grid (player, skill, result, zone), with its hotkey badge pinned right. */
 export const CHOICE_BASE =
-  "relative w-full cursor-pointer truncate rounded-md py-2 pr-7 pl-2 text-left font-ui text-sm font-semibold transition-colors duration-150 ease-settle focus-visible:outline-2 focus-visible:outline-accent";
+  "relative w-full cursor-pointer truncate rounded-md py-2 pr-7 pl-2 text-left font-ui text-sm font-semibold transition-colors duration-150 ease-settle focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50";
 
 export const CHOICE_TONE: Record<ChoiceTone, string> = {
   idle: "bg-control text-text hover:bg-control-hover",
@@ -256,6 +273,9 @@ export const CHOICE_TONE: Record<ChoiceTone, string> = {
   good: cx(US_TINT, "text-text"),
   bad: cx(THEM_TINT, "text-text"),
 };
+
+/** A centred line of small print under the entry's main button. */
+export const ENTRY_CAPTION = "m-0 -mt-2 text-center text-xs text-text-dim";
 
 /** The step of the stat entry waiting for input. */
 export const ENTRY_STEP_ACTIVE = "bg-accent-weak ring-2 ring-accent";
@@ -271,18 +291,41 @@ export const CALLOUT_NOTE = "m-0 rounded-md border border-border bg-control px-3
 /** The net above a court diagram: a small caption over a heavy line. */
 export const NET_CAPTION = "text-center font-mono text-2xs uppercase tracking-[0.22em] text-text-dim";
 export const NET_LINE = "border-t-4 border-text pt-1.5";
+/** The net under a court diagram, for the opponent's court seen from our side. */
+export const NET_LINE_BELOW = "border-b-4 border-text pb-1.5";
+/** A group of controls that disables as one (a locked set's entry); it adds no box of its own. */
+export const FIELDSET = "m-0 min-w-0 border-0 p-0";
+/** The stat entry's steps: stacked in a column, side by side once its panel is wide. */
+export const ENTRY_STEPS = cx(
+  FIELDSET,
+  "flex flex-col gap-[0.9rem] @4xl:grid @4xl:auto-cols-fr @4xl:grid-flow-col @4xl:items-start @4xl:gap-4"
+);
+/** A one-line status with a leading icon (saved, locked); the caller gives its colour, or uses the quiet one. */
+export const STATUS_LINE = "inline-flex items-center gap-1 text-xs font-semibold";
+export const STATUS_NOTE = cx(STATUS_LINE, "text-text-dim");
 
-/** The video stage: black in either theme, as a player letterboxes. */
-export const VIDEO_STAGE = "relative flex aspect-video items-center justify-center overflow-hidden bg-black";
+/** The video stage: black in either theme, as a player letterboxes. On a page it is 16:9; in a pane it fills
+    the pane, and VIDEO_FRAME_FILL is then the largest 16:9 box that fits inside it. */
+const VIDEO_STAGE_BASE = "relative flex items-center justify-center overflow-hidden bg-black";
+
+export const VIDEO_STAGE = cx(VIDEO_STAGE_BASE, "aspect-video");
+export const VIDEO_STAGE_FILL = cx(VIDEO_STAGE_BASE, "min-h-0 flex-1 [container-type:size]");
+export const VIDEO_FRAME = "relative h-full w-full";
+export const VIDEO_FRAME_FILL = "relative aspect-video w-[min(100cqw,calc(100cqh*16/9))]";
 /** A placeholder line on the black video stage. */
 export const VIDEO_STAGE_NOTE = "m-0 text-center text-white/60";
 
 /** The big "point to us / them" button in the scoreboard; the US_TINT or THEM_TINT gives its side. */
 export const POINT_BUTTON =
-  "flex cursor-pointer items-center justify-center gap-1.5 rounded-md py-2 text-sm font-semibold text-text transition-colors duration-150 ease-settle";
+  "flex cursor-pointer items-center justify-center gap-1.5 rounded-md py-2 text-sm font-semibold text-text transition-colors duration-150 ease-settle disabled:cursor-not-allowed disabled:opacity-50";
 
 /** A link out of the app, in the accent colour or its surroundings' own. */
 export const LINK = { accent: "text-accent hover:underline", inherit: "text-inherit hover:underline" };
+
+/** A player's row in the set's list, which drags to reorder; the row it would drop on is outlined. */
+export const PLAYER_ROW =
+  "flex cursor-grab items-center gap-1 rounded-md bg-control py-1 pr-1 pl-1 active:cursor-grabbing";
+export const PLAYER_ROW_TARGET = "outline-2 -outline-offset-2 outline-accent";
 
 /** The fill of a lineup court spot: picked, the libero's, or any other. */
 export const COURT_SPOT_TONE = {
@@ -355,6 +398,8 @@ export const DASH_ROWS =
 export const PANEL_FLUSH = "flex flex-col gap-[0.9rem] rounded-xl border border-border bg-panel pt-[1.1rem]";
 /** The panel surface around a video, which runs to its edges. */
 export const VIDEO_PANEL = "flex flex-col gap-[0.9rem] overflow-hidden rounded-xl border border-border bg-panel";
+/** A panel that fills its pane and scrolls its own content (the tracker's entry). */
+export const PANEL_SCROLL = cx(PANEL, "h-full min-h-0 overflow-y-auto");
 /** A panel's own side padding, for the parts of a flush panel that keep it. */
 export const PANEL_PAD_X = "px-[1.15rem]";
 

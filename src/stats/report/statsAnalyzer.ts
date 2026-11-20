@@ -55,7 +55,8 @@ export function reportStats(rallies: Rally[]): Stat[] {
         player: t.player,
         stat: t.stat,
         zone: t.zone,
-        result: t.result,
+        // The report keeps the one "defended" outcome for an attack, however finely the dig was graded.
+        result: t.stat === "attack" && (t.result === "dig01" || t.result === "dig23") ? "defended" : t.result,
         timestamp: t.timestamp,
         reason: t.reason,
       });

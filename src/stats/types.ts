@@ -11,6 +11,8 @@ export type Touch = {
   stat: Skill;
   result: string;
   zone: string;
+  /** The kind of attack or defense (see TYPES), on a set recording detailed stats; absent when not recorded. */
+  type?: string;
   /** Optional detail for some results, e.g. a defense error due to positioning. */
   reason?: string;
 };
@@ -63,6 +65,8 @@ export type MatchMeta = {
   libero: string;
   /** A score typed in: for a set recorded without stats, or one whose stats are incomplete. It wins over the events'. */
   score?: { us: number; them: number };
+  /** Record detailed stats: the kind of each attack and defense, and how the opponent dug an attack. */
+  detailed?: boolean;
 };
 
 export type Rally = {

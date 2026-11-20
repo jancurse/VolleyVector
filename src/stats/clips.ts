@@ -1,5 +1,5 @@
 import { formatGameDate } from "../games/format";
-import { pointReasonLabel, resultLabel, skillDef } from "./codes";
+import { pointReasonLabel, resultLabel, skillLabel } from "./codes";
 import type { ReportSet } from "./types";
 import { extractYoutubeId } from "./youtube";
 
@@ -73,7 +73,7 @@ export function highlightActions(set: ReportSet, index = 0): HighlightAction[] {
       rally: r.index,
       time: t.timestamp,
       player: t.player,
-      action: skillDef(t.stat).label,
+      action: skillLabel(t),
       outcome: resultLabel(t.stat, t.result),
       zone: t.zone,
       score,
@@ -144,7 +144,7 @@ export function highlightRallies(set: ReportSet, index = 0): RallySummary[] {
     const end = r.endedBy;
     const ended =
       end?.kind === "touch"
-        ? `${end.player} · ${skillDef(end.stat).label} ${resultLabel(end.stat, end.result)}`
+        ? `${end.player} · ${skillLabel(end)} ${resultLabel(end.stat, end.result)}`
         : end?.kind === "point"
           ? pointReasonLabel(end.winner, end.reason)
           : "";

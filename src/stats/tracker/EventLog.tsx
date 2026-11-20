@@ -1,4 +1,4 @@
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 import { Button } from "../../ui/Button";
 import { cx, MUTED, PANEL_FLUSH, PANEL_PAD_X, PANEL_TITLE, THEM_TEXT, US_TEXT } from "../../ui/styles";
@@ -10,6 +10,12 @@ type EventLogProps = {
   rallies: readonly Rally[];
   currentTime: number;
   editingId: number | null;
+  /** A locked set: its events can be watched, not changed. */
+  locked: boolean;
+  /** Fill the pane it sits in and scroll inside it. */
+  fill: boolean;
+  /** The score row, above the list. */
+  score: ReactNode;
   onSeek: (t: number) => void;
   onEdit: (e: MatchEvent) => void;
   onDelete: (id: number) => void;
@@ -25,6 +31,9 @@ export function EventLog({
   rallies,
   currentTime,
   editingId,
+  locked,
+  fill,
+  score,
   onSeek,
   onEdit,
   onDelete,
@@ -34,7 +43,8 @@ export function EventLog({
   const visible = rallies.filter((r) => r.touches.length || r.winner || r.subs.length).reverse();
 
   return (
-    <section className={PANEL_FLUSH} aria-labelledby="log-title">
+    <section className={cx(PANEL_FLUSH, fill && "h-full min-h-0")} aria-labelledby="log-title">
+      {score}
       <div className={cx("flex justify-between", PANEL_PAD_X)}>
         <h2 id="log-title" className={PANEL_TITLE}>
           Recorded stats
@@ -43,7 +53,7 @@ export function EventLog({
           {total} touches · {rallies.length - 1} rallies
         </span>
       </div>
-      <div className="max-h-event-log overflow-y-auto border-t border-border lg:max-h-none">
+      <div className={cx("overflow-y-auto border-t border-border", fill ? "min-h-0 flex-1" : "max-h-event-log")}>
         {visible.length === 0 ? (
           <p className={cx(MUTED, "p-6 text-center")}>No stats recorded yet</p>
         ) : (
@@ -72,7 +82,7 @@ export function EventLog({
                     <i className="font-normal">in progress</i>
                   )}
                 </Button>
-                {r.inferred && winner && (
+                {r.inferred && winner && !locked && (
                   <InferredEnd rally={{ ...r, winner }} onAnnotate={(reason) => onAnnotate(r, reason)} />
                 )}
                 {[...r.subs, ...r.touches, ...(r.endedBy?.kind === "point" ? [r.endedBy] : [])]
@@ -82,6 +92,7 @@ export function EventLog({
                       key={e.id}
                       event={e}
                       editing={e.id === editingId}
+                      locked={locked}
                       onSeek={() => onSeek(e.timestamp - SEEK_LEAD)}
                       onEdit={() => onEdit(e)}
                       onDelete={() => onDelete(e.id)}

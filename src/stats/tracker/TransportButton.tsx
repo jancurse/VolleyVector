@@ -8,19 +8,17 @@ export function TransportButton({
   children,
   onClick,
   title,
-  primary,
   kbd,
 }: {
   children: ReactNode;
   onClick: () => void;
   title: string;
-  primary?: boolean;
   kbd?: string;
 }): JSX.Element {
   return (
-    <Button variant={primary ? "primary" : "ghost"} size="sm" paired onClick={onClick} title={title} aria-label={title}>
+    <Button variant="ghost" size="sm" paired onClick={onClick} title={title} aria-label={title}>
       {children}
-      {kbd && <Kbd onAccent={primary}>{kbd}</Kbd>}
+      {kbd && <Kbd>{kbd}</Kbd>}
     </Button>
   );
 }

@@ -3,7 +3,7 @@ import type { JSX } from "react";
 import { cx, THEM_TEXT, US_TEXT } from "../../ui/styles";
 import type { Team } from "../types";
 
-/** One side's score, with a dot while that side serves. */
+/** One side's name and score on the score row, with a dot while that side serves; the scores meet in the middle. */
 export function TeamScore({
   side,
   name,
@@ -16,14 +16,12 @@ export function TeamScore({
   serving: boolean;
 }): JSX.Element {
   return (
-    <div className="p-3 text-center">
-      <div className="flex items-center justify-center gap-1 truncate text-xs font-semibold text-text-dim">
-        {serving && <span className="inline-block size-2 rounded-full bg-text" title="Serving" />}
-        {name}
-      </div>
-      <div className={cx("font-display text-score font-bold tabular-nums", side === "us" ? US_TEXT : THEM_TEXT)}>
+    <span className={cx("flex min-w-0 items-baseline gap-1.5", side === "them" && "flex-row-reverse")}>
+      {serving && <span className="inline-block size-2 flex-none self-center rounded-full bg-text" title="Serving" />}
+      <span className="truncate text-xs font-semibold text-text-dim">{name}</span>
+      <b className={cx("font-display text-xl leading-none tabular-nums", side === "us" ? US_TEXT : THEM_TEXT)}>
         {score}
-      </div>
-    </div>
+      </b>
+    </span>
   );
 }

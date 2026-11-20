@@ -1,4 +1,4 @@
-import { resultDef, touchReasonsFor } from "./codes";
+import { defaultType, resultDef, touchReasonsFor } from "./codes";
 import type { Skill, Touch } from "./types";
 
 /** A stat being entered (or edited) in the entry panel. */
@@ -9,6 +9,8 @@ export type Draft = {
   stat: Skill | "";
   result: string;
   zone: string;
+  /** The kind of attack or defense; never required to save. */
+  type: string;
   /** Optional detail (see TOUCH_REASONS); never required to save. */
   reason: string;
   /** Fields pre-filled by prediction rather than chosen by the user. */
@@ -18,13 +20,14 @@ export type Draft = {
 export type Field = "player" | "stat" | "result" | "zone";
 export const FIELDS: Field[] = ["player", "stat", "result", "zone"];
 
-export const newDraft = (timestamp: number, player = "", stat: Skill | "" = ""): Draft => ({
+export const newDraft = (timestamp: number, player = "", stat: Skill | "" = "", detailed = false): Draft => ({
   editingId: null,
   timestamp,
   player,
   stat,
   result: "",
   zone: "",
+  type: defaultType(stat, detailed),
   reason: "",
   suggested: { player: !!player, stat: !!stat },
 });
@@ -36,6 +39,7 @@ export const draftFromTouch = (t: Touch): Draft => ({
   stat: t.stat,
   result: t.result,
   zone: t.zone,
+  type: t.type ?? "",
   reason: t.reason ?? "",
   suggested: { player: false, stat: false },
 });
@@ -45,7 +49,8 @@ export const currentStep = (d: Draft): Field | null => FIELDS.find((f) => d[f] =
 
 export const isComplete = (d: Draft): boolean => currentStep(d) === null;
 
-export function setField(d: Draft, field: Field, value: string): Draft {
+/** Fill in one field. `detailed` is whether the set records detailed stats, which a new skill's type follows. */
+export function setField(d: Draft, field: Field, value: string, detailed = false): Draft {
   switch (field) {
     case "player":
       return { ...d, player: value, suggested: { ...d.suggested, player: false } };
@@ -57,6 +62,7 @@ export function setField(d: Draft, field: Field, value: string): Draft {
         stat: value as Skill,
         result: changed ? "" : d.result,
         zone: changed ? "" : d.zone,
+        type: changed ? defaultType(value as Skill, detailed) : d.type,
         reason: changed ? "" : d.reason,
         suggested: { ...d.suggested, stat: false },
       };
@@ -76,6 +82,17 @@ export function setField(d: Draft, field: Field, value: string): Draft {
     case "zone":
       return { ...d, zone: value };
   }
+}
+
+/** The kind of attack or defense the draft shows as picked. Without detailed stats an attack is a hit. */
+export const draftType = (d: Draft, detailed = false): string =>
+  d.stat === "freeball" ? "freeball" : d.type || (d.stat === "attack" && !detailed ? "hit" : "");
+
+/** Pick a kind of attack or defense. A freeball is a skill of its own in the file, so it changes the skill. */
+export function setType(d: Draft, type: string, detailed = false): Draft {
+  if (type === "freeball") return setField(d, "stat", "freeball", detailed);
+
+  return { ...(d.stat === "freeball" ? setField(d, "stat", "attack", detailed) : d), type: detailed ? type : "" };
 }
 
 /** Switch an optional reason on or off. */
@@ -108,5 +125,6 @@ export const draftToTouch = (d: Draft, id: number): Touch => ({
   stat: d.stat as Skill,
   result: d.result,
   zone: d.zone,
+  ...(d.type && { type: d.type }),
   ...(d.reason && { reason: d.reason }),
 });

@@ -22,7 +22,7 @@ import { useGames } from "./games/useGames";
 import { useRoster } from "./games/useRoster";
 import { useSetLinks } from "./games/useSetLinks";
 import type { Game } from "./games/types";
-import { localSets, newSetData, squadNames, withGameMeta } from "./stats/gameSets";
+import { localSets, newSetData, rotationLineup, withGameMeta, withLineup } from "./stats/gameSets";
 import { ImportSetsDialog } from "./stats/import/ImportSetsDialog";
 import { addSet, deleteSet, finishSet, importSet, loadSetData, saveSetScore } from "./stats/sets";
 import type { SetSummary } from "./stats/types";
@@ -295,7 +295,13 @@ export function App(): JSX.Element {
     teamName: string;
     userId?: string;
     fromBackup?: boolean;
+    /** Whether the set was finished when its summary was last seen, for once the stores empty. */
+    finished?: boolean;
   } | null>(null);
+  // The tracker's focus mode: the set page alone, without the sidebar and top bar.
+  const [trackerFocus, setTrackerFocus] = useState(false);
+  // The tracker lays out as panes filling the window wherever the screen is wide enough for a sidebar or rail.
+  const trackerPanes = sidebarMode !== "drawer";
 
   // Selection, open board, and edit mode are all read off the current route.
   const selection: Selection =
@@ -369,8 +375,13 @@ export function App(): JSX.Element {
       setHeldSet({ setId: route.setId, ...routeBackup.context, fromBackup: true });
   }
   if (route.kind !== "set" && heldSet) setHeldSet(null);
+  if (route.kind !== "set" && trackerFocus) setTrackerFocus(false);
 
   const heldSummary = heldSet ? gameSets.sets.find((s) => s.id === heldSet.setId) : undefined;
+
+  if (heldSet && heldSummary && heldSet.finished !== heldSummary.finished)
+    setHeldSet({ ...heldSet, finished: heldSummary.finished });
+
   const heldNumber = heldSummary?.setNumber || routeBackup?.data.meta.setNumber;
   const crumbs = breadcrumbs(
     route,
@@ -396,8 +407,11 @@ export function App(): JSX.Element {
         game={heldSet.game}
         teamName={heldSet.teamName}
         userId={heldSet.userId}
-        finished={!!heldSummary?.finished}
+        finished={heldSummary?.finished ?? heldSet.finished ?? false}
         signedIn={user !== null}
+        focus={trackerFocus}
+        onFocus={setTrackerFocus}
+        panes={trackerPanes}
         onBack={() => navigate(gameRoute(heldSet.game.teamId, allTeams, heldSet.game.id))}
         onNextSet={(next) =>
           navigate(
@@ -407,13 +421,18 @@ export function App(): JSX.Element {
               heldSet.game.id,
               startSet(
                 { game: heldSet.game, teamName: heldSet.teamName, userId: heldSet.userId },
-                {
-                  ...next,
-                  meta: {
-                    ...next.meta,
-                    setNumber: String(Math.max(nextSetNumber(heldSet.game.id), parseInt(next.meta.setNumber, 10) || 0)),
+                withLineup(
+                  {
+                    ...next,
+                    meta: {
+                      ...next.meta,
+                      setNumber: String(
+                        Math.max(nextSetNumber(heldSet.game.id), parseInt(next.meta.setNumber, 10) || 0)
+                      ),
+                    },
                   },
-                }
+                  rotationLineup(heldSet.game, roster.players)
+                )
               )
             )
           )
@@ -424,6 +443,8 @@ export function App(): JSX.Element {
 
           if (error) void confirm({ title: "Couldn’t change the set", description: error, confirmLabel: "OK" });
           gameSets.reload();
+
+          return !error;
         }}
       />
     ) : null;
@@ -759,7 +780,12 @@ export function App(): JSX.Element {
   if (!user && setPage)
     return (
       <TooltipProvider>
-        <AppShell mode="drawer" topBar={<TopBar crumbs={crumbs} onNavigate={() => undefined} account={null} />}>
+        <AppShell
+          mode="drawer"
+          bare={trackerFocus}
+          fill={trackerPanes}
+          topBar={<TopBar crumbs={crumbs} onNavigate={() => undefined} account={null} />}
+        >
           {false}
           {setPage}
         </AppShell>
@@ -975,10 +1001,7 @@ export function App(): JSX.Element {
       previous = stored.sets.find((s) => s.id === last.id)?.data;
     }
 
-    const error = await addSet(
-      game.id,
-      newSetData(game, gamesTeamName, squadNames(game, roster.players), setNumber, previous ?? null)
-    );
+    const error = await addSet(game.id, newSetData(game, gamesTeamName, roster.players, setNumber, previous ?? null));
 
     if (error) void confirm({ title: "Couldn’t add the set", description: error, confirmLabel: "OK" });
     else gameSets.reload();
@@ -1484,6 +1507,8 @@ export function App(): JSX.Element {
           ) : undefined
         }
         topBar={topBar}
+        bare={trackerFocus && setPage !== null}
+        fill={trackerPanes && setPage !== null}
       >
         {(boardsError || notes.error) && (
           <p className={cx("mb-3", PAGE_WIDTH, "text-sm text-danger")}>{boardsError ?? notes.error}</p>

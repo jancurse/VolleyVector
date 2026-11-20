@@ -560,7 +560,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       },
       {
         term: "The team sees it when you say so",
-        text: "The stats everyone reads change only when you press **Save stats** in the tracker, or mark the set finished. A half-recorded set never shows up in the stats by accident.",
+        text: "The stats everyone reads change only when you press **Done** in the tracker. A half-recorded set never shows up in the stats by accident.",
       },
     ],
     tips: [
@@ -582,9 +582,9 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         steps: [
           "Open the game. On its **Overview** tab press **Add set**, then **Record stats** on the new row.",
           "Load the video: paste a YouTube link and press **Load**, or press **Load local video** for a file on your computer.",
-          "Open **Players**. The list starts as the game's squad. The first ten players get the keys `1` to `9` and `0`, in list order, so move your regulars to the front.",
-          "Press **Set lineup** and choose who starts in positions 1 to 6, and the **Libero**. Position 1 serves.",
-          "On the scoreboard, set **Start rotation**. Leave **First serve** on **Auto-detect** unless you want to fix it.",
+          "Press **Change** beside **Player**. The list starts as the game's squad. The first ten players get the keys `1` to `9` and `0`, in list order, so drag your regulars to the front.",
+          "Press **Set lineup** and choose who starts in positions 1 to 6, and the **Libero**. Position 1 serves. A game with rotations starts every set from its first one.",
+          "In the same dialog, set **Start rotation**. Leave **First serve** on **Auto-detect** unless you want to fix it.",
         ],
         after: "**First serve** and **Start rotation** can only be changed before the first stat.",
       },
@@ -630,18 +630,40 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       },
       {
         title: "Make a substitution",
-        steps: ["Under **On court**, press the player who comes off.", "Press the player who comes on."],
+        steps: [
+          "Press **Change** beside **Player**.",
+          "Under **On court**, press the player who comes off.",
+          "Press the player who comes on.",
+        ],
         after: "To change who started the set, press **Edit starting lineup** instead.",
       },
       {
         title: "Finish the set",
         steps: [
           "Give the last point by hand if no touch decided it.",
-          "Under **Set**, press **Mark set finished**. This also saves the stats for the team.",
-          "Press **Next set** to start the next one with the same players, line-up, and video.",
+          "Press **Done** at the top. This puts your changes in the team's stats and locks the set.",
+          "Open **More actions** at the top and press **Next set** to start the next one with the same players and video.",
         ],
         after:
-          "Not done yet but want the team to see what you have? Press **Save stats** at the top of the tracker. It reads **Stats saved** when they are up to date.",
+          "A set with stats opens locked, so nothing changes it by accident. Press **Edit set** to carry on, and **Done** again when you stop.",
+      },
+      {
+        title: "Give the video more room",
+        steps: [
+          "Drag any line between the video, the entry, and the recorded stats. Your sizes are remembered in this browser.",
+          "Press `X`, or the panel button at the top, to move the entry beside the video or under it.",
+          "Press **Focus mode** at the top, or `V`, to hide the app's sidebar and top bar. Press it again to bring them back.",
+        ],
+        after: "On a small screen the video, the entry, and the stats are stacked, with nothing to drag.",
+      },
+      {
+        title: "Record detailed stats",
+        intro: "Optional. It adds a kind to each attack and defense, and grades how the opponent dug your attacks.",
+        steps: [
+          "Open **More actions** at the top and press **Turn on detailed stats**. The next set of the game starts with the same choice.",
+          "Record as usual. An attack or defense starts as a **Hit**. Press the kind's letter to change it.",
+        ],
+        after: "The stats add a **Detailed stats** card, built only from the touches recorded this way.",
       },
     ],
     references: [
@@ -655,15 +677,31 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           ["A", "Attack"],
           ["B", "Block"],
           ["D", "Defense"],
-          ["F", "Freeball"],
           ["M", "Misc, a note in your own words"],
+        ],
+      },
+      {
+        title: "Kinds of attack and defense",
+        intro:
+          "Press the letter once the skill is picked. A freeball is a kind of attack, and `F` records one from any step.",
+        keys: true,
+        rows: [
+          ["H", "Hit"],
+          ["F", "Attack: Freeball, a ball you send over without attacking"],
+          ["T", "Attack: Tip (detailed stats)"],
+          ["C", "Defense: Block cover (detailed stats)"],
+          ["L", "Defense: Free ball (detailed stats)"],
+          ["W", "Defense: Down ball (detailed stats)"],
         ],
       },
       {
         title: "What the results mean",
         intro: "Each skill has its own results, numbered on screen. Hover one to see what it means.",
         rows: [
-          ["Dig 0-1", "The pass left one attacking option, or none. On a serve or freeball it is the opponent's pass."],
+          [
+            "Dig 0-1",
+            "The pass left one attacking option, or none. On a serve or freeball it is the opponent's pass, and on an attack too with detailed stats.",
+          ],
           ["Dig 2-3", "The pass left two attacking options, or all three."],
           ["On, Off", "A set you can attack, or one that is hard to attack."],
           ["Over (pt), Over (def)", "The setter sent the ball over. It scored, or it was defended."],
@@ -677,9 +715,12 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       {
         title: "What the zone means",
         intro:
-          "Zones are numbered as you see the court from behind your own baseline: 4, 3, 2 at the net, 7, 8, 9 in the middle, 5, 6, 1 at the back. Zone 0 is an error.",
+          "Zones are numbered as you see the court from behind your own baseline: 4, 3, 2 at the net, 7, 8, 9 in the middle, 5, 6, 1 at the back. Zone 0 means no zone. It reads **Err** on an error and **N/A** otherwise.",
         rows: [
-          ["Serve, Attack, Freeball", "Where the ball went."],
+          [
+            "Serve, Attack, Freeball",
+            "Where the ball went. The picker shows the opponent's court from your side, with the net at the bottom. Usually 0 for a blocked attack.",
+          ],
           ["Receive, Defense", "Where your player played it from."],
           ["Set", "Who was set: 1 back row, 2 opposite, 3 middle, 4 outside, 5 libero, 6 pipe."],
           ["Block", "Usually 0. You may record where the attack came from."],
@@ -693,13 +734,15 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           ["← →", "Back or forward 2 seconds (5 with Shift)"],
           [", .", "One frame back or forward"],
           ["[ ]", "Slower or faster"],
+          ["V", "Focus mode"],
+          ["X", "Entry beside the video, or under it"],
           ["Ctrl+Z", "Undo (add Shift to redo)"],
         ],
       },
     ],
     tips: [
-      "A sideways or distant video? Use the rotate and zoom buttons under it.",
-      "Every key is also listed under **Keyboard shortcuts** at the bottom of the tracker.",
+      "A sideways or distant video? Rotate and zoom are under **Video options**, at the end of the row under the video.",
+      "Every key is also listed behind the **Keyboard shortcuts** button at the top of the tracker.",
       "You can click everything instead of using keys. It is slower, but works without a keyboard.",
     ],
     related: ["fix-stats", "read-stats", "stats-basics"],
@@ -715,9 +758,11 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       {
         title: "Correct a touch",
         steps: [
+          "Press **Edit set** in the stat entry if the set is locked.",
           "Find it in **Recorded stats**. The newest rally is at the top.",
           "Press its time to jump the video to that moment.",
           "Press the pencil, change what is wrong, and press `Enter`.",
+          "To move it in time, press **−0.5s** or **+0.5s**, or play the video to the moment and press **Set to video time**.",
         ],
         after: "The bin deletes a touch. `Ctrl+Z` undoes your last change, whatever it was.",
       },
@@ -740,7 +785,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       {
         title: "Back up or move a set",
         steps: [
-          "Under **Set**, press **Export JSON** to download the whole set, or **Export CSV** for a spreadsheet.",
+          "Open **More actions** at the top and press **Export JSON** to download the whole set, or **Export CSV** for a spreadsheet.",
           "Press **Import JSON** to replace this set's stats with a file.",
         ],
       },
@@ -765,8 +810,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         intro: "It sits at the top of the tracker.",
         rows: [
           ["Saved", "Your recording is stored."],
-          ["Save stats", "You have changes the team's stats do not show yet. Press it to publish them."],
-          ["Stats saved", "The team's stats match what you recorded."],
+          ["Not in the stats yet", "You have changes the team's stats do not show. Press **Done** to publish them."],
           [
             "Offline: kept in this browser, retrying",
             "Keep recording. It saves when the connection returns. Use the same browser until it does.",
@@ -782,8 +826,8 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     tips: [
       "If a set changed in two places while you were away, the app asks which to keep and downloads the other as a file first.",
       "Deleting a set cannot be undone, so the app downloads it as a file as it goes, unless you untick that.",
-      "On the game page, **Stats not saved** or **Stats not up to date** on a set means it has changes the stats do not show. Open it and press **Save stats**.",
-      "**Reopen set** takes a finished set back to unfinished.",
+      "On the game page, **Stats not saved** or **Stats not up to date** on a set means it has changes the stats do not show. Open it, press **Edit set**, then **Done**.",
+      "A set with stats opens locked, so nothing changes it by accident. Press **Edit set** in the stat entry to change it, then **Done** at the top.",
     ],
     related: ["record", "import-sets"],
   },
@@ -800,7 +844,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         steps: [
           "For one game, open it and press its **Stats** tab.",
           "For several games, open **Games**, tick the box in front of each, and press **Stats for 2 games**. Only games with saved stats can be ticked.",
-          "While recording, press **Stats and highlights for this set** under **Set**.",
+          "While recording, open **More actions** and press **Stats and highlights for this set**.",
         ],
       },
       {
@@ -849,6 +893,10 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           ["Score progression", "Both scores, rally by rally."],
           ["Metrics", "Each skill: how many, its headline number, and its results as a bar."],
           ["Zones", "One skill on the court. The shade counts touches and the bar shows their results."],
+          [
+            "Detailed stats",
+            "How the opponent dug your attacks, and attacks and digs by kind. It appears once a set was recorded with **Detailed stats**, and says how many touches each number comes from.",
+          ],
           ["Player metrics", "Every player's plus/minus, and their net for each skill."],
           ["Player detail", "One skill, player by player."],
           ["Rally log", "Every touch. Filter it in the column headers."],
@@ -860,7 +908,10 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           ["Serve efficiency", "(aces − errors) ÷ serves"],
           ["Positive % (receive, defense, freeball)", "Dig 2-3 ÷ all of them"],
           ["On %", "On ÷ sets"],
-          ["Hitting %", "(kills − errors − blocked) ÷ attacks"],
+          [
+            "Hitting %",
+            "(kills − errors − blocked) ÷ attacks. Tips count as attacks. Freeballs are **Attack, freeball**, with their own card.",
+          ],
           ["Setter tip, Success %", "Over (pt) ÷ balls the setter sent over"],
           ["Kill blocks", "Blocks that scored"],
           ["Net", "Good results minus errors, for one skill"],
@@ -869,7 +920,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       },
     ],
     tips: [
-      "The stats show what was last saved with **Save stats**. If a set looks out of date, its recorder has not saved the stats yet.",
+      "The stats show a set as it was when its recorder last pressed **Done**. If a set looks out of date, they have not pressed it yet.",
       "Hover a metric's name to see its formula on the page.",
       "A ball the setter sends over counts as a **Setter tip**, not a set.",
     ],
@@ -976,7 +1027,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       {
         title: "Look at files without saving them",
         steps: [
-          "Open any set in the tracker. Under **Set**, press **Stats and highlights from set files…**.",
+          "Open any set in the tracker. Open **More actions** and press **Stats and highlights from set files…**.",
           "Pick the files. The stats open, and nothing is stored.",
         ],
       },

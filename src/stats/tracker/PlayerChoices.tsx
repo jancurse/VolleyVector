@@ -19,7 +19,7 @@ type PlayerChoicesProps = {
 
 /** The player step: the roster in key order, or the six on court by position with the bench folded away. */
 export function PlayerChoices({ draft, players, court, keysLive, onPick }: PlayerChoicesProps): JSX.Element {
-  if (players.length === 0) return <p className={CALLOUT_WARN}>No players yet. Add them under Players below.</p>;
+  if (players.length === 0) return <p className={CALLOUT_WARN}>No players yet. Add them with Change.</p>;
 
   // Keys follow roster order, so each player keeps the same key all set.
   const choice = (p: string) => {
