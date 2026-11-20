@@ -49,7 +49,7 @@ export function PlayersDialog({
       />
       <PlayersPanel players={players} onAdd={onAdd} onRemove={onRemove} onMove={onMove} />
       <div className="flex justify-end">
-        <Button variant="ghost" paired onClick={() => onOpenChange(false)}>
+        <Button variant="ghost" onClick={() => onOpenChange(false)}>
           Done
         </Button>
       </div>

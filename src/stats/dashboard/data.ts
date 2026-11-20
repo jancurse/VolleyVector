@@ -6,7 +6,7 @@
  * `id`; "all" rows cover every loaded set.
  */
 import { matchLabel, type Selection } from "../clips";
-import { pointReasonLabel, resultLabel, skillDef, touchOutcome, typesFor } from "../codes";
+import { pointReasonLabel, resultLabel, skillDef, skillLabel, touchOutcome, typesFor } from "../codes";
 import type { ReportSet } from "../types";
 import type { Skill, Team } from "../types";
 import { extractYoutubeId } from "../youtube";
@@ -38,6 +38,8 @@ export type TouchRow = {
   action: Action;
   /** The kind of attack or defense, when the set recorded it. */
   type: string;
+  /** The touch's skill as the highlights name it, with its kind. */
+  label: string;
   result: string;
   grade: string;
   level: number;
@@ -104,7 +106,7 @@ const GRADES: Record<Exclude<Action, "misc">, Record<string, [string, number]>> 
     "Block tool": ["Point", 0],
     "Dig 0-1": ["Out of system", 1],
     "Dig 2-3": ["In system", 2],
-    "Blocked, in play": ["Blocked", 2],
+    "Blocked, in play": ["Defended", 2],
     "Blocked, kill": ["Blocked", 3],
     Out: ["Error", 3],
     Net: ["Error", 3],
@@ -215,6 +217,7 @@ export function matchTables(loaded: ReportSet[]): MatchTables {
           player: t.player,
           skill: t.stat,
           type: t.type ?? "",
+          label: skillLabel(t),
           result,
           ...grade(t.stat, result),
           outcome: winner === "us" ? "point" : winner === "them" ? "error" : "in_play",
@@ -812,9 +815,9 @@ export function detailGroups(all: TouchRow[], set: string, player: string): Deta
     });
   const { pos = [], neg = [] } = SCORES.attack ?? {};
   const hitting = (of: TouchRow[]) => {
-    const v = (count(of, pos) - count(of, neg)) / of.length;
+    const v = Math.round((100 * (count(of, pos) - count(of, neg))) / of.length);
 
-    return `${v > 0 ? "+" : v < 0 ? "−" : ""}${rate(Math.abs(v), 1)}`;
+    return `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}%`;
   };
 
   return [
@@ -878,10 +881,14 @@ export const clipTouches = ({ touches }: MatchTables, q: ClipQuery) =>
 
 /** The highlights filter that plays exactly the touches of `q`. */
 export function clipSelection(tables: MatchTables, q: ClipQuery): Partial<Selection> {
+  const picked = clipTouches(tables, q);
   const sel: Partial<Selection> = {
-    action: new Set([skillDef(q.action === "tip" ? "set" : q.action).label]),
-    // Grades and tips are groups of results, so pick the results they cover.
-    outcome: new Set(clipTouches(tables, q).map((t) => t.result)),
+    // An action covers its kinds (a tip is an attack), and grades and tips are groups of results, so pick the
+    // names and results the touches themselves carry.
+    action: new Set(
+      picked.length ? picked.map((t) => t.label) : [skillDef(q.action === "tip" ? "set" : q.action).label]
+    ),
+    outcome: new Set(picked.map((t) => t.result)),
   };
   const info = tables.sets.find((s) => s.id === q.set);
 

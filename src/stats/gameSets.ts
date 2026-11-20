@@ -138,9 +138,12 @@ export function rotationLineup(
 export function withLineup(data: AppData, lineup: Pick<MatchMeta, "lineup" | "libero"> | null): AppData {
   if (!lineup) return data;
 
-  const missing = [...lineup.lineup, lineup.libero].filter((p) => p && !data.players.includes(p));
+  // A player the set already lists keeps the set's spelling, which its stats use.
+  const name = (p: string) => data.players.find((own) => sameName(own, p)) ?? p;
+  const starters = { lineup: lineup.lineup.map(name), libero: name(lineup.libero) };
+  const missing = [...starters.lineup, starters.libero].filter((p) => p && !data.players.includes(p));
 
-  return { ...data, players: [...data.players, ...missing], meta: { ...data.meta, ...lineup } };
+  return { ...data, players: [...data.players, ...missing], meta: { ...data.meta, ...starters } };
 }
 
 /**

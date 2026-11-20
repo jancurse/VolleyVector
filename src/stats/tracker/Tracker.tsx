@@ -10,6 +10,7 @@ import {
   cx,
   MUTED,
   PAGE_BAR,
+  STATUS_NOTE,
   TRACKER_ENTRY,
   TRACKER_GRID,
   TRACKER_LOG,
@@ -86,7 +87,7 @@ type TrackerProps = {
   onFocus?: (focus: boolean) => void;
   /** Called with the set after every change, to be saved. */
   onChange: (data: AppData) => void;
-  /** Start the next set of the game from `next` (same players, lineup, and video). */
+  /** Start the next set of the game from `next` (same players and video). */
   onNextSet: (next: AppData) => void;
   onFinish: (finished: boolean) => void;
   /** The left of the header: where this set belongs and whether it is saved. */
@@ -239,7 +240,7 @@ export function Tracker({
   };
 
   /** Pause and walk through the marked contacts one at a time. */
-  const beginReview = (opts: { player?: string; stat?: Skill } = {}) => {
+  const beginReview = (opts: { player?: string; stat?: Skill; type?: string } = {}) => {
     const first = marks[0];
 
     if (first === undefined) return;
@@ -298,7 +299,7 @@ export function Tracker({
   const change = (field: Field, value: string) => {
     if (!draft) return;
 
-    const next = setField(draft, field, value);
+    const next = setField(draft, field, value, detailed);
 
     // New stats save themselves as soon as the last field is filled in.
     if (next.editingId === null && next.stat !== "misc" && isComplete(next)) commit(next);
@@ -397,7 +398,7 @@ export function Tracker({
     if (e.kind === "sub") return;
 
     setResumeAfterEntry(false);
-    setDraft(draftFromTouch(e, detailed));
+    setDraft(draftFromTouch(e));
   };
 
   // --- Keyboard ------------------------------------------------------------
@@ -505,14 +506,14 @@ export function Tracker({
 
     if (draft && type) {
       e.preventDefault();
-      setDraft(setType(draft, type.id));
+      setDraft(setType(draft, type.id, detailed));
 
       return;
     }
 
     if (detailed && !e.shiftKey && e.key.toLowerCase() === "t") {
       e.preventDefault();
-      if (draft) setDraft(setType(setField(draft, "stat", "attack"), "tip"));
+      if (draft) setDraft(setType(setField(draft, "stat", "attack", detailed), "tip", detailed));
       else startEntry({ stat: "attack", type: "tip" });
 
       return;
@@ -750,7 +751,7 @@ export function Tracker({
           <div className="flex flex-wrap items-center gap-1">
             {finished ? (
               <>
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-text-dim">
+                <span className={STATUS_NOTE}>
                   <Lock size={14} aria-hidden="true" /> Finished
                 </span>
                 <Button onClick={() => onFinish(false)}>
@@ -845,10 +846,11 @@ export function Tracker({
                 players={data.players}
                 onStart={(opts) => startEntry(opts)}
                 onChange={change}
-                onType={(type) => draft && setDraft(setType(draft, type))}
+                onType={(type) => draft && setDraft(setType(draft, type, detailed))}
                 onRetime={retime}
                 onPlayers={() => setPlayersOpen(true)}
                 locked={finished}
+                detailed={detailed}
                 onReason={(reason) => draft && setDraft(toggleReason(draft, reason))}
                 onSave={() => draft && commit(draft)}
                 onCancel={cancel}

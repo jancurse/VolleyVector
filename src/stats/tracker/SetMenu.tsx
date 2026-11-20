@@ -44,7 +44,7 @@ export function SetMenu({
       ariaLabel="Set"
       align="end"
       trigger={
-        <Button variant="ghost">
+        <Button variant="ghost" aria-label="Set menu">
           Set {meta.setNumber} <ChevronDown size={14} aria-hidden="true" />
         </Button>
       }
@@ -62,7 +62,7 @@ export function SetMenu({
         <Checkbox
           ariaLabel="Detailed stats"
           checked={!!meta.detailed}
-          onCheckedChange={(detailed) => onMeta({ detailed })}
+          onCheckedChange={(detailed) => onMeta({ detailed: detailed || undefined })}
           disabled={locked}
         >
           <b>Detailed stats</b>: record the kind of each attack and defense, and how the opponent dug your attacks.

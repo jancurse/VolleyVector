@@ -79,6 +79,9 @@ describe("a game's sets", () => {
         ROSTER
       )
     ).toBeNull();
+    expect(
+      withLineup(emptyData(["mira"]), { lineup: ["A", "B", "C", "D", "E", "Mira"], libero: "" }).meta.lineup[5]
+    ).toBe("mira");
     expect(withLineup(emptyData(["Mira"]), { lineup: ["A", "B", "C", "D", "E", "Mira"], libero: "L" }).players).toEqual(
       ["Mira", "A", "B", "C", "D", "E", "L"]
     );

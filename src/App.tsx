@@ -289,15 +289,17 @@ export function App(): JSX.Element {
   // The set open in the tracker, with its game and team as they were when it opened: the tracker stays up
   // through a sign-out (it keeps recording into this browser), when the workspace and its stores empty.
   // One held from a local copy alone (`fromBackup`) gives way to the loaded game once the workspace is there.
-  // The tracker's focus mode: the set page alone, without the sidebar and top bar.
-  const [trackerFocus, setTrackerFocus] = useState(false);
   const [heldSet, setHeldSet] = useState<{
     setId: string;
     game: Game;
     teamName: string;
     userId?: string;
     fromBackup?: boolean;
+    /** Whether the set was finished when its summary was last seen, so it stays locked once the stores empty. */
+    finished?: boolean;
   } | null>(null);
+  // The tracker's focus mode: the set page alone, without the sidebar and top bar.
+  const [trackerFocus, setTrackerFocus] = useState(false);
 
   // Selection, open board, and edit mode are all read off the current route.
   const selection: Selection =
@@ -374,6 +376,10 @@ export function App(): JSX.Element {
   if (route.kind !== "set" && trackerFocus) setTrackerFocus(false);
 
   const heldSummary = heldSet ? gameSets.sets.find((s) => s.id === heldSet.setId) : undefined;
+
+  if (heldSet && heldSummary && heldSet.finished !== heldSummary.finished)
+    setHeldSet({ ...heldSet, finished: heldSummary.finished });
+
   const heldNumber = heldSummary?.setNumber || routeBackup?.data.meta.setNumber;
   const crumbs = breadcrumbs(
     route,
@@ -399,7 +405,8 @@ export function App(): JSX.Element {
         game={heldSet.game}
         teamName={heldSet.teamName}
         userId={heldSet.userId}
-        finished={!!heldSummary?.finished}
+        // Until the summaries first load the set counts as finished, so a finished one never opens unlocked.
+        finished={heldSummary?.finished ?? heldSet.finished ?? gameSets.loading}
         signedIn={user !== null}
         focus={trackerFocus}
         onFocus={setTrackerFocus}

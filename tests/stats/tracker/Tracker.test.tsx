@@ -138,6 +138,23 @@ describe("Tracker", () => {
     expect(last()?.events).toEqual([expect.objectContaining(touch)]);
   });
 
+  test("ticking Detailed stats mid-entry changes what the entry offers and what the keys record", async () => {
+    const { last } = renderTracker();
+
+    await userEvent.keyboard("1a");
+    await userEvent.click(screen.getByRole("button", { name: "Set menu" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Detailed stats" }));
+    await userEvent.keyboard("{Escape}");
+    expect(section("Result").getByRole("button", { name: /Dig 0-1/ })).toBeInTheDocument();
+
+    await userEvent.keyboard("t24");
+    expect(last()?.events).toEqual([expect.objectContaining({ stat: "attack", type: "tip", result: "dig01" })]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Set menu" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Detailed stats" }));
+    expect(JSON.parse(JSON.stringify(last()?.meta))).not.toHaveProperty("detailed");
+  });
+
   test("a recorded stat's time is nudged, or set to the video's, while editing it", async () => {
     const { last } = renderTracker({
       ...emptyData(["Mira"]),
@@ -165,7 +182,9 @@ describe("Tracker", () => {
     const { last, onFinish } = renderTracker(set, true);
 
     await userEvent.keyboard("1s11+");
+    await userEvent.click(section("Player").getByRole("button", { name: /Mira/ }));
     expect(last()?.events).toHaveLength(1);
+    expect(screen.queryByRole("region", { name: "Result" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /New stat/ })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Stat entry" })).toHaveTextContent("Reopen it to change it");
     for (const name of ["Edit", "Delete", "Change", /Undo/])

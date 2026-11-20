@@ -7,7 +7,7 @@ import type { Game } from "../../games/types";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import { useConfirm } from "../../ui/useConfirm";
-import { CALLOUT_WARN, cx, EYEBROW, STICKY_BANNER, TITLE, TRACKER_WIDTH } from "../../ui/styles";
+import { CALLOUT_WARN, cx, EYEBROW, STATUS_NOTE, STICKY_BANNER, TITLE, TRACKER_WIDTH } from "../../ui/styles";
 import { formatGameDate, versus } from "../../games/format";
 import { withGameMeta } from "../gameSets";
 import { supabaseSetBackend } from "../sets";
@@ -248,10 +248,7 @@ export function SetPage({
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <SaveStatus snapshot={snapshot} />
                 {snapshot.stats === "saved" && (
-                  <span
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-text-dim"
-                    title="The stats pages show the set as it is now"
-                  >
+                  <span className={STATUS_NOTE} title="The stats pages show the set as it is now">
                     <Check size={14} aria-hidden="true" /> Stats up to date
                   </span>
                 )}

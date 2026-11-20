@@ -1,7 +1,7 @@
 import type { JSX, ReactNode } from "react";
 import { AlertTriangle, Check, CloudOff, Loader2, LogIn } from "lucide-react";
 
-import { cx } from "../../ui/styles";
+import { cx, STATUS_LINE } from "../../ui/styles";
 import type { SyncSnapshot } from "../sync/setSync";
 
 const LOOK: Record<SyncSnapshot["saveState"], [tone: string, icon: ReactNode, label: string]> = {
@@ -29,7 +29,7 @@ export function SaveStatus({ snapshot }: { snapshot: SyncSnapshot }): JSX.Elemen
         snapshot.error ??
         (snapshot.saveState === "saved" ? "Every change to the set is stored as you make it" : undefined)
       }
-      className={cx("inline-flex items-center gap-1 text-xs font-semibold", tone)}
+      className={cx(STATUS_LINE, tone)}
     >
       {icon} {label}
       {snapshot.storageFailed && <span className="text-danger"> · this browser could not keep a copy</span>}

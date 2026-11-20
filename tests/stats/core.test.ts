@@ -249,6 +249,28 @@ describe("kinds of attack and defense", () => {
   });
 });
 
+describe("freeball results", () => {
+  test("each grades to its own name, and a detailed set's export carries the kind", () => {
+    const rallies = deriveRallies(
+      [
+        touch(1, "Mira", "freeball", "block_inplay"),
+        { ...(touch(2, "Juno", "defense", "dig23") as Touch), type: "block_cover" },
+        touch(3, "Mira", "freeball", "block_kill"),
+      ],
+      meta
+    );
+    const { touches } = matchTables([{ meta: emptyData().meta, rallies }]);
+
+    expect(touches.filter((t) => t.skill === "freeball").map((t) => [t.grade, t.level])).toEqual([
+      ["Defended", 2],
+      ["Blocked", 3],
+    ]);
+    expect(toCsv(rallies).split("\n")[0]).toContain("Stat,Type,Result");
+    expect(toCsv(rallies)).toContain("defense,block_cover,dig23");
+    expect(toCsv(deriveRallies([touch(1, "Mira", "serve", "ace")], meta))).not.toContain("Type");
+  });
+});
+
 describe("zones", () => {
   test.each([
     { stat: "serve", result: "ace", side: "theirs", zero: "N/A", hint: "Where the serve went" },
@@ -553,6 +575,11 @@ describe("stats dashboard", () => {
 
     expect(all).toMatchObject({ attempts: 4, pos: 1, score: 0.25 });
     expect(detailGroups(tables.touches, ALL, ALL)).toEqual([]);
+    expect(detailed.touches.map((t) => t.label)).toContain("Attack, tip");
+    expect([...clipSelection(detailed, { set: ALL, player: ALL, action: "attack" }).action!].sort()).toEqual([
+      "Attack",
+      "Attack, tip",
+    ]);
     expect(detailGroups(detailed.touches, ALL, ALL).map((g) => [g.title, g.covered, g.total, g.rows])).toEqual([
       [
         "Attacks they dug",

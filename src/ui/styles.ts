@@ -232,7 +232,7 @@ export const TRACKER_WIDTH = "w-full max-w-tracker";
  */
 export const TRACKER_PANE = "@container";
 export const TRACKER_GRID =
-  "grid grid-cols-1 items-start gap-4 [--tracker-reserve:26rem] @tracker-mid:grid-cols-2 @tracker-wide:grid-cols-[minmax(0,1fr)_var(--container-tracker-side)] @tracker-wide:grid-rows-[auto_1fr] @tracker-wide:[--tracker-reserve:18rem]";
+  "grid grid-cols-1 items-start gap-4 [--tracker-reserve:var(--spacing-tracker-reserve)] @tracker-mid:grid-cols-2 @tracker-wide:grid-cols-[minmax(0,1fr)_var(--container-tracker-side)] @tracker-wide:grid-rows-[auto_1fr] @tracker-wide:[--tracker-reserve:var(--spacing-tracker-reserve-wide)]";
 export const TRACKER_VIDEO = "min-w-0 @tracker-mid:col-span-full @tracker-wide:col-span-1 @tracker-wide:col-start-1";
 export const TRACKER_SIDE =
   "flex min-w-0 flex-col gap-4 @tracker-wide:col-start-2 @tracker-wide:row-span-2 @tracker-wide:row-start-1";
@@ -295,6 +295,11 @@ export const NET_LINE = "border-t-4 border-text pt-1.5";
 export const NET_LINE_BELOW = "border-b-4 border-text pb-1.5";
 /** A group of controls that disables as one (a finished set's entry); it adds no box of its own. */
 export const FIELDSET = "m-0 min-w-0 border-0 p-0";
+/** The stat entry's steps, spaced like a panel's own content. */
+export const ENTRY_STEPS = cx(FIELDSET, "flex flex-col gap-[0.9rem]");
+/** A one-line status with a leading icon (saved, finished); the caller gives its colour, or uses the quiet one. */
+export const STATUS_LINE = "inline-flex items-center gap-1 text-xs font-semibold";
+export const STATUS_NOTE = cx(STATUS_LINE, "text-text-dim");
 
 /** The video stage: black in either theme, as a player letterboxes. */
 export const VIDEO_STAGE = "relative flex aspect-video items-center justify-center overflow-hidden bg-black";

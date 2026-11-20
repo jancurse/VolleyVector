@@ -72,6 +72,8 @@ export function PlayersPanel({ players, onAdd, onRemove, onMove }: PlayersPanelP
                 draggable
                 onDragStart={(e) => {
                   e.dataTransfer.effectAllowed = "move";
+                  // Firefox starts a drag only once it carries data.
+                  e.dataTransfer.setData("text/plain", p);
                   setDragged(p);
                 }}
                 onDragOver={(e) => {

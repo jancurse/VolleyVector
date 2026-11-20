@@ -35,7 +35,15 @@ export function flattenRows(rallies: Rally[]) {
         timestamp: e.timestamp,
         server: r.court?.positions[0] ?? "",
         ...(e.kind === "touch"
-          ? { id: e.id, player: e.player, stat: e.stat, result: e.result, zone: e.zone, reason: e.reason ?? "" }
+          ? {
+              id: e.id,
+              player: e.player,
+              stat: e.stat,
+              result: e.result,
+              zone: e.zone,
+              reason: e.reason ?? "",
+              ...(e.type && { type: e.type }),
+            }
           : e.kind === "sub"
             ? { id: e.id, player: e.in, stat: "sub", result: `for ${e.out}`, zone: "", reason: "" }
             : {
@@ -84,7 +92,11 @@ export function toJson(data: AppData, rallies: Rally[]): string {
   );
 }
 
+/** One line per event. The Type column is there only when a touch has one, so other sets' files stay as they were. */
 export function toCsv(rallies: Rally[]): string {
+  const flat = flattenRows(rallies);
+  const type = (r: (typeof flat)[number]) => ("type" in r && r.type) || "";
+  const typed = flat.some(type);
   const headers = [
     "Time",
     "Seconds",
@@ -94,6 +106,7 @@ export function toCsv(rallies: Rally[]): string {
     "Server",
     "Player",
     "Stat",
+    ...(typed ? ["Type"] : []),
     "Result",
     "Reason",
     "Zone",
@@ -101,7 +114,7 @@ export function toCsv(rallies: Rally[]): string {
     "Score us",
     "Score them",
   ];
-  const rows = flattenRows(rallies).map((r) => [
+  const rows = flat.map((r) => [
     formatTime(r.timestamp),
     r.timestamp.toFixed(2),
     r.rally,
@@ -110,6 +123,7 @@ export function toCsv(rallies: Rally[]): string {
     r.server,
     r.player,
     r.stat,
+    ...(typed ? [type(r)] : []),
     r.result,
     r.reason,
     r.zone,

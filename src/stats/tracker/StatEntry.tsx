@@ -2,7 +2,7 @@ import type { JSX } from "react";
 
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
-import { CALLOUT_NOTE, cx, FIELDSET, PANEL } from "../../ui/styles";
+import { CALLOUT_NOTE, cx, ENTRY_STEPS, PANEL } from "../../ui/styles";
 import {
   ENTRY_SKILLS,
   resultLabel,
@@ -40,6 +40,8 @@ type StatEntryProps = {
   onPlayers: () => void;
   /** A finished set: nothing can be entered until it is reopened. */
   locked: boolean;
+  /** Whether the set records detailed stats, which decides the kinds and results on offer. */
+  detailed: boolean;
   onReason: (reason: string) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -62,6 +64,7 @@ export function StatEntry({
   onRetime,
   onPlayers,
   locked,
+  detailed,
   onReason,
   onSave,
   onCancel,
@@ -75,8 +78,8 @@ export function StatEntry({
   const pick = (field: "player" | "stat", value: string) =>
     draft ? onChange(field, value) : onStart({ [field]: value });
   const reasons = draft ? touchReasonsFor(draft.stat, draft.result) : [];
-  const types = draft ? typesFor(draft.stat, draft.detailed) : [];
-  const results = draft ? resultsFor(draft.stat, draft.detailed) : [];
+  const types = draft ? typesFor(draft.stat, detailed) : [];
+  const results = draft ? resultsFor(draft.stat, detailed) : [];
 
   return (
     <section className={PANEL} aria-label="Stat entry">
@@ -162,11 +165,7 @@ export function StatEntry({
         </p>
       )}
 
-      <fieldset
-        disabled={locked}
-        title={locked ? LOCKED_HINT : undefined}
-        className={cx(FIELDSET, "flex flex-col gap-[0.9rem]")}
-      >
+      <fieldset disabled={locked} title={locked ? LOCKED_HINT : undefined} className={ENTRY_STEPS}>
         <EntrySection
           title="Player"
           active={step === "player"}
@@ -214,7 +213,7 @@ export function StatEntry({
                 <Choice
                   key={t.id}
                   label={t.label}
-                  selected={draftType(draft) === t.id}
+                  selected={draftType(draft, detailed) === t.id}
                   hotkey={t.key.toUpperCase()}
                   onClick={() => onType(t.id)}
                 >
