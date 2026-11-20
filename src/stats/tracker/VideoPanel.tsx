@@ -102,7 +102,7 @@ export function VideoPanel({
           <>
             <SeekBar player={player} markers={markers} marks={marks} />
             <div className="flex flex-wrap items-center gap-1.5">
-              <TransportButton onClick={player.toggle} title="Play or pause" primary kbd="Space">
+              <TransportButton onClick={player.toggle} title="Play or pause" kbd="Space">
                 {player.isPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
               </TransportButton>
               <Button

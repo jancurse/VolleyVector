@@ -839,6 +839,7 @@ export function Tracker({
               </span>
             ) : (
               <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => void switchEditing(false)}
                 disabled={switching || (!data.events.length && !statsBehind)}
