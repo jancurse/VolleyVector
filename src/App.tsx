@@ -295,7 +295,7 @@ export function App(): JSX.Element {
     teamName: string;
     userId?: string;
     fromBackup?: boolean;
-    /** Whether the set was finished when its summary was last seen, so it stays locked once the stores empty. */
+    /** Whether the set was finished when its summary was last seen, for once the stores empty. */
     finished?: boolean;
   } | null>(null);
   // The tracker's focus mode: the set page alone, without the sidebar and top bar.
@@ -407,8 +407,7 @@ export function App(): JSX.Element {
         game={heldSet.game}
         teamName={heldSet.teamName}
         userId={heldSet.userId}
-        // Until the summaries first load the set counts as finished, so a finished one never opens unlocked.
-        finished={heldSummary?.finished ?? heldSet.finished ?? gameSets.loading}
+        finished={heldSummary?.finished ?? heldSet.finished ?? false}
         signedIn={user !== null}
         focus={trackerFocus}
         onFocus={setTrackerFocus}
@@ -444,6 +443,8 @@ export function App(): JSX.Element {
 
           if (error) void confirm({ title: "Couldn’t change the set", description: error, confirmLabel: "OK" });
           gameSets.reload();
+
+          return !error;
         }}
       />
     ) : null;

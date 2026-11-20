@@ -6,7 +6,7 @@ import { GuideLink } from "../../guide/GuideLink";
 import { Button } from "../../ui/Button";
 import { IconButton } from "../../ui/IconButton";
 import { useConfirm } from "../../ui/useConfirm";
-import { MUTED, STATUS_NOTE, TRACKER_BAR, TRACKER_STACK, TRACKER_WORKSPACE } from "../../ui/styles";
+import { MUTED, STATUS_NOTE, TRACKER_BAR, TRACKER_WORKSPACE } from "../../ui/styles";
 import {
   POINT_REASONS,
   predictSkill,
@@ -73,6 +73,8 @@ type TrackerProps = {
   onFocus?: (focus: boolean) => void;
   /** Lay the tracker out as resizable panes filling the window; without it, as a plain stacked page. */
   panes?: boolean;
+  /** Whether the team's stats lack changes the set already holds, so Done has something to publish. */
+  statsBehind?: boolean;
   /** Called with the set after every change, to be saved. */
   onChange: (data: AppData) => void;
   /** Start the next set of the game from `next` (same players and video). */
@@ -93,6 +95,7 @@ export function Tracker({
   focus = false,
   onFocus,
   panes = false,
+  statsBehind = false,
   onChange,
   onNextSet,
   onFinish,
@@ -106,14 +109,17 @@ export function Tracker({
   const [editing, setEditing] = useState(initial.events.length === 0);
   const [switching, setSwitching] = useState(false);
   const locked = !editing;
-  // Nothing changes a locked set, whichever control or key asks.
+  // Nothing changes a locked set, whichever control or key asks, nor one on its way to being locked.
   const dispatch = (action: Action) => {
-    if (!locked) apply(action);
+    if (!locked && !switching) apply(action);
   };
   const switchEditing = async (on: boolean) => {
     setSwitching(true);
-    if (await onFinish(!on)) setEditing(on);
-    setSwitching(false);
+    try {
+      if (await onFinish(!on)) setEditing(on);
+    } finally {
+      setSwitching(false);
+    }
   };
   const [player, stage] = usePlayer(extractYoutubeId(initial.meta.youtubeUrl));
   const { confirm, dialog } = useConfirm();
@@ -810,7 +816,7 @@ export function Tracker({
   );
 
   return (
-    <div className={panes ? TRACKER_WORKSPACE : TRACKER_STACK}>
+    <div className={panes ? TRACKER_WORKSPACE : "flex flex-col gap-4"}>
       {statsView && (
         <Suspense fallback={<p className={MUTED}>Loading the stats…</p>}>
           <StatsPage
@@ -835,7 +841,7 @@ export function Tracker({
               <Button
                 size="sm"
                 onClick={() => void switchEditing(false)}
-                disabled={switching || !data.events.length}
+                disabled={switching || (!data.events.length && !statsBehind)}
                 title="Put your changes in the team’s stats and lock the set"
               >
                 <Check size={15} aria-hidden="true" /> Done

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ComponentPropsWithRef, RefObject } from "react";
+import type { ComponentPropsWithRef, RefCallback } from "react";
 
 /** The parts of the YouTube iframe player API the app uses. */
 type YtPlayer = {
@@ -78,11 +78,14 @@ export type Player = {
   setRate: (r: number) => void;
 };
 
-/** What the video stage mounts: a local <video> (its ref and events), and the host the YouTube player fills. */
+/**
+ * What the video stage mounts: a local <video> (its ref and events), and the host the YouTube player fills. Both
+ * refs are callbacks, so a stage mounted afresh (the layout changed around it) gets its video back where it was.
+ */
 export type PlayerStage = {
-  videoRef: RefObject<HTMLVideoElement | null>;
+  videoRef: RefCallback<HTMLVideoElement>;
   videoEvents: Omit<ComponentPropsWithRef<"video">, "ref">;
-  ytHostRef: RefObject<HTMLDivElement | null>;
+  ytHostRef: RefCallback<HTMLDivElement>;
 };
 
 /**
@@ -102,15 +105,20 @@ export function usePlayer(initialYoutubeId: string | null = null, trackTime = tr
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const ytRef = useRef<YtPlayer | null>(null);
-  const ytHostRef = useRef<HTMLDivElement | null>(null);
+  const [ytHost, setYtHost] = useState<HTMLDivElement | null>(null);
+  // Where the video was and how fast it played, for a stage that mounts afresh.
+  const resume = useRef({ source: "", time: 0, rate: 1 });
 
   // --- YouTube lifecycle -------------------------------------------------
   const youtubeId = source?.type === "youtube" ? source.id : null;
 
   useEffect(() => {
-    const wrapper = ytHostRef.current;
+    const wrapper = ytHost;
 
     if (!youtubeId || !wrapper) return;
+
+    const from = resume.current.source === youtubeId ? resume.current : null;
+
     let cancelled = false;
     let poll: ReturnType<typeof setInterval> | undefined;
 
@@ -125,16 +133,29 @@ export function usePlayer(initialYoutubeId: string | null = null, trackTime = tr
         width: "100%",
         height: "100%",
         // Our own controls replace YouTube's; the iframe sits behind a click shield.
-        playerVars: { controls: 0, modestbranding: 1, rel: 0, disablekb: 1, playsinline: 1 },
+        playerVars: {
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          disablekb: 1,
+          playsinline: 1,
+          ...(from && { start: Math.floor(from.time) }),
+        },
         events: {
-          onReady: (e) => setDuration(e.target.getDuration?.() || 0),
+          onReady: (e) => {
+            setDuration(e.target.getDuration?.() || 0);
+            if (from) e.target.setPlaybackRate?.(from.rate);
+          },
           onStateChange: (e) => {
             setIsPlaying(e.data === 1);
             const d = e.target.getDuration?.();
 
             if (d) setDuration(d);
           },
-          onPlaybackRateChange: (e) => setRateState(e.data),
+          onPlaybackRateChange: (e) => {
+            resume.current.rate = e.data;
+            setRateState(e.data);
+          },
         },
       });
       // YouTube reports no time updates, so `currentTime` follows by asking; skipped when nothing shows it.
@@ -149,11 +170,26 @@ export function usePlayer(initialYoutubeId: string | null = null, trackTime = tr
     return () => {
       cancelled = true;
       clearInterval(poll);
+
+      const at = ytRef.current?.getCurrentTime?.();
+
+      if (typeof at === "number") resume.current = { ...resume.current, source: youtubeId, time: at };
       ytRef.current?.destroy?.();
       ytRef.current = null;
       wrapper.innerHTML = "";
     };
-  }, [youtubeId, trackTime]);
+  }, [youtubeId, ytHost, trackTime]);
+
+  // A local <video> mounted afresh starts where the last one stopped.
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+
+    if (!el) return setIsPlaying(false);
+    if (resume.current.source !== el.src) return;
+
+    el.currentTime = resume.current.time;
+    el.playbackRate = resume.current.rate;
+  }, []);
 
   // Clicking the YouTube iframe moves keyboard focus into it, which swallows
   // our shortcuts. Hand focus straight back to the page.
@@ -182,6 +218,7 @@ export function usePlayer(initialYoutubeId: string | null = null, trackTime = tr
 
   // --- Loading -----------------------------------------------------------
   const reset = () => {
+    resume.current = { source: "", time: 0, rate: 1 };
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
@@ -235,12 +272,20 @@ export function usePlayer(initialYoutubeId: string | null = null, trackTime = tr
 
   /** Events to spread on the <video> element for local files. */
   const videoEvents = {
-    onTimeUpdate: () => setCurrentTime(videoRef.current?.currentTime ?? 0),
+    onTimeUpdate: () => {
+      const el = videoRef.current;
+
+      if (el) resume.current = { ...resume.current, source: el.src, time: el.currentTime };
+      setCurrentTime(el?.currentTime ?? 0);
+    },
     onLoadedMetadata: () => setDuration(videoRef.current?.duration ?? 0),
     onPlay: () => setIsPlaying(true),
     onPause: () => setIsPlaying(false),
     onEnded: () => setIsPlaying(false),
-    onRateChange: () => setRateState(videoRef.current?.playbackRate ?? 1),
+    onRateChange: () => {
+      resume.current.rate = videoRef.current?.playbackRate ?? 1;
+      setRateState(videoRef.current?.playbackRate ?? 1);
+    },
   };
 
   return [
@@ -260,6 +305,6 @@ export function usePlayer(initialYoutubeId: string | null = null, trackTime = tr
       seekBy,
       setRate,
     },
-    { videoRef, videoEvents, ytHostRef },
+    { videoRef: attachVideo, videoEvents, ytHostRef: setYtHost },
   ];
 }

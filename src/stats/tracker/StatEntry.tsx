@@ -3,7 +3,7 @@ import { Pencil } from "lucide-react";
 
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
-import { CALLOUT_NOTE, cx, ENTRY_STEPS, PANEL, PANEL_SCROLL } from "../../ui/styles";
+import { CALLOUT_NOTE, cx, ENTRY_CAPTION, ENTRY_STEPS, PANEL, PANEL_SCROLL } from "../../ui/styles";
 import {
   ENTRY_SKILLS,
   resultLabel,
@@ -99,7 +99,7 @@ export function StatEntry({
           <Button className="w-full" onClick={onEdit} disabled={editDisabled}>
             <Pencil size={15} aria-hidden="true" /> Edit set
           </Button>
-          <p className="m-0 -mt-2 text-center text-xs text-text-dim">Locked, so nothing changes it by accident.</p>
+          <p className={ENTRY_CAPTION}>Locked, so nothing changes it by accident.</p>
         </>
       ) : !draft && marks > 0 ? (
         <div className="flex gap-2">
@@ -176,9 +176,7 @@ export function StatEntry({
         </div>
       )}
       {!locked && !draft && marks === 0 && (
-        <p className="m-0 -mt-2 text-center text-xs text-text-dim pointer-coarse:hidden">
-          Or tap Tab on each contact while the video plays.
-        </p>
+        <p className={cx(ENTRY_CAPTION, "pointer-coarse:hidden")}>Or tap Tab on each contact while the video plays.</p>
       )}
 
       <fieldset disabled={locked} title={locked ? LOCKED_HINT : undefined} className={ENTRY_STEPS}>

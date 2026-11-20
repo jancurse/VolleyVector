@@ -45,7 +45,8 @@ type SetPageProps = {
   onBack: () => void;
   /** Open the next set, started in this browser from `next`. */
   onNextSet: (next: AppData) => void;
-  onFinish: (finished: boolean) => Promise<void>;
+  /** Mark the set finished on the server, or take that back. Resolves to whether it worked. */
+  onFinish: (finished: boolean) => Promise<boolean>;
   /** The set's stats were saved, so its summary changed. */
   onStatsSaved: () => void;
   backend?: SetBackend;
@@ -75,6 +76,8 @@ export function SetPage({
   const { opened, snapshot } = sync;
   const { confirm, dialog } = useConfirm();
   const [signingIn, setSigningIn] = useState(false);
+  // What this page last set the server's finished mark to, ahead of the game's own list reloading.
+  const [marked, setMarked] = useState<boolean | null>(null);
   const ready = opened?.kind === "ready" ? opened.data : null;
   // The game's teams and date win over whatever the set carried.
   const initial = useMemo(() => ready && withGameMeta(ready, game, teamName), [ready, game, teamName]);
@@ -94,9 +97,9 @@ export function SetPage({
     if (
       (snapshot.stats === "changed" || snapshot.stats === "saving") &&
       !(await confirm({
-        title: "Leave without pressing Done?",
+        title: "Leave with changes not in the stats?",
         description:
-          "Your changes are kept with the set, but the team’s stats show them only once you press Done. You can do that the next time you open the set.",
+          "Your changes are kept with the set, but the team’s stats show them only once you press Done while editing it. You can do that the next time you open the set.",
         confirmLabel: "Leave",
       }))
     )
@@ -132,14 +135,15 @@ export function SetPage({
   // a finished set back, once what this browser holds is saved.
   const finish = async (done: boolean): Promise<boolean> => {
     if (done) {
-      if (!(await saveStats())) return false;
-      await onFinish(true);
+      if (!(await saveStats()) || !(await onFinish(true))) return false;
+      setMarked(true);
 
       return true;
     }
-    if (!finished) return true;
+    if (!(marked ?? finished)) return true;
     if (await sync.flush()) {
-      await onFinish(false);
+      if (!(await onFinish(false))) return false;
+      setMarked(false);
 
       return true;
     }
@@ -247,6 +251,7 @@ export function SetPage({
           focus={focus}
           onFocus={onFocus}
           panes={panes}
+          statsBehind={snapshot.stats === "changed"}
           onChange={sync.onChange}
           onNextSet={(next) => void nextSet(next)}
           onFinish={finish}
@@ -260,7 +265,10 @@ export function SetPage({
               </h1>
               <SaveStatus snapshot={snapshot} />
               {snapshot.stats === "changed" && (
-                <span className={STATUS_NOTE} title="Press Done to put your changes in the team’s stats">
+                <span
+                  className={STATUS_NOTE}
+                  title="Press Done, after Edit set if the set is locked, to put your changes in the team’s stats"
+                >
                   Not in the stats yet
                 </span>
               )}

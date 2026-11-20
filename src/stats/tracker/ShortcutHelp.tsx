@@ -10,6 +10,7 @@ const SHORTCUTS: [string, string][] = [
   [", / .", "Step one frame"],
   ["[ / ]", "Slower / faster"],
   ["v", "Focus mode: hide the app’s sidebar and top bar"],
+  ["x", "Move the entry beside the video, or under it"],
   ["Tab", "Mark a contact while the video plays (no pause)"],
   ["Enter", "Describe marked contacts, or new stat (predicted player & skill)"],
   ["1–9, 0", "Pick player, result or zone (whichever is highlighted)"],

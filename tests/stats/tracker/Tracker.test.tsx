@@ -137,7 +137,7 @@ describe("Tracker", () => {
     expect(last()?.events).toEqual([expect.objectContaining(touch)]);
   });
 
-  test("ticking Detailed stats mid-entry changes what the entry offers and what the keys record", async () => {
+  test("turning on detailed stats mid-entry changes what the entry offers and what the keys record", async () => {
     const { last } = renderTracker();
 
     await userEvent.keyboard("1a");
@@ -199,6 +199,36 @@ describe("Tracker", () => {
     await userEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onFinish).toHaveBeenLastCalledWith(true);
     expect(await screen.findByRole("button", { name: "Edit set" })).toBeInTheDocument();
+  });
+
+  test("as panes, X and its button move the entry beside the video or under it, and the choice is remembered", async () => {
+    localStorage.setItem(
+      "volleyvector:tracker:layout",
+      JSON.stringify({ arrangement: "beside", beside: { columns: 1 } })
+    );
+    render(
+      <TooltipProvider>
+        <Tracker
+          initial={emptyData(["Mira"])}
+          names={{ us: "Eagles", them: "Riverside" }}
+          panes
+          onChange={() => {}}
+          onNextSet={() => {}}
+          onFinish={async () => true}
+          header={<h1>Set 1</h1>}
+        />
+      </TooltipProvider>
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Put the entry under the video" }));
+    expect(JSON.parse(localStorage.getItem("volleyvector:tracker:layout") ?? "{}")).toMatchObject({
+      arrangement: "below",
+    });
+
+    await userEvent.keyboard("x");
+    expect(screen.getByRole("button", { name: "Put the entry under the video" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Stat entry" })).toBeInTheDocument();
+    localStorage.clear();
   });
 
   test("focus mode is switched by its button and by V, on a locked set too", async () => {

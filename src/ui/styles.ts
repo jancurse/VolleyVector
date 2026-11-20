@@ -235,8 +235,11 @@ export const TRACKER_BAR = "flex flex-none flex-wrap items-center justify-betwee
 export const TRACKER_CELL = "min-h-0 min-w-0 p-1";
 export const TRACKER_PANE_FILL = "h-full min-h-0";
 /** The line between two panes that drags to resize them: quiet until hovered, focused, or dragged. */
-export const TRACKER_GRIDLINE =
+const GRIDLINE =
   "rounded-pill bg-border transition-colors duration-150 ease-settle hover:bg-accent focus-visible:bg-accent focus-visible:outline-none data-[separator=active]:bg-accent";
+
+/** The line between columns is upright and the one between rows lies flat; each is as thin as the other. */
+export const TRACKER_GRIDLINE = { column: cx(GRIDLINE, "w-1"), row: cx(GRIDLINE, "h-1") };
 
 /** A keyboard-shortcut badge shown on the control it triggers; hidden on a touch screen. */
 export const KBD =
@@ -271,6 +274,9 @@ export const CHOICE_TONE: Record<ChoiceTone, string> = {
   bad: cx(THEM_TINT, "text-text"),
 };
 
+/** A centred line of small print under the entry's main button. */
+export const ENTRY_CAPTION = "m-0 -mt-2 text-center text-xs text-text-dim";
+
 /** The step of the stat entry waiting for input. */
 export const ENTRY_STEP_ACTIVE = "bg-accent-weak ring-2 ring-accent";
 
@@ -299,7 +305,7 @@ export const STATUS_LINE = "inline-flex items-center gap-1 text-xs font-semibold
 export const STATUS_NOTE = cx(STATUS_LINE, "text-text-dim");
 
 /** The video stage: black in either theme, as a player letterboxes. On a page it is 16:9; in a pane it fills
-    the pane, and VIDEO_FRAME is then the largest 16:9 box that fits inside it. */
+    the pane, and VIDEO_FRAME_FILL is then the largest 16:9 box that fits inside it. */
 const VIDEO_STAGE_BASE = "relative flex items-center justify-center overflow-hidden bg-black";
 
 export const VIDEO_STAGE = cx(VIDEO_STAGE_BASE, "aspect-video");

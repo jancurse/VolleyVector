@@ -758,7 +758,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       {
         title: "Correct a touch",
         steps: [
-          "Press **Edit set** at the top if the set is locked.",
+          "Press **Edit set** in the stat entry if the set is locked.",
           "Find it in **Recorded stats**. The newest rally is at the top.",
           "Press its time to jump the video to that moment.",
           "Press the pencil, change what is wrong, and press `Enter`.",
@@ -827,7 +827,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
       "If a set changed in two places while you were away, the app asks which to keep and downloads the other as a file first.",
       "Deleting a set cannot be undone, so the app downloads it as a file as it goes, unless you untick that.",
       "On the game page, **Stats not saved** or **Stats not up to date** on a set means it has changes the stats do not show. Open it, press **Edit set**, then **Done**.",
-      "A set with stats opens locked, so nothing changes it by accident. Press **Edit set** at the top to change it, then **Done**.",
+      "A set with stats opens locked, so nothing changes it by accident. Press **Edit set** in the stat entry to change it, then **Done** at the top.",
     ],
     related: ["record", "import-sets"],
   },
