@@ -295,11 +295,15 @@ export const NET_LINE = "border-t-4 border-text pt-1.5";
 export const NET_LINE_BELOW = "border-b-4 border-text pb-1.5";
 /** A group of controls that disables as one (a locked set's entry); it adds no box of its own. */
 export const FIELDSET = "m-0 min-w-0 border-0 p-0";
-/** The stat entry's steps: stacked in a column, side by side once its panel is wide. */
+/** The stat entry's steps: stacked in a column, side by side once its panel is wide, wrapping the ones that
+    do not fit at their own width. */
 export const ENTRY_STEPS = cx(
   FIELDSET,
-  "flex flex-col gap-[0.9rem] @4xl:grid @4xl:auto-cols-fr @4xl:grid-flow-col @4xl:items-start @4xl:gap-4"
+  "flex flex-col gap-[0.9rem] @4xl:flex-row @4xl:flex-wrap @4xl:items-start @4xl:gap-4"
 );
+/** A step's width in the side-by-side row: two choices across, or more (the players and the zones). */
+export const ENTRY_STEP_WIDTH = "@4xl:flex-1 @4xl:basis-52";
+export const ENTRY_STEP_WIDTH_WIDE = "@4xl:flex-1 @4xl:basis-72";
 /** A one-line status with a leading icon (saved, locked); the caller gives its colour, or uses the quiet one. */
 export const STATUS_LINE = "inline-flex items-center gap-1 text-xs font-semibold";
 export const STATUS_NOTE = cx(STATUS_LINE, "text-text-dim");

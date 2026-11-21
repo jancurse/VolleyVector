@@ -1,6 +1,6 @@
 import type { JSX, ReactNode } from "react";
 
-import { cx, ENTRY_STEP_ACTIVE } from "../../ui/styles";
+import { cx, ENTRY_STEP_ACTIVE, ENTRY_STEP_WIDTH, ENTRY_STEP_WIDTH_WIDE } from "../../ui/styles";
 
 /** One step of the stat entry (player, skill, result, zone), highlighted while it waits for input. */
 export function EntrySection({
@@ -8,6 +8,7 @@ export function EntrySection({
   active,
   hint,
   action,
+  wide,
   children,
 }: {
   title: string;
@@ -15,12 +16,18 @@ export function EntrySection({
   hint?: string;
   /** A control beside the title (the players' Change button). */
   action?: ReactNode;
+  /** Holds more than two choices across, so takes more of the side-by-side row. */
+  wide?: boolean;
   children: ReactNode;
 }): JSX.Element {
   return (
     <section
       aria-label={title}
-      className={cx("-m-2 rounded-lg p-2 transition-colors duration-150 ease-settle", active && ENTRY_STEP_ACTIVE)}
+      className={cx(
+        "-m-2 rounded-lg p-2 transition-colors duration-150 ease-settle",
+        wide ? ENTRY_STEP_WIDTH_WIDE : ENTRY_STEP_WIDTH,
+        active && ENTRY_STEP_ACTIVE
+      )}
     >
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <div className="flex items-baseline gap-2">
