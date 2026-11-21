@@ -33,8 +33,8 @@ type GameSetsProps = {
   onNew: () => Promise<void>;
   onDelete: (set: SetSummary) => void;
   onImport: () => void;
-  /** Type in a set's score; resolves to an error, or null once saved. */
-  onScore: (set: SetSummary, score: Score) => Promise<string | null>;
+  /** Type in a set's score, or remove the typed one with null; resolves to an error, or null once saved. */
+  onScore: (set: SetSummary, score: Score | null) => Promise<string | null>;
 };
 
 type Score = { us: number; them: number };
@@ -64,7 +64,7 @@ function ScoreCell({
   /** Whether the score is typed in over the set's recorded stats. */
   typed: boolean;
   canEdit: boolean;
-  onSave: (score: Score) => Promise<string | null>;
+  onSave: (score: Score | null) => Promise<string | null>;
 }): JSX.Element {
   const [draft, setDraft] = useState<{ us: string; them: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -105,18 +105,21 @@ function ScoreCell({
     setError(null);
   };
 
+  const save = (next: Score | null) => {
+    setSaving(true);
+    void onSave(next).then((failed) => {
+      setSaving(false);
+      if (failed) setError(failed);
+      else cancel();
+    });
+  };
+
   return (
     <form
       className="flex flex-col gap-1"
       onSubmit={(e) => {
         e.preventDefault();
-        if (us === null || them === null) return;
-        setSaving(true);
-        void onSave({ us, them }).then((failed) => {
-          setSaving(false);
-          if (failed) setError(failed);
-          else cancel();
-        });
+        if (us !== null && them !== null) save({ us, them });
       }}
       onKeyDown={(e) => e.key === "Escape" && cancel()}
     >
@@ -152,6 +155,11 @@ function ScoreCell({
           <X size={14} aria-hidden="true" />
         </IconButton>
       </div>
+      {typed && (
+        <Button variant="text" className="self-start text-xs" disabled={saving} onClick={() => save(null)}>
+          Use the recorded score
+        </Button>
+      )}
       {error && <p className="m-0 text-xs text-danger">{error}</p>}
     </form>
   );

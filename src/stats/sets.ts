@@ -330,12 +330,13 @@ export async function addSet(
 
 /**
  * Type in a set's score, straight to the server, and save it as the set's stats so the list shows it. It wins over
- * the score the set's events give; typing that same score clears it. A set whose recording has changes not yet saved
- * as stats is left alone, since saving the score would save them too. Resolves to an error, or null.
+ * the score the set's events give; typing that same score, or passing null, clears it. A set whose recording has
+ * changes not yet saved as stats is left alone, since saving the score would save them too. Resolves to an error, or
+ * null.
  */
 export async function saveSetScore(
   setId: string,
-  score: { us: number; them: number },
+  score: { us: number; them: number } | null,
   backend: SetBackend = supabaseSetBackend
 ): Promise<string | null> {
   const loaded = await backend.load(setId);
@@ -349,7 +350,7 @@ export async function saveSetScore(
 
   const tracked = record.data.events.length ? trackedScore(record.data) : null;
   const { score: _typed, ...meta } = record.data.meta;
-  const typed = tracked?.us === score.us && tracked.them === score.them ? {} : { score };
+  const typed = !score || (tracked?.us === score.us && tracked.them === score.them) ? {} : { score };
   const data = { ...record.data, meta: { ...meta, ...typed } };
   const saved = await backend.save({ id: record.id, gameId: record.gameId, data, base: record.version });
   const published =

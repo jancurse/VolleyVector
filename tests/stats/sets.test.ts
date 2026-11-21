@@ -167,11 +167,14 @@ describe("a typed-in score", () => {
     expect(tracked.publish).toHaveBeenCalledWith(expect.objectContaining({ data: typedIn({ us: 25, them: 23 }) }));
   });
 
-  test("typing the score the events give clears it", async () => {
+  test.each([
+    { name: "typing the score the events give", score: trackedScore(data) },
+    { name: "removing the typed score", score: null },
+  ])("$name clears it", async ({ score }) => {
     const typed = { ...data, meta: { ...data.meta, score: { us: 25, them: 23 } } };
     const backend = backendWith(stored(typed));
 
-    expect(await saveSetScore("s", trackedScore(data), backend)).toBeNull();
+    expect(await saveSetScore("s", score, backend)).toBeNull();
     expect(backend.save.mock.calls[0][0].data.meta).not.toHaveProperty("score");
   });
 
