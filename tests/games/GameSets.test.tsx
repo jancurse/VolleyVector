@@ -29,7 +29,9 @@ function renderSets(canEdit: boolean, error: string | null = null, data?: Readon
     onNew: vi.fn(() => Promise.resolve()),
     onDelete: vi.fn(),
     onImport: vi.fn(),
-    onScore: vi.fn((_set: SetSummary, _score: { us: number; them: number }) => Promise.resolve<string | null>(null)),
+    onScore: vi.fn((_set: SetSummary, _score: { us: number; them: number } | null) =>
+      Promise.resolve<string | null>(null)
+    ),
     onReload: vi.fn(),
   };
   const local = new Map([
@@ -106,16 +108,20 @@ describe("GameSets", () => {
     expect(screen.getByRole("textbox", { name: "Our points in set 1" })).toBeInTheDocument();
   });
 
-  test("a score typed in over recorded stats is marked", () => {
+  test("a score typed in over recorded stats is marked and can be removed", async () => {
     const touch = { kind: "touch", id: 1, timestamp: 1, player: "A", stat: "serve", result: "in", zone: "" } as const;
 
-    renderSets(
+    const handlers = renderSets(
       true,
       null,
       new Map([["s1", { ...emptyData(), events: [touch], meta: { ...emptyData().meta, score: { us: 25, them: 20 } } }]])
     );
 
     expect(screen.getByTitle("Typed in over the recorded stats")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit the score of set 1" }));
+    await userEvent.click(screen.getByRole("button", { name: "Use the recorded score" }));
+    expect(handlers.onScore).toHaveBeenCalledWith(SET, null);
   });
 
   test("a failed load says so and starts no set, since the sets shown may be out of date", async () => {
