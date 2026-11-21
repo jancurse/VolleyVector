@@ -33,7 +33,18 @@ import { Table, TableCell, TableHeadCell } from "../ui/Table";
 import { GuideLink } from "../guide/GuideLink";
 import { Tab, TabList, Tabs } from "../ui/Tabs";
 import { Textarea } from "../ui/Textarea";
-import { cx, EYEBROW, FIELD_LABEL, MUTED, PAGE, PAGE_BAR, PANEL, PANEL_TITLE, TITLE } from "../ui/styles";
+import {
+  cx,
+  EYEBROW,
+  FIELD_LABEL,
+  MUTED,
+  PAGE,
+  PAGE_BAR,
+  PANEL,
+  PANEL_TITLE,
+  TITLE,
+  TRACKER_WORKSPACE,
+} from "../ui/styles";
 import { formatGameDate, VENUE_LABEL } from "./format";
 import { GameSets } from "./GameSets";
 import { createRotation, playerMap, sortSquad } from "./rotation";
@@ -76,6 +87,11 @@ type GamePageProps = {
   onScoreSet: (set: SetSummary, score: { us: number; them: number }) => Promise<string | null>;
   tab: GameTab | StatsTab;
   onTab: (tab: GameTab | StatsTab) => void;
+  /** The window is the page's to fill, so the highlights tab lays out as a workspace of panes. */
+  fill?: boolean;
+  /** Whether everything but the highlights is hidden (their focus mode), and how to switch that. */
+  focus?: boolean;
+  onFocus?: (focus: boolean) => void;
 };
 
 const TABS: readonly (GameTab | StatsTab)[] = ["overview", "rotations", "stats", "highlights", "report"];
@@ -119,6 +135,9 @@ export function GamePage({
   onScoreSet,
   tab,
   onTab,
+  fill = false,
+  focus = false,
+  onFocus,
 }: GamePageProps): JSX.Element {
   const [draft, setDraft] = useState(game);
   const [status, setStatus] = useState<string | null>(null);
@@ -200,9 +219,11 @@ export function GamePage({
       rotations: [...draft.rotations, createRotation(squad, `Rotation ${draft.rotations.length + 1}`)],
     });
 
+  const workspace = fill && tab === "highlights";
+
   return (
-    <section className={PAGE}>
-      <div className={PAGE_BAR}>
+    <section className={workspace ? TRACKER_WORKSPACE : PAGE}>
+      <div className={PAGE_BAR} hidden={workspace && focus}>
         <div className="flex min-w-0 flex-1 flex-col">
           <p className={EYEBROW}>Game</p>
           {canEdit ? (
@@ -243,7 +264,7 @@ export function GamePage({
       <Tabs
         value={tab}
         onValueChange={(v) => onTab(TABS.find((t) => t === v) ?? "overview")}
-        className="flex items-center gap-2"
+        className={workspace && focus ? "hidden" : "flex items-center gap-2"}
       >
         <TabList ariaLabel="Game">
           <Tab value="overview">
@@ -500,6 +521,9 @@ export function GamePage({
             tab={tab}
             onTab={onTab}
             embedded
+            fill={fill}
+            focus={focus}
+            onFocus={onFocus}
           />
         </Suspense>
       )}

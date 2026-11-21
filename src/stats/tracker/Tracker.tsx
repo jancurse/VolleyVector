@@ -35,6 +35,7 @@ import { download } from "../../bundle/download";
 import { exportFilename, toCsv, toJson } from "../exporters";
 import { deriveRallies, predictPlayer } from "../rallies";
 import { toReportSet } from "../reportSet";
+import { isTyping } from "../typing";
 import { emptyData, initState, newId, nextSetData, parseImport, reducer } from "../store";
 import type { Action } from "../store";
 import type { AppData, MatchEvent, Rally, ReportSet, Skill, Team } from "../types";
@@ -421,21 +422,12 @@ export function Tracker({
   const onKey = useEffectEvent((e: KeyboardEvent) => {
     // The stats view is a full-screen overlay: only Escape (to close it) reaches the tracker.
     if (statsView) {
-      if (e.key === "Escape") setStatsView(null);
+      if (e.key === "Escape" && !isTyping(e.target)) setStatsView(null);
 
       return;
     }
 
-    const t = e.target as HTMLElement;
-    const typing =
-      (t.tagName === "INPUT" && (t as HTMLInputElement).type !== "range") ||
-      t.tagName === "TEXTAREA" ||
-      t.tagName === "SELECT" ||
-      t.isContentEditable ||
-      // A dialog or an open select popup owns its keys.
-      !!t.closest?.("[role=dialog],[role=alertdialog],[role=listbox]");
-
-    if (typing) return;
+    if (isTyping(e.target)) return;
     if (locked && !VIEW_KEYS.has(e.key)) return;
 
     const mod = e.ctrlKey || e.metaKey;
@@ -825,6 +817,9 @@ export function Tracker({
             title={names.us && names.them ? `${names.us} vs ${names.them}` : "Stats"}
             initialTab="stats"
             back={{ label: "Back to the set", onBack: () => setStatsView(null) }}
+            fill={panes}
+            focus={focus}
+            onFocus={onFocus}
           />
         </Suspense>
       )}

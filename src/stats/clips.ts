@@ -1,5 +1,5 @@
 import { formatGameDate } from "../games/format";
-import { pointReasonLabel, resultLabel, skillLabel } from "./codes";
+import { pointReasonLabel, resultLabel, skillLabel, touchOutcome } from "./codes";
 import type { ReportSet } from "./types";
 import { extractYoutubeId } from "./youtube";
 
@@ -18,6 +18,8 @@ export type HighlightAction = {
   outcome: string;
   /** Court zone of the touch; empty for an opponent point. */
   zone: string;
+  /** Whether the action ended its rally, and for whom; empty while the ball stayed in play. */
+  point: "won" | "lost" | "";
   /** Score after the rally, e.g. "12–9". */
   score: string;
   /** The rally's number within its set. */
@@ -40,9 +42,18 @@ export type RallySummary = {
   ended: string;
 };
 
-export const FILTER_FIELDS = ["match", "set", "player", "action", "outcome", "zone"] as const;
+export const FILTER_FIELDS = ["set", "player", "action", "outcome", "zone", "point"] as const;
 export type FilterField = (typeof FILTER_FIELDS)[number];
+/** The values picked per filter. A set and an outcome are picked by key, as `setKey` and `outcomeKey` build it. */
 export type Selection = Record<FilterField, Set<string>>;
+
+/** A set within its match, and an outcome within its action: "Set 2" or "Error" alone names several. */
+export const setKey = (match: string, set: string): string => `${match}|${set}`;
+export const outcomeKey = (action: string, outcome: string): string => `${action}|${outcome}`;
+
+/** The value of an action a filter picks by. */
+const fieldValue = (a: HighlightAction, field: FilterField): string =>
+  field === "set" ? setKey(a.match, a.set) : field === "outcome" ? outcomeKey(a.action, a.outcome) : a[field];
 
 /** A padded window of one video, covering one or more actions. */
 export type Clip = {
@@ -76,6 +87,7 @@ export function highlightActions(set: ReportSet, index = 0): HighlightAction[] {
       action: skillLabel(t),
       outcome: resultLabel(t.stat, t.result),
       zone: t.zone,
+      point: ({ us: "won", them: "lost", none: "" } as const)[touchOutcome(t) ?? "none"],
       score,
     }));
     const end = r.endedBy;
@@ -90,6 +102,7 @@ export function highlightActions(set: ReportSet, index = 0): HighlightAction[] {
               action: "Point",
               outcome: pointReasonLabel("them", end.reason) || "Point",
               zone: "",
+              point: "lost" as const,
               score,
             },
           ]
@@ -99,13 +112,43 @@ export function highlightActions(set: ReportSet, index = 0): HighlightAction[] {
   });
 }
 
-/** Keeps actions whose every field is in its selected set; an empty selection keeps everything. */
-export const filterActions = (actions: HighlightAction[], selection: Partial<Selection>): HighlightAction[] =>
-  actions.filter((a) =>
-    Object.entries(selection).every(([field, values]) => !values.size || values.has(a[field as FilterField]))
-  );
+/**
+ * Keeps actions whose every field is in its selected set; an empty selection keeps everything. Outcomes narrow
+ * only their own action, so an action picked without any keeps all of its outcomes.
+ */
+export const filterActions = (
+  actions: readonly HighlightAction[],
+  selection: Partial<Selection>
+): HighlightAction[] => {
+  const narrowed = new Set([...(selection.outcome ?? [])].map((key) => key.slice(0, key.indexOf("|"))));
 
-/** Pads each action into a time window and merges windows that overlap within one video. */
+  return actions.filter((a) =>
+    Object.entries(selection).every(([field, values]) =>
+      field === "outcome"
+        ? !narrowed.has(a.action) || values.has(outcomeKey(a.action, a.outcome))
+        : !values.size || values.has(fieldValue(a, field as FilterField))
+    )
+  );
+};
+
+/** How many actions each value of `field` would show, given the other filters. */
+export function fieldCounts(
+  actions: readonly HighlightAction[],
+  selection: Selection,
+  field: FilterField
+): Map<string, number> {
+  const counts = new Map<string, number>();
+
+  for (const a of filterActions(actions, { ...selection, [field]: new Set() })) {
+    const value = fieldValue(a, field);
+
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+/** Pads each action into a time window and merges windows that overlap within one set and video. */
 export function buildClips(actions: HighlightAction[], before: number, after: number): Clip[] {
   const order = [...actions].sort(
     (a, b) =>
@@ -121,7 +164,15 @@ export function buildClips(actions: HighlightAction[], before: number, after: nu
     const end = action.time + after;
     const last = clips.at(-1);
 
-    if (last && last.videoId === action.videoId && start <= last.end) {
+    const first = last?.actions[0];
+
+    if (
+      last &&
+      last.videoId === action.videoId &&
+      first?.match === action.match &&
+      first.set === action.set &&
+      start <= last.end
+    ) {
       last.end = Math.max(last.end, end);
       last.actions.push(action);
     } else {
@@ -167,6 +218,34 @@ export function highlightRallies(set: ReportSet, index = 0): RallySummary[] {
 
 /** Identifies the rally an action or rally summary belongs to. */
 export const rallyKey = (r: { match: string; set: string; rally: number }) => `${r.match}|${r.set}|${r.rally}`;
+
+const describeAction = (a: HighlightAction): string => `${a.player} · ${a.action} ${a.outcome}`;
+
+/** A clip's actions, one per line unless joined otherwise. */
+export const clipActions = (clip: Clip, separator = "\n"): string => clip.actions.map(describeAction).join(separator);
+
+/** The rally a clip ends in, when it was decided. */
+export const clipRally = (clip: Clip, rallies: ReadonlyMap<string, RallySummary>): RallySummary | undefined =>
+  rallies.get(rallyKey(clip.actions[clip.actions.length - 1]));
+
+/**
+ * A clip of one action names it. A clip covering several (usually a whole rally) gets a short summary of its
+ * rally instead, e.g. "Won · 7 touches · 17s · Mira · Attack Kill".
+ */
+export function clipLabel(clip: Clip, rallies: ReadonlyMap<string, RallySummary>): string {
+  const rally = clip.actions.length > 1 ? clipRally(clip, rallies) : undefined;
+
+  return rally
+    ? [
+        rally.won ? "Won" : "Lost",
+        `${rally.touches} ${rally.touches === 1 ? "touch" : "touches"}`,
+        rally.touches ? `${Math.round(rally.end - rally.start)}s` : "",
+        rally.ended,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : clipActions(clip, ", ");
+}
 
 /** A YouTube link that starts the video at `seconds`. */
 export const youtubeAt = (videoId: string, seconds: number) =>
