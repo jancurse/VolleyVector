@@ -302,6 +302,8 @@ export function App(): JSX.Element {
   const [trackerFocus, setTrackerFocus] = useState(false);
   // The tracker lays out as panes filling the window wherever the screen is wide enough for a sidebar or rail.
   const trackerPanes = sidebarMode !== "drawer";
+  // So do the highlights, which share the tracker's focus mode.
+  const highlightsPanes = trackerPanes && route.kind === "stats" && route.view === "highlights";
 
   // Selection, open board, and edit mode are all read off the current route.
   const selection: Selection =
@@ -375,7 +377,7 @@ export function App(): JSX.Element {
       setHeldSet({ setId: route.setId, ...routeBackup.context, fromBackup: true });
   }
   if (route.kind !== "set" && heldSet) setHeldSet(null);
-  if (route.kind !== "set" && trackerFocus) setTrackerFocus(false);
+  if (route.kind !== "set" && !highlightsPanes && trackerFocus) setTrackerFocus(false);
 
   const heldSummary = heldSet ? gameSets.sets.find((s) => s.id === heldSet.setId) : undefined;
 
@@ -1324,6 +1326,9 @@ export function App(): JSX.Element {
             return error;
           }}
           tab={route.kind === "game" ? route.tab : route.view}
+          fill={trackerPanes}
+          focus={trackerFocus}
+          onFocus={setTrackerFocus}
           onTab={(tab) =>
             navigate(
               tab === "overview" || tab === "rotations"
@@ -1366,6 +1371,9 @@ export function App(): JSX.Element {
           roster={roster.players}
           tab={route.view}
           onTab={onTab}
+          fill={trackerPanes}
+          focus={trackerFocus}
+          onFocus={setTrackerFocus}
         />
       </Suspense>
     );
@@ -1507,8 +1515,8 @@ export function App(): JSX.Element {
           ) : undefined
         }
         topBar={topBar}
-        bare={trackerFocus && setPage !== null}
-        fill={trackerPanes && setPage !== null}
+        bare={trackerFocus && (setPage !== null || highlightsPanes)}
+        fill={(trackerPanes && setPage !== null) || highlightsPanes}
       >
         {(boardsError || notes.error) && (
           <p className={cx("mb-3", PAGE_WIDTH, "text-sm text-danger")}>{boardsError ?? notes.error}</p>

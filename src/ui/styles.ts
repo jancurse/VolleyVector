@@ -241,6 +241,31 @@ const GRIDLINE =
 /** The line between columns is upright and the one between rows lies flat; each is as thin as the other. */
 export const TRACKER_GRIDLINE = { column: cx(GRIDLINE, "w-1"), row: cx(GRIDLINE, "h-1") };
 
+/** One filter of the highlights' bar: a pill holding its trigger and, once something is picked, its clear. */
+export const FILTER_PILL =
+  "inline-flex h-8 max-w-full items-center rounded-pill border border-border bg-control font-ui text-sm font-semibold text-text-dim transition-colors duration-150 ease-settle hover:bg-control-hover has-[>button:first-child:focus-visible]:outline-2 has-[>button:first-child:focus-visible]:outline-offset-2 has-[>button:first-child:focus-visible]:outline-accent data-[on]:border-[color-mix(in_srgb,var(--accent)_45%,transparent)] data-[on]:bg-accent-weak";
+export const FILTER_TRIGGER =
+  "inline-flex h-full min-w-0 cursor-pointer items-center gap-1.5 rounded-pill pr-2.5 pl-3 transition-colors duration-150 ease-settle hover:text-text focus-visible:outline-none";
+export const FILTER_CLEAR =
+  "-ml-1.5 grid h-full cursor-pointer place-items-center rounded-r-pill pr-2 pl-1 transition-colors duration-150 ease-settle hover:text-text focus-visible:outline-2 focus-visible:outline-accent";
+/** One value in a filter's picker, and the check box that leads it. */
+export const FILTER_ROW =
+  "flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-left font-ui text-sm font-semibold text-text transition-colors duration-150 ease-settle focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent disabled:cursor-default disabled:opacity-40";
+export const FILTER_CHECK =
+  "grid size-4 flex-none place-items-center rounded-xs border border-border text-on-accent transition-colors duration-150 ease-settle data-[on]:border-accent data-[on]:bg-accent";
+/** What sits under a row, in line with the row's name: the row's padding, its check box, and its gap. */
+export const FILTER_SUBROW = "flex flex-wrap gap-1 pl-8.5";
+/** A picker's body by what it holds, never wider than the screen; the lists scroll past most of its height. */
+export const FILTER_PICKER = {
+  list: "flex max-h-[60vh] w-[min(var(--container-filter-list),calc(100vw-3rem))] flex-col overflow-y-auto",
+  players:
+    "grid max-h-[60vh] w-[min(var(--container-filter-players),calc(100vw-3rem))] grid-cols-2 gap-x-1 gap-y-0.5 overflow-y-auto max-sm:grid-cols-1",
+  court: "flex w-[min(var(--container-filter-court),calc(100vw-3rem))] flex-col gap-1.5",
+};
+/** One zone of the zone picker's court: its name over how many actions it would show. */
+export const FILTER_ZONE =
+  "flex h-12 cursor-pointer flex-col items-center justify-center rounded-md font-ui text-sm leading-tight font-semibold transition-colors duration-150 ease-settle focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-default disabled:opacity-40";
+
 /** A keyboard-shortcut badge shown on the control it triggers; hidden on a touch screen. */
 export const KBD =
   "inline-flex min-w-4.5 items-center justify-center rounded-xs border border-b-2 px-1 font-mono text-2xs font-semibold leading-4 transition-opacity pointer-coarse:hidden";
@@ -259,6 +284,13 @@ export const THEM_RULE = "border-l-danger";
 export const US_TINT = "bg-accent-weak hover:bg-[color-mix(in_srgb,var(--accent)_28%,transparent)]";
 export const THEM_TINT =
   "bg-[color-mix(in_srgb,var(--danger)_14%,transparent)] hover:bg-[color-mix(in_srgb,var(--danger)_24%,transparent)]";
+
+/** A dot on an outcome: ours when it wins the point, theirs when it loses it, hollow while the ball stays in play. */
+export const POINT_DOT = {
+  won: "size-1.5 rounded-full bg-accent",
+  lost: "size-1.5 rounded-full bg-danger",
+  "": "size-1.5 rounded-full border border-text-dim",
+};
 
 export type ChoiceTone = "idle" | "selected" | "suggested" | "good" | "bad";
 
@@ -415,22 +447,13 @@ export const DASH_ROW_PICK =
 
 // ---- Highlights -------------------------------------------------------------------------------
 
-/**
- * The highlights layout, rearranged by the view's own width: narrow, the video, then the filters, then the
- * clips in one column; from hl-medium the filters sit left of the video with the clips under it; from hl-wide
- * the clips take a third column. --hl-reserve is the height kept under the video for its controls.
- */
-export const HL_GRID =
-  "grid grid-cols-1 items-start gap-4 [--hl-reserve:12rem] @hl-medium:grid-cols-[var(--container-hl-filters)_minmax(0,1fr)] @hl-medium:grid-rows-[auto_auto] @hl-medium:[--hl-reserve:24rem] @hl-wide:grid-cols-[var(--container-hl-filters)_minmax(0,1fr)_minmax(var(--container-hl-clips-min),var(--container-hl-clips))] @hl-wide:[--hl-reserve:10rem]";
-export const HL_FILTERS =
-  "order-2 flex flex-col gap-3 rounded-xl border border-border bg-panel p-4 @hl-medium:order-1 @hl-medium:row-span-2 @hl-wide:row-span-1";
-export const HL_VIDEO = "order-1 flex flex-col gap-2 @hl-medium:order-2";
-/** The video, its caption, and its controls share one width, no taller than the screen allows. */
-export const HL_VIDEO_WIDTH = "mx-auto w-[min(100%,calc((100dvh-var(--hl-reserve))*16/9))]";
-export const HL_CLIPS = "order-3 flex min-h-0 flex-col";
-/** The highlights' pane on the stats page. */
-export const HL_PANE = "@container";
+/** The highlights on a small screen: a plain page, the filters, the video, then the clips. */
+export const HL_STACK = "flex flex-col gap-4";
+/** The clip list's scrolling height on that page. */
 export const HL_LIST = "max-h-[60vh] overflow-auto";
+/** A clip's row: its number, its set and score, what it shows, and how long it runs. The rule is its rally's. */
+export const HL_CLIP_ROW =
+  "grid cursor-pointer grid-cols-[1.5rem_4.5rem_minmax(0,1fr)_2rem] items-center gap-2 border-b border-l-2 border-b-border py-0.5 pr-3 pl-2 transition-colors duration-150 ease-settle";
 
 // ---- Set report -------------------------------------------------------------------------------
 

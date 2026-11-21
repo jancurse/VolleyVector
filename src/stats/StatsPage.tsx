@@ -5,7 +5,7 @@ import { ArrowLeft, BarChart3, Clapperboard, FileDown, FileText, Printer } from 
 import { Button } from "../ui/Button";
 import { GuideLink } from "../guide/GuideLink";
 import { Tab, TabList, Tabs } from "../ui/Tabs";
-import { CALLOUT_WARN, EYEBROW, HL_PANE, MUTED, PAGE, PAGE_BAR, TITLE } from "../ui/styles";
+import { CALLOUT_WARN, EYEBROW, MUTED, PAGE, PAGE_BAR, TITLE, TRACKER_WORKSPACE } from "../ui/styles";
 import { emptySelection } from "./clips";
 import type { Selection } from "./clips";
 import StatsDashboard from "./dashboard/StatsDashboard";
@@ -33,6 +33,11 @@ type StatsPageProps = {
   back?: { label: string; onBack: () => void };
   /** Shown inside another page (a game's tabs), which carries the title and the tabs. */
   embedded?: boolean;
+  /** The window is the page's to fill, so the highlights lay out as panes; without it, as a stacked page. */
+  fill?: boolean;
+  /** Whether everything but the highlights is hidden, and how to switch that; absent where it cannot be. */
+  focus?: boolean;
+  onFocus?: (focus: boolean) => void;
 };
 
 const loading = <p className={MUTED}>Loading…</p>;
@@ -51,9 +56,15 @@ export function StatsPage({
   onTab,
   back,
   embedded = false,
+  fill = false,
+  focus = false,
+  onFocus,
 }: StatsPageProps): JSX.Element {
   const [own, setOwn] = useState<StatsTab>(initialTab);
   const tab = shown ?? own;
+  // The highlights take the window as a workspace; in focus mode, without the page's own title and tabs.
+  const workspace = fill && tab === "highlights";
+  const chrome = !(workspace && focus);
   const [opened, setOpened] = useState<ReadonlySet<StatsTab>>(() => new Set([tab]));
 
   if (!opened.has(tab)) setOpened(new Set([...opened, tab]));
@@ -131,8 +142,18 @@ export function StatsPage({
   );
 
   return (
-    <section className={embedded ? "flex flex-col gap-[clamp(1rem,3vh,1.6rem)]" : PAGE}>
-      {!embedded && (
+    <section
+      className={
+        workspace
+          ? embedded
+            ? "flex min-h-0 flex-1 flex-col gap-2"
+            : TRACKER_WORKSPACE
+          : embedded
+            ? "flex flex-col gap-[clamp(1rem,3vh,1.6rem)]"
+            : PAGE
+      }
+    >
+      {!embedded && chrome && (
         <div className={PAGE_BAR}>
           <div className="flex min-w-0 flex-col">
             {back && (
@@ -149,34 +170,34 @@ export function StatsPage({
 
       {exportError && <p className={CALLOUT_WARN}>{exportError}</p>}
 
-      {embedded ? (
-        exports && <div className="flex justify-end">{exports}</div>
-      ) : (
-        <Tabs
-          value={tab}
-          onValueChange={(v) => show(v === "highlights" || v === "report" ? v : "stats")}
-          className="flex items-center gap-2"
-        >
-          <TabList ariaLabel="View">
-            <Tab value="stats">
-              <span className="flex items-center gap-1.5">
-                <BarChart3 size={15} aria-hidden="true" /> Stats
-              </span>
-            </Tab>
-            <Tab value="highlights">
-              <span className="flex items-center gap-1.5">
-                <Clapperboard size={15} aria-hidden="true" /> Highlights
-              </span>
-            </Tab>
-            <Tab value="report">
-              <span className="flex items-center gap-1.5">
-                <FileText size={15} aria-hidden="true" /> Match report
-              </span>
-            </Tab>
-          </TabList>
-          <GuideLink topic={tab === "stats" ? "read-stats" : tab} />
-        </Tabs>
-      )}
+      {embedded
+        ? exports && <div className="flex justify-end">{exports}</div>
+        : chrome && (
+            <Tabs
+              value={tab}
+              onValueChange={(v) => show(v === "highlights" || v === "report" ? v : "stats")}
+              className="flex items-center gap-2"
+            >
+              <TabList ariaLabel="View">
+                <Tab value="stats">
+                  <span className="flex items-center gap-1.5">
+                    <BarChart3 size={15} aria-hidden="true" /> Stats
+                  </span>
+                </Tab>
+                <Tab value="highlights">
+                  <span className="flex items-center gap-1.5">
+                    <Clapperboard size={15} aria-hidden="true" /> Highlights
+                  </span>
+                </Tab>
+                <Tab value="report">
+                  <span className="flex items-center gap-1.5">
+                    <FileText size={15} aria-hidden="true" /> Match report
+                  </span>
+                </Tab>
+              </TabList>
+              <GuideLink topic={tab === "stats" ? "read-stats" : tab} />
+            </Tabs>
+          )}
 
       {opened.has("stats") && (
         <div hidden={tab !== "stats"}>
@@ -184,9 +205,17 @@ export function StatsPage({
         </div>
       )}
       {opened.has("highlights") && (
-        <div hidden={tab !== "highlights"} className={HL_PANE}>
+        <div hidden={tab !== "highlights"} className={workspace ? "min-h-0 flex-1" : undefined}>
           <Suspense fallback={loading}>
-            <Highlights sets={sets} selection={selection} onSelection={setSelection} active={tab === "highlights"} />
+            <Highlights
+              sets={sets}
+              selection={selection}
+              onSelection={setSelection}
+              active={tab === "highlights"}
+              panes={fill}
+              focus={focus}
+              onFocus={fill ? onFocus : undefined}
+            />
           </Suspense>
         </div>
       )}

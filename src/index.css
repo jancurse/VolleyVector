@@ -70,12 +70,10 @@
   --container-dash-tile: 4.5rem;
   --container-dash-name: 3.5rem;
 
-  /* The highlights player: filters beside the video from hl-medium, the clip list beside it too from hl-wide. */
-  --container-hl-medium: 52rem;
-  --container-hl-wide: 88rem;
-  --container-hl-filters: 17rem;
-  --container-hl-clips-min: 18rem;
-  --container-hl-clips: 22rem;
+  /* The highlights' filter pickers: a list of rows, the two-column players, and the zone court. */
+  --container-filter-list: 20rem;
+  --container-filter-players: 26rem;
+  --container-filter-court: 14rem;
 
   /* The event log's scrolling height. */
   --spacing-event-log: 32rem;

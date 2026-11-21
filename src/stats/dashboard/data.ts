@@ -5,7 +5,7 @@
  * rally; the other functions aggregate those rows. Per-set rows use the set's
  * `id`; "all" rows cover every loaded set.
  */
-import { matchLabel, type Selection } from "../clips";
+import { matchLabel, outcomeKey, setKey, type Selection } from "../clips";
 import { pointReasonLabel, resultLabel, skillDef, skillLabel, touchOutcome, typesFor } from "../codes";
 import type { ReportSet } from "../types";
 import type { Skill, Team } from "../types";
@@ -888,14 +888,11 @@ export function clipSelection(tables: MatchTables, q: ClipQuery): Partial<Select
     action: new Set(
       picked.length ? picked.map((t) => t.label) : [skillDef(q.action === "tip" ? "set" : q.action).label]
     ),
-    outcome: new Set(picked.map((t) => t.result)),
+    outcome: new Set(picked.map((t) => outcomeKey(t.label, t.result))),
   };
   const info = tables.sets.find((s) => s.id === q.set);
 
-  if (info) {
-    sel.match = new Set([info.match]);
-    sel.set = new Set([info.setName]);
-  }
+  if (info) sel.set = new Set([setKey(info.match, info.setName)]);
   if (q.player !== ALL) sel.player = new Set([q.player]);
   if (q.zone) sel.zone = new Set([q.zone]);
 

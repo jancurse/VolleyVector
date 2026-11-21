@@ -4,6 +4,7 @@ import { Cell, Grid, Gridline, useGridRef } from "react-resizable-panels";
 import type { GridLayout } from "react-resizable-panels";
 
 import { TRACKER_CELL, TRACKER_GRIDLINE } from "../../ui/styles";
+import { paneStore, storedLayout } from "../paneStore";
 
 /** Where the entry sits: in a full-height column beside the video, or under it next to the stats. */
 export type Arrangement = "beside" | "below";
@@ -16,38 +17,10 @@ const DEFAULTS: Record<Arrangement, GridLayout> = {
   below: { columns: { main: 60, side: 40 }, rows: { top: 68, bottom: 32 } },
 };
 
-type Stored = Partial<Record<Arrangement | "arrangement", unknown>>;
+const { read, write } = paneStore(STORE);
 
-function read(): Stored {
-  try {
-    return (JSON.parse(localStorage.getItem(STORE) ?? "{}") as Stored) ?? {};
-  } catch {
-    return {};
-  }
-}
-
-function write(patch: Stored): void {
-  try {
-    localStorage.setItem(STORE, JSON.stringify({ ...read(), ...patch }));
-  } catch {
-    // Storage blocked: the sizes last for this visit only.
-  }
-}
-
-/** Whether a stored axis holds a share for exactly the tracks the grid has, so the grid accepts it. */
-const validAxis = (axis: unknown, ids: readonly string[]): axis is GridLayout["columns"] =>
-  !!axis &&
-  typeof axis === "object" &&
-  Object.keys(axis).length === ids.length &&
-  ids.every((id) => Number.isFinite((axis as Record<string, unknown>)[id]));
-
-const layoutOf = (arrangement: Arrangement): GridLayout => {
-  const saved = read()[arrangement] as Partial<GridLayout> | undefined;
-
-  return validAxis(saved?.columns, ["main", "side"]) && validAxis(saved?.rows, ["top", "bottom"])
-    ? { columns: saved.columns, rows: saved.rows }
-    : DEFAULTS[arrangement];
-};
+const layoutOf = (arrangement: Arrangement): GridLayout =>
+  storedLayout(read()[arrangement], ["main", "side"], ["top", "bottom"], DEFAULTS[arrangement]);
 
 /** The arrangement last chosen in this browser, or the one that suits the window's shape. */
 export function initialArrangement(): Arrangement {

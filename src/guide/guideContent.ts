@@ -937,19 +937,44 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         title: "Play a set of clips",
         steps: [
           "Open a game and press its **Highlights** tab.",
-          "Press what you want under **Match**, **Set**, **Player**, **Action**, **Outcome**, and **Zone**. The number on each choice is how many moments it adds.",
+          "Press **Games**, **Players**, **Action**, or **Zone** above the video and pick what you want. The number on each choice is how many moments it shows.",
           "Press **Play all**.",
-          "Press **Prev** or **Next** to move between clips, or press any clip in the list.",
+          "Press **Previous clip** or **Next clip** to move between clips, or press any clip in the list.",
         ],
         after:
-          "Two choices in one row widen the list (attacks or serves). Choices in different rows narrow it (attacks by one player).",
+          "Two choices in one filter widen the list (attacks or serves). Choices in different filters narrow it (attacks by one player).",
+      },
+      {
+        title: "Narrow to an outcome",
+        steps: [
+          "Press **Action** and pick an action. Its outcomes show under it.",
+          "Pick the outcomes you want. With none picked, the action keeps them all.",
+          "For every action that won or lost a point, set **Point** to **Won** or **Lost**.",
+        ],
+        after: "A dot marks an outcome that wins the point in your colour and one that loses it in the opponent's.",
       },
       {
         title: "Make clips longer or shorter",
         steps: [
-          "Under **Padding (seconds)**, set **Before** and **After**.",
+          "Press **Padding** under the video and set **Before** and **After**, in seconds.",
           "Moments that run into each other join into one clip, so a whole rally plays in one go.",
         ],
+      },
+      {
+        title: "Study one clip",
+        steps: [
+          "Drag the bar under the video to move inside the clip. Each tick is one of its moments.",
+          "Press **Replay the clip** to see it again, or turn on **Loop** to keep it playing.",
+          "Choose a slower speed next to **Loop**.",
+        ],
+      },
+      {
+        title: "Give the video more room",
+        steps: [
+          "Drag the line between two panes to resize them.",
+          "Press **Put the clips under the video** or **Put the clips beside the video** to move the list, and **Focus mode** to hide everything but the highlights.",
+        ],
+        after: "The sizes are remembered in this browser. On a small screen the highlights are a plain page.",
       },
       {
         title: "Share one moment",
@@ -960,10 +985,30 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         ],
       },
     ],
+    references: [
+      {
+        title: "Keys",
+        keys: true,
+        rows: [
+          ["Space", "Play or pause"],
+          ["↑ ↓", "Previous or next clip"],
+          ["← →", "Back or forward 2 seconds (5 with Shift)"],
+          ["R", "Replay the clip"],
+          ["L", "Loop the clip"],
+          ["[ ]", "Slower or faster"],
+          ["F", "Open the filters"],
+          ["X", "Clips beside or under the video"],
+          ["V", "Focus mode"],
+        ],
+      },
+    ],
     tips: [
       "With nothing chosen, **Play all** plays every touch of every set.",
+      "A filter shows what you picked. Press the cross beside it to clear it, or **Clear all**.",
+      "In **Games**, a match picks all of its sets. Press a set under it to pick only that one.",
       "A set recorded from a local video file has no clips. It needs a YouTube link.",
-      "**Rotate** turns a video that was filmed sideways.",
+      "**Rotate the video** turns a video that was filmed sideways.",
+      "The line at the left of a clip is in your colour when you won the rally and in the opponent's when you lost it.",
     ],
     related: ["read-stats", "report"],
   },

@@ -20,6 +20,10 @@ type GameStatsProps = {
   onTab: (tab: StatsTab) => void;
   /** Shown as a game page's tab, which carries the title. */
   embedded?: boolean;
+  /** Passed on to the stats page, for its highlights. */
+  fill?: boolean;
+  focus?: boolean;
+  onFocus?: (focus: boolean) => void;
 };
 
 /**
@@ -27,7 +31,18 @@ type GameStatsProps = {
  * with its game's teams and date and the roster's spelling of its players. Sets with only a typed-in score are
  * left out. Mount it keyed by the game ids.
  */
-export function GameStats({ gameIds, games, teamName, roster, tab, onTab, embedded }: GameStatsProps): JSX.Element {
+export function GameStats({
+  gameIds,
+  games,
+  teamName,
+  roster,
+  tab,
+  onTab,
+  embedded,
+  fill,
+  focus,
+  onFocus,
+}: GameStatsProps): JSX.Element {
   const [loaded, setLoaded] = useState<{ sets: { gameId: string; data: AppData }[]; error: string | null } | null>(
     null
   );
@@ -71,6 +86,9 @@ export function GameStats({ gameIds, games, teamName, roster, tab, onTab, embedd
       tab={tab}
       onTab={onTab}
       embedded={embedded}
+      fill={fill}
+      focus={focus}
+      onFocus={onFocus}
     />
   );
 }

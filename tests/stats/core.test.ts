@@ -17,10 +17,16 @@ import {
 import {
   OPPONENT,
   buildClips,
+  clipLabel,
+  emptySelection,
+  fieldCounts,
   filterActions,
   highlightActions,
   highlightRallies,
   matchLabel,
+  outcomeKey,
+  rallyKey,
+  setKey,
 } from "../../src/stats/clips";
 import {
   clearLast,
@@ -426,6 +432,7 @@ describe("highlights", () => {
     action: "",
     outcome: "",
     zone: "",
+    point: "" as const,
     score: "",
     rally: 1,
   });
@@ -467,7 +474,51 @@ describe("highlights", () => {
     ];
 
     expect(filterActions(actions, { player: new Set() })).toHaveLength(3);
-    expect(filterActions(actions, { player: new Set(["Mira"]), set: new Set(["Set 1"]) })).toHaveLength(1);
+    expect(
+      filterActions(actions, { player: new Set(["Mira"]), set: new Set([setKey(actions[0]!.match, "Set 1")]) })
+    ).toHaveLength(1);
+  });
+
+  test("narrows an action to its picked outcomes, and to the actions that won or lost the point", () => {
+    const actions = highlightActions(
+      set("1", [
+        touch(1, "Mira", "serve", "ace"),
+        touch(5, "Mira", "serve", "dig23"),
+        touch(8, "Suki", "attack", "kill"),
+        touch(12, "Mira", "serve", "out"),
+      ])
+    );
+    const picked = { action: new Set(["Serve", "Attack"]), outcome: new Set([outcomeKey("Serve", "Out")]) };
+    const names = (list: typeof actions) => list.map((a) => `${a.action} ${a.outcome}`);
+
+    expect(names(filterActions(actions, picked))).toEqual(["Attack Kill", "Serve Out"]);
+    expect(names(filterActions(actions, { point: new Set(["won"]) }))).toEqual(["Serve Ace", "Attack Kill"]);
+    expect([...fieldCounts(actions, { ...emptySelection(), ...picked }, "outcome")]).toEqual([
+      ["Serve|Ace", 1],
+      ["Serve|Dig 2-3", 1],
+      ["Attack|Kill", 1],
+      ["Serve|Out", 1],
+    ]);
+
+    const misc = highlightActions(set("1", [touch(1, "Mira", "misc", "tip|cover"), touch(5, "Mira", "misc", "shank")]));
+
+    expect(names(filterActions(misc, { outcome: new Set([outcomeKey("Misc", "tip|cover")]) }))).toEqual([
+      "Misc tip|cover",
+    ]);
+  });
+
+  test("names a clip by its action, or by its rally when it covers several", () => {
+    const played = set("1", [
+      touch(10, "Mira", "serve", "dig23"),
+      touch(14, "Sian", "attack", "kill"),
+      touch(40, "Mira", "serve", "dig23"),
+    ]);
+    const rallies = new Map(highlightRallies(played).map((r) => [rallyKey(r), r]));
+
+    expect(buildClips(highlightActions(played), 5, 3).map((c) => clipLabel(c, rallies))).toEqual([
+      "Won · 2 touches · 4s · Sian · Attack Kill",
+      "Mira · Serve Dig 2-3",
+    ]);
   });
 
   test("summarizes each finished rally: who won, touches and what ended it", () => {
@@ -498,14 +549,19 @@ describe("highlights", () => {
     expect(clips.map((c) => c.actions[0]!.match)).toEqual(["Eagles vs Pumas", "Eagles vs Opal"]);
   });
 
-  test("pads windows and merges those that overlap in one video", () => {
-    const clips = buildClips([at(100), at(106), at(120), at(121, "zzzzzzzzzzz"), at(2)], 5, 3);
+  test("pads windows and merges those that overlap in one set and video", () => {
+    const clips = buildClips(
+      [at(100), at(106), at(120), at(121, "zzzzzzzzzzz"), at(2), { ...at(4), set: "Set 2" }],
+      5,
+      3
+    );
 
     expect(clips.map((c) => [c.videoId, c.start, c.end, c.actions.length])).toEqual([
       ["abcdefghijk", 0, 5, 1],
       ["abcdefghijk", 95, 109, 2],
       ["abcdefghijk", 115, 123, 1],
       ["zzzzzzzzzzz", 116, 124, 1],
+      ["abcdefghijk", 0, 7, 1],
     ]);
   });
 });
@@ -607,7 +663,7 @@ describe("stats dashboard", () => {
     const sel = clipSelection(tables, { set: "0", player: ALL, action: "tip", grade: "Successful" });
 
     expect([...sel.action!]).toEqual(["Set"]);
-    expect([...sel.outcome!]).toEqual(["Over (pt)"]);
+    expect([...sel.outcome!]).toEqual(["Set|Over (pt)"]);
     const picked = filterActions(highlightActions(sets[0]!), sel);
 
     expect(picked.map((a) => [a.player, a.outcome])).toEqual([["Nell", "Over (pt)"]]);
