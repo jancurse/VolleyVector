@@ -1,11 +1,14 @@
 import type { JSX } from "react";
 
 import { Collapsible, CollapsibleCaret, CollapsiblePanel } from "../../ui/Collapsible";
-import { CALLOUT_WARN } from "../../ui/styles";
+import { CALLOUT_WARN, cx } from "../../ui/styles";
 import type { Draft } from "../draft";
 import type { Court } from "../types";
 import { Choice } from "./Choice";
 import { COURT_ROWS, playerKey } from "./courtRows";
+
+/** Three across, as a court row is, for the roster and the bench too so neither widens the step. */
+const GRID = "grid grid-cols-3 gap-1.5";
 
 type PlayerChoicesProps = {
   draft: Draft | null;
@@ -39,27 +42,21 @@ export function PlayerChoices({ draft, players, court, keysLive, onPick }: Playe
     );
   };
 
-  if (!court) return <div className="grid grid-cols-4 gap-1.5">{players.map(choice)}</div>;
+  if (!court) return <div className={GRID}>{players.map(choice)}</div>;
 
   const onCourt = new Set([...court.positions, court.libero]);
   const bench = players.filter((p) => !onCourt.has(p));
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="grid grid-cols-4 gap-1.5">
-        {COURT_ROWS.map((row, r) => (
-          <div key={r} className="contents">
-            {row.map((pos) => choice(court.positions[pos - 1]))}
-            {/* The libero plays the back row, so sits beside it. */}
-            {r === 1 && court.libero ? (
-              <div title="Libero" className="rounded-md ring-1 ring-border">
-                {choice(court.libero)}
-              </div>
-            ) : (
-              <div />
-            )}
+      <div className={GRID}>
+        {COURT_ROWS.flat().map((pos) => choice(court.positions[pos - 1]))}
+        {/* The libero plays the back row, so sits under it. */}
+        {court.libero && (
+          <div title="Libero" className="col-start-2 rounded-md ring-1 ring-border">
+            {choice(court.libero)}
           </div>
-        ))}
+        )}
       </div>
       {bench.length > 0 && (
         <Collapsible defaultOpen={false}>
@@ -67,7 +64,7 @@ export function PlayerChoices({ draft, players, court, keysLive, onPick }: Playe
             <CollapsibleCaret label="Bench" />
             Bench ({bench.length})
           </div>
-          <CollapsiblePanel className="mt-1.5 grid grid-cols-4 gap-1.5">{bench.map(choice)}</CollapsiblePanel>
+          <CollapsiblePanel className={cx("mt-1.5", GRID)}>{bench.map(choice)}</CollapsiblePanel>
         </Collapsible>
       )}
     </div>

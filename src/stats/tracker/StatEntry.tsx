@@ -182,6 +182,7 @@ export function StatEntry({
       <fieldset disabled={locked} title={locked ? LOCKED_HINT : undefined} className={ENTRY_STEPS}>
         <EntrySection
           title="Player"
+          wide
           active={step === "player"}
           hint={draft ? (step === "player" ? "press 1–9, 0" : "⇧ + number to change") : "press 1–9, 0 to start"}
           action={
@@ -297,6 +298,7 @@ export function StatEntry({
         {draft?.stat && (
           <EntrySection
             title="Zone"
+            wide
             active={step === "zone"}
             hint={step === "zone" ? "press the zone number" : undefined}
           >
