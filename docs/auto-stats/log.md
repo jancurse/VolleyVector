@@ -3,6 +3,10 @@
 Dated decisions and learnings, newest first.
 Start each entry with **Decision** or **Learning**, and link the task it came from when there is one.
 
+## 2026-11-20 · Decision · Spend the minimum until a setting has proven itself
+
+Task 003 spent $20.81 against the $15 aimed for, $5.50 of it on two tests that failed. Paid runs start on one clip and grow to at most three. All 14 clips are run only for a setting that held up on those, with the user's agreement. The rule is in [CLAUDE.md](CLAUDE.md).
+
 ## 2026-11-16 · Decision · Judge detection as a draft for the recorder, not as automatic stats
 
 Fully automatic stats are not expected soon. The aim is to save the recorder work: rally starts and ends, then touches placed in time, then their skill. Score a method by what is left to correct, not by whether a rally is exactly right.
