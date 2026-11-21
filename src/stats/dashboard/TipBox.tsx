@@ -85,7 +85,7 @@ export function TipBox({
         <div
           ref={tipRef}
           role="tooltip"
-          className={cx(CHART_TIP, tip.pinned && "pointer-events-auto")}
+          className={cx(CHART_TIP, !tip.pinned && "pointer-events-none")}
           onClick={(e) => e.stopPropagation()}
         >
           {tip.c.lines.map((l, i) => (
