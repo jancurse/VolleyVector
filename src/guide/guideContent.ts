@@ -780,7 +780,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         intro: "For a set you did not record, or one whose recording is incomplete.",
         steps: ["On the game's **Overview** tab, press the set's score.", "Type both scores and confirm."],
         after:
-          "A typed-in score counts for the game's result. A set with only a typed-in score has no stats, so the stats pages leave it out.",
+          "A typed-in score counts for the game's result. A set with only a typed-in score has no stats, so the stats pages leave it out. A score typed in over recorded stats shows a *. To go back to the recorded one, press the score and choose **Use the recorded score**.",
       },
       {
         title: "Back up or move a set",

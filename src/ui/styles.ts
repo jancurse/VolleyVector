@@ -425,7 +425,7 @@ export const DATA_CELL = "border-b border-border px-2 py-1 text-xs whitespace-no
 /** The floating tooltip over a chart: the overlay surface, small text. */
 export const CHART_TIP = cx(
   OVERLAY_SURFACE,
-  "pointer-events-none absolute flex flex-col gap-0.5 px-2 py-1 text-xs whitespace-nowrap text-text"
+  "absolute flex flex-col gap-0.5 px-2 py-1 text-xs whitespace-nowrap text-text"
 );
 /** A name column, a bar, and two figures: the player rows of the detail and playing-time panels. */
 export const DASH_ROWS =

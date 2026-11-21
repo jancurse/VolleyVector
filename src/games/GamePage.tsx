@@ -84,7 +84,7 @@ type GamePageProps = {
   onDeleteSet: (set: SetSummary) => void;
   onImportSets: () => void;
   /** Type in a set's score; resolves to an error, or null once saved. */
-  onScoreSet: (set: SetSummary, score: { us: number; them: number }) => Promise<string | null>;
+  onScoreSet: (set: SetSummary, score: { us: number; them: number } | null) => Promise<string | null>;
   tab: GameTab | StatsTab;
   onTab: (tab: GameTab | StatsTab) => void;
   /** The window is the page's to fill, so the highlights tab lays out as a workspace of panes. */
