@@ -17,6 +17,8 @@ import { BoardEditor } from "./editor/BoardEditor";
 import { clearDraftBackup, loadDraftBackup } from "./editor/draftBackup";
 import { BoardView } from "./editor/BoardView";
 import { GamePage } from "./games/GamePage";
+import { GameShareView } from "./games/GameShareView";
+import { useGameShareRoute } from "./games/useGameShareRoute";
 import { GamesPage } from "./games/GamesPage";
 import { useGames } from "./games/useGames";
 import { useRoster } from "./games/useRoster";
@@ -204,6 +206,7 @@ export function App(): JSX.Element {
   const { user, loading, signOut, recovering, clearRecovery } = useAuth();
   const workspace = useWorkspace();
   const shareToken = useShareRoute();
+  const gameShareToken = useGameShareRoute();
   const inviteToken = useInviteRoute();
   const grantToken = useGrantRoute();
   const tryOpen = useTryRoute();
@@ -217,7 +220,13 @@ export function App(): JSX.Element {
   // a grant link rides it too (but only once signed in), the no-account "Try it" sandbox rides it as well,
   // and the dev-only draft preview rides it inside the shell, so the path router stays dormant while one is
   // active: its effects must not navigate the hash.
-  const hashRoute = shareToken !== null || inviteToken !== null || grantToken !== null || tryOpen || draftPreviewOpen;
+  const hashRoute =
+    shareToken !== null ||
+    gameShareToken !== null ||
+    inviteToken !== null ||
+    grantToken !== null ||
+    tryOpen ||
+    draftPreviewOpen;
 
   // Hold content loads until the workspace has resolved the landing space, so the app does not fetch the
   // personal space and then immediately re-fetch the defaulted team.
@@ -764,6 +773,7 @@ export function App(): JSX.Element {
   // A share link is the one URL-addressable surface, openable with or without an account, so it wins
   // over the loading gate and the login screen.
   if (shareToken) return <ShareView key={shareToken} token={shareToken} />;
+  if (gameShareToken) return <GameShareView key={gameShareToken} token={gameShareToken} />;
 
   // The Terms & Privacy page is public: it wins over the loading gate and login so a newcomer can read
   // it (the signup screens open it in a new tab) before they have an account.

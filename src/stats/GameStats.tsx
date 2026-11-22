@@ -18,6 +18,8 @@ type GameStatsProps = {
   roster: readonly RosterPlayer[];
   tab: StatsTab;
   onTab: (tab: StatsTab) => void;
+  /** The saved stats, where the caller already holds them (a shared game); otherwise they are loaded. */
+  preloaded?: readonly { gameId: string; data: AppData }[];
   /** Shown as a game page's tab, which carries the title. */
   embedded?: boolean;
   /** Passed on to the stats page, for its highlights. */
@@ -36,6 +38,7 @@ export function GameStats({
   games,
   teamName,
   roster,
+  preloaded,
   tab,
   onTab,
   embedded,
@@ -44,11 +47,14 @@ export function GameStats({
   onFocus,
 }: GameStatsProps): JSX.Element {
   const [loaded, setLoaded] = useState<{ sets: { gameId: string; data: AppData }[]; error: string | null } | null>(
-    null
+    preloaded ? { sets: preloaded.filter((s) => s.data.events.length > 0), error: null } : null
   );
+  const fetched = !preloaded;
   const key = gameIds.join(",");
 
   useEffect(() => {
+    if (!fetched) return;
+
     let active = true;
 
     void loadGameSets(key.split(",")).then(
@@ -58,7 +64,7 @@ export function GameStats({
     return () => {
       active = false;
     };
-  }, [key]);
+  }, [key, fetched]);
 
   if (!loaded) return <p className={MUTED}>Loading the sets…</p>;
   if (loaded.error) return <p className={CALLOUT_WARN}>Couldn’t load the sets: {loaded.error}</p>;

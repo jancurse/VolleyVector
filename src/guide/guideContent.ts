@@ -519,6 +519,15 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           "Switch the squad list and the overview on or off at the top, then print from your browser.",
         ],
       },
+      {
+        title: "Share the game by link",
+        steps: [
+          "On the game page, open **More actions** and choose **Share…**.",
+          "Press **Turn on sharing**, then **Copy link**, and send the link to anyone.",
+        ],
+        after:
+          "Anyone with the link sees the game page without an account and cannot change it: its details, squad, rotations, and saved stats. **Stop sharing** makes the link stop working.",
+      },
     ],
     tips: [
       "The **Overview** shows where every squad player belongs in a 5-1, so anyone can check their spot.",

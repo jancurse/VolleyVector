@@ -3,11 +3,11 @@
 // proportionate to a free, non-commercial app for a small invited group. Prose lines are not wrapped to a
 // width (markdown soft-wraps), so a sentence stays on one line.
 
-export const LEGAL_UPDATED = "23 June 2026";
+export const LEGAL_UPDATED = "22 November 2026";
 
 // The version recorded against an account when it accepts. Bump this (a sortable date) whenever the
 // notice below changes materially, so a record reflects which text was agreed to.
-export const LEGAL_VERSION = "2026-06-23";
+export const LEGAL_VERSION = "2026-11-22";
 
 export const LEGAL_MARKDOWN = `# Terms & Privacy
 
@@ -35,6 +35,7 @@ There is no advertising, no analytics, and no tracking. Your data is never sold,
 ## Who can see your data
 
 - Other members of a team see the content shared with that team, and anyone you share a board or note with directly sees it at the level you grant.
+- A coach can share a game by link. Anyone with that link sees the game page without an account, including the names and numbers of the players in its squad, until the coach stops sharing.
 - An **administrator can technically read all content, including boards and notes in your private personal space.** This is a deliberate trade-off for a small, trusted group and is not how a larger service should work. Do not treat your personal space as private from the administrator.
 
 ## Where your data is stored

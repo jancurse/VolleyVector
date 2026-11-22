@@ -196,6 +196,23 @@ describe("GamePage as a coach", () => {
     expect(screen.queryByText("Also worn by #4 Mia Kraus") !== null).toBe(number === "4");
   });
 
+  test("Share… turns the game's link on, shows it, and turns it off again", async () => {
+    renderPage(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Game actions" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Share…" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Turn on sharing" }));
+
+    expect(await screen.findByRole("textbox", { name: "Share link" })).toHaveValue(
+      `${window.location.origin}/#/game/game-token`
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Stop sharing" }));
+
+    expect(await screen.findByRole("button", { name: "Turn on sharing" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Share link" })).not.toBeInTheDocument();
+  });
+
   test("the details show as text until Edit details opens them, and save from the form", async () => {
     const onSave = renderPage(true);
 
