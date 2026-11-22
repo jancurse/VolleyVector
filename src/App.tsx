@@ -220,7 +220,13 @@ export function App(): JSX.Element {
   // a grant link rides it too (but only once signed in), the no-account "Try it" sandbox rides it as well,
   // and the dev-only draft preview rides it inside the shell, so the path router stays dormant while one is
   // active: its effects must not navigate the hash.
-  const hashRoute = shareToken !== null || inviteToken !== null || grantToken !== null || tryOpen || draftPreviewOpen;
+  const hashRoute =
+    shareToken !== null ||
+    gameShareToken !== null ||
+    inviteToken !== null ||
+    grantToken !== null ||
+    tryOpen ||
+    draftPreviewOpen;
 
   // Hold content loads until the workspace has resolved the landing space, so the app does not fetch the
   // personal space and then immediately re-fetch the defaulted team.
