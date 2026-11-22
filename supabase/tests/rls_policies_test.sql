@@ -1123,6 +1123,82 @@ begin
 end $$;
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- Game share links: only a coach of the team or an admin turns sharing on or off. A visitor with the token
+-- reads the game, the roster players in its squad, and the sets' saved stats through game_by_token, and
+-- nothing without it. Turning sharing off kills the link.
+-- ---------------------------------------------------------------------------
+update public.games set squad = array['70000000-0000-0000-0000-000000000001'::uuid]
+where id = '71000000-0000-0000-0000-000000000002';
+insert into public.game_sets (id, game_id, data, published, published_at) values
+  ('72000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000002',
+   '{"version":2,"players":["Ana"],"events":[],"meta":{"setNumber":"1","draft":true}}',
+   '{"version":2,"players":["Ana"],"events":[],"meta":{"setNumber":"1"}}', now());
+
+do $$
+declare tok text; r jsonb; n int; blocked boolean;
+begin
+  set local role authenticated;
+
+  perform set_config('request.jwt.claims', '{"sub":"a0000000-0000-0000-0000-000000000004","role":"authenticated"}', true); -- playerA
+  blocked := false;
+  begin
+    perform public.share_game('71000000-0000-0000-0000-000000000002', true);
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL game share: a player shared a game'; end if;
+
+  perform set_config('request.jwt.claims', '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}', true); -- coachB
+  blocked := false;
+  begin
+    perform public.share_game('71000000-0000-0000-0000-000000000002', true);
+  exception when others then blocked := true;
+  end;
+  if not blocked then raise exception 'FAIL game share: an outsider shared another team''s game'; end if;
+
+  perform set_config('request.jwt.claims', '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}', true); -- coachA
+  tok := public.share_game('71000000-0000-0000-0000-000000000002', true);
+  if tok is null then raise exception 'FAIL game share: a coach could not share their team''s game'; end if;
+  if public.share_game('71000000-0000-0000-0000-000000000002', true) <> tok then
+    raise exception 'FAIL game share: sharing a shared game changed its link';
+  end if;
+
+  set local role anon;
+
+  r := public.game_by_token(tok);
+  if r #>> '{game,name}' <> 'League game' or r ->> 'team_name' <> 'RLS Team C' then
+    raise exception 'FAIL game share: a shared game did not resolve by token (%)', r;
+  end if;
+  if jsonb_array_length(r -> 'roster') <> 1 or r #>> '{roster,0,name}' <> 'Ana' then
+    raise exception 'FAIL game share: the link did not carry exactly the squad (%)', r -> 'roster';
+  end if;
+  if jsonb_array_length(r -> 'sets') <> 1 or r #> '{sets,0}' ? 'data' or r #> '{sets,0,published,meta}' ? 'draft' then
+    raise exception 'FAIL game share: the link did not carry exactly the saved stats (%)', r -> 'sets';
+  end if;
+  if public.game_by_token('nope') is not null then
+    raise exception 'FAIL game share: an unknown token resolved a game';
+  end if;
+
+  n := 0;
+  begin
+    select count(*) into n from public.games;
+  exception when insufficient_privilege then null;
+  end;
+  if n <> 0 then raise exception 'FAIL game share: a visitor read the games table (% rows)', n; end if;
+
+  set local role authenticated;
+  if public.share_game('71000000-0000-0000-0000-000000000002', false) is not null then
+    raise exception 'FAIL game share: turning sharing off left a token';
+  end if;
+
+  set local role anon;
+  if public.game_by_token(tok) is not null then
+    raise exception 'FAIL game share: the link still worked after sharing was turned off';
+  end if;
+
+  reset role;
+end $$;
+
 select 'ALL RLS TESTS PASSED' as result;
 
 rollback;

@@ -12,12 +12,14 @@ export type GameSetData = {
   byId: ReadonlyMap<string, AppData>;
 };
 
-/** The full data of a game's sets (their working copies), reloaded whenever a set is saved. */
-export function useGameSetData(gameId: string, summaries: readonly SetSummary[]): GameSetData | null {
+/** The full data of a game's sets (their working copies), reloaded whenever a set is saved. No game loads nothing. */
+export function useGameSetData(gameId: string | null, summaries: readonly SetSummary[]): GameSetData | null {
   const [data, setData] = useState<GameSetData | null>(null);
   const key = summaries.map((s) => `${s.id}@${s.version}`).join();
 
   useEffect(() => {
+    if (!gameId) return;
+
     let active = true;
 
     void loadSetData(gameId).then(({ sets, error }) => {

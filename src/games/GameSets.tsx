@@ -27,6 +27,8 @@ type GameSetsProps = {
   /** The sets' full data by id, once loaded. */
   data: ReadonlyMap<string, AppData> | undefined;
   canEdit: boolean;
+  /** Shown to a visitor by share link, who has no guide to open. */
+  shared?: boolean;
   /** Open a set in the tracker. */
   onOpen: (id: string) => void;
   /** Add the next set; resolves once it is a row. */
@@ -177,6 +179,7 @@ export function GameSets({
   onReload,
   data,
   canEdit,
+  shared = false,
   onOpen,
   onNew,
   onDelete,
@@ -196,7 +199,7 @@ export function GameSets({
             Sets
           </h2>
           {sets.length > 0 && <ResultBadge sets={sets} />}
-          <GuideLink topic="stats-basics" />
+          {!shared && <GuideLink topic="stats-basics" />}
         </div>
         {canEdit && (
           <div className="flex flex-wrap items-center gap-2">

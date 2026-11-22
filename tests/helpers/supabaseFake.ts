@@ -1,6 +1,7 @@
 import type { Board } from "../../src/boards/types";
 import type { BoardRow, Capability, NoteRow } from "../../src/supabase/rows";
 import type { Note } from "../../src/notes/types";
+import { emptyData } from "../../src/stats/store";
 import { GAME, ROSTER } from "./gameData";
 import { SAMPLE_BOARDS, SAMPLE_NOTES } from "./sampleData";
 
@@ -640,6 +641,49 @@ const functions = {
   },
 };
 
+// What game_by_token returns for the fake's game: the game, its squad, and one set with saved stats.
+const SHARED_GAME = {
+  game: {
+    id: GAME.id,
+    team_id: TEST_TEAM_ID,
+    name: GAME.name,
+    played_on: GAME.date,
+    opponent: GAME.opponent,
+    venue: GAME.venue,
+    notes: GAME.notes,
+    squad: GAME.squad,
+    overrides: GAME.overrides,
+    overview_shift: GAME.overviewShift,
+    rotations: GAME.rotations,
+  },
+  team_name: "Eagles",
+  roster: ROSTER.map((p) => ({
+    id: p.id,
+    team_id: TEST_TEAM_ID,
+    number: p.number,
+    name: p.name,
+    short_name: p.shortName,
+    main_position: p.main,
+    secondary_positions: p.secondary,
+    archived_at: null,
+  })),
+  sets: [
+    {
+      id: "set-1",
+      game_id: GAME.id,
+      set_number: 1,
+      score_us: 25,
+      score_them: 20,
+      video_url: "",
+      touches: 0,
+      finished_at: ISO,
+      published_at: ISO,
+      updated_at: ISO,
+      published: emptyData(ROSTER.map((r) => r.name)),
+    },
+  ],
+};
+
 // The server-side RPCs. Commits return a fresh revision id, or null on a forced conflict; board_by_token
 // mirrors the public function (a team grant or a non-creator user grant resolves); the rest are accepted so
 // the client wiring can be tested without the database.
@@ -707,6 +751,10 @@ function rpc(fn: string, params: Record<string, unknown>): Promise<DbResult> {
       )
     );
   }
+
+  // A game's share link: sharing mints "game-token", the one link that resolves, and stopping clears it.
+  if (fn === "share_game") return Promise.resolve(ok(params.shared ? "game-token" : null));
+  if (fn === "game_by_token") return Promise.resolve(ok(params.token === "game-token" ? SHARED_GAME : null));
 
   if (fn !== "board_by_token") return Promise.resolve({ data: null, error: { message: `unknown rpc ${fn}` } });
 

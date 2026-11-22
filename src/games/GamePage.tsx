@@ -18,7 +18,7 @@ import type { StatsTab } from "../stats/StatsPage";
 import { playersWithStats, setPlayerNames } from "../stats/gameSets";
 import { choiceRenames, newPlayers, unmatchedNames } from "../stats/matchPlayers";
 import type { PlayerChoice } from "../stats/matchPlayers";
-import type { SetSummary } from "../stats/types";
+import type { AppData, SetSummary } from "../stats/types";
 import type { Backup } from "../stats/sync/setSync";
 import { useGameSetData } from "../stats/useGameSetData";
 import type { PlayerDraft } from "./useRoster";
@@ -49,6 +49,7 @@ import { formatGameDate, VENUE_LABEL } from "./format";
 import { GameSets } from "./GameSets";
 import { createRotation, playerMap, sortSquad } from "./rotation";
 import { RotationEditor } from "./RotationEditor";
+import { ShareGameDialog } from "./ShareGameDialog";
 import { OverviewSlip } from "./OverviewSlip";
 import { PositionChip } from "./PositionChip";
 import { SquadDialog } from "./SquadDialog";
@@ -67,6 +68,11 @@ type GamePageProps = {
   teamName: string;
   roster: readonly RosterPlayer[];
   canEdit: boolean;
+  /**
+   * The page as a share link shows it, with the saved stats of its sets already loaded. A visitor has no guide,
+   * print view, or tracker to open.
+   */
+  shared?: readonly { id: string; data: AppData }[];
   sets: readonly SetSummary[];
   /** Sets with changes in this browser that the server does not have yet. */
   localSets: ReadonlyMap<string, Backup>;
@@ -118,6 +124,7 @@ export function GamePage({
   teamName,
   roster,
   canEdit,
+  shared,
   sets,
   localSets,
   setsLoading,
@@ -142,6 +149,7 @@ export function GamePage({
   const [draft, setDraft] = useState(game);
   const [status, setStatus] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const [sharing, setSharing] = useState(false);
   // A game with no details yet opens with them in the form; otherwise they show as text until edited.
   const [editingDetails, setEditingDetails] = useState(canEdit && !game.date && !game.opponent && !game.notes);
   const [viewShift, setViewShift] = useState(game.overviewShift);
@@ -184,7 +192,10 @@ export function GamePage({
     timer.current = setTimeout(flush, SAVE_DELAY);
   };
 
-  const setData = useGameSetData(game.id, sets);
+  const loadedData = useGameSetData(shared ? null : game.id, sets);
+  const setData = shared
+    ? { sets: shared.map((s) => s.data), byId: new Map(shared.map((s) => [s.id, s.data])) }
+    : loadedData;
   const unmatched = unmatchedNames(setData?.sets.flatMap((d) => [...setPlayerNames(d)]) ?? [], roster);
   const withStats = new Set(setData?.sets.flatMap((d) => [...playersWithStats(d)]));
 
@@ -253,6 +264,7 @@ export function GamePage({
                 </IconButton>
               }
             >
+              <MenuItem onClick={() => setSharing(true)}>Share…</MenuItem>
               <MenuItem onClick={onDelete}>
                 <span className="text-danger">Delete game…</span>
               </MenuItem>
@@ -293,7 +305,11 @@ export function GamePage({
             </span>
           </Tab>
         </TabList>
-        <GuideLink topic={tab === "overview" || tab === "rotations" ? "games" : tab === "stats" ? "read-stats" : tab} />
+        {!shared && (
+          <GuideLink
+            topic={tab === "overview" || tab === "rotations" ? "games" : tab === "stats" ? "read-stats" : tab}
+          />
+        )}
       </Tabs>
 
       {tab === "overview" && (
@@ -376,6 +392,7 @@ export function GamePage({
               onReload={onReloadSets}
               data={setData?.byId}
               canEdit={canEdit}
+              shared={!!shared}
               onOpen={(id) => {
                 clearTimeout(timer.current);
                 flush();
@@ -452,17 +469,19 @@ export function GamePage({
             <div className="flex flex-wrap items-center gap-2">
               <h2 className={PANEL_TITLE}>Rotations ({draft.rotations.length})</h2>
               <span className="flex-1" />
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  clearTimeout(timer.current);
-                  flush();
-                  onPrint();
-                }}
-              >
-                <Printer size={15} aria-hidden="true" />
-                Print slips
-              </Button>
+              {!shared && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    clearTimeout(timer.current);
+                    flush();
+                    onPrint();
+                  }}
+                >
+                  <Printer size={15} aria-hidden="true" />
+                  Print slips
+                </Button>
+              )}
             </div>
             {squad.length > 0 && (
               <section className={PANEL} aria-labelledby="overview-title">
@@ -518,6 +537,7 @@ export function GamePage({
             games={[draft]}
             teamName={teamName}
             roster={roster}
+            preloaded={shared?.map((s) => ({ gameId: game.id, data: s.data }))}
             tab={tab}
             onTab={onTab}
             embedded
@@ -527,6 +547,8 @@ export function GamePage({
           />
         </Suspense>
       )}
+
+      {sharing && <ShareGameDialog gameId={game.id} onClose={() => setSharing(false)} />}
 
       {picking && (
         <SquadDialog
