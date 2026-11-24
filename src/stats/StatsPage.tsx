@@ -38,6 +38,8 @@ type StatsPageProps = {
   /** Whether everything but the highlights is hidden, and how to switch that; absent where it cannot be. */
   focus?: boolean;
   onFocus?: (focus: boolean) => void;
+  /** False while the page is hidden but kept mounted; the highlights pause and their shortcuts rest. */
+  active?: boolean;
 };
 
 const loading = <p className={MUTED}>Loading…</p>;
@@ -59,6 +61,7 @@ export function StatsPage({
   fill = false,
   focus = false,
   onFocus,
+  active = true,
 }: StatsPageProps): JSX.Element {
   const [own, setOwn] = useState<StatsTab>(initialTab);
   const tab = shown ?? own;
@@ -211,7 +214,7 @@ export function StatsPage({
               sets={sets}
               selection={selection}
               onSelection={setSelection}
-              active={tab === "highlights"}
+              active={active && tab === "highlights"}
               panes={fill}
               focus={focus}
               onFocus={fill ? onFocus : undefined}

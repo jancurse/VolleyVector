@@ -26,6 +26,9 @@ type GameStatsProps = {
   fill?: boolean;
   focus?: boolean;
   onFocus?: (focus: boolean) => void;
+  active?: boolean;
+  /** Changes whenever one of the sets is saved, so stats kept mounted reload in place. */
+  revision?: string;
 };
 
 /**
@@ -45,6 +48,8 @@ export function GameStats({
   fill,
   focus,
   onFocus,
+  active,
+  revision,
 }: GameStatsProps): JSX.Element {
   const [loaded, setLoaded] = useState<{ sets: { gameId: string; data: AppData }[]; error: string | null } | null>(
     preloaded ? { sets: preloaded.filter((s) => s.data.events.length > 0), error: null } : null
@@ -64,7 +69,7 @@ export function GameStats({
     return () => {
       active = false;
     };
-  }, [key, fetched]);
+  }, [key, fetched, revision]);
 
   if (!loaded) return <p className={MUTED}>Loading the sets…</p>;
   if (loaded.error) return <p className={CALLOUT_WARN}>Couldn’t load the sets: {loaded.error}</p>;
@@ -95,6 +100,7 @@ export function GameStats({
       fill={fill}
       focus={focus}
       onFocus={onFocus}
+      active={active}
     />
   );
 }
