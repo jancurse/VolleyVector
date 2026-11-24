@@ -10,6 +10,8 @@ import { TeamScore } from "./TeamScore";
 
 type ScoreboardProps = {
   rally: Rally;
+  /** How many rallies known from the draft alone the rally's score counts. */
+  unconfirmed: number;
   /** Our name and the opponent's, as the scoreboard labels them. */
   names: { us: string; them: string };
   /** A just-recorded manual point still waiting for an (optional) reason. */
@@ -27,7 +29,16 @@ const POINT_HINT = {
 };
 
 /** The live score, serve, and rotation on one row, with the two manual points; a point then asks why. */
-export function Scoreboard({ rally, names, pending, notice, locked, onPoint, onReason }: ScoreboardProps): JSX.Element {
+export function Scoreboard({
+  rally,
+  unconfirmed,
+  names,
+  pending,
+  notice,
+  locked,
+  onPoint,
+  onReason,
+}: ScoreboardProps): JSX.Element {
   return (
     <section className={cx("flex flex-col gap-2", PANEL_PAD_X)} aria-label="Scoreboard">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -40,6 +51,14 @@ export function Scoreboard({ rally, names, pending, notice, locked, onPoint, onR
         >
           R<b className="text-text">{rally.rotation}</b> · rally {rally.index}
         </span>
+        {unconfirmed > 0 && (
+          <span
+            className="text-xs whitespace-nowrap text-text-dim"
+            title="The score counts the rallies the draft knows and you have not recorded: who serves a rally tells who won the one before"
+          >
+            with {unconfirmed} {unconfirmed === 1 ? "rally" : "rallies"} not recorded yet
+          </span>
+        )}
         <span className="flex-1" />
         <span className="flex flex-none gap-2">
           {(["us", "them"] as const).map((side) => (

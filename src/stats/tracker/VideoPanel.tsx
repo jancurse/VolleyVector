@@ -31,9 +31,11 @@ type VideoPanelProps = {
   youtubeUrl: string;
   onYoutubeUrl: (url: string) => void;
   markers: readonly { time: number; tone: "us" | "them" | null }[];
-  /** Contacts marked during play, still waiting to be described. */
-  marks: readonly number[];
+  /** Contacts still waiting to be described: marked during play, or placed by a model. */
+  marks: readonly { time: number; model?: boolean }[];
   onMark: () => void;
+  /** Jump to the next rally, when the set has rallies to jump to. */
+  onNextServe?: () => void;
   /** A locked set: its video link stays, and no contacts are marked. */
   locked: boolean;
   /** Fill the pane it sits in, the video as large as fits; otherwise the video is as wide as the page. */
@@ -49,6 +51,7 @@ export function VideoPanel({
   markers,
   marks,
   onMark,
+  onNextServe,
   locked,
   fill,
 }: VideoPanelProps): JSX.Element {
@@ -125,6 +128,11 @@ export function VideoPanel({
                 )}
                 <Kbd>Tab</Kbd>
               </Button>
+              {onNextServe && (
+                <Button variant="ghost" size="sm" paired onClick={onNextServe} title="Jump to the next rally">
+                  Next rally <Kbd>N</Kbd>
+                </Button>
+              )}
               <span className="flex items-center gap-1" title="Playback speed">
                 <Select
                   variant="quiet"

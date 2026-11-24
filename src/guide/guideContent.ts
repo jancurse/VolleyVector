@@ -20,29 +20,12 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { GUIDE_TITLES } from "./guideTopics";
+import type { GuideTopicId } from "./guideTopics";
+
 // The user guide's content, rendered by `GuidePage`. Every string is inline markdown: bold names a control
 // exactly as the app labels it, and code marks a key. A change to a label or flow named here updates this
 // file in the same change.
-
-export type GuideTopicId =
-  | "basics"
-  | "build"
-  | "animate"
-  | "draw"
-  | "rotation"
-  | "notes"
-  | "share"
-  | "keep"
-  | "team"
-  | "games"
-  | "stats-basics"
-  | "record"
-  | "fix-stats"
-  | "read-stats"
-  | "highlights"
-  | "report"
-  | "import-sets"
-  | "help";
 
 /** The chapters, in the order the guide lists them. */
 export const GUIDE_GROUPS = ["Start here", "Boards and notes", "Your team", "Stats", "Help"] as const;
@@ -82,7 +65,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "basics",
     group: "Start here",
-    title: "The basics",
+    title: GUIDE_TITLES["basics"],
     icon: BookOpen,
     intro: "Six ideas explain the whole app.",
     concepts: [
@@ -131,7 +114,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "build",
     group: "Boards and notes",
-    title: "Build a board",
+    title: GUIDE_TITLES["build"],
     icon: SquarePen,
     intro: "Start with a still picture: who stands where.",
     tasks: [
@@ -182,7 +165,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "animate",
     group: "Boards and notes",
-    title: "Animate a play",
+    title: GUIDE_TITLES["animate"],
     icon: Play,
     intro:
       "A sequence is a board with several steps. You place the players on each step and the app moves them between.",
@@ -223,7 +206,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "draw",
     group: "Boards and notes",
-    title: "Draw on the court",
+    title: GUIDE_TITLES["draw"],
     icon: Shapes,
     intro: "Add lines, arrows, zones, and labels on top of the players. A drawing belongs to the step you drew it on.",
     tasks: [
@@ -270,7 +253,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "rotation",
     group: "Boards and notes",
-    title: "Check a rotation",
+    title: GUIDE_TITLES["rotation"],
     icon: RotateCw,
     intro: "Show a step's rotation beside the court and let the app catch overlaps for you.",
     tasks: [
@@ -302,7 +285,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "notes",
     group: "Boards and notes",
-    title: "Organise with notes",
+    title: GUIDE_TITLES["notes"],
     icon: NotebookText,
     intro: "Tags filter the library. Notes go further: they put boards in order, with your own words around them.",
     tasks: [
@@ -343,7 +326,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "share",
     group: "Boards and notes",
-    title: "Share boards and notes",
+    title: GUIDE_TITLES["share"],
     icon: Share2,
     intro: "A board in a team library is already shared with that team. Everything else you share yourself.",
     tasks: [
@@ -401,7 +384,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "keep",
     group: "Boards and notes",
-    title: "History, print, and export",
+    title: GUIDE_TITLES["keep"],
     icon: History,
     intro: "Every save is kept. You can go back, put a board on paper, or take your work out as a file.",
     tasks: [
@@ -441,7 +424,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "team",
     group: "Your team",
-    title: "Set up a team",
+    title: GUIDE_TITLES["team"],
     icon: Users,
     who: "Coaches",
     intro: "A team gives your players one shared library, a roster, and games.",
@@ -485,7 +468,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "games",
     group: "Your team",
-    title: "Plan a game",
+    title: GUIDE_TITLES["games"],
     icon: ClipboardList,
     who: "Coaches",
     intro: "Pick your squad, set your starting rotations, and print the slips for the scorer's table.",
@@ -539,7 +522,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "stats-basics",
     group: "Stats",
-    title: "How stats work",
+    title: GUIDE_TITLES["stats-basics"],
     icon: Lightbulb,
     intro: "You record what your own players do with the ball. The app works out everything else.",
     concepts: [
@@ -581,7 +564,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "record",
     group: "Stats",
-    title: "Record a set",
+    title: GUIDE_TITLES["record"],
     icon: Video,
     who: "Coaches",
     intro: "Watch the video and tag each touch from the keyboard: who, what, how it went, and where.",
@@ -603,7 +586,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         steps: [
           "Press `Space` to play the video.",
           "Press `Tab` each time one of your players touches the ball. The video keeps playing.",
-          "When the rally ends, press `Enter`. The video jumps back to your first mark.",
+          "When the rally ends, press `Enter`. The video jumps back to your first mark. The marks also show in **Recorded stats**, each with a dashed circle until it is described. The first mark of a rally with nothing recorded shows the ball of the team that serves.",
           "Describe the touch: the player's number, the skill's letter, the result's number, then the zone's number.",
           "The touch saves when the zone is set, and the next mark opens. After the last one the video carries on where you stopped.",
         ],
@@ -614,9 +597,15 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         title: "Fix a slip while you describe",
         steps: [
           "Press `Backspace` to take back your last choice.",
-          "Press `Esc` to skip a mark, for a tap by mistake or a touch that was not yours.",
-          "Press **Stop** to drop the marks that are left.",
+          "Press `↓` or `↑` to go to the next or previous row of **Recorded stats** and leave this mark for later. They stop at every row, so with an entry open a stat you already recorded opens to be changed. Clicking a row only jumps the video to it: press its pencil, double-click it, or press `Enter` to open it.",
+          "Press `Delete` to delete a mark, for a tap by mistake or a touch that was not yours.",
+          "Press `Tab` to add a touch that is missing: it marks the video's time and opens that mark.",
+          "Press `<` or `>` to move the open row, or the row you jumped to, 0.1 s earlier or later. The video moves with it and the change is saved at once. Hold `Alt` as well for half a second. The arrows beside the entry's time do the same. For a time that is far off, find the moment in the video first, then press `/` or **Set to video time**.",
+          "Press `Esc` to close the entry. The mark stays.",
+          "Press **Clear marks** to discard every contact you marked and have not described yet.",
         ],
+        after:
+          "Marks are saved with the set. You can mark a whole rally or a whole set first, close the page, and describe them later. Press `Enter`, or **Next contact**, to carry on from where the video is. With a mark waiting, **New stat**, a skill letter or a player's number starts a new stat at the video's time.",
       },
       {
         title: "Record one touch at a time",
@@ -674,6 +663,31 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         ],
         after: "The stats add a **Detailed stats** card, built only from the touches recorded this way.",
       },
+      {
+        title: "Record the opponent's serve",
+        intro: "Only with detailed stats. It gives each of their rallies a start.",
+        steps: [
+          "At their serve, press `O`. While you describe marks, press `O` on a mark that was theirs.",
+          "Press `S` or `Enter` to save it.",
+        ],
+        after:
+          "With their serves recorded, a rally you never touch needs no point by hand: two of their serves in a row are their ace, and their serve followed by yours is their error. Nothing else of theirs is recorded: how they dug or blocked your ball is the result you give that ball.",
+      },
+      {
+        title: "Start from a model's draft",
+        intro:
+          "An AI model can find the set's rallies in the video: where each one starts and ends, and a guess at who serves it. The touches you mark yourself.",
+        steps: [
+          "In a set with nothing recorded, press **Draft with AI** in the stat entry panel. Later it is **Draft with AI…** under **More actions**.",
+          "Paste your **Gemini API key**. The **?** beside it says how to get one and how to limit what it can do and spend.",
+          "Choose **Our half of the court**. If the video holds more than this set, move the video to where the set starts and press **Use current video time**, and the same for where it ends. Until everything it needs is there, the dialog says what is missing.",
+          "Press **Start**. A strip under the top bar shows the rally it is reading, and each rally joins **Recorded stats** as it comes back. You can keep working meanwhile, and **Stop** ends the run.",
+          "Press `N` to jump to the next rally, 3 seconds before its serve. Play it and tap `Tab` on the serve and on each touch, then press `Enter` and describe them. The first mark of a rally opens as that rally's serve when the model named your team as the server, and with detailed stats also when it named the opponent. With detailed stats, press `O` if it was the other team.",
+          "The scoreboard already shows a score, with a note such as **with 38 rallies not recorded yet**. It counts the model's rallies as played: who serves a rally tells who won the one before. A rally stops counting on the model's word once you record a touch of it. If the model found a rally that is none, press the bin on that rally's header.",
+        ],
+        after:
+          "**Draft with AI** needs a YouTube link on the set and a Gemini API key of your own. Google bills that key about $0.60 a set, at your own risk. The key is never stored: it stays on the page until you leave the set, and is sent only to Google. A video stored on its side gives a poor draft.",
+      },
     ],
     references: [
       {
@@ -687,6 +701,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           ["B", "Block"],
           ["D", "Defense"],
           ["M", "Misc, a note in your own words"],
+          ["O", "The opponent's serve (detailed stats), then S"],
         ],
       },
       {
@@ -759,7 +774,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "fix-stats",
     group: "Stats",
-    title: "Check and fix a set",
+    title: GUIDE_TITLES["fix-stats"],
     icon: ListChecks,
     who: "Coaches",
     intro: "Everything you recorded is listed under the video, rally by rally, and all of it can be corrected.",
@@ -768,18 +783,18 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         title: "Correct a touch",
         steps: [
           "Press **Edit set** in the stat entry if the set is locked.",
-          "Find it in **Recorded stats**. The newest rally is at the top.",
-          "Press its time to jump the video to that moment.",
-          "Press the pencil, change what is wrong, and press `Enter`.",
-          "To move it in time, press **−0.5s** or **+0.5s**, or play the video to the moment and press **Set to video time**.",
+          "Find it in **Recorded stats**. The rallies are in the order they were played, and the list follows the video.",
+          "Click the row to jump the video to its moment. Press its pencil, double-click it, or press `Enter` to open it. Change what is wrong, and press `Enter`. A touch of the opponent's and a point open the same way.",
+          "To move it in time, press `<` or `>`: 0.1 s earlier or later, with the video. Hold `Alt` as well for half a second.",
         ],
         after: "The bin deletes a touch. `Ctrl+Z` undoes your last change, whatever it was.",
       },
       {
         title: "Say why a rally ended",
-        intro: "A rally marked as inferred was decided by who served next, not by a touch.",
+        intro:
+          "Every rally closes with an **End** line that shows its result. A result no touch decided is worked out from who served next.",
         steps: [
-          "Find the line that reads **inferred from who served next**.",
+          "Find the rally's **End** line that reads **from who served next**.",
           "Choose a reason under **Why?** (e.g. **Opp attack error**).",
         ],
         after: "The reason feeds **Point breakdown** in the stats. Without it the point counts as **Not recorded**.",
@@ -805,8 +820,12 @@ export const GUIDE_TOPICS: GuideTopic[] = [
         rows: [
           ["We were serving but no serve is recorded", "A serve is missing. Go to the rally in the video and add it."],
           [
-            "Won a rally none of our players touched",
-            "The serve changed sides with no touch of yours between, usually an opponent serve error.",
+            "a rally none of our players touched, from who served next",
+            "On a rally's **End** line: the serve changed sides with no touch of yours between, usually an opponent serve error.",
+          ],
+          [
+            "by a rally not recorded yet",
+            "On a rally's **End** line: its result comes from the model's guess at who served next. It settles once you record that rally.",
           ],
           [
             "Not added: rally … already ended",
@@ -843,7 +862,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "read-stats",
     group: "Stats",
-    title: "Read the stats",
+    title: GUIDE_TITLES["read-stats"],
     icon: BarChart3,
     intro:
       "The **Stats** tab turns your recorded sets into one page: the match, each skill, each player, and every rally.",
@@ -938,7 +957,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "highlights",
     group: "Stats",
-    title: "Watch highlights",
+    title: GUIDE_TITLES["highlights"],
     icon: Clapperboard,
     intro: "Choose what you want to see and the app plays those moments back to back.",
     tasks: [
@@ -1024,7 +1043,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "report",
     group: "Stats",
-    title: "Make a match report",
+    title: GUIDE_TITLES["report"],
     icon: FileText,
     intro: "The report is a fixed summary of a set or a match that you can hand out.",
     tasks: [
@@ -1060,7 +1079,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "import-sets",
     group: "Stats",
-    title: "Import set files",
+    title: GUIDE_TITLES["import-sets"],
     icon: FolderInput,
     who: "Coaches",
     intro: "Bring in sets that were recorded elsewhere and saved with **Export JSON**.",
@@ -1105,7 +1124,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
   {
     id: "help",
     group: "Help",
-    title: "When something goes wrong",
+    title: GUIDE_TITLES["help"],
     icon: LifeBuoy,
     intro: "Most mistakes can be undone.",
     concepts: [

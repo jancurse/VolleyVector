@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { PAGE } from "../ui/styles";
 import { GuideArticle } from "./GuideArticle";
 import { guideTopic } from "./guideContent";
-import type { GuideTopicId } from "./guideContent";
+import type { GuideTopicId } from "./guideTopics";
 import { guideHref } from "./guideHref";
 import { GuideNav } from "./GuideNav";
 import { GuideOverview } from "./GuideOverview";

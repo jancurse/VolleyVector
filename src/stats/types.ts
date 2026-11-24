@@ -41,7 +41,21 @@ export type SubEvent = {
   in: string;
 };
 
-export type MatchEvent = Touch | PointEvent | SubEvent;
+/** What a set with detailed stats records of the opponent: their serve. */
+export type OpponentSkill = "serve";
+
+/**
+ * A touch of the opponent's. It holds only its time and skill. How they dug or blocked a ball of ours is that ball's
+ * result, and no event of its own.
+ */
+export type OpponentTouch = {
+  kind: "opponent";
+  id: number;
+  timestamp: number;
+  stat: OpponentSkill;
+};
+
+export type MatchEvent = Touch | PointEvent | SubEvent | OpponentTouch;
 
 /** Who is on court during a rally. */
 export type Court = {
@@ -67,6 +81,10 @@ export type MatchMeta = {
   score?: { us: number; them: number };
   /** Record detailed stats: the kind of each attack and defense, and how the opponent dug an attack. */
   detailed?: boolean;
+  /** Which half of the court is ours, seen from the camera. A model reading the video needs it. */
+  ourHalf?: "near" | "far";
+  /** How far the video is stored turned from upright, clockwise in degrees; absent when upright. */
+  videoTurn?: 90 | 180 | 270;
 };
 
 export type Rally = {
@@ -77,6 +95,8 @@ export type Rally = {
   /** Our rotation during this rally. */
   rotation: number;
   touches: Touch[];
+  /** The opponent's recorded touches, on a set with detailed stats. */
+  opponent: OpponentTouch[];
   winner: Team | null;
   /** The event that decided the rally, if any. */
   endedBy: MatchEvent | null;
@@ -90,11 +110,32 @@ export type Rally = {
   score: { us: number; them: number };
 };
 
+/** A rally of a draft: where it starts and ends in the video, and who serves it. */
+export type DraftRally = { start: number; end: number; serving: Team | null };
+
+/** A contact that has a time and still needs describing: marked by the recorder, or placed by a model. */
+export type DraftContact = {
+  id: number;
+  time: number;
+  side?: Team;
+  /** A guess at the skill. */
+  skill?: Exclude<Skill, "misc">;
+  /** Placed by a model, not marked by the recorder. */
+  model?: true;
+};
+
+/**
+ * Contacts waiting to be described, and the rallies a model found. Only the tracker reads it: rallies, the score
+ * and the stats come from `events` alone. It lives in the set's working copy, never in its saved stats.
+ */
+export type SetDraft = { rallies: DraftRally[]; contacts: DraftContact[] };
+
 export type AppData = {
   version: 2;
   players: string[];
   events: MatchEvent[];
   meta: MatchMeta;
+  draft?: SetDraft;
 };
 
 /** One set's worth of data for the stats: its meta and derived rallies. A match has several. */

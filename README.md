@@ -23,7 +23,7 @@ The app is live at [volleyvector.app](https://volleyvector.app), invite-only for
 - **Spaces:** every user has a private personal space, and each team has a shared library. A board or note can be granted to several teams and to individual users at once, so it lives in every library that holds it rather than in one.
 - **Sharing and collaboration:** grant a board to a teammate to co-edit it together, or to another team so a coach of several teams keeps one board across them, each at viewer, editor, or owner. Share outside your teams with a single-use grant link or to an exact email. Open any shared board read-only from an unguessable link, or copy one into your own space to fork it.
 - **Rosters and games:** a team keeps a roster of its players, imported from a spreadsheet or added one by one. A game picks a squad and sets its starting rotations on slips, ready to print.
-- **Recorded sets and stats:** a coach records each set of a game from its video in the stats tracker, or imports set files. The team reads the stats dashboard, plays highlights, and downloads the match report.
+- **Recorded sets and stats:** a coach records each set of a game from its video in the stats tracker, or imports set files. **Draft with AI** finds a set's rallies and who serves each, on the coach's own Gemini key. The team reads the stats dashboard, plays highlights, and downloads the match report.
 - **History:** every save is a revision, so a board or note keeps a linear edit history, and a save that would clobber a co-editor's change is caught as a conflict to resolve instead.
 - **Light and dark themes:** the interface follows the system preference and can be toggled.
 
@@ -37,6 +37,7 @@ The app is live at [volleyvector.app](https://volleyvector.app), invite-only for
 - **[react-markdown](https://github.com/remarkjs/react-markdown)** renders descriptions and instructions.
 - **[Chart.js](https://www.chartjs.org)**, **[jsPDF](https://github.com/parallax/jsPDF)**, and **[html2canvas](https://html2canvas.hertzen.com)** draw the match report and its PDF.
 - **[Supabase](https://supabase.com)** holds the database and auth. Boards and notes persist there, and every access rule is enforced by row-level security.
+- **[Gemini](https://ai.google.dev)** finds a set's rallies in its YouTube video for **Draft with AI**, called from the browser on the coach's own key.
 - **[Resend](https://resend.com)** sends the transactional email (invites and password resets) from Supabase Edge Functions.
 - **[Cloudflare Pages](https://pages.cloudflare.com)** serves the static build, published automatically once CI passes on `main`.
 
@@ -44,7 +45,7 @@ The app is live at [volleyvector.app](https://volleyvector.app), invite-only for
 
 A global admin can read all content, including users' personal boards. This is acceptable for the small, trusted group the app currently serves, and should be revisited before it is made available more widely.
 
-The app shows a plain-language [Terms & Privacy](src/legal/legalText.ts) notice at `/terms`, linked from the login screen and the account menu. Every new account must accept it during signup. It states that the app is provided as-is with no warranty, what data is stored and where (Supabase and Cloudflare), the admin-can-read-everything trade-off above, and how to have data removed.
+The app shows a plain-language [Terms & Privacy](src/legal/legalText.ts) notice at `/terms`, linked from the login screen and the account menu. Every new account must accept it during signup. It states that the app is provided as-is with no warranty, what data is stored and where (Supabase and Cloudflare, and Google for a Draft with AI run), the admin-can-read-everything trade-off above, and how to have data removed.
 
 ## Development
 

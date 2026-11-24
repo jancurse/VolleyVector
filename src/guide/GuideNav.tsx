@@ -2,7 +2,7 @@ import type { AnchorHTMLAttributes, JSX } from "react";
 
 import { cx, PANEL_TITLE } from "../ui/styles";
 import { GUIDE_GROUPS, GUIDE_TOPICS } from "./guideContent";
-import type { GuideTopicId } from "./guideContent";
+import type { GuideTopicId } from "./guideTopics";
 
 // The guide's table of contents beside a topic: every topic by chapter, the open one marked.
 type GuideNavProps = {

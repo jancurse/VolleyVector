@@ -5,7 +5,8 @@ import { Markdown } from "../ui/Markdown";
 import { Table, TableCell } from "../ui/Table";
 import { cx, EYEBROW, KBD, KBD_QUIET, PANEL, PANEL_TITLE, TAG_CHIP, TITLE } from "../ui/styles";
 import { GUIDE_TOPICS, guideTopic } from "./guideContent";
-import type { GuideTopic, GuideTopicId } from "./guideContent";
+import type { GuideTopic } from "./guideContent";
+import type { GuideTopicId } from "./guideTopics";
 import { GuideNotice } from "./GuideNotice";
 
 const HEADING = "m-0 font-display font-bold tracking-[-0.015em]";

@@ -3,14 +3,14 @@ import { CircleHelp } from "lucide-react";
 
 import { Tooltip } from "../ui/Tooltip";
 import { iconButtonClass } from "../ui/styles";
-import { guideTopic } from "./guideContent";
-import type { GuideTopicId } from "./guideContent";
+import { guideTitle } from "./guideTopics";
+import type { GuideTopicId } from "./guideTopics";
 import { guideHref } from "./guideHref";
 
 // A quiet way into the guide from the surface a topic explains. It opens in a new tab, so a draft in the
 // editor or a set being recorded stays where it is. Bare, it is a small help icon; with children, a text link.
 export function GuideLink({ topic, children }: { topic: GuideTopicId; children?: ReactNode }): JSX.Element {
-  const label = `Guide: ${guideTopic(topic)?.title ?? "how this works"}`;
+  const label = `Guide: ${guideTitle(topic) ?? "how this works"}`;
   const link = { href: guideHref(topic), target: "_blank", rel: "noopener" };
 
   if (children)

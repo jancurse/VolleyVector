@@ -10,10 +10,13 @@ type SeekBarProps = {
   end: number;
   onSeek: (t: number) => void;
   markers: readonly { time: number; tone: "us" | "them" | null }[];
-  marks?: readonly number[];
+  marks?: readonly { time: number; model?: boolean }[];
 };
 
-/** The seek bar, with a tick for each recorded event (coloured by who won it) and each pending mark. */
+/**
+ * The seek bar, with a tick for each recorded event (coloured by who won it) and each pending contact: the recorder's
+ * own marks in the text colour, a model's in the accent.
+ */
 export function SeekBar({ time, start = 0, end, onSeek, markers, marks = [] }: SeekBarProps): JSX.Element {
   const length = end - start;
   const at = (t: number) => ({ left: `${((t - start) / length) * 100}%` });
@@ -34,8 +37,12 @@ export function SeekBar({ time, start = 0, end, onSeek, markers, marks = [] }: S
               />
             ))}
           {length > 0 &&
-            marks.map((t, i) => (
-              <span key={`mark-${i}`} className="absolute -top-1 h-3 w-0.5 rounded-xs bg-text" style={at(t)} />
+            marks.map((m, i) => (
+              <span
+                key={`mark-${i}`}
+                className={`absolute -top-1 h-3 w-0.5 rounded-xs ${m.model ? "bg-accent" : "bg-text"}`}
+                style={at(m.time)}
+              />
             ))}
         </div>
         <Range

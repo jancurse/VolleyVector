@@ -43,6 +43,7 @@ export function FileButton({
       <input
         ref={input}
         type="file"
+        aria-label={typeof children === "string" ? children : undefined}
         accept={accept}
         multiple={multiple}
         hidden

@@ -22,7 +22,7 @@ export function flattenRows(rallies: Rally[]) {
   const rows = [];
 
   for (const r of rallies) {
-    const events = [...r.subs, ...r.touches, ...(r.endedBy?.kind === "point" ? [r.endedBy] : [])];
+    const events = [...r.subs, ...r.opponent, ...r.touches, ...(r.endedBy?.kind === "point" ? [r.endedBy] : [])];
 
     for (const e of events) {
       rows.push({
@@ -46,14 +46,16 @@ export function flattenRows(rallies: Rally[]) {
             }
           : e.kind === "sub"
             ? { id: e.id, player: e.in, stat: "sub", result: `for ${e.out}`, zone: "", reason: "" }
-            : {
-                id: e.id,
-                player: "",
-                stat: e.winner === "us" ? "point_us" : "point_them",
-                result: e.reason ?? "",
-                zone: "",
-                reason: "",
-              }),
+            : e.kind === "opponent"
+              ? { id: e.id, player: "", stat: "opponent_serve", result: "", zone: "", reason: "" }
+              : {
+                  id: e.id,
+                  player: "",
+                  stat: e.winner === "us" ? "point_us" : "point_them",
+                  result: e.reason ?? "",
+                  zone: "",
+                  reason: "",
+                }),
       });
     }
   }
@@ -70,8 +72,9 @@ export function toJson(data: AppData, rallies: Rally[]): string {
       metadata: { ...data.meta, youtubeUrl: data.meta.youtubeUrl || null, exportedAt: new Date().toISOString() },
       players: data.players,
       events: data.events,
+      ...(data.draft && { draft: data.draft }),
       // Every touch as a flat row, for reading the export without deriving rallies.
-      stats: rows.filter((r) => !r.stat.startsWith("point_") && r.stat !== "sub"),
+      stats: rows.filter((r) => !r.stat.startsWith("point_") && r.stat !== "sub" && r.stat !== "opponent_serve"),
       rallies: rallies
         .filter((r) => r.winner)
         .map((r) => ({

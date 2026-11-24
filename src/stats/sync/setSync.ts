@@ -123,12 +123,14 @@ export function writeBackup(store: BackupStore, id: string, backup: Backup | nul
 const sameData = (a: AppData, b: AppData): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 /** What the tracker records: everything but the player list, teams, and date, which follow the game. */
-const recorded = ({ events, meta }: AppData): string =>
-  JSON.stringify({ events, meta: { ...meta, homeTeam: "", awayTeam: "", date: "" } });
+const recorded = ({ events, meta, draft }: AppData): string =>
+  JSON.stringify({ events, draft, meta: { ...meta, homeTeam: "", awayTeam: "", date: "" } });
 
 /** Everything the stats show of a set but the teams and date, which are read from the game. */
 const statsOf = ({ players, events, meta }: AppData): string =>
   JSON.stringify({ players, events, meta: { ...meta, homeTeam: "", awayTeam: "", date: "" } });
+
+const sameDraft = (a: AppData, b: AppData): boolean => JSON.stringify(a.draft) === JSON.stringify(b.draft);
 
 export class SetSync {
   private version = 0;
@@ -254,7 +256,7 @@ export class SetSync {
     if (data === this.latest) return;
 
     // Only the teams or date differ (the tracker showing the game's): nothing to save.
-    if (this.latest && statsOf(data) === statsOf(this.latest)) {
+    if (this.latest && statsOf(data) === statsOf(this.latest) && sameDraft(data, this.latest)) {
       this.latest = data;
 
       return;

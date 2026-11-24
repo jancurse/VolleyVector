@@ -42,6 +42,8 @@ declare global {
 export type VideoSource = { type: "file"; url: string; name: string } | { type: "youtube"; id: string };
 
 export const FRAME = 1 / 30;
+/** How far an entry moves in time at one step, in seconds. A single frame is the video's own step. */
+export const STEP = 0.1;
 
 let ytApi: Promise<YtApi> | null = null;
 

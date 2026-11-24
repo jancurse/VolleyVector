@@ -18,6 +18,8 @@ type SetMenuProps = {
   onImport: (file: File) => void;
   onNextSet: () => void;
   onClear: () => void;
+  /** Open the dialog that has a model draft the set from its video. */
+  onAi: () => void;
 };
 
 /** The set's own actions in one menu: its stats, export and import, detailed stats, the next set, and clearing it. */
@@ -32,6 +34,7 @@ export function SetMenu({
   onImport,
   onNextSet,
   onClear,
+  onAi,
 }: SetMenuProps): JSX.Element {
   const statsFiles = useRef<HTMLInputElement>(null);
   const importFile = useRef<HTMLInputElement>(null);
@@ -65,6 +68,9 @@ export function SetMenu({
         </MenuItem>
         <MenuItem onClick={() => importFile.current?.click()} disabled={locked}>
           Import JSON…
+        </MenuItem>
+        <MenuItem onClick={onAi} disabled={locked}>
+          Draft with AI…
         </MenuItem>
         <MenuSeparator />
         <MenuItem onClick={() => onMeta({ detailed: !meta.detailed || undefined })} disabled={locked}>
