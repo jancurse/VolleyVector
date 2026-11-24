@@ -119,7 +119,7 @@ export default function StatsDashboard({
   const dates = [...new Set(tables.sets.map((s) => s.date).filter(Boolean))].map(formatGameDate).join(", ");
   const setLabels = new Map(tables.sets.map((s) => [s.id, s.label]));
   const actions = ORDER.filter((a) => calc.summary.some((r) => r.set === p.set && r.skill === a));
-  const details = useMemo(() => detailGroups(tables.touches, p.set, p.player), [tables, p.set, p.player]);
+  const details = useMemo(() => detailGroups(tables, p.set, p.player), [tables, p.set, p.player]);
 
   return (
     <ClipsContext.Provider value={clips}>
@@ -216,8 +216,14 @@ export default function StatsDashboard({
             </div>
           </div>
           <div className={DASH_GRID}>
-            <div className={DASH_WIDE}>
+            <div className={cx(DASH_WIDE, "flex flex-col gap-4")}>
               <MetricCards summary={calc.summary} grades={calc.grades} set={p.set} player={p.player} />
+              {details.length > 0 && (
+                <DashboardCard title="Detailed stats">
+                  <p className={DASH_NOTE}>From the sets recorded with detailed stats.</p>
+                  <DetailStats groups={details} />
+                </DashboardCard>
+              )}
             </div>
             <DashboardCard title="Zones">
               <ToggleGroup
@@ -238,12 +244,6 @@ export default function StatsDashboard({
                 player={p.player}
               />
             </DashboardCard>
-            {details.length > 0 && (
-              <DashboardCard title="Detailed stats">
-                <p className={DASH_NOTE}>From the touches recorded with detailed stats.</p>
-                <DetailStats groups={details} />
-              </DashboardCard>
-            )}
           </div>
         </section>
 

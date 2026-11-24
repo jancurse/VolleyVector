@@ -713,33 +713,32 @@ describe("stats dashboard", () => {
     ]);
   });
 
-  test("detailed numbers count only the touches that carry the detail, and say how many", () => {
+  test("detailed numbers count only detailed sets and the touches that carry the detail, and say how many", () => {
     const typed = (t: MatchEvent, type: string): MatchEvent => (t.kind === "touch" ? { ...t, type } : t);
-    const detailed = matchTables([
-      {
-        meta: emptyData().meta,
-        rallies: deriveRallies(
-          [
-            touch(1, "Sian", "attack", "defended"),
-            typed(touch(2, "Sian", "attack", "dig01"), "hit"),
-            typed(touch(3, "Sian", "attack", "dig23"), "tip"),
-            typed(touch(4, "Sian", "attack", "kill"), "tip"),
-            typed(touch(20, "Juno", "defense", "dig23"), "block_cover"),
-          ],
-          meta
-        ),
-      },
-    ]);
+    const set = {
+      meta: { ...emptyData().meta, detailed: true },
+      rallies: deriveRallies(
+        [
+          touch(1, "Sian", "attack", "defended"),
+          typed(touch(2, "Sian", "attack", "dig01"), "hit"),
+          typed(touch(3, "Sian", "attack", "dig23"), "tip"),
+          typed(touch(4, "Sian", "attack", "kill"), "tip"),
+          typed(touch(20, "Juno", "defense", "dig23"), "block_cover"),
+        ],
+        meta
+      ),
+    };
+    const detailed = matchTables([set]);
     const all = skillSummary(detailed.touches).find((r) => r.set === ALL && r.player === ALL && r.skill === "attack");
 
     expect(all).toMatchObject({ attempts: 4, pos: 1, score: 0.25 });
-    expect(detailGroups(tables.touches, ALL, ALL)).toEqual([]);
+    expect(detailGroups(tables, ALL, ALL)).toEqual([]);
     expect(detailed.touches.map((t) => t.label)).toContain("Attack, tip");
     expect([...clipSelection(detailed, { set: ALL, player: ALL, action: "attack" }).action!].sort()).toEqual([
       "Attack",
       "Attack, tip",
     ]);
-    expect(detailGroups(detailed.touches, ALL, ALL).map((g) => [g.title, g.covered, g.total, g.rows])).toEqual([
+    expect(detailGroups(detailed, ALL, ALL).map((g) => [g.title, g.covered, g.total, g.rows])).toEqual([
       [
         "Attacks they dug",
         2,
@@ -760,6 +759,9 @@ describe("stats dashboard", () => {
       ],
       ["Defense by kind", 1, 1, [{ label: "Block cover", n: 1, figure: "100%", name: "Positive %" }]],
     ]);
+    const mixed = matchTables([set, { ...set, meta: { ...set.meta, detailed: false, setNumber: "2" } }]);
+
+    expect(detailGroups(mixed, ALL, ALL)).toEqual(detailGroups(detailed, ALL, ALL));
   });
 
   test("turns a tap on a grade into the highlights filter for exactly those touches", () => {

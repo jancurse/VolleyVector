@@ -27,6 +27,8 @@ export type SetInfo = {
   away: string;
   date: string;
   videoId: string | null;
+  /** Whether the set recorded detailed stats. */
+  detailed: boolean;
 };
 
 export type TouchRow = {
@@ -204,6 +206,7 @@ export function matchTables(loaded: ReportSet[]): MatchTables {
       away: set.meta.awayTeam,
       date: set.meta.date,
       videoId: extractYoutubeId(set.meta.youtubeUrl),
+      detailed: set.meta.detailed === true,
     });
     for (const r of set.rallies) {
       for (const t of r.touches) {
@@ -797,11 +800,15 @@ const rate = (n: number, of: number) => (of ? `${Math.round((100 * n) / of)}%` :
 
 /**
  * The numbers only a set recording detailed stats has, for one set and player (each also "all"): how the
- * opponent dug our attacks, and attacks and digs by their kind. Each group counts only the touches that carry
- * the detail, and says how many that is; a group none carry is left out.
+ * opponent dug our attacks, and attacks and digs by their kind. Only the sets recording detailed stats count.
+ * Each group counts only the touches that carry the detail, and says how many that is; a group none carry is
+ * left out.
  */
-export function detailGroups(all: TouchRow[], set: string, player: string): DetailGroup[] {
-  const touches = all.filter((t) => (set === ALL || t.set === set) && (player === ALL || t.player === player));
+export function detailGroups({ sets, touches: all }: MatchTables, set: string, player: string): DetailGroup[] {
+  const detailed = new Set(sets.filter((s) => s.detailed).map((s) => s.id));
+  const touches = all.filter(
+    (t) => detailed.has(t.set) && (set === ALL || t.set === set) && (player === ALL || t.player === player)
+  );
   const attacks = touches.filter((t) => t.action === "attack");
   const digs = touches.filter((t) => t.action === "defense");
   const count = (rows: TouchRow[], results: string[] = []) => rows.filter((t) => results.includes(t.result)).length;

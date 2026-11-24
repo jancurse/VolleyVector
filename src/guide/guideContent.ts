@@ -661,7 +661,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           "Open **More actions** at the top and press **Turn on detailed stats**. The next set of the game starts with the same choice.",
           "Record as usual. An attack or defense starts as a **Hit**. Press the kind's letter to change it.",
         ],
-        after: "The stats add a **Detailed stats** card, built only from the touches recorded this way.",
+        after: "The stats add a **Detailed stats** card, built only from the sets recorded this way.",
       },
       {
         title: "Record the opponent's serve",
@@ -923,7 +923,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
           ["Zones", "One skill on the court. The shade counts touches and the bar shows their results."],
           [
             "Detailed stats",
-            "How the opponent dug your attacks, and attacks and digs by kind. It appears once a set was recorded with **Detailed stats**, and says how many touches each number comes from.",
+            "How the opponent dug your attacks, and attacks and digs by kind. It appears once a set was recorded with **Detailed stats**, counts only those sets, and says how many touches each number comes from.",
           ],
           ["Player metrics", "Every player's plus/minus, and their net for each skill."],
           ["Player detail", "One skill, player by player."],

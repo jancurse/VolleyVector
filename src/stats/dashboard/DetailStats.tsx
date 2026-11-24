@@ -6,7 +6,7 @@ import type { DetailGroup } from "./data";
 /** The numbers only detailed stats give, each group with how many of its touches carry the detail. */
 export function DetailStats({ groups }: { groups: readonly DetailGroup[] }): JSX.Element {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid gap-4 @dash-wide:auto-cols-fr @dash-wide:grid-flow-col @dash-wide:gap-8">
       {groups.map((g) => (
         <section key={g.title} aria-label={g.title} className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-2">
