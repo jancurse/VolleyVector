@@ -153,6 +153,11 @@ export function GamePage({
   // A game with no details yet opens with them in the form; otherwise they show as text until edited.
   const [editingDetails, setEditingDetails] = useState(canEdit && !game.date && !game.opponent && !game.notes);
   const [viewShift, setViewShift] = useState(game.overviewShift);
+  const statsShown = tab === "stats" || tab === "highlights" || tab === "report";
+  // The last stats tab shown: the stats stay mounted from then on, so the video, filters, and clips are kept.
+  const [statsTab, setStatsTab] = useState<StatsTab | null>(null);
+
+  if (statsShown && tab !== statsTab) setStatsTab(tab);
   const pending = useRef<Game | null>(null);
   const latest = useRef(game);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -530,22 +535,26 @@ export function GamePage({
         </>
       )}
 
-      {(tab === "stats" || tab === "highlights" || tab === "report") && (
-        <Suspense fallback={<p className={MUTED}>Loading…</p>}>
-          <GameStats
-            gameIds={[game.id]}
-            games={[draft]}
-            teamName={teamName}
-            roster={roster}
-            preloaded={shared?.map((s) => ({ gameId: game.id, data: s.data }))}
-            tab={tab}
-            onTab={onTab}
-            embedded
-            fill={fill}
-            focus={focus}
-            onFocus={onFocus}
-          />
-        </Suspense>
+      {statsTab && (
+        <div hidden={!statsShown} className="contents">
+          <Suspense fallback={<p className={MUTED}>Loading…</p>}>
+            <GameStats
+              gameIds={[game.id]}
+              games={[draft]}
+              teamName={teamName}
+              roster={roster}
+              preloaded={shared?.map((s) => ({ gameId: game.id, data: s.data }))}
+              tab={statsTab}
+              onTab={onTab}
+              embedded
+              fill={fill}
+              focus={focus}
+              onFocus={onFocus}
+              active={statsShown}
+              revision={sets.map((s) => `${s.id}@${s.version}`).join()}
+            />
+          </Suspense>
+        </div>
       )}
 
       {sharing && <ShareGameDialog gameId={game.id} onClose={() => setSharing(false)} />}

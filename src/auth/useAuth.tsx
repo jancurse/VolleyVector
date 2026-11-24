@@ -40,6 +40,13 @@ async function signOut(): Promise<void> {
 
 const AuthContext = createContext<AuthValue | null>(null);
 
+// A token refresh (as on returning to the tab) keeps the same user object, so nothing keyed on the user reloads
+// and the page on screen keeps its state. A change to the user's own details takes the new one.
+const keepUser = (prev: Session | null, next: Session | null, updated = false): Session | null =>
+  next && prev && prev.user.id === next.user.id && prev.user.email === next.user.email && !updated
+    ? { ...next, user: prev.user }
+    : next;
+
 export function AuthProvider({ children }: { children: ReactNode }): JSX.Element {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     // Subscribe before the first getSession below, which is what consumes a recovery link from the URL:
     // the PASSWORD_RECOVERY event only reaches listeners already registered when supabase-js fires it.
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
-      setSession(next);
+      setSession((prev) => keepUser(prev, next, event === "USER_UPDATED"));
       if (event === "PASSWORD_RECOVERY") setRecovering(true);
     });
 
@@ -66,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         ({ data } = await supabase.auth.getSession());
       }
 
-      setSession(data.session);
+      setSession((prev) => keepUser(prev, data.session));
       setLoading(false);
     }
 

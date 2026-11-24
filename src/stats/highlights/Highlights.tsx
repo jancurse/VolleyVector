@@ -45,7 +45,7 @@ export default function Highlights({
     () => new Map(sets.flatMap((s, i) => highlightRallies(s, i)).map((r) => [rallyKey(r), r])),
     [sets]
   );
-  const [padding, setPadding] = useState({ before: 5, after: 3 });
+  const [padding, setPadding] = useState({ before: 3, after: 3 });
   const [current, setCurrent] = useState(-1);
   const [rotations, setRotations] = useState<Record<string, number>>({});
   const [rate, setRate] = useState(1);

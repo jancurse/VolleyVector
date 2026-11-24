@@ -248,4 +248,12 @@ describe("StatsPage", () => {
 
     shows();
   });
+
+  test("hidden but kept mounted, the highlights ignore their keys", async () => {
+    renderPage({ initialTab: "highlights", active: false });
+    await screen.findByRole("region", { name: "Clips" });
+    await userEvent.keyboard("l");
+
+    expect(screen.getByRole("button", { name: "Loop the clip" })).toHaveAttribute("aria-pressed", "false");
+  });
 });

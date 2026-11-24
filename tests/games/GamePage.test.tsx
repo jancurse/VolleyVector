@@ -7,6 +7,8 @@ import { GamePage } from "../../src/games/GamePage";
 import type { Game } from "../../src/games/types";
 import type { GameTab } from "../../src/routing/route";
 import type { StatsTab } from "../../src/stats/StatsPage";
+import { emptyData } from "../../src/stats/store";
+import type { MatchEvent } from "../../src/stats/types";
 import { GAME, ROSTER } from "../helpers/gameData";
 
 vi.mock("../../src/supabase/client", async () => {
@@ -22,7 +24,7 @@ function Page(props: Omit<Parameters<typeof GamePage>[0], "tab" | "onTab">) {
   return <GamePage {...props} tab={tab} onTab={setTab} />;
 }
 
-function renderPage(canEdit: boolean, game: Game = GAME) {
+function renderPage(canEdit: boolean, game: Game = GAME, shared?: Parameters<typeof GamePage>[0]["shared"]) {
   const onSave = vi.fn((_: Game) => Promise.resolve({ error: null }));
 
   render(
@@ -46,6 +48,7 @@ function renderPage(canEdit: boolean, game: Game = GAME) {
       onDeleteSet={() => {}}
       onImportSets={() => {}}
       onScoreSet={() => Promise.resolve(null)}
+      shared={shared}
     />
   );
 
@@ -266,4 +269,30 @@ test("a viewer reads each rotation as its slip and may rotate it, without editin
   await userEvent.click(within(rotation()).getByRole("button", { name: "Rotate back (I → II)" }));
 
   expect(within(rotation()).getByRole("article", { name: "Set 1, Setter in II" })).toBeInTheDocument();
+});
+
+test("the highlights keep their filters across the game's other tabs, and ignore keys while hidden", async () => {
+  const touch = (id: number, player: string): MatchEvent => ({
+    kind: "touch",
+    id,
+    timestamp: id,
+    player,
+    stat: "attack",
+    result: "kill",
+    zone: "4",
+  });
+
+  renderPage(false, GAME, [
+    { id: "set-1", data: { ...emptyData(), events: [touch(1, "Mia Kraus"), touch(9, "Ida Berg")] } },
+  ]);
+  await userEvent.click(screen.getByRole("tab", { name: "Highlights" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Players" }));
+  await userEvent.click(screen.getByRole("button", { name: "Player Mia Kraus" }));
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
+  await userEvent.keyboard("l");
+  await userEvent.click(screen.getByRole("tab", { name: "Highlights" }));
+
+  expect(screen.getByRole("button", { name: "Players Mia Kraus" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Loop the clip" })).toHaveAttribute("aria-pressed", "false");
 });
