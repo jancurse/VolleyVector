@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useReducer, useState } from "react";
+import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 import { Check, Lock, Maximize2, Minimize2, PanelBottom, PanelRight, Redo2, Undo2 } from "lucide-react";
 
@@ -32,16 +32,30 @@ import {
 } from "../draft";
 import type { Draft, Field } from "../draft";
 import { download } from "../../bundle/download";
+import type { ModelProgress } from "../draftModel";
 import { exportFilename, toCsv, toJson } from "../exporters";
 import { deriveRallies, predictPlayer } from "../rallies";
 import { toReportSet } from "../reportSet";
+import { neighbour, openingRally, sameRow, stepRow, timeline } from "../timeline";
+import type { TimelineItem } from "../timeline";
+import {
+  addMark,
+  dropContacts,
+  dropRally,
+  pendingContacts,
+  removeContact,
+  serveJump,
+  serveStandIns,
+} from "../setDraft";
 import { isTyping } from "../typing";
 import { emptyData, initState, newId, nextSetData, parseImport, reducer } from "../store";
 import type { Action } from "../store";
-import type { AppData, MatchEvent, Rally, ReportSet, Skill, Team } from "../types";
-import { FRAME, usePlayer } from "../usePlayer";
+import type { AppData, DraftContact, Rally, ReportSet, Skill, Team } from "../types";
+import { FRAME, STEP, usePlayer } from "../usePlayer";
 import { extractYoutubeId } from "../youtube";
+import { AiProgress } from "./AiProgress";
 import { EventLog } from "./EventLog";
+import { OpponentEntry } from "./OpponentEntry";
 import { PlayersDialog } from "./PlayersDialog";
 import { Scoreboard } from "./Scoreboard";
 import { SetMenu } from "./SetMenu";
@@ -53,16 +67,21 @@ import { RATES, VideoPanel } from "./VideoPanel";
 
 // The stats and highlights load YouTube and are heavy; only load them when opened.
 const StatsPage = lazy(() => import("../StatsPage").then((m) => ({ default: m.StatsPage })));
+// The AI draft is used once a set, if at all: load it when its dialog first opens.
+const AiDraftDialog = lazy(() => import("./AiDraftDialog").then((m) => ({ default: m.AiDraftDialog })));
 
-/** Stats are stamped slightly before the moment you press the key, to allow for reaction time. */
-const STAT_LEAD = 1;
-/** Marks are tapped right on the contact, so they need much less reaction-time allowance. */
-const MARK_LEAD = 0.3;
+/** Enter opens the first contact from this far before the video's time, in seconds. */
+const NEAR = 1.5;
+/** Enter opens the picked row while the video is still this close to it, in seconds. */
+const NEAR_PICK = 0.3;
 /** A manual point this soon after a decisive touch is almost certainly a duplicate. */
 const DOUBLE_POINT_WINDOW = 4;
 const ZONES = new Set(ZONE_GRID.flat().filter(Boolean));
 /** The keys a locked set still answers: the video's, focus mode, and the arrangement. */
-const VIEW_KEYS = new Set([" ", "ArrowLeft", "ArrowRight", ",", ".", "[", "]", "v", "V", "x", "X"]);
+const VIEW_KEYS = new Set([" ", "ArrowLeft", "ArrowRight", ",", ".", "[", "]", "v", "V", "x", "X", "n", "N"]);
+
+/** A touch of the opponent's being entered, or a recorded one (`editingId`) being changed. */
+type TheirEntry = { timestamp: number; editingId?: number };
 
 type TrackerProps = {
   /** The set as loaded. */
@@ -126,9 +145,25 @@ export function Tracker({
   const { confirm, dialog } = useConfirm();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [resumeAfterEntry, setResumeAfterEntry] = useState(false);
-  // Contact marks tapped during play (Tab), described afterwards in a review pass.
-  const [marks, setMarks] = useState<number[]>([]);
-  const [review, setReview] = useState<{ returnTo: number; resume: boolean; total: number } | null>(null);
+  const [theirs, setTheirs] = useState<TheirEntry | null>(null);
+  // The draft's contacts, marked during play (Tab) or placed by a model, are described one at a time. `checking`
+  // names the one to have open, by id and time: once it is saved or deleted, the next one in time takes its place.
+  // `returnTo` and `resume` are where the video was when the first one was opened.
+  const contacts = useMemo(() => pendingContacts(data), [data]);
+  const [checking, setChecking] = useState<{ id: number; at: number; returnTo: number; resume: boolean } | null>(null);
+  // The row picked in the list while it has no entry: jumped to, or last opened. ↓ and ↑ go on from it, Enter opens
+  // it, and Delete removes it.
+  const [cursor, setCursor] = useState<{ kind: "event" | "contact"; id: number } | null>(null);
+  // The contact the open entry describes.
+  const reviewed =
+    checking && (theirs || draft?.editingId === null) ? contacts.find((c) => c.id === checking.id) : undefined;
+  // A model's run on the set's video. It carries on with its dialog closed, and its rallies load as they finish.
+  const [aiOpen, setAiOpen] = useState(false);
+  // Once opened, the dialog stays mounted, so it closes with its animation.
+  const [aiLoaded, setAiLoaded] = useState(false);
+  const [aiRun, setAiRun] = useState<ModelProgress | "rallies" | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const aiStop = useRef<AbortController | null>(null);
   // The sets shown in the stats and highlights or in the report: this one, or several loaded from files.
   const [statsView, setStatsView] = useState<ReportSet[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -144,13 +179,17 @@ export function Tracker({
   };
 
   // Locking the set drops whatever was still being entered.
-  if (locked && (draft || pendingPoint || marks.length || review || playersOpen)) {
+  if (locked && (draft || theirs || pendingPoint || checking || playersOpen || aiOpen)) {
     setDraft(null);
+    setTheirs(null);
     setPendingPoint(null);
-    setMarks([]);
-    setReview(null);
+    setChecking(null);
+    setCursor(null);
     setPlayersOpen(false);
+    setAiOpen(false);
   }
+
+  if (aiOpen && !aiLoaded) setAiLoaded(true);
 
   useEffect(() => onChange(data), [data, onChange]);
 
@@ -178,6 +217,37 @@ export function Tracker({
   );
   const rallies = useMemo(() => deriveRallies(data.events, rallyMeta), [data.events, rallyMeta]);
   const openRally = rallies[rallies.length - 1];
+  // What the page shows of the rallies counts the draft's unrecorded rallies too, by the same rules. The stats and
+  // the export read the recorded events alone.
+  const standIns = useMemo(() => serveStandIns(data), [data]);
+  const shown = useMemo(
+    () => (standIns.length ? deriveRallies([...data.events, ...standIns], rallyMeta) : rallies),
+    [standIns, data.events, rallyMeta, rallies]
+  );
+  const groups = useMemo(
+    () => timeline(shown, contacts, data.draft?.rallies, detailed),
+    [shown, contacts, data.draft?.rallies, detailed]
+  );
+  // When each rally with a serve has it, for the jump from rally to rally.
+  const rallyStarts = useMemo(
+    () => shown.filter((r) => r.serving && (r.touches.length || r.opponent.length)).map((r) => r.startTime),
+    [shown]
+  );
+  const rows = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const openEvent = draft?.editingId ?? theirs?.editingId;
+  // The row the entry belongs to. A new stat belongs to none. With no entry open, the row picked.
+  const current = reviewed
+    ? ({ kind: "contact", id: reviewed.id } as const)
+    : openEvent != null
+      ? ({ kind: "event", id: openEvent } as const)
+      : draft || theirs
+        ? null
+        : cursor;
+  // The picked row, while the video still stands on it: Enter opens it and Delete removes it only then.
+  const picked = cursor && rows.find((r) => sameRow(r, cursor));
+  const pickedHere = () => (picked && Math.abs(picked.time - player.getTime()) < NEAR_PICK ? picked : undefined);
+
+  const marks = useMemo(() => contacts.map((c) => ({ time: c.time, model: c.model })), [contacts]);
 
   // Who was on court at the moment of the stat being entered (it may be an earlier mark).
   const draftTime = draft?.timestamp;
@@ -208,14 +278,37 @@ export function Tracker({
     setResumeAfterEntry(false);
   };
 
-  /** Start a new stat now, or at `at` (a marked contact) without touching playback. */
-  const startEntry = (opts: { player?: string; stat?: Skill; type?: string } = {}, at?: number) => {
-    if (draft || locked) return;
+  /**
+   * Start a new stat now, or at `at` (a draft contact) without touching playback. `guess` is the skill a model gave
+   * the contact, shown as a suggestion like a predicted one.
+   */
+  const startEntry = (
+    opts: { player?: string; stat?: Skill; type?: string; fresh?: boolean } = {},
+    at?: number,
+    guess?: Skill
+  ) => {
+    if (draft || theirs || locked) return;
 
     setPendingPoint(null);
+    setCursor(null);
 
-    if (at === undefined && marks.length && !review) {
-      beginReview(opts);
+    // Enter with nothing chosen goes to the contacts still to describe. A player or skill key starts a new stat.
+    if (at === undefined && contacts.length && !checking && !opts.player && !opts.stat && !opts.fresh) {
+      goToContact(contacts.find((c) => c.time >= player.getTime() - NEAR) ?? contacts[0]!);
+
+      return;
+    }
+
+    // A stat started while the video is paused on a contact still to describe is that contact's, not a new one beside
+    // it. During play a key starts a stat of its own, as ever.
+    const here =
+      at === undefined && !opts.fresh && !checking && !player.isPlaying
+        ? contacts.find((c) => Math.abs(c.time - player.getTime()) < NEAR_PICK)
+        : undefined;
+
+    if (here) {
+      setChecking({ id: here.id, at: here.time, returnTo: here.time, resume: false });
+      openContact(here, opts);
 
       return;
     }
@@ -225,7 +318,7 @@ export function Tracker({
       player.pause();
     }
 
-    const timestamp = at ?? Math.max(0, player.getTime() - STAT_LEAD);
+    const timestamp = at ?? player.getTime();
     // Predict from what happened before this moment, so tagging an earlier point in the video still gets
     // sensible suggestions.
     const before = deriveRallies(
@@ -234,8 +327,20 @@ export function Tracker({
     );
     const ctx = before[before.length - 1];
     const last = ctx.touches[ctx.touches.length - 1] ?? null;
-    const stat = opts.stat ?? predictSkill(last, ctx.serving);
-    const who = opts.player ?? predictPlayer(before, stat);
+    // The first contact of a rally with no play recorded opens as its serve, by the side that serves it.
+    const opens = opts.stat || guess ? null : openingRally(shown, contacts, timestamp);
+    const opening = opens?.serving ?? null;
+
+    if (opening === "them" && detailed && !opts.player) {
+      setTheirs({ timestamp });
+
+      return;
+    }
+
+    const stat = opts.stat ?? guess ?? (opening ? predictSkill(null, opening) : predictSkill(last, ctx.serving));
+    // Our server stands in position 1 of the rally that opens here, which knows its rotation from the rallies before.
+    const who =
+      opts.player ?? (opening === "us" ? opens?.court?.positions[0] : undefined) ?? predictPlayer(before, stat);
     const d = newDraft(timestamp, who, stat, detailed);
 
     setDraft({
@@ -245,52 +350,147 @@ export function Tracker({
     });
   };
 
-  // --- Contact marks ---------------------------------------------------------
+  // --- Draft contacts -------------------------------------------------------
 
+  /**
+   * Tab: a contact at the video's time. During play it is only marked, to describe later. With an entry open it
+   * takes that entry's place, which is how a touch missing from the draft is added.
+   */
   const mark = () => {
+    if (locked || draft?.editingId != null) return;
+
+    const time = player.getTime();
+    const next = addMark(data.draft, time);
+
+    dispatch({ type: "setDraft", draft: next });
+    if (draft || theirs) {
+      const added = next.contacts.find((c) => !data.draft?.contacts.some((old) => old.id === c.id));
+
+      if (added) goToContact(added);
+    }
+  };
+
+  /** Have this contact open in the entry, in place of whatever is open. */
+  const goToContact = (c: DraftContact) => {
+    setDraft(null);
+    setTheirs(null);
+    setPendingPoint(null);
+    setCursor(null);
+    setChecking({
+      id: c.id,
+      at: c.time,
+      returnTo: checking?.returnTo ?? player.getTime(),
+      resume: checking?.resume ?? player.isPlaying,
+    });
+    player.pause();
+  };
+
+  /** Jump to a row of the list and pick it, without opening it. An entry that is open closes, as with Esc. */
+  const pickRow = (item: TimelineItem) => {
+    setChecking(null);
+    setDraft(null);
+    setTheirs(null);
+    setPendingPoint(null);
+    setResumeAfterEntry(false);
+    setCursor({ kind: item.kind, id: item.kind === "contact" ? item.contact.id : item.event.id });
+    player.pause();
+    player.seek(item.time);
+  };
+
+  /** Open a row of the list: a contact to describe it, a recorded event to change it. */
+  const openRow = (item: TimelineItem) => {
+    if (item.kind === "contact") return goToContact(item.contact);
+
+    const e = item.event;
+
+    pickRow(item);
+    setDraft(e.kind === "touch" ? draftFromTouch(e) : null);
+    if (e.kind === "point") setPendingPoint({ id: e.id, winner: e.winner });
+    if (e.kind === "opponent") setTheirs({ timestamp: e.timestamp, editingId: e.id });
+  };
+
+  /**
+   * ↓ and ↑: the row after or before the one open or picked, or else after or before the video's time. With an
+   * entry open the next row opens too. Otherwise it is only jumped to. A new stat or serve of theirs left half
+   * entered stays as a contact to describe, so moving on loses no touch.
+   */
+  const stepTo = (direction: 1 | -1) => {
+    const to = stepRow(rows, current, player.getTime(), direction);
+
+    if (!to) return;
+    if (!draft && !theirs) return pickRow(to);
+    // A change to a recorded stat is kept when moving on from it.
+    if (draft?.editingId != null && isComplete(draft))
+      dispatch({ type: "updateEvent", event: draftToTouch(draft, draft.editingId) });
+    const fresh = !reviewed && (draft ? draft.editingId === null && (draft.player || draft.stat) : !theirs?.editingId);
+
+    if (fresh) dispatch({ type: "setDraft", draft: addMark(data.draft, (draft ?? theirs)!.timestamp) });
+    openRow(to);
+  };
+
+  /**
+   * Move the open row in time, the video with it. It is saved at once. `to` gives the new time from the row's own:
+   * < and > step it, and / puts it where the video is.
+   */
+  const moveRow = (to: (from: number) => number) => {
     if (locked) return;
 
-    const t = Math.max(0, player.getTime() - MARK_LEAD);
+    const entry = theirs ?? draft;
+    const row = current ? rows.find((r) => sameRow(r, current)) : undefined;
+    const from = entry?.timestamp ?? row?.time;
 
-    setMarks((m) => [...m, t].sort((a, b) => a - b));
-  };
+    if (from === undefined) return;
 
-  /** Pause and walk through the marked contacts one at a time. */
-  const beginReview = (opts: { player?: string; stat?: Skill; type?: string } = {}) => {
-    const first = marks[0];
+    const time = Math.max(0, to(from));
 
-    if (first === undefined) return;
-
-    setReview({ returnTo: player.getTime(), resume: player.isPlaying, total: marks.length });
+    if (current && row) dispatch({ type: "move", row: current.kind, id: current.id, time });
+    if (checking && current?.kind === "contact") setChecking({ ...checking, at: time });
+    if (theirs) setTheirs({ ...theirs, timestamp: time });
+    else if (draft) setDraft({ ...draft, timestamp: time });
     player.pause();
-    player.seek(first);
-    startEntry(opts, first);
+    player.seek(time);
+  };
+  /** N and Shift+N, and the video's Next rally: to the next rally's start, or the one before. */
+  const jumpRally = (direction: 1 | -1) => {
+    const to = serveJump(rallyStarts, player.getTime(), direction);
+
+    if (to !== null) player.seek(to);
+  };
+  const nudge = (by: number) => moveRow((from) => from + by);
+  const stamp = () => moveRow(() => player.getTime());
+
+  /** Show a draft contact and open its entry: ours, or the opponent's on a set that records their touches. */
+  const openContact = (c: DraftContact, opts: { player?: string; stat?: Skill; type?: string } = {}) => {
+    player.seek(c.time);
+
+    if (c.side === "them" && detailed) {
+      setPendingPoint(null);
+      setTheirs({ timestamp: c.time });
+    } else startEntry(opts, c.time, c.skill);
   };
 
-  const finishReview = () => {
-    if (!review) return;
-
-    player.seek(review.returnTo);
-    if (review.resume) player.play();
-    setReview(null);
-  };
-
-  /** The current contact is done (described or skipped): move on to the next. */
-  const advanceReview = (d: Draft) => {
-    if (review && d.editingId === null) setMarks((m) => m.slice(1));
-  };
-
-  // Open the next contact once the previous one is saved, so its predictions already include the stat
-  // just entered. Held while a just-recorded point is waiting for its optional reason.
+  // Open the contact `checking` names, or the next one in time once that one is saved or deleted, so its
+  // predictions already include the stat just entered. Held while a just-recorded point is waiting for its
+  // optional reason.
   const nextContact = useEffectEvent(() => {
-    if (!review || draft || pendingPoint) return;
+    if (!checking || draft || theirs || pendingPoint) return;
 
-    const next = marks[0];
+    const next =
+      contacts.find((c) => c.id === checking.id) ?? neighbour(contacts, { time: checking.at, id: checking.id }, 1);
 
-    if (next === undefined) return finishReview();
+    if (next) {
+      if (next.id !== checking.id) setChecking({ ...checking, id: next.id, at: next.time });
+      openContact(next);
 
-    player.seek(next);
-    startEntry({}, next);
+      return;
+    }
+
+    // The last one is done. Marks made during play lie behind where the video was: carry on from there.
+    if (checking.returnTo > checking.at) {
+      player.seek(checking.returnTo);
+      if (checking.resume) player.play();
+    }
+    setChecking(null);
   });
 
   useEffect(() => {
@@ -298,16 +498,13 @@ export function Tracker({
     const timer = setTimeout(() => nextContact(), 0);
 
     return () => clearTimeout(timer);
-  }, [review, draft, marks, pendingPoint]);
+  }, [checking, draft, theirs, data.draft, pendingPoint]);
 
   const commit = (d: Draft) => {
     if (!isComplete(d)) return;
 
-    advanceReview(d);
-    dispatch({
-      type: d.editingId !== null ? "updateEvent" : "addEvent",
-      event: draftToTouch(d, d.editingId ?? newId(data.events)),
-    });
+    if (d.editingId !== null) dispatch({ type: "updateEvent", event: draftToTouch(d, d.editingId) });
+    else dispatch({ type: "addEvent", event: draftToTouch(d, newId(data.events)), contact: reviewed?.id });
     setDraft(null);
     resume();
   };
@@ -322,42 +519,84 @@ export function Tracker({
     else setDraft(next);
   };
 
-  /** Move the stat being edited in time, and show that moment. */
-  const retime = (to: number | "video") => {
-    if (!draft) return;
-
-    const timestamp = Math.max(0, to === "video" ? player.getTime() : draft.timestamp + to);
-
-    setDraft({ ...draft, timestamp });
-    if (to !== "video") player.seek(timestamp);
-  };
-
-  /** Esc: drop this stat. While reviewing, that also discards the contact mark. */
+  /** Esc: close this entry. A contact it described stays in the draft, to describe later. */
   const cancel = () => {
-    if (draft) advanceReview(draft);
+    setChecking(null);
+    setCursor(null);
     setDraft(null);
+    setTheirs(null);
     resume();
   };
 
-  const clearMarks = () => {
-    setMarks([]);
+  /** Delete a contact that was never one (a false contact of a model's, or a tap by mistake). */
+  const deleteContact = (id: number) => {
+    dispatch({ type: "setDraft", draft: removeContact(data.draft, id) });
+    if (id !== reviewed?.id) return;
 
-    if (review) {
-      setDraft(null);
-      finishReview();
+    setDraft(null);
+    setTheirs(null);
+  };
+
+  const clearMarks = () => {
+    dispatch({ type: "setDraft", draft: dropContacts(data.draft, "marks") });
+    if (checking) cancel();
+  };
+
+  // --- The opponent's touches ----------------------------------------------
+
+  /** Enter a touch of the opponent's at the stat being entered, or else at the video's time. */
+  const startTheirs = () => {
+    if (locked || !detailed || draft?.editingId != null) return;
+
+    setPendingPoint(null);
+
+    if (!draft) {
+      setResumeAfterEntry(player.isPlaying);
+      player.pause();
     }
+
+    setTheirs({
+      timestamp: draft?.timestamp ?? player.getTime(),
+    });
+    setDraft(null);
+  };
+
+  /** Record their serve. One that is recorded already has nothing more to save: a move in time is saved at once. */
+  const saveTheirs = () => {
+    if (!theirs) return;
+
+    if (theirs.editingId == null) {
+      dispatch({
+        type: "addEvent",
+        event: { kind: "opponent", id: newId(data.events), timestamp: theirs.timestamp, stat: "serve" },
+        contact: reviewed?.id,
+      });
+      resume();
+    }
+
+    setTheirs(null);
+  };
+
+  /** It was our touch after all: enter it at the same moment. */
+  const backToOurs = () => {
+    if (!theirs) return;
+
+    const at = theirs.timestamp;
+
+    setTheirs(null);
+    setDraft(newDraft(at, "", "", detailed));
   };
 
   const recordPoint = (winner: Team, reason?: string) => {
     // While describing marks, a point means the current mark was the opponent's contact (e.g. their attack
     // out): the point takes that mark's place and time.
-    const markAt = review && draft?.editingId === null ? draft.timestamp : undefined;
+    const markAt = checking && draft?.editingId === null ? draft.timestamp : undefined;
 
     setDraft(null);
 
     // Guard against double-recording: a decisive touch already ended this rally.
     const prev = rallies[rallies.length - 2];
-    const now = markAt ?? (review ? review.returnTo : player.getTime());
+    const now = markAt ?? player.getTime();
 
     if (
       openRally.touches.length === 0 &&
@@ -375,8 +614,11 @@ export function Tracker({
 
     const id = newId(data.events);
 
-    dispatch({ type: "addEvent", event: { kind: "point", id, timestamp: now, winner, ...(reason && { reason }) } });
-    if (markAt !== undefined) setMarks((m) => m.slice(1));
+    dispatch({
+      type: "addEvent",
+      event: { kind: "point", id, timestamp: now, winner, ...(reason && { reason }) },
+      contact: markAt !== undefined ? reviewed?.id : undefined,
+    });
     setPendingPoint(reason ? null : { id, winner });
     resume();
   };
@@ -386,8 +628,8 @@ export function Tracker({
     if (!r.winner) return;
 
     // Place the point right after the rally's last touch (or the previous rally's end, for a rally with no
-    // touches) so it closes the same rally.
-    const after = r.touches.length ? r.endTime : (rallies[r.index - 2]?.endTime ?? 0);
+    // touches of either team) so it closes the same rally.
+    const after = r.touches.length || r.opponent.length ? r.endTime : (shown[r.index - 2]?.endTime ?? 0);
 
     dispatch({
       type: "addEvent",
@@ -400,21 +642,6 @@ export function Tracker({
 
     if (e?.kind === "point") dispatch({ type: "updateEvent", event: { ...e, reason } });
     setPendingPoint(null);
-  };
-
-  const editEvent = (e: MatchEvent) => {
-    if (e.kind === "point") {
-      setDraft(null);
-      setPendingPoint({ id: e.id, winner: e.winner });
-
-      return;
-    }
-
-    // A sub has nothing to edit: delete and redo it instead.
-    if (e.kind === "sub") return;
-
-    setResumeAfterEntry(false);
-    setDraft(draftFromTouch(e));
   };
 
   // --- Keyboard ------------------------------------------------------------
@@ -431,6 +658,24 @@ export function Tracker({
     if (locked && !VIEW_KEYS.has(e.key)) return;
 
     const mod = e.ctrlKey || e.metaKey;
+
+    // Shift with , and . moves the open row by a tenth of a second, and with Alt by half a second. On a Mac, Alt
+    // changes the character those keys type, so the physical key is read too.
+    const later = e.key === ">" || (e.altKey && e.shiftKey && e.code === "Period");
+
+    if (!mod && (later || e.key === "<" || (e.altKey && e.shiftKey && e.code === "Comma"))) {
+      e.preventDefault();
+      nudge((later ? 1 : -1) * (e.altKey ? 0.5 : STEP));
+
+      return;
+    }
+
+    if (!mod && e.key === "/" && (draft || theirs)) {
+      e.preventDefault();
+      stamp();
+
+      return;
+    }
 
     if (mod && e.key.toLowerCase() === "z") {
       e.preventDefault();
@@ -450,6 +695,65 @@ export function Tracker({
 
     const digit = /^(?:Digit|Numpad)(\d)$/.exec(e.code)?.[1];
 
+    if (e.key === "Delete" && reviewed) {
+      e.preventDefault();
+      deleteContact(reviewed.id);
+
+      return;
+    }
+
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      stepTo(e.key === "ArrowDown" ? 1 : -1);
+
+      return;
+    }
+
+    if (e.key === "Delete" && !draft && !theirs) {
+      const row = pickedHere();
+
+      if (!row) return;
+      e.preventDefault();
+      if (row.kind === "event") dispatch({ type: "deleteEvent", id: row.event.id });
+      else deleteContact(row.contact.id);
+      setCursor(null);
+
+      return;
+    }
+
+    if (e.key === "Tab" && (draft || theirs)) {
+      e.preventDefault();
+      mark();
+
+      return;
+    }
+
+    if (e.key.toLowerCase() === "n") {
+      e.preventDefault();
+      jumpRally(e.shiftKey ? -1 : 1);
+
+      return;
+    }
+
+    // While a touch of the opponent's is open, its own few keys and the video's are the only ones live.
+    if (theirs && !VIEW_KEYS.has(e.key)) {
+      const key = e.key.toLowerCase();
+
+      e.preventDefault();
+      if (key === "s" || e.key === "Enter") saveTheirs();
+      else if (key === "o") backToOurs();
+      else if (e.key === "Escape") cancel();
+
+      return;
+    }
+
+    if (detailed && !e.shiftKey && e.key.toLowerCase() === "o") {
+      e.preventDefault();
+      startTheirs();
+
+      return;
+    }
+
     // Right after a manual point, a number key picks its reason; anything else dismisses the prompt.
     if (pendingPoint) {
       const reason = digit && !e.shiftKey ? POINT_REASONS[pendingPoint.winner][Number(digit) - 1] : undefined;
@@ -463,8 +767,8 @@ export function Tracker({
 
       setPendingPoint(null);
 
-      // In a review the next contact opens by itself, so the dismissing key must not start a stat of its own.
-      if (e.key === "Escape" || review) {
+      // The next contact opens by itself, so the dismissing key must not start a stat of its own.
+      if (e.key === "Escape" || checking) {
         e.preventDefault();
 
         return;
@@ -541,7 +845,7 @@ export function Tracker({
     switch (e.key) {
       case "Tab":
         handled();
-        if (!draft && !review) mark();
+        mark();
         break;
       case " ":
         handled();
@@ -601,11 +905,15 @@ export function Tracker({
         }
 
         break;
-      case "Enter":
+      case "Enter": {
+        const row = pickedHere();
+
         handled();
         if (draft) commit(draft);
+        else if (row) openRow(row);
         else startEntry();
         break;
+      }
       case "Escape":
         if (draft) cancel();
         break;
@@ -717,6 +1025,47 @@ export function Tracker({
     setStatsView(sets);
   };
 
+  const runAi = async (key: string, from: number, to: number | undefined) => {
+    const controller = new AbortController();
+
+    aiStop.current = controller;
+    setAiError(null);
+    setAiRun("rallies");
+    dispatch({ type: "setDraft", draft: dropContacts(data.draft, "model") });
+    try {
+      const { runModel } = await import("../draftModel");
+      const run = await runModel({
+        key,
+        url: data.meta.youtubeUrl,
+        meta: data.meta,
+        from,
+        to,
+        signal: controller.signal,
+        onProgress: setAiRun,
+        onRally: (model) => apply({ type: "addDraft", model }),
+      });
+
+      setNotice(
+        run.rallies
+          ? `AI draft ready: ${run.rallies} ${run.rallies === 1 ? "rally" : "rallies"}, for about $${run.cost.toFixed(2)}.` +
+              (run.served < run.rallies ? ` Rallies without a guess at who serves: ${run.rallies - run.served}.` : "")
+          : "The AI found no rally in that part of the video."
+      );
+    } catch (e) {
+      if (!controller.signal.aborted) {
+        setAiError(e instanceof Error ? e.message : String(e));
+        setAiOpen(true);
+      }
+    }
+    setAiRun(null);
+  };
+
+  // A run ends with the tracker, and when the set is locked.
+  useEffect(() => () => aiStop.current?.abort(), []);
+  useEffect(() => {
+    if (locked) aiStop.current?.abort();
+  }, [locked]);
+
   const nextSet = async () => {
     if (
       !(await confirm({
@@ -755,18 +1104,36 @@ export function Tracker({
       markers={markers}
       marks={marks}
       onMark={mark}
+      onNextServe={rallyStarts.length ? () => jumpRally(1) : undefined}
       locked={locked}
       fill={panes}
     />
   );
-  const actions = (
+  const reviewing = reviewed ? { left: contacts.length, ai: !!reviewed.model } : null;
+  const actions = theirs ? (
+    <OpponentEntry
+      entry={theirs}
+      fill={panes}
+      review={reviewing}
+      onSave={saveTheirs}
+      onOurs={backToOurs}
+      onCancel={cancel}
+      onDelete={reviewed && (() => deleteContact(reviewed.id))}
+      onStep={stepTo}
+      onNudge={nudge}
+      onStamp={stamp}
+      onPlayers={() => setPlayersOpen(true)}
+    />
+  ) : (
     <StatEntry
       draft={draft}
       players={data.players}
       onStart={(opts) => startEntry(opts)}
       onChange={change}
       onType={(type) => draft && setDraft(setType(draft, type, detailed))}
-      onRetime={retime}
+      onNudge={nudge}
+      onStamp={stamp}
+      onNew={() => startEntry({ fresh: true })}
       onPlayers={() => setPlayersOpen(true)}
       locked={locked}
       onEdit={() => void switchEditing(true)}
@@ -776,22 +1143,39 @@ export function Tracker({
       onReason={(reason) => draft && setDraft(toggleReason(draft, reason))}
       onSave={() => draft && commit(draft)}
       onCancel={cancel}
-      marks={marks.length}
-      review={review && { index: review.total - marks.length + 1, total: review.total }}
+      marks={contacts.length}
+      ownMarks={contacts.filter((c) => !c.model).length}
+      review={reviewing}
       onClearMarks={clearMarks}
+      onDeleteContact={() => reviewed && deleteContact(reviewed.id)}
+      onStep={stepTo}
+      onTheirs={startTheirs}
+      onAi={
+        !data.events.length && !contacts.length && !data.draft?.rallies.length && !aiRun
+          ? () => setAiOpen(true)
+          : undefined
+      }
       court={entryCourt}
     />
   );
   const stats = (
     <EventLog
-      rallies={rallies}
+      rallies={shown}
+      groups={groups}
+      names={names}
+      pending={contacts.length}
       currentTime={player.currentTime}
-      editingId={draft?.editingId ?? null}
+      current={current}
       locked={locked}
       fill={panes}
+      onPick={pickRow}
+      onOpen={openRow}
+      onDeleteContact={deleteContact}
+      onDropRally={(start) => dispatch({ type: "setDraft", draft: dropRally(data.draft, start) })}
       score={
         <Scoreboard
-          rally={openRally}
+          rally={shown[shown.length - 1]!}
+          unconfirmed={standIns.length}
           names={names}
           pending={pendingPoint}
           notice={notice}
@@ -801,7 +1185,6 @@ export function Tracker({
         />
       }
       onSeek={player.seek}
-      onEdit={editEvent}
       onDelete={(id) => dispatch({ type: "deleteEvent", id })}
       onAnnotate={annotateRally}
     />
@@ -859,6 +1242,7 @@ export function Tracker({
               onStatsFromFiles={(files) => void statsFromFiles(files)}
               onNextSet={() => void nextSet()}
               onClear={() => void clearAll()}
+              onAi={() => setAiOpen(true)}
             />
             <IconButton
               variant="plain"
@@ -913,6 +1297,7 @@ export function Tracker({
             )}
           </div>
         </header>
+        {aiRun && <AiProgress run={aiRun} onStop={() => aiStop.current?.abort()} />}
 
         {panes ? (
           <TrackerPanes arrangement={arrangement} video={video} actions={actions} stats={stats} />
@@ -939,7 +1324,7 @@ export function Tracker({
             event: {
               kind: "sub",
               id: newId(data.events),
-              timestamp: review ? review.returnTo : player.getTime(),
+              timestamp: player.getTime(),
               out,
               in: inn,
             },
@@ -953,6 +1338,20 @@ export function Tracker({
         hasEvents={data.events.length > 0}
         onMeta={(meta) => dispatch({ type: "setMeta", meta })}
       />
+      {aiLoaded && (
+        <Suspense fallback={null}>
+          <AiDraftDialog
+            open={aiOpen}
+            onOpenChange={setAiOpen}
+            meta={data.meta}
+            running={!!aiRun}
+            error={aiError}
+            videoTime={player.getTime}
+            onMeta={(meta) => dispatch({ type: "setMeta", meta })}
+            onStart={(key, from, to) => void runAi(key, from, to)}
+          />
+        </Suspense>
+      )}
       {dialog}
     </div>
   );

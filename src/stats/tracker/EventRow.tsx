@@ -1,52 +1,53 @@
 import type { JSX } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Volleyball } from "lucide-react";
 
-import { Button } from "../../ui/Button";
-import { IconButton } from "../../ui/IconButton";
-import { cx, THEM_RULE, US_RULE } from "../../ui/styles";
+import { cx, THEM_RULE, THEM_TEXT, US_RULE, US_TEXT } from "../../ui/styles";
 import { pointReasonLabel, resultLabel, skillLabel, touchOutcome, touchReasonLabel } from "../codes";
-import { formatTime } from "../exporters";
 import type { MatchEvent } from "../types";
-import { LOCKED_HINT } from "./locked";
+import { LogRow } from "./LogRow";
 
-/** One recorded event in the log: its time (seeks the video), what happened, and edit and delete. */
+/**
+ * One recorded event in the log, with a rule in the colour of the team it scored for. A serve carries a ball in its
+ * team's colour, which is how a rally shows who served it.
+ */
 export function EventRow({
   event: e,
-  editing,
+  opponent,
+  current,
   locked,
-  onSeek,
-  onEdit,
+  onPick,
+  onOpen,
   onDelete,
 }: {
   event: MatchEvent;
-  editing: boolean;
+  /** The opponent's name, which is all their serve says. */
+  opponent: string;
+  current: boolean;
   locked: boolean;
-  onSeek: () => void;
-  onEdit: () => void;
+  onPick: () => void;
+  onOpen?: () => void;
   onDelete: () => void;
 }): JSX.Element {
   const outcome = e.kind === "touch" ? touchOutcome(e) : e.kind === "point" ? e.winner : null;
 
   return (
-    <div
-      className={cx(
-        "group flex items-center gap-3 border-l-4 py-1 pr-2 pl-3 hover:bg-control",
-        outcome === "us" ? US_RULE : outcome === "them" ? THEM_RULE : "border-l-transparent",
-        editing && "bg-accent-weak"
-      )}
+    <LogRow
+      time={e.timestamp}
+      current={current}
+      locked={locked}
+      rule={outcome === "us" ? US_RULE : outcome === "them" ? THEM_RULE : "border-l-transparent"}
+      open="Edit"
+      remove="Delete"
+      onPick={onPick}
+      onOpen={onOpen}
+      onDelete={onDelete}
     >
-      <Button
-        variant="text"
-        size="sm"
-        className="w-14 justify-start tabular-nums"
-        onClick={onSeek}
-        title="Jump to this moment"
-      >
-        {formatTime(e.timestamp)}
-      </Button>
-      <div className="flex-1 truncate text-sm">
+      <span className="flex-1 truncate text-sm">
         {e.kind === "touch" ? (
           <>
+            {e.stat === "serve" && (
+              <Volleyball size={12} className={cx("mr-1 inline align-[-1px]", US_TEXT)} aria-label="Our serve" />
+            )}
             <b className="text-text">{e.player}</b> <span className="text-text-dim">{skillLabel(e)}</span>{" "}
             <span className="text-text">{resultLabel(e.stat, e.result)}</span>{" "}
             {e.reason && <span className="text-danger">({touchReasonLabel(e.stat, e.result, e.reason)})</span>}{" "}
@@ -55,6 +56,11 @@ export function EventRow({
         ) : e.kind === "sub" ? (
           <span className="text-text-dim">
             <i>Sub</i> <b className="text-text">{e.in}</b> in for <b className="text-text">{e.out}</b>
+          </span>
+        ) : e.kind === "opponent" ? (
+          <span className={cx("inline-flex items-center gap-1", THEM_TEXT)}>
+            <Volleyball size={12} aria-label="Their serve" />
+            {opponent || "Opponent"}
           </span>
         ) : (
           <span className="text-text-dim">
@@ -66,31 +72,7 @@ export function EventRow({
             )}
           </span>
         )}
-      </div>
-      <div className="flex opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
-        {e.kind !== "sub" && (
-          <IconButton
-            variant="plain"
-            size="sm"
-            aria-label="Edit"
-            tooltip={locked ? LOCKED_HINT : undefined}
-            disabled={locked}
-            onClick={onEdit}
-          >
-            <Pencil size={14} aria-hidden="true" />
-          </IconButton>
-        )}
-        <IconButton
-          variant="plain"
-          size="sm"
-          aria-label="Delete"
-          tooltip={locked ? LOCKED_HINT : undefined}
-          disabled={locked}
-          onClick={onDelete}
-        >
-          <Trash2 size={14} aria-hidden="true" />
-        </IconButton>
-      </div>
-    </div>
+      </span>
+    </LogRow>
   );
 }

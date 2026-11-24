@@ -1,4 +1,6 @@
-import type { AppData, MatchEvent, MatchMeta } from "./types";
+import { loadDraft, moveContact, readDraft, withDraft } from "./setDraft";
+import type { ModelDraft } from "./setDraft";
+import type { AppData, MatchEvent, MatchMeta, SetDraft } from "./types";
 
 const HISTORY_LIMIT = 200;
 
@@ -36,7 +38,7 @@ function uniquePlayers(events: MatchEvent[], players: string[] = []): string[] {
   return all;
 }
 
-const EVENT_KINDS = new Set(["touch", "point", "sub"]);
+const EVENT_KINDS = new Set(["touch", "point", "sub", "opponent"]);
 
 /** Whether a value from a file has what every event needs: a kind, and a numeric id and time. */
 function isEvent(value: unknown): value is MatchEvent {
@@ -63,6 +65,8 @@ export function parseImport(raw: unknown): AppData {
 
     if (typeof m.libero === "string") meta.libero = m.libero;
     if (m.detailed === true) meta.detailed = true;
+    if (m.ourHalf === "near" || m.ourHalf === "far") meta.ourHalf = m.ourHalf;
+    if (m.videoTurn === 90 || m.videoTurn === 180 || m.videoTurn === 270) meta.videoTurn = m.videoTurn;
     const score = m.score as { us?: unknown; them?: unknown } | undefined;
 
     if (typeof score?.us === "number" && typeof score.them === "number")
@@ -72,7 +76,7 @@ export function parseImport(raw: unknown): AppData {
       const events = obj.events;
       const players = Array.isArray(obj.players) ? (obj.players as string[]) : [];
 
-      return { version: 2, players: uniquePlayers(events, players), events, meta };
+      return withDraft({ version: 2, players: uniquePlayers(events, players), events, meta }, readDraft(obj.draft));
     }
   }
   throw new Error("Unrecognised file: expected a volleyball stats export");
@@ -93,6 +97,8 @@ export function nextSetData(data: AppData, keepPlayers = true): AppData {
     lineup: data.meta.lineup,
     libero: data.meta.libero,
     ...(data.meta.detailed && { detailed: true }),
+    // The same video next set, so it is turned the same way. The teams change ends, so our half is not carried.
+    ...(data.meta.videoTurn && { videoTurn: data.meta.videoTurn }),
     setNumber: Number.isFinite(setNum) ? String(setNum + 1) : "",
   };
 
@@ -106,12 +112,20 @@ export type State = {
   data: AppData;
   past: AppData[];
   future: AppData[];
+  /** The row being moved in time, or a model's draft being added, so a run of them is one step to undo. */
+  moving?: string;
 };
 
 export type Action =
-  | { type: "addEvent"; event: MatchEvent }
+  /** Record an event. `contact` is the draft contact it describes. */
+  | { type: "addEvent"; event: MatchEvent; contact?: number }
+  | { type: "setDraft"; draft: SetDraft | undefined }
+  /** Add what a model found to the draft, beside what it holds. */
+  | { type: "addDraft"; model: ModelDraft }
   | { type: "updateEvent"; event: MatchEvent }
   | { type: "deleteEvent"; id: number }
+  /** Move a recorded event or a draft contact in time. */
+  | { type: "move"; row: "event" | "contact"; id: number; time: number }
   | { type: "addPlayer"; name: string }
   | { type: "removePlayer"; name: string }
   | { type: "movePlayer"; name: string; to: number }
@@ -126,15 +140,30 @@ export const initState = (data: AppData): State => ({ data, past: [], future: []
 
 function apply(data: AppData, action: Action): AppData | null {
   switch (action.type) {
-    case "addEvent":
-      return { ...data, events: [...data.events, action.event] };
+    case "addEvent": {
+      return withDraft(
+        { ...data, events: [...data.events, action.event] },
+        data.draft && { ...data.draft, contacts: data.draft.contacts.filter((c) => c.id !== action.contact) }
+      );
+    }
+    case "setDraft":
+      return withDraft(data, action.draft);
+    case "addDraft":
+      return withDraft(data, loadDraft(data, action.model));
     case "updateEvent":
-      return {
-        ...data,
-        events: data.events.map((e) => (e.id === action.event.id ? action.event : e)),
-      };
+      return { ...data, events: data.events.map((e) => (e.id === action.event.id ? action.event : e)) };
     case "deleteEvent":
       return { ...data, events: data.events.filter((e) => e.id !== action.id) };
+    case "move": {
+      if (action.row === "contact") return withDraft(data, moveContact(data.draft, action.id, action.time));
+
+      if (!data.events.some((e) => e.id === action.id)) return null;
+
+      return {
+        ...data,
+        events: data.events.map((e) => (e.id === action.id ? { ...e, timestamp: action.time } : e)),
+      };
+    }
     case "addPlayer": {
       const name = action.name.trim();
 
@@ -193,7 +222,13 @@ export function reducer(state: State, action: Action): State {
     return { data, past: state.past.map(edited), future: state.future.map(edited) };
   }
 
-  return { data, past: [...state.past, state.data].slice(-HISTORY_LIMIT), future: [] };
+  // A run of moves of one row is one step to undo, and so is a model's run, which adds its rallies one by one.
+  const moving =
+    action.type === "move" ? `${action.row}-${action.id}` : action.type === "addDraft" ? "addDraft" : undefined;
+
+  if (moving && moving === state.moving) return { ...state, data, future: [] };
+
+  return { data, past: [...state.past, state.data].slice(-HISTORY_LIMIT), future: [], moving };
 }
 
 export const newId = (events: MatchEvent[]): number => Math.max(Date.now(), ...events.map((e) => e.id + 1));

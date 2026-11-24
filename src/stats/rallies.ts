@@ -26,6 +26,10 @@ const inferServe = (t: Touch): Team | null => (t.stat === "serve" ? "us" : t.sta
  * starting lineup, the court rotates one position on every side-out and
  * substitutions swap a player in place, so every rally knows who is on court
  * and who serves (position 1). The last element is always the open (unfinished) rally, possibly empty.
+ *
+ * A set with detailed stats also records the opponent's serve, which opens a rally as our receive does. Two of their
+ * serves in a row are an ace of theirs, and their serve followed by ours is their error, so neither needs a point
+ * recorded.
  */
 export function deriveRallies(
   events: MatchEvent[],
@@ -49,6 +53,7 @@ export function deriveRallies(
     serving,
     rotation,
     touches: [],
+    opponent: [],
     winner: null,
     endedBy: null,
     inferred: false,
@@ -58,6 +63,7 @@ export function deriveRallies(
   });
 
   let current = open(0);
+  const started = () => current.touches.length > 0 || current.opponent.length > 0;
 
   const close = (winner: Team, by: MatchEvent | null, time: number) => {
     score[winner] += 1;
@@ -87,6 +93,16 @@ export function deriveRallies(
     }
     if (e.kind === "point") {
       close(e.winner, e, e.timestamp);
+      continue;
+    }
+
+    if (e.kind === "opponent") {
+      // Of the opponent only a serve counts: any other touch of theirs a set file holds is left out.
+      if (e.stat !== "serve") continue;
+      if (started() || serving === "us") close("them", null, started() ? current.endTime : current.startTime);
+      current.serving = serving = "them";
+      current.startTime = current.endTime = e.timestamp;
+      current.opponent.push(e);
       continue;
     }
 
@@ -128,7 +144,7 @@ export function deriveRallies(
       }
     }
 
-    if (current.touches.length === 0) {
+    if (!started()) {
       current.startTime = e.timestamp;
       if (current.serving === null) current.serving = serving = server;
     }

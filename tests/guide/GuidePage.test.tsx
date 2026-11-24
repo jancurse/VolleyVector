@@ -5,6 +5,15 @@ import { describe, expect, test, vi } from "vitest";
 import { GuideLink } from "../../src/guide/GuideLink";
 import { GuidePage } from "../../src/guide/GuidePage";
 import { GUIDE_GROUPS, GUIDE_TOPICS } from "../../src/guide/guideContent";
+import { GUIDE_TITLES, guideTitle } from "../../src/guide/guideTopics";
+
+describe("the topic titles", () => {
+  test("name every topic of the guide, and only those", () => {
+    expect(GUIDE_TOPICS.map((t) => t.id).sort()).toEqual(Object.keys(GUIDE_TITLES).sort());
+    expect(guideTitle("record")).toBe("Record a set");
+    expect(guideTitle("toString")).toBeUndefined();
+  });
+});
 
 describe("the overview", () => {
   test("lists every topic by chapter and says it is AI-written", () => {

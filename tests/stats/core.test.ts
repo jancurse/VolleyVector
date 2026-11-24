@@ -63,6 +63,12 @@ const touch = (timestamp: number, player: string, stat: Skill, result: string, z
   zone,
 });
 const point = (timestamp: number, winner: Team): MatchEvent => ({ kind: "point", id: nextId++, timestamp, winner });
+const theirs = (timestamp: number, stat = "serve"): MatchEvent => ({
+  kind: "opponent",
+  id: nextId++,
+  timestamp,
+  stat: stat as "serve",
+});
 const meta = { firstServe: null, startRotation: 1 };
 
 describe("deriveRallies", () => {
@@ -132,6 +138,46 @@ describe("deriveRallies", () => {
       ["us", null, 1],
     ]);
     expect(rallies.at(-1)!.score).toEqual({ us: 1, them: 1 });
+  });
+
+  test("the opponent's recorded serves decide rallies we never touch", () => {
+    const rallies = deriveRallies(
+      [
+        theirs(1), // an ace: they serve again
+        theirs(20),
+        touch(21, "Juno", "receive", "dig23"),
+        touch(23, "Sian", "attack", "block_tool"),
+        touch(40, "Mira", "serve", "dig01"),
+        theirs(60), // we lost that rally unrecorded
+        touch(80, "Mira", "serve", "ace"), // their serve was an error
+      ],
+      meta
+    );
+
+    expect(
+      rallies.map((r) => [r.serving, r.winner, r.touches.length, r.opponent.length, r.startTime, r.endTime])
+    ).toEqual([
+      ["them", "them", 0, 1, 1, 1],
+      ["them", "us", 2, 1, 20, 23],
+      ["us", "them", 1, 0, 40, 40],
+      ["them", "us", 0, 1, 60, 60],
+      ["us", "us", 1, 0, 80, 80],
+      ["us", null, 0, 0, 80, 80],
+    ]);
+    expect(rallies.at(-1)!.score).toEqual({ us: 3, them: 2 });
+  });
+
+  test("a dig or block of theirs in a set file is left out", () => {
+    const ours = [
+      touch(1, "Mira", "serve", "dig23"),
+      touch(5, "Juno", "defense", "dig23"),
+      touch(7, "Sian", "attack", "block_tool"),
+      touch(30, "Mira", "serve", "ace"),
+    ];
+    const plain = deriveRallies(ours, meta);
+    const mixed = deriveRallies([...ours, theirs(2, "dig"), theirs(7.4, "block")], meta);
+
+    expect(mixed).toEqual(plain);
   });
 
   test("a receive tagged just after the set that followed it still opens the rally", () => {
@@ -292,6 +338,50 @@ describe("zones", () => {
 });
 
 describe("store", () => {
+  test("a run of moves of one row is undone in one step", () => {
+    const moved = [11, 12, 13].reduce(
+      (state, time) => reducer(state, { type: "move", row: "event", id: 1, time }),
+      reducer(initState(emptyData(["Mira"])), {
+        type: "addEvent",
+        event: { ...touch(10, "Mira", "attack", "kill"), id: 1 },
+      })
+    );
+
+    expect(moved.data.events[0]?.timestamp).toBe(13);
+    expect(reducer(moved, { type: "undo" }).data.events[0]?.timestamp).toBe(10);
+  });
+
+  test("moving another row, or anything else between moves, starts a new step to undo", () => {
+    const start = reducer(initState(emptyData(["Mira"])), {
+      type: "setDraft",
+      draft: { rallies: [], contacts: [{ id: 1, time: 5 }] },
+    });
+    const moves = [
+      { type: "move", row: "contact", id: 1, time: 6 },
+      { type: "move", row: "contact", id: 1, time: 7 },
+      { type: "addPlayer", name: "Suki" },
+      { type: "move", row: "contact", id: 1, time: 8 },
+    ] as const;
+    const moved = moves.reduce(reducer, start);
+    const undone = reducer(moved, { type: "undo" });
+
+    expect(moved.data.draft?.contacts[0]?.time).toBe(8);
+    expect(undone.data.draft?.contacts[0]?.time).toBe(7);
+    expect(reducer(reducer(undone, { type: "undo" }), { type: "undo" }).data.draft?.contacts[0]?.time).toBe(5);
+    expect(reducer(undone, { type: "redo" }).data.draft?.contacts[0]?.time).toBe(8);
+  });
+
+  test("a model's rallies, added one by one, are undone in one step", () => {
+    const rally = (start: number) => ({ rallies: [{ start, end: start + 8, serving: "us" as const }], contacts: [] });
+    const added = [10, 30, 50].reduce(
+      (state, start) => reducer(state, { type: "addDraft", model: rally(start) }),
+      initState(emptyData(["Mira"]))
+    );
+
+    expect(added.data.draft?.rallies).toHaveLength(3);
+    expect(reducer(added, { type: "undo" }).data.draft).toBeUndefined();
+  });
+
   test("refuses a file that is not a set export", () => {
     expect(() => parseImport([{ player: "Mira", stat: "serve", result: "ace" }])).toThrow(/Unrecognised file/);
     expect(() => parseImport({ hello: "world" })).toThrow(/Unrecognised file/);
@@ -344,6 +434,19 @@ describe("csv", () => {
     ).split("\n")[1];
 
     expect(pointRow).toContain("point_us,attack_error");
+  });
+
+  test("the CSV has a row for each opponent serve, so a rally of their serve alone still shows", () => {
+    const serve = (id: number, timestamp: number) => ({
+      kind: "opponent" as const,
+      id,
+      timestamp,
+      stat: "serve" as const,
+    });
+    const lines = toCsv(deriveRallies([serve(1, 2), serve(2, 20)], meta)).split("\n");
+
+    expect(lines.filter((l) => l.includes("opponent_serve"))).toHaveLength(2);
+    expect(lines[1]).toContain(",1,them,");
   });
 });
 

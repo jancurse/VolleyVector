@@ -3,7 +3,7 @@ import type { AnchorHTMLAttributes, JSX } from "react";
 import { Markdown } from "../ui/Markdown";
 import { cx, EYEBROW, PANEL, PANEL_TITLE, TAG_CHIP, TITLE } from "../ui/styles";
 import { GUIDE_GROUPS, GUIDE_LEDE, GUIDE_TOPICS } from "./guideContent";
-import type { GuideTopicId } from "./guideContent";
+import type { GuideTopicId } from "./guideTopics";
 import { GuideNotice } from "./GuideNotice";
 
 const CARD = cx(

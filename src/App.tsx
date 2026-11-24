@@ -56,7 +56,6 @@ import { closeTry, openTry, useTryRoute } from "./landing/useTryRoute";
 import { SetPassword } from "./auth/SetPassword";
 import { ResetPassword } from "./auth/ResetPassword";
 import { isInviteLanding } from "./auth/inviteLanding";
-import { GuidePage } from "./guide/GuidePage";
 import { LegalView } from "./legal/LegalView";
 import { Button } from "./ui/Button";
 import { cx, MUTED, PAGE_WIDTH } from "./ui/styles";
@@ -121,6 +120,8 @@ import { SidePanel } from "./ui/SidePanel";
 
 // The stats, highlights, and report are heavy (YouTube, Chart.js, jsPDF); only load them when opened.
 const GameStats = lazy(() => import("./stats/GameStats").then((m) => ({ default: m.GameStats })));
+// The guide's text is long and read now and then: load it with its page.
+const GuidePage = lazy(() => import("./guide/GuidePage").then((m) => ({ default: m.GuidePage })));
 
 // The page background: a radial glow over the theme base, used by the full-screen gates (loading, error).
 // The authenticated shell paints its own matching background in AppShell.
@@ -1397,7 +1398,11 @@ export function App(): JSX.Element {
       />
     );
   } else if (route.kind === "guide") {
-    content = <GuidePage topicId={route.topic} onOpen={(topic) => navigate({ kind: "guide", topic })} />;
+    content = (
+      <Suspense fallback={<p className={MUTED}>Loading…</p>}>
+        <GuidePage topicId={route.topic} onOpen={(topic) => navigate({ kind: "guide", topic })} />
+      </Suspense>
+    );
   } else if (route.kind === "team") {
     // The team in the URL is one the user can reach (else it resolves to nothing → not found). Management
     // is coach-facing: a coach of that team or an admin curates it, anyone else reads the roster only. An

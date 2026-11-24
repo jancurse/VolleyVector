@@ -977,7 +977,7 @@ do $$
 declare r jsonb; n int; blocked boolean := false;
 begin
   r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002',
-    '{"version":2,"players":["Ana"],"events":[{"kind":"touch","id":1,"timestamp":1,"player":"Ana","stat":"serve","result":"ace","zone":"1"}],"meta":{"setNumber":"1","youtubeUrl":"https://youtu.be/abcdefghijk"}}',
+    '{"version":2,"players":["Ana"],"events":[{"kind":"opponent","id":2,"timestamp":0,"stat":"serve"},{"kind":"touch","id":1,"timestamp":1,"player":"Ana","stat":"serve","result":"ace","zone":"1"}],"meta":{"setNumber":"1","youtubeUrl":"https://youtu.be/abcdefghijk"},"draft":{"rallies":[],"contacts":[{"id":1,"time":5}]}}',
     0);
   if (r ->> 'version')::int <> 1 then raise exception 'FAIL sets: a coach could not create a set (%)', r; end if;
 
@@ -987,9 +987,13 @@ begin
 
   r := public.publish_game_set('72000000-0000-0000-0000-000000000001', 1, 1, 0);
   select count(*) into n from public.game_sets
-  where id = '72000000-0000-0000-0000-000000000001' and touches = 1 and score_us = 1 and published = data
-    and video_url = 'https://youtu.be/abcdefghijk';
-  if n <> 1 then raise exception 'FAIL sets: saving the stats did not copy the set and its list columns (%)', r; end if;
+  where id = '72000000-0000-0000-0000-000000000001' and touches = 1 and score_us = 1
+    and published = data - 'draft' and video_url = 'https://youtu.be/abcdefghijk';
+  if n <> 1 then raise exception 'FAIL sets: saving the stats did not copy the set and its list columns, or counted the opponent''s serve as a touch (%)', r; end if;
+
+  select count(*) into n from public.game_sets
+  where id = '72000000-0000-0000-0000-000000000001' and data ? 'draft' and not published ? 'draft' and not unpublished;
+  if n <> 1 then raise exception 'FAIL sets: a set''s draft reached its saved stats, or flagged them as changed'; end if;
 
   r := public.save_game_set('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002',
     '{"version":2,"players":[],"events":[],"meta":{"setNumber":"1"}}', 1);
@@ -1113,10 +1117,12 @@ begin
     '{"version":2,"players":[],"events":[],"meta":{}}', 2);
   if (r ->> 'version')::int <> 3 then raise exception 'FAIL sets: an admin could not save a set (%)', r; end if;
   r := public.relink_game_set('72000000-0000-0000-0000-000000000001', 3,
-    '{"version":2,"players":["Ana"],"events":[],"meta":{}}', '{"version":2,"players":["Ana"],"events":[],"meta":{}}');
+    '{"version":2,"players":["Ana"],"events":[],"meta":{},"draft":{"rallies":[],"contacts":[{"id":1,"time":5}]}}',
+    '{"version":2,"players":["Ana"],"events":[],"meta":{}}');
   select count(*) into n from public.game_sets
-  where id = '72000000-0000-0000-0000-000000000001' and version = 4 and published = data;
-  if n <> 1 then raise exception 'FAIL sets: a relink did not change both copies (%)', r; end if;
+  where id = '72000000-0000-0000-0000-000000000001' and version = 4 and published = data - 'draft'
+    and data ? 'draft' and not unpublished;
+  if n <> 1 then raise exception 'FAIL sets: a relink did not change both copies, or lost the working copy''s draft (%)', r; end if;
   delete from public.game_sets where id = '72000000-0000-0000-0000-000000000001';
   get diagnostics n = row_count;
   if n <> 1 then raise exception 'FAIL sets: an admin could not delete a set'; end if;

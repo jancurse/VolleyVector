@@ -1,5 +1,6 @@
 import { supabase } from "../supabase/client";
 import { setScore, trackedScore } from "./rallies";
+import { withoutDraft } from "./setDraft";
 import { readBackup } from "./sync/setSync";
 import type { LoadOutcome, PublishRequest, SaveOutcome, SaveRequest, SetBackend } from "./sync/setSync";
 import { SET_SUMMARY_COLUMNS, setRecordFromRow, setSummaryFromRow } from "../supabase/rows";
@@ -345,7 +346,10 @@ export async function saveSetScore(
 
   const { record } = loaded;
 
-  if (readBackup(localStorage, record.id) || (record.data.events.length > 0 && !same(record.data, record.published)))
+  if (
+    readBackup(localStorage, record.id) ||
+    (record.data.events.length > 0 && !same(withoutDraft(record.data), record.published))
+  )
     return "This set has stats changes not saved yet. Save its stats in the tracker first.";
 
   const tracked = record.data.events.length ? trackedScore(record.data) : null;

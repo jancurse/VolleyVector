@@ -3,11 +3,11 @@
 // proportionate to a free, non-commercial app for a small invited group. Prose lines are not wrapped to a
 // width (markdown soft-wraps), so a sentence stays on one line.
 
-export const LEGAL_UPDATED = "22 November 2026";
+export const LEGAL_UPDATED = "24 November 2026";
 
 // The version recorded against an account when it accepts. Bump this (a sortable date) whenever the
 // notice below changes materially, so a record reflects which text was agreed to.
-export const LEGAL_VERSION = "2026-11-22";
+export const LEGAL_VERSION = "2026-11-24";
 
 export const LEGAL_MARKDOWN = `# Terms & Privacy
 
@@ -44,6 +44,8 @@ The app relies on two third-party providers, which process and store your data o
 
 - **[Supabase](https://supabase.com)** hosts the database and handles sign-in.
 - **[Cloudflare](https://www.cloudflare.com)** serves the app.
+
+If a coach runs **Draft with AI** on a recorded set, their browser sends that set's YouTube link to **[Google](https://ai.google.dev)**, on the coach's own Gemini API key, so Google's model can watch the video. Nothing is sent to Google unless a coach starts such a run.
 
 Your data may be stored or processed on their systems, which may be located outside the UK.
 

@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Sparkles } from "lucide-react";
 
 import { Button } from "../../ui/Button";
 import { Input } from "../../ui/Input";
@@ -18,11 +18,13 @@ import {
 } from "../codes";
 import { currentStep, draftType, isComplete } from "../draft";
 import type { Draft, Field } from "../draft";
-import { formatTime } from "../exporters";
 import type { Court, Skill } from "../types";
 import { Choice } from "./Choice";
 import { EntrySection } from "./EntrySection";
+import { ContactSteps } from "./ContactSteps";
 import { Kbd } from "./Kbd";
+import { EntryTag } from "./EntryTag";
+import { TimeStepper } from "./TimeStepper";
 import { LOCKED_HINT } from "./locked";
 import { PlayerChoices } from "./PlayerChoices";
 import { Underlined } from "./Underlined";
@@ -35,8 +37,12 @@ type StatEntryProps = {
   onChange: (field: Field, value: string) => void;
   /** Pick the kind of attack or defense. */
   onType: (type: string) => void;
-  /** Move the stat being edited in time: by a number of seconds, or to where the video is now. */
-  onRetime: (to: number | "video") => void;
+  /** Move the entry in time by a number of seconds. */
+  onNudge: (by: number) => void;
+  /** Move it to the video's time. */
+  onStamp: () => void;
+  /** Start a stat at the video's time, leaving the contacts still to describe. */
+  onNew: () => void;
   /** Open the lineup and player list. */
   onPlayers: () => void;
   /** A locked set: nothing can be entered until Edit set is pressed. */
@@ -50,11 +56,21 @@ type StatEntryProps = {
   onReason: (reason: string) => void;
   onSave: () => void;
   onCancel: () => void;
-  /** Contacts marked during play and not yet described. */
+  /** The draft's contacts not yet described, and how many of them the recorder marked. */
   marks: number;
-  /** Set while stepping through marked contacts. */
-  review: { index: number; total: number } | null;
+  ownMarks: number;
+  /** Set while the entry describes a contact of the draft: how many are left, and whether a model placed this one. */
+  review: { left: number; ai: boolean } | null;
+  /** Open the AI draft dialog. Present only while the set is empty, where the button shows. */
+  onAi?: () => void;
+  /** Discard the recorder's own marks. */
   onClearMarks: () => void;
+  /** Delete the contact being described from the draft. */
+  onDeleteContact: () => void;
+  /** Go to the contact after (1) or before (-1) this one. */
+  onStep: (direction: 1 | -1) => void;
+  /** Enter this contact as a touch of the opponent's. */
+  onTheirs: () => void;
   /** Who is on court at this stat's moment. */
   court: Court | null;
 };
@@ -69,7 +85,9 @@ export function StatEntry({
   onStart,
   onChange,
   onType,
-  onRetime,
+  onNudge,
+  onStamp,
+  onNew,
   onPlayers,
   locked,
   onEdit,
@@ -80,8 +98,13 @@ export function StatEntry({
   onSave,
   onCancel,
   marks,
+  ownMarks,
   review,
   onClearMarks,
+  onDeleteContact,
+  onStep,
+  onTheirs,
+  onAi,
   court,
 }: StatEntryProps): JSX.Element {
   const step = draft ? currentStep(draft) : null;
@@ -102,56 +125,55 @@ export function StatEntry({
           <p className={ENTRY_CAPTION}>Locked, so nothing changes it by accident.</p>
         </>
       ) : !draft && marks > 0 ? (
-        <div className="flex gap-2">
-          <Button className="flex-1" onClick={() => onStart()}>
-            Describe {marks} marked contact{marks === 1 ? "" : "s"} <Kbd onAccent>Enter</Kbd>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            className="flex-1"
+            onClick={() => onStart()}
+            title="Open the next contact still to describe, from where the video is"
+          >
+            Next contact <Kbd onAccent>Enter</Kbd>
           </Button>
-          <Button variant="ghost" paired onClick={onClearMarks} title="Discard all marks">
-            Clear
+          <Button variant="ghost" paired onClick={onNew} title="Start a stat at the video’s time">
+            New stat
           </Button>
+          {ownMarks > 0 && (
+            <Button variant="ghost" paired onClick={onClearMarks} title="Discard the contacts you marked">
+              Clear marks
+            </Button>
+          )}
         </div>
       ) : !draft ? (
-        <Button className="w-full" onClick={() => onStart()}>
-          New stat <Kbd onAccent>Enter</Kbd>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button className="flex-1" onClick={() => onStart()}>
+            New stat <Kbd onAccent>Enter</Kbd>
+          </Button>
+          {onAi && (
+            <Button variant="ghost" paired onClick={onAi} title="Let a model find the rallies in the video">
+              <Sparkles size={15} aria-hidden="true" /> Draft with AI
+            </Button>
+          )}
+        </div>
       ) : (
         <div
           className={cx(
-            "flex items-center gap-2 rounded-md px-3 py-2",
+            "flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md px-3 py-2",
             editing || review ? "bg-control" : "bg-accent-weak"
           )}
         >
-          <div className="min-w-0 flex-1">
-            <p className="m-0 text-xs text-text-dim">
-              {editing ? (
-                "Editing"
-              ) : review ? (
-                <b className="text-text">
-                  Contact {review.index} of {review.total}
-                </b>
-              ) : (
-                "New stat"
-              )}{" "}
-              @ {formatTime(draft.timestamp)}
-            </p>
-            <p className="m-0 truncate font-mono text-lg font-bold text-text">
-              {draft.player || "_"} · {draft.stat ? skillLabel({ stat: draft.stat, type: draft.type }) : "?"} ·{" "}
-              {draft.stat && draft.result ? resultLabel(draft.stat, draft.result) : "?"}
-              {draft.stat && draft.reason
-                ? ` (${touchReasonLabel(draft.stat, draft.result, draft.reason)})`
-                : ""} · {draft.zone || "?"}
-            </p>
-          </div>
+          <TimeStepper time={draft.timestamp} onNudge={onNudge} onStamp={onStamp} />
+          <EntryTag review={editing ? null : review} label={editing ? "Editing" : "New stat"} />
+          <span className="flex-1" />
+          <ContactSteps onStep={onStep} />
           <Button
             variant="ghost"
             onClick={onCancel}
-            title={review && !editing ? "Discard this mark (e.g. tapped by mistake) and go to the next" : undefined}
+            title={review && !editing ? "Close the entry. The contact stays, to describe later" : undefined}
           >
-            {review && !editing ? "Skip" : "Cancel"} <Kbd>Esc</Kbd>
+            {review && !editing ? "Close" : "Cancel"} <Kbd>Esc</Kbd>
           </Button>
           {review && !editing && (
-            <Button variant="text" onClick={onClearMarks} title="Discard the remaining marks">
-              Stop
+            <Button variant="ghost" onClick={onDeleteContact} title="No contact here: delete it">
+              Delete <Kbd>Del</Kbd>
             </Button>
           )}
           {(editing || draft.stat === "misc") && (
@@ -159,20 +181,12 @@ export function StatEntry({
               Save <Kbd onAccent>Enter</Kbd>
             </Button>
           )}
-        </div>
-      )}
-      {editing && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-text-dim">Time</span>
-          <Button variant="ghost" size="sm" onClick={() => onRetime(-0.5)} title="Half a second earlier">
-            −0.5s
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => onRetime(0.5)} title="Half a second later">
-            +0.5s
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => onRetime("video")}>
-            Set to video time
-          </Button>
+          <p className="m-0 w-full truncate font-mono text-base font-semibold text-text">
+            {draft.player || "_"} · {draft.stat ? skillLabel({ stat: draft.stat, type: draft.type }) : "?"} ·{" "}
+            {draft.stat && draft.result ? resultLabel(draft.stat, draft.result) : "?"}
+            {draft.stat && draft.reason ? ` (${touchReasonLabel(draft.stat, draft.result, draft.reason)})` : ""} ·{" "}
+            {draft.zone || "?"}
+          </p>
         </div>
       )}
       {!locked && !draft && marks === 0 && (
@@ -318,7 +332,18 @@ export function StatEntry({
         <p className={CALLOUT_NOTE}>
           Opponent’s contact? Press <Kbd>+</Kbd> if it was their error (then a number for the reason) or <Kbd>-</Kbd> if
           it won them the point.
+          {detailed && (
+            <>
+              {" "}
+              Press <Kbd>O</Kbd> for their serve.
+            </>
+          )}
         </p>
+      )}
+      {detailed && draft && !editing && !review && (
+        <Button variant="text" size="sm" className="self-start" onClick={onTheirs}>
+          Their serve <Kbd>O</Kbd>
+        </Button>
       )}
       {draft && (
         <p className="m-0 flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-dim">
